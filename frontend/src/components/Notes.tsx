@@ -1,13 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, ChevronDown, File, Folder, Image as ImageIcon, FolderPlus, FilePlus, X, Save } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, FolderPlus, FilePlus, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import RichTextEditor from './RichTextEditor';
 
 interface NoteFile {
   id: string;
   name: string;
   content: string;
-  images: string[];
 }
 
 interface NoteFolder {
@@ -31,16 +31,16 @@ const initialAreas: NoteArea[] = [
         id: 'ml',
         name: 'ML',
         files: [
-          { id: 'pytorch', name: 'PyTorch', content: 'Neural networks and deep learning frameworks...', images: [] },
-          { id: 'pandas', name: 'Pandas', content: 'Data manipulation and analysis with Python...', images: [] },
+          { id: 'pytorch', name: 'PyTorch', content: '<p>Neural networks and deep learning frameworks...</p>' },
+          { id: 'pandas', name: 'Pandas', content: '<p>Data manipulation and analysis with Python...</p>' },
         ],
       },
       {
         id: 'de',
         name: 'DE',
         files: [
-          { id: 'postgres', name: 'Postgres', content: 'Relational database management and SQL queries...', images: [] },
-          { id: 'trino', name: 'Trino', content: 'Distributed SQL query engine for big data...', images: [] },
+          { id: 'postgres', name: 'Postgres', content: '<p>Relational database management and SQL queries...</p>' },
+          { id: 'trino', name: 'Trino', content: '<p>Distributed SQL query engine for big data...</p>' },
         ],
       },
     ],
@@ -53,15 +53,15 @@ const initialAreas: NoteArea[] = [
         id: 'physics',
         name: 'Physics',
         files: [
-          { id: 'quantum', name: 'Quantum Mechanics', content: '', images: [] },
+          { id: 'quantum', name: 'Quantum Mechanics', content: '' },
         ],
       },
       {
         id: 'math',
         name: 'Mathematics',
         files: [
-          { id: 'calculus', name: 'Calculus', content: '', images: [] },
-          { id: 'linear-algebra', name: 'Linear Algebra', content: '', images: [] },
+          { id: 'calculus', name: 'Calculus', content: '' },
+          { id: 'linear-algebra', name: 'Linear Algebra', content: '' },
         ],
       },
     ],
@@ -74,14 +74,14 @@ const initialAreas: NoteArea[] = [
         id: 'communication',
         name: 'Communication',
         files: [
-          { id: 'active-listening', name: 'Active Listening', content: '', images: [] },
+          { id: 'active-listening', name: 'Active Listening', content: '' },
         ],
       },
       {
         id: 'leadership',
         name: 'Leadership',
         files: [
-          { id: 'team-management', name: 'Team Management', content: '', images: [] },
+          { id: 'team-management', name: 'Team Management', content: '' },
         ],
       },
     ],
@@ -100,7 +100,6 @@ export default function Notes() {
   const [isAddingFolder, setIsAddingFolder] = useState<string | null>(null);
   const [isAddingFile, setIsAddingFile] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleArea = (areaId: string) => {
     const newExpanded = new Set(expandedAreas);
@@ -149,7 +148,7 @@ export default function Notes() {
                 folder.id === folderId
                   ? {
                       ...folder,
-                      files: [...folder.files, { id: Date.now().toString(), name: newItemName, content: '', images: [] }],
+                      files: [...folder.files, { id: Date.now().toString(), name: newItemName, content: '' }],
                     }
                   : folder
               ),
@@ -184,80 +183,8 @@ export default function Notes() {
     );
   };
 
-  const handleAddPhoto = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !selectedFile) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageUrl = e.target?.result as string;
-      setAreas(
-        areas.map((area) =>
-          area.id === selectedFile.areaId
-            ? {
-                ...area,
-                folders: area.folders.map((folder) =>
-                  folder.id === selectedFile.folderId
-                    ? {
-                        ...folder,
-                        files: folder.files.map((file) =>
-                          file.id === selectedFile.fileId
-                            ? { ...file, images: [...file.images, imageUrl] }
-                            : file
-                        ),
-                      }
-                    : folder
-                ),
-              }
-            : area
-        )
-      );
-      toast.success('Photo added');
-    };
-    reader.readAsDataURL(file);
-
-    // Reset the input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   const handleSave = () => {
     toast.success('File saved successfully');
-  };
-
-  const removeImageFromFile = (imageUrl: string) => {
-    if (!selectedFile) return;
-    setAreas(
-      areas.map((area) =>
-        area.id === selectedFile.areaId
-          ? {
-              ...area,
-              folders: area.folders.map((folder) =>
-                folder.id === selectedFile.folderId
-                  ? {
-                      ...folder,
-                      files: folder.files.map((file) =>
-                        file.id === selectedFile.fileId
-                          ? { ...file, images: file.images.filter((img) => img !== imageUrl) }
-                          : file
-                      ),
-                    }
-                  : folder
-              ),
-            }
-          : area
-      )
-    );
   };
 
   const getCurrentFile = (): NoteFile | null => {
@@ -273,15 +200,6 @@ export default function Notes() {
 
   return (
     <div className="size-full flex">
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileUpload}
-        className="hidden"
-      />
-
       {/* Sidebar */}
       <div className="w-72 border-r border-border flex flex-col bg-sidebar">
         <div className="px-4 py-4 border-b border-sidebar-border">
@@ -298,15 +216,15 @@ export default function Notes() {
               >
                 {expandedAreas.has(area.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 <span className="flex-1 text-left">{area.name}</span>
-                <button
+                <div
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsAddingFolder(area.id);
                   }}
-                  className="p-1 opacity-0 hover:opacity-100 hover:bg-sidebar-primary hover:text-sidebar-primary-foreground rounded transition-all"
+                  className="p-1 opacity-0 hover:opacity-100 hover:bg-sidebar-primary hover:text-sidebar-primary-foreground rounded transition-all cursor-pointer"
                 >
                   <FolderPlus size={14} />
-                </button>
+                </div>
               </button>
 
               {/* Folders */}
@@ -327,15 +245,15 @@ export default function Notes() {
                           {expandedFolders.has(folder.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           <Folder size={14} />
                           <span className="flex-1 text-left">{folder.name}</span>
-                          <button
+                          <div
                             onClick={(e) => {
                               e.stopPropagation();
                               setIsAddingFile(`${area.id}-${folder.id}`);
                             }}
-                            className="p-1 opacity-0 hover:opacity-100 hover:bg-sidebar-primary hover:text-sidebar-primary-foreground rounded transition-all"
+                            className="p-1 opacity-0 hover:opacity-100 hover:bg-sidebar-primary hover:text-sidebar-primary-foreground rounded transition-all cursor-pointer"
                           >
                             <FilePlus size={12} />
-                          </button>
+                          </div>
                         </button>
 
                         {/* Files */}
@@ -423,52 +341,25 @@ export default function Notes() {
         {currentFile ? (
           <div className="flex-1 flex flex-col">
             {/* File Header */}
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="text-foreground">{currentFile.name}</h2>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleAddPhoto}
-                  className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-accent transition-colors"
-                >
-                  <ImageIcon size={18} />
-                  Add Photo
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-                >
-                  <Save size={18} />
-                  Save
-                </button>
-              </div>
+            <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-background/80 backdrop-blur-sm">
+              <h2 className="text-foreground tracking-tight">{currentFile.name}</h2>
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+              >
+                <Save size={18} />
+                Save
+              </button>
             </div>
 
             {/* Editor */}
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              <div className="max-w-4xl">
-                <textarea
-                  value={currentFile.content}
-                  onChange={(e) => updateFileContent(e.target.value)}
-                  placeholder="Start writing..."
-                  className="w-full min-h-64 px-0 py-0 bg-transparent border-0 focus:outline-none resize-none placeholder:text-muted-foreground"
+            <div className="flex-1 overflow-y-auto px-8 py-8 bg-[#fafaf9] dark:bg-[#18181b]">
+              <div className="max-w-4xl mx-auto bg-background rounded-2xl shadow-sm border border-border/50 px-12 py-10">
+                <RichTextEditor
+                  content={currentFile.content}
+                  onChange={updateFileContent}
+                  onAddPhoto={() => {}}
                 />
-
-                {/* Images */}
-                {currentFile.images.length > 0 && (
-                  <div className="mt-6 space-y-4">
-                    {currentFile.images.map((imageUrl, index) => (
-                      <div key={index} className="relative group rounded-lg overflow-hidden">
-                        <img src={imageUrl} alt="" className="w-full h-64 object-cover" />
-                        <button
-                          onClick={() => removeImageFromFile(imageUrl)}
-                          className="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </div>

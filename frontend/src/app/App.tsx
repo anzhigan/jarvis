@@ -4,6 +4,7 @@ import { BookOpen, CheckSquare, BarChart3 } from 'lucide-react';
 import Notes from '../components/Notes';
 import Tasks from '../components/Tasks';
 import Metrics from '../components/Metrics';
+import { Toaster } from '../components/ui/sonner';
 
 type View = 'notes' | 'tasks' | 'metrics';
 
@@ -12,6 +13,7 @@ export default function App() {
 
   return (
     <div className="size-full flex flex-col bg-background">
+      <Toaster />
       {/* Header */}
       <header className="border-b border-border px-6 py-4">
         <h1 className="text-foreground">Knowledge & Tasks</h1>
