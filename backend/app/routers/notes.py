@@ -1,17 +1,15 @@
 """
-Notes hierarchy router:
-  /ways                          → CRUD for Ways
-  /ways/{way_id}/topics          → CRUD for Topics
-  /notes                         → Create note (any level)
-  /notes/{note_id}               → Read / Update / Delete note
-  /notes/{note_id}/images        → Upload image to note
-  /ways/reorder                  → Reorder ways
-  /topics/{topic_id}/reorder     → Reorder notes inside topic
+Notes hierarchy:
+  /ways                          — CRUD for Ways
+  /ways/{way_id}/topics          — CRUD for Topics
+  /notes                         — Create note (at any level)
+  /notes/{note_id}               — Read / Update / Delete
+  /notes/{note_id}/images        — Upload image
 """
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -37,19 +35,21 @@ from app.services.s3 import delete_image, upload_image
 router = APIRouter(tags=["notes"])
 
 
-# ─── helpers ──────────────────────────────────────────────────────────────────
+# ── helpers ───────────────────────────────────────────────────────────────────
 
-def _way_options():
-    return selectinload(Way.topics).selectinload(Topic.notes), \
-           selectinload(Way.topics).selectinload(Topic.inline_note), \
-           selectinload(Way.note)
+def _way_load_options():
+    return (
+        selectinload(Way.topics).selectinload(Topic.notes),
+        selectinload(Way.topics).selectinload(Topic.inline_note),
+        selectinload(Way.note),
+    )
 
 
 async def _get_way_or_404(way_id: uuid.UUID, user: User, db: AsyncSession) -> Way:
     result = await db.execute(
         select(Way)
         .where(Way.id == way_id, Way.user_id == user.id)
-        .options(*_way_options())
+        .options(*_way_load_options())
     )
     way = result.scalar_one_or_none()
     if not way:
@@ -60,7 +60,7 @@ async def _get_way_or_404(way_id: uuid.UUID, user: User, db: AsyncSession) -> Wa
 async def _get_topic_or_404(topic_id: uuid.UUID, user: User, db: AsyncSession) -> Topic:
     result = await db.execute(
         select(Topic)
-        .join(Way)
+        .join(Way, Topic.way_id == Way.id)
         .where(Topic.id == topic_id, Way.user_id == user.id)
         .options(selectinload(Topic.notes), selectinload(Topic.inline_note))
     )
@@ -71,18 +71,31 @@ async def _get_topic_or_404(topic_id: uuid.UUID, user: User, db: AsyncSession) -
 
 
 async def _get_note_or_404(note_id: uuid.UUID, user: User, db: AsyncSession) -> Note:
-    # Note belongs to user indirectly through Way
+    """Verify note belongs to user through its parent way/topic."""
     result = await db.execute(
         select(Note)
-        .join(Way, (Note.way_id == Way.id) | (Note.topic_id == Topic.id) | (Note.topic_inline_id == Topic.id), isouter=True)
         .where(Note.id == note_id)
         .options(selectinload(Note.images))
     )
-    # Simpler: just fetch note and verify ownership via way
-    result2 = await db.execute(select(Note).where(Note.id == note_id))
-    note = result2.scalar_one_or_none()
+    note = result.scalar_one_or_none()
     if not note:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+
+    # Check ownership via parent
+    if note.way_id:
+        way_check = await db.execute(
+            select(Way).where(Way.id == note.way_id, Way.user_id == user.id)
+        )
+        if not way_check.scalar_one_or_none():
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+    else:
+        topic_id = note.topic_id or note.topic_inline_id
+        topic_check = await db.execute(
+            select(Topic).join(Way).where(Topic.id == topic_id, Way.user_id == user.id)
+        )
+        if not topic_check.scalar_one_or_none():
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+
     return note
 
 
@@ -97,9 +110,9 @@ async def list_ways(
         select(Way)
         .where(Way.user_id == user.id)
         .order_by(Way.order, Way.created_at)
-        .options(*_way_options())
+        .options(*_way_load_options())
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 @router.post("/ways", response_model=WayOut, status_code=status.HTTP_201_CREATED)
@@ -164,22 +177,6 @@ async def reorder_ways(
 
 # ─── Topics ───────────────────────────────────────────────────────────────────
 
-@router.get("/ways/{way_id}/topics", response_model=list[TopicOut])
-async def list_topics(
-    way_id: uuid.UUID,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_way_or_404(way_id, user, db)
-    result = await db.execute(
-        select(Topic)
-        .where(Topic.way_id == way_id)
-        .order_by(Topic.order, Topic.created_at)
-        .options(selectinload(Topic.notes), selectinload(Topic.inline_note))
-    )
-    return result.scalars().all()
-
-
 @router.post("/ways/{way_id}/topics", response_model=TopicOut, status_code=status.HTTP_201_CREATED)
 async def create_topic(
     way_id: uuid.UUID,
@@ -219,22 +216,6 @@ async def delete_topic(
     await db.delete(topic)
 
 
-@router.post("/topics/{topic_id}/reorder", status_code=status.HTTP_204_NO_CONTENT)
-async def reorder_topic_notes(
-    topic_id: uuid.UUID,
-    body: ReorderRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_topic_or_404(topic_id, user, db)
-    ids = [item.id for item in body.items]
-    result = await db.execute(select(Note).where(Note.id.in_(ids), Note.topic_id == topic_id))
-    notes_map = {n.id: n for n in result.scalars()}
-    for item in body.items:
-        if item.id in notes_map:
-            notes_map[item.id].order = item.order
-
-
 # ─── Notes ────────────────────────────────────────────────────────────────────
 
 @router.post("/notes", response_model=NoteOut, status_code=status.HTTP_201_CREATED)
@@ -247,9 +228,18 @@ async def create_note(
     if len(set_fields) != 1:
         raise HTTPException(400, "Provide exactly one of: way_id, topic_id, topic_inline_id")
 
+    # Verify user owns the parent
+    if body.way_id:
+        await _get_way_or_404(body.way_id, user, db)
+    elif body.topic_id:
+        await _get_topic_or_404(body.topic_id, user, db)
+    elif body.topic_inline_id:
+        await _get_topic_or_404(body.topic_inline_id, user, db)
+
     note = Note(**body.model_dump())
     db.add(note)
     await db.flush()
+    await db.refresh(note, ["images"])
     return note
 
 
@@ -283,9 +273,8 @@ async def delete_note(
     db: AsyncSession = Depends(get_db),
 ):
     note = await _get_note_or_404(note_id, user, db)
-    # Delete images from S3
-    result = await db.execute(select(NoteImage).where(NoteImage.note_id == note_id))
-    for img in result.scalars():
+    # Clean up S3 images first (best-effort)
+    for img in note.images:
         delete_image(img.s3_key)
     await db.delete(note)
 

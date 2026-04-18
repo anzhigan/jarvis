@@ -1,32 +1,71 @@
+import type {
+  Metric,
+  MetricEntry,
+  Note,
+  NoteImage,
+  Task,
+  TaskPriority,
+  TaskStatus,
+  User,
+  Way,
+} from './types';
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(public status: number, public detail: string) {
     super(detail);
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('access_token');
+let refreshPromise: Promise<boolean> | null = null;
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init.headers,
-    },
-  });
+async function tryRefresh(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  const refresh_token = localStorage.getItem('refresh_token');
+  if (!refresh_token) return false;
 
-  // Token expired — try refresh once
-  if (res.status === 401) {
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      return request<T>(path, init); // retry once
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshPromise = null;
     }
+  })();
+
+  return refreshPromise;
+}
+
+async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+  const token = localStorage.getItem('access_token');
+  const headers: Record<string, string> = {
+    ...(init.headers as Record<string, string>),
+  };
+  if (!(init.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+
+  if (res.status === 401 && retry) {
+    const ok = await tryRefresh();
+    if (ok) return request<T>(path, init, false);
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    window.location.href = '/login';
+    window.dispatchEvent(new CustomEvent('auth:logout'));
+    throw new ApiError(401, 'Unauthorized');
   }
 
   if (!res.ok) {
@@ -38,29 +77,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json();
 }
 
-async function tryRefresh(): Promise<boolean> {
-  const refresh_token = localStorage.getItem('refresh_token');
-  if (!refresh_token) return false;
-  try {
-    const res = await fetch(`${BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    localStorage.setItem('access_token', data.access_token);
-    localStorage.setItem('refresh_token', data.refresh_token);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// ─── Auth ─────────────────────────────────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────────────────────────
 export const authApi = {
   register: (email: string, username: string, password: string) =>
-    request('/auth/register', { method: 'POST', body: JSON.stringify({ email, username, password }) }),
+    request<User>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, username, password }),
+    }),
 
   login: async (email: string, password: string) => {
     const data = await request<{ access_token: string; refresh_token: string }>(
@@ -77,31 +100,32 @@ export const authApi = {
     localStorage.removeItem('refresh_token');
   },
 
-  me: () => request('/auth/me'),
+  me: () => request<User>('/auth/me'),
 };
 
-// ─── Ways ─────────────────────────────────────────────────────────────────────
+// ── Ways ──────────────────────────────────────────────────────────────────────
 export const waysApi = {
-  list: () => request('/ways'),
+  list: () => request<Way[]>('/ways'),
   create: (name: string, order = 0) =>
-    request('/ways', { method: 'POST', body: JSON.stringify({ name, order }) }),
+    request<Way>('/ways', { method: 'POST', body: JSON.stringify({ name, order }) }),
   update: (id: string, data: { name?: string; order?: number }) =>
-    request(`/ways/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  delete: (id: string) => request(`/ways/${id}`, { method: 'DELETE' }),
-  reorder: (items: { id: string; order: number }[]) =>
-    request('/ways/reorder', { method: 'POST', body: JSON.stringify({ items }) }),
+    request<Way>(`/ways/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/ways/${id}`, { method: 'DELETE' }),
 };
 
-// ─── Topics ───────────────────────────────────────────────────────────────────
+// ── Topics ────────────────────────────────────────────────────────────────────
 export const topicsApi = {
   create: (wayId: string, name: string, order = 0) =>
-    request(`/ways/${wayId}/topics`, { method: 'POST', body: JSON.stringify({ name, order }) }),
+    request<any>(`/ways/${wayId}/topics`, {
+      method: 'POST',
+      body: JSON.stringify({ name, order }),
+    }),
   update: (id: string, data: { name?: string; order?: number }) =>
-    request(`/topics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  delete: (id: string) => request(`/topics/${id}`, { method: 'DELETE' }),
+    request<any>(`/topics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/topics/${id}`, { method: 'DELETE' }),
 };
 
-// ─── Notes ────────────────────────────────────────────────────────────────────
+// ── Notes ─────────────────────────────────────────────────────────────────────
 export const notesApi = {
   create: (data: {
     name: string;
@@ -109,51 +133,69 @@ export const notesApi = {
     way_id?: string;
     topic_id?: string;
     topic_inline_id?: string;
-  }) => request('/notes', { method: 'POST', body: JSON.stringify(data) }),
+  }) => request<Note>('/notes', { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id: string, data: { name?: string; content?: string }) =>
-    request(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    request<Note>(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
-  delete: (id: string) => request(`/notes/${id}`, { method: 'DELETE' }),
+  delete: (id: string) => request<void>(`/notes/${id}`, { method: 'DELETE' }),
 
   uploadImage: (noteId: string, file: File) => {
     const form = new FormData();
     form.append('file', file);
-    const token = localStorage.getItem('access_token');
-    return fetch(`${BASE_URL}/notes/${noteId}/images`, {
+    return request<NoteImage>(`/notes/${noteId}/images`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
-    }).then((r) => r.json()) as Promise<{ id: string; url: string }>;
+    });
   },
 };
 
-// ─── Tasks ────────────────────────────────────────────────────────────────────
+// ── Tasks ─────────────────────────────────────────────────────────────────────
 export const tasksApi = {
-  list: (status?: string) =>
-    request(`/tasks${status ? `?status_filter=${status}` : ''}`),
-  create: (data: { title: string; description?: string; status?: string; priority?: string; due_date?: string }) =>
-    request('/tasks', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: { title?: string; status?: string; priority?: string; is_completed?: boolean; due_date?: string }) =>
-    request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  delete: (id: string) => request(`/tasks/${id}`, { method: 'DELETE' }),
-  reorder: (items: { id: string; order: number }[]) =>
-    request('/tasks/reorder', { method: 'POST', body: JSON.stringify({ items }) }),
+  list: (status?: TaskStatus) =>
+    request<Task[]>(`/tasks${status ? `?status_filter=${status}` : ''}`),
+  create: (data: {
+    title: string;
+    description?: string;
+    status?: TaskStatus;
+    priority?: TaskPriority;
+    due_date?: string | null;
+  }) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
+  update: (
+    id: string,
+    data: {
+      title?: string;
+      description?: string;
+      status?: TaskStatus;
+      priority?: TaskPriority;
+      due_date?: string | null;
+      is_completed?: boolean;
+      order?: number;
+    }
+  ) => request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
 };
 
-// ─── Metrics ──────────────────────────────────────────────────────────────────
+// ── Metrics ───────────────────────────────────────────────────────────────────
 export const metricsApi = {
-  list: () => request('/metrics'),
-  create: (data: { name: string; unit?: string; target_value?: number; color?: string }) =>
-    request('/metrics', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: { name?: string; unit?: string; target_value?: number; color?: string }) =>
-    request(`/metrics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  delete: (id: string) => request(`/metrics/${id}`, { method: 'DELETE' }),
+  list: () => request<Metric[]>('/metrics'),
+  create: (data: {
+    name: string;
+    unit?: string;
+    target_value?: number | null;
+    color?: string;
+    description?: string;
+  }) => request<Metric>('/metrics', { method: 'POST', body: JSON.stringify(data) }),
+  update: (
+    id: string,
+    data: { name?: string; unit?: string; target_value?: number | null; color?: string }
+  ) => request<Metric>(`/metrics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/metrics/${id}`, { method: 'DELETE' }),
   addEntry: (metricId: string, value: number, date: string, note = '') =>
-    request(`/metrics/${metricId}/entries`, {
+    request<MetricEntry>(`/metrics/${metricId}/entries`, {
       method: 'POST',
       body: JSON.stringify({ value, date, note }),
     }),
   deleteEntry: (metricId: string, entryId: string) =>
-    request(`/metrics/${metricId}/entries/${entryId}`, { method: 'DELETE' }),
+    request<void>(`/metrics/${metricId}/entries/${entryId}`, { method: 'DELETE' }),
 };

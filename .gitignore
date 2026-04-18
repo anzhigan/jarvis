@@ -1,10 +1,12 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
 .venv/
 venv/
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
 htmlcov/
 .coverage
 test.db
@@ -14,14 +16,15 @@ node_modules/
 dist/
 .pnpm-store/
 
-# Env
+# Env (commit only .env.example)
 .env
 !.env.example
 !.env.production
 
 # OS
 .DS_Store
-*.DS_Store
+*.swp
 
-# Alembic generated versions (keep only in repo if you want)
-# alembic/versions/*.py
+# Editor
+.idea/
+.vscode/

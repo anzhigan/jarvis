@@ -1,27 +1,42 @@
 import { create } from 'zustand';
-import { authApi } from '../api/client';
+import { authApi, ApiError } from '../api/client';
+import type { User } from '../api/types';
 
 interface AuthState {
-  user: { id: string; email: string; username: string } | null;
+  user: User | null;
   isLoading: boolean;
-  isAuthenticated: boolean;
+  isReady: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
   logout: () => void;
-  fetchMe: () => Promise<void>;
+  init: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: false,
-  isAuthenticated: !!localStorage.getItem('access_token'),
+  isReady: false,
+
+  init: async () => {
+    if (!localStorage.getItem('access_token')) {
+      set({ isReady: true });
+      return;
+    }
+    try {
+      const user = await authApi.me();
+      set({ user, isReady: true });
+    } catch {
+      authApi.logout();
+      set({ user: null, isReady: true });
+    }
+  },
 
   login: async (email, password) => {
     set({ isLoading: true });
     try {
       await authApi.login(email, password);
-      const user = await authApi.me() as AuthState['user'];
-      set({ user, isAuthenticated: true });
+      const user = await authApi.me();
+      set({ user });
     } finally {
       set({ isLoading: false });
     }
@@ -32,8 +47,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await authApi.register(email, username, password);
       await authApi.login(email, password);
-      const user = await authApi.me() as AuthState['user'];
-      set({ user, isAuthenticated: true });
+      const user = await authApi.me();
+      set({ user });
     } finally {
       set({ isLoading: false });
     }
@@ -41,15 +56,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     authApi.logout();
-    set({ user: null, isAuthenticated: false });
-  },
-
-  fetchMe: async () => {
-    try {
-      const user = await authApi.me() as AuthState['user'];
-      set({ user, isAuthenticated: true });
-    } catch {
-      set({ user: null, isAuthenticated: false });
-    }
+    set({ user: null });
   },
 }));
+
+// Listen for auto-logout from interceptor
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:logout', () => {
+    useAuthStore.setState({ user: null });
+  });
+}

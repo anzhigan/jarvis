@@ -1,466 +1,278 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Plus, Calendar, X, AlertCircle, ArrowUp, ArrowRight } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { Plus, Calendar, X, AlertCircle, ArrowUp, ArrowRight, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { tasksApi } from '../api/client';
+import type { Task, TaskPriority, TaskStatus } from '../api/types';
 
-type Priority = 'high' | 'medium' | 'low';
-type Status = 'todo' | 'in-progress' | 'done';
+const STATUSES: { key: TaskStatus; label: string; color: string }[] = [
+  { key: 'todo', label: 'To Do', color: 'bg-muted-foreground' },
+  { key: 'in_progress', label: 'In Progress', color: 'bg-chart-3' },
+  { key: 'done', label: 'Done', color: 'bg-success' },
+];
 
-interface Task {
-  id: string;
-  title: string;
-  startDate: string;
-  endDate: string;
-  priority: Priority;
-  status: Status;
-  completedAt?: Date;
+const PRIORITY_CLS: Record<TaskPriority, string> = {
+  high: 'bg-destructive/10 text-destructive border-destructive/20',
+  medium: 'bg-chart-3/10 text-chart-3 border-chart-3/20',
+  low: 'bg-muted text-muted-foreground border-border',
+};
+
+function PriorityIcon({ p }: { p: TaskPriority }) {
+  if (p === 'high') return <AlertCircle size={11} />;
+  if (p === 'medium') return <ArrowUp size={11} />;
+  return <ArrowRight size={11} />;
 }
 
-const ITEM_TYPE = 'TASK';
-
-interface DragItem {
-  id: string;
-  status: Status;
-}
-
-function TaskCard({ task, onDelete, onStatusChange }: {
+function TaskCard({
+  task,
+  onUpdate,
+  onDelete,
+}: {
   task: Task;
-  onDelete: (id: string) => void;
-  onStatusChange: (id: string, status: Status) => void;
+  onUpdate: (data: Partial<Task>) => void;
+  onDelete: () => void;
 }) {
-  const [{ isDragging }, drag] = useDrag<DragItem, unknown, { isDragging: boolean }>({
-    type: ITEM_TYPE,
-    item: { id: task.id, status: task.status },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  const isOverdue = () => {
-    if (task.status === 'done') return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endDate = new Date(task.endDate);
-    return endDate < today;
-  };
-
-  const getPriorityColor = (priority: Priority) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-destructive text-destructive-foreground';
-      case 'medium':
-        return 'bg-chart-4 text-white';
-      case 'low':
-        return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getPriorityIcon = (priority: Priority) => {
-    switch (priority) {
-      case 'high':
-        return <AlertCircle size={12} />;
-      case 'medium':
-        return <ArrowUp size={12} />;
-      case 'low':
-        return <ArrowRight size={12} />;
-    }
-  };
+  const isOverdue =
+    task.status !== 'done' &&
+    task.due_date &&
+    new Date(task.due_date) < new Date(new Date().setHours(0, 0, 0, 0));
 
   return (
     <motion.div
-      ref={drag}
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className={`p-3 bg-card border border-border rounded-lg hover:border-muted-foreground transition-colors cursor-move group ${
-        isDragging ? 'opacity-50' : ''
-      }`}
+      className="group p-3.5 bg-card border border-border rounded-lg hover:border-border-strong hover:shadow-sm transition-all"
     >
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs ${getPriorityColor(task.priority)}`}>
-            {getPriorityIcon(task.priority)}
-            {task.priority.toUpperCase()}
-          </div>
+      <div className="flex items-start justify-between mb-2.5">
+        <div
+          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${PRIORITY_CLS[task.priority]}`}
+        >
+          <PriorityIcon p={task.priority} />
+          {task.priority.toUpperCase()}
         </div>
         <button
-          onClick={() => onDelete(task.id)}
-          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all"
+          onClick={onDelete}
+          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
         >
-          <X size={14} />
+          <X size={13} />
         </button>
       </div>
 
-      <h4 className="mb-2 text-foreground">{task.title}</h4>
+      <h4 className="text-sm font-medium mb-2.5 leading-snug">{task.title}</h4>
 
-      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-        <Calendar size={12} />
-        <span>
-          {new Date(task.startDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-          })}
-          {' - '}
-          {new Date(task.endDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-          })}
-        </span>
-      </div>
-
-      {isOverdue() && (
-        <div className="mt-2 text-destructive text-sm">Overdue</div>
-      )}
-
-      {task.status === 'done' && task.completedAt && (
-        <div className="mt-2 text-muted-foreground text-sm">
-          Completed {task.completedAt.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-          })}
+      <div className="flex items-center justify-between">
+        <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+          {task.due_date && (
+            <>
+              <Calendar size={11} />
+              {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            </>
+          )}
         </div>
-      )}
+
+        <select
+          value={task.status}
+          onChange={(e) => onUpdate({ status: e.target.value as TaskStatus })}
+          className="text-xs bg-transparent border-0 focus:outline-none text-muted-foreground cursor-pointer hover:text-foreground"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {STATUSES.map((s) => (
+            <option key={s.key} value={s.key}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      </div>
     </motion.div>
   );
 }
 
-function KanbanColumn({
-  title,
-  status,
-  tasks,
-  onDrop,
-  onDelete,
-  onStatusChange,
-  count
-}: {
-  title: string;
-  status: Status;
-  tasks: Task[];
-  onDrop: (taskId: string, newStatus: Status) => void;
-  onDelete: (id: string) => void;
-  onStatusChange: (id: string, status: Status) => void;
-  count: number;
-}) {
-  const [{ isOver }, drop] = useDrop<DragItem, unknown, { isOver: boolean }>({
-    accept: ITEM_TYPE,
-    drop: (item) => {
-      if (item.status !== status) {
-        onDrop(item.id, status);
-      }
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-    }),
-  });
+export default function Tasks() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [creating, setCreating] = useState(false);
 
-  return (
-    <div className="flex flex-col min-w-80 flex-1">
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-        <h3 className="text-foreground">{title}</h3>
-        <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded text-sm">{count}</span>
-      </div>
+  // Form
+  const [title, setTitle] = useState('');
+  const [priority, setPriority] = useState<TaskPriority>('medium');
+  const [dueDate, setDueDate] = useState('');
 
-      <div
-        ref={drop}
-        className={`flex-1 p-4 space-y-3 transition-colors ${
-          isOver ? 'bg-accent' : 'bg-background'
-        }`}
-      >
-        <AnimatePresence mode="popLayout">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onDelete={onDelete}
-              onStatusChange={onStatusChange}
-            />
-          ))}
-        </AnimatePresence>
-
-        {tasks.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            No tasks
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TasksContent() {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'Complete project documentation',
-      startDate: '2026-04-08',
-      endDate: '2026-04-12',
-      priority: 'high',
-      status: 'in-progress',
-    },
-    {
-      id: '2',
-      title: 'Review design mockups',
-      startDate: '2026-04-10',
-      endDate: '2026-04-11',
-      priority: 'medium',
-      status: 'done',
-      completedAt: new Date('2026-04-10'),
-    },
-    {
-      id: '3',
-      title: 'Prepare presentation slides',
-      startDate: '2026-04-11',
-      endDate: '2026-04-15',
-      priority: 'high',
-      status: 'todo',
-    },
-    {
-      id: '4',
-      title: 'Update API documentation',
-      startDate: '2026-04-09',
-      endDate: '2026-04-13',
-      priority: 'low',
-      status: 'todo',
-    },
-  ]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newStartDate, setNewStartDate] = useState('');
-  const [newEndDate, setNewEndDate] = useState('');
-  const [newPriority, setNewPriority] = useState<Priority>('medium');
-
-  const handleCreate = () => {
-    if (!newTitle.trim() || !newStartDate || !newEndDate) return;
-
-    const task: Task = {
-      id: Date.now().toString(),
-      title: newTitle,
-      startDate: newStartDate,
-      endDate: newEndDate,
-      priority: newPriority,
-      status: 'todo',
-    };
-
-    setTasks([task, ...tasks]);
-    setNewTitle('');
-    setNewStartDate('');
-    setNewEndDate('');
-    setNewPriority('medium');
-    setIsCreating(false);
+  const load = async () => {
+    try {
+      const data = await tasksApi.list();
+      setTasks(data);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to load tasks');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDrop = (taskId: string, newStatus: Status) => {
-    setTasks(
-      tasks.map((task) => {
-        if (task.id === taskId) {
-          const wasDone = task.status === 'done';
-          const isDone = newStatus === 'done';
+  useEffect(() => {
+    load();
+  }, []);
 
-          if (!wasDone && isDone) {
-            confetti({
-              particleCount: 50,
-              spread: 60,
-              origin: { y: 0.6 },
-              colors: ['#030213', '#717182', '#ececf0'],
-            });
-          }
+  const create = async () => {
+    if (!title.trim()) return;
+    setCreating(true);
+    try {
+      await tasksApi.create({
+        title: title.trim(),
+        priority,
+        status: 'todo',
+        due_date: dueDate || null,
+      });
+      setTitle('');
+      setPriority('medium');
+      setDueDate('');
+      setShowForm(false);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to create task');
+    } finally {
+      setCreating(false);
+    }
+  };
 
-          return {
-            ...task,
-            status: newStatus,
-            completedAt: isDone ? new Date() : undefined,
-          };
-        }
-        return task;
-      })
+  const updateTask = async (id: string, data: Partial<Task>) => {
+    try {
+      await tasksApi.update(id, data as any);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to update');
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    try {
+      await tasksApi.delete(id);
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to delete');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="size-full flex items-center justify-center">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
     );
-  };
+  }
 
-  const handleDelete = (id: string) => {
-    setTasks(tasks.filter((task) => task.id !== id));
-  };
-
-  const handleStatusChange = (id: string, status: Status) => {
-    handleDrop(id, status);
-  };
-
-  const todoTasks = tasks.filter((t) => t.status === 'todo');
-  const inProgressTasks = tasks.filter((t) => t.status === 'in-progress');
-  const doneTasks = tasks.filter((t) => t.status === 'done');
+  const tasksByStatus = (status: TaskStatus) => tasks.filter((t) => t.status === status);
 
   return (
-    <div className="size-full flex flex-col">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <div className="flex items-center gap-4">
-          <h2 className="text-foreground">Task Board</h2>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Priority:</span>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 px-2 py-1 bg-destructive text-destructive-foreground rounded text-xs">
-                <AlertCircle size={12} />
-                High
-              </div>
-              <div className="flex items-center gap-1 px-2 py-1 bg-chart-4 text-white rounded text-xs">
-                <ArrowUp size={12} />
-                Medium
-              </div>
-              <div className="flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded text-xs">
-                <ArrowRight size={12} />
-                Low
-              </div>
-            </div>
+    <div className="size-full overflow-y-auto">
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {tasks.length} total · {tasksByStatus('done').length} completed
+            </p>
           </div>
-        </div>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-        >
-          <Plus size={18} />
-          New Task
-        </button>
-      </div>
-
-      {/* Create Task Modal */}
-      <AnimatePresence>
-        {isCreating && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/50 flex items-center justify-center z-50"
-            onClick={() => setIsCreating(false)}
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-1.5 h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all"
           >
+            <Plus size={15} />
+            New task
+          </button>
+        </div>
+
+        {/* Form */}
+        <AnimatePresence>
+          {showForm && (
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4"
+              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              className="overflow-hidden"
             >
-              <h3 className="mb-4">Create New Task</h3>
-
-              <input
-                type="text"
-                placeholder="Task title"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full mb-3 px-3 py-2 bg-input-background rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-ring"
-                autoFocus
-              />
-
-              <div className="mb-3">
-                <label className="block mb-2 text-muted-foreground">Priority</label>
-                <div className="flex gap-2">
-                  {(['high', 'medium', 'low'] as Priority[]).map((priority) => (
-                    <button
-                      key={priority}
-                      onClick={() => setNewPriority(priority)}
-                      className={`flex-1 px-3 py-2 rounded-lg transition-colors ${
-                        newPriority === priority
-                          ? priority === 'high'
-                            ? 'bg-destructive text-destructive-foreground'
-                            : priority === 'medium'
-                            ? 'bg-chart-4 text-white'
-                            : 'bg-muted text-foreground'
-                          : 'bg-secondary text-secondary-foreground hover:bg-accent'
-                      }`}
-                    >
-                      {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div>
-                  <label className="block mb-2 text-muted-foreground">Start Date</label>
+              <div className="p-5 bg-card border border-border rounded-lg">
+                <input
+                  type="text"
+                  placeholder="What needs to be done?"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && create()}
+                  className="w-full h-10 px-3 mb-3 rounded-lg border border-border bg-input-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                  autoFocus
+                />
+                <div className="flex items-center gap-2">
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                    className="h-9 px-3 rounded-lg border border-border bg-input-background text-sm cursor-pointer"
+                  >
+                    <option value="low">Low priority</option>
+                    <option value="medium">Medium priority</option>
+                    <option value="high">High priority</option>
+                  </select>
                   <input
                     type="date"
-                    value={newStartDate}
-                    onChange={(e) => setNewStartDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-input-background rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="h-9 px-3 rounded-lg border border-border bg-input-background text-sm"
                   />
+                  <div className="flex-1" />
+                  <button
+                    onClick={() => setShowForm(false)}
+                    className="h-9 px-3.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={create}
+                    disabled={creating || !title.trim()}
+                    className="h-9 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {creating && <Loader2 size={13} className="animate-spin" />}
+                    Create
+                  </button>
                 </div>
-                <div>
-                  <label className="block mb-2 text-muted-foreground">End Date</label>
-                  <input
-                    type="date"
-                    value={newEndDate}
-                    onChange={(e) => setNewEndDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-input-background rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCreate}
-                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-                >
-                  Create
-                </button>
-                <button
-                  onClick={() => {
-                    setIsCreating(false);
-                    setNewTitle('');
-                    setNewStartDate('');
-                    setNewEndDate('');
-                    setNewPriority('medium');
-                  }}
-                  className="flex-1 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:opacity-90 transition-opacity"
-                >
-                  Cancel
-                </button>
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
-      {/* Kanban Board */}
-      <div className="flex-1 flex overflow-x-auto">
-        <KanbanColumn
-          title="To Do"
-          status="todo"
-          tasks={todoTasks}
-          onDrop={handleDrop}
-          onDelete={handleDelete}
-          onStatusChange={handleStatusChange}
-          count={todoTasks.length}
-        />
-        <div className="w-px bg-border flex-shrink-0" />
-        <KanbanColumn
-          title="In Progress"
-          status="in-progress"
-          tasks={inProgressTasks}
-          onDrop={handleDrop}
-          onDelete={handleDelete}
-          onStatusChange={handleStatusChange}
-          count={inProgressTasks.length}
-        />
-        <div className="w-px bg-border flex-shrink-0" />
-        <KanbanColumn
-          title="Done"
-          status="done"
-          tasks={doneTasks}
-          onDrop={handleDrop}
-          onDelete={handleDelete}
-          onStatusChange={handleStatusChange}
-          count={doneTasks.length}
-        />
+        {/* Board */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {STATUSES.map((status) => {
+            const list = tasksByStatus(status.key);
+            return (
+              <div key={status.key} className="flex flex-col">
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <div className={`w-2 h-2 rounded-full ${status.color}`} />
+                  <h3 className="text-sm font-semibold">{status.label}</h3>
+                  <span className="text-xs text-muted-foreground">{list.length}</span>
+                </div>
+                <div className="flex flex-col gap-2 min-h-[120px]">
+                  <AnimatePresence>
+                    {list.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onUpdate={(data) => updateTask(task.id, data)}
+                        onDelete={() => deleteTask(task.id)}
+                      />
+                    ))}
+                  </AnimatePresence>
+                  {list.length === 0 && (
+                    <div className="py-6 px-3 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
+                      No tasks
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
-  );
-}
-
-export default function Tasks() {
-  return (
-    <DndProvider backend={HTML5Backend}>
-      <TasksContent />
-    </DndProvider>
   );
 }

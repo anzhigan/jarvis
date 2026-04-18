@@ -23,7 +23,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Knowledge Base & Task Manager API",
+    title="Jarvis API",
+    description="Personal knowledge base, tasks, and metrics",
     version="1.0.0",
     lifespan=lifespan,
 )
