@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+htmlcov/
+.coverage
+test.db
+
+# Node
+node_modules/
+dist/
+.pnpm-store/
+
+# Env
+.env
+!.env.example
+!.env.production
+
+# OS
+.DS_Store
+*.DS_Store
+
+# Alembic generated versions (keep only in repo if you want)
+# alembic/versions/*.py
