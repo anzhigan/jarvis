@@ -35,10 +35,11 @@ class Way(Base):
     topics: Mapped[list["Topic"]] = relationship(
         back_populates="way", cascade="all, delete-orphan", order_by="Topic.order"
     )
-    notes: Mapped[list["Note"]] = relationship(
+    note: Mapped["Note | None"] = relationship(
         "Note",
         primaryjoin="and_(Way.id==Note.way_id, Note.way_id.isnot(None))",
         cascade="all, delete-orphan",
+        uselist=False,
     )
 
 
