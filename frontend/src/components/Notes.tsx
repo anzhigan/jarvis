@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
 import SwipeRow from './SwipeRow';
+import TagSelector from './TagSelector';
 import { notesApi, topicsApi, waysApi } from '../api/client';
 import type { Note, Topic, Way } from '../api/types';
 
@@ -119,6 +120,15 @@ export default function Notes() {
     setSaving(true);
     try {
       await notesApi.update(st.noteId, { content: st.content });
+      // Update local ways state in-place so content matches server
+      setWays((prev) => prev.map((w) => ({
+        ...w,
+        note: w.note?.id === st.noteId ? { ...w.note, content: st.content } : w.note,
+        topics: w.topics.map((t) => ({
+          ...t,
+          notes: t.notes.map((n) => n.id === st.noteId ? { ...n, content: st.content } : n),
+        })),
+      })));
       if (editorStateRef.current && editorStateRef.current.noteId === st.noteId && editorStateRef.current.content === st.content) {
         setEditorState({ ...editorStateRef.current, dirty: false });
       }
@@ -363,6 +373,7 @@ export default function Notes() {
             <button
               onClick={async () => {
                 await saveCurrentEditor();
+                await loadWays();
                 setSelection(null);
               }}
               className="h-10 w-10 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
@@ -376,6 +387,9 @@ export default function Notes() {
             </div>
           </header>
           <div className="flex-1 overflow-y-auto">
+            <div className="px-4 py-3 border-b border-border">
+              <TagSelector noteId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+            </div>
             <div className="px-4 py-4">
               <RichTextEditor
                 key={currentNote.id}
@@ -618,7 +632,10 @@ export default function Notes() {
               </div>
             </header>
             <div className="flex-1 overflow-y-auto">
-              <div className="max-w-4xl mx-auto px-10 py-8">
+              <div className="max-w-4xl mx-auto px-10 pt-6 pb-3">
+                <TagSelector noteId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+              </div>
+              <div className="max-w-4xl mx-auto px-10 pb-8">
                 <RichTextEditor
                   key={currentNote.id}
                   noteId={currentNote.id}

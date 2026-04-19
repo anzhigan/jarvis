@@ -18,14 +18,15 @@ import {
   CheckCircle2,
   Clock,
   Flame,
+  Hash,
   Loader2,
   Target,
   TrendingUp,
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { tasksApi } from '../api/client';
-import type { Practice, Task } from '../api/types';
+import { tasksApi, waysApi } from '../api/client';
+import type { Practice, Task, Way } from '../api/types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function pastDays(n: number): string[] {
@@ -186,12 +187,14 @@ function PracticeRow({ task, practice }: { task: Task; practice: Practice }) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function Metrics() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [ways, setWays] = useState<Way[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     try {
-      const data = await tasksApi.list();
-      setTasks(data);
+      const [t, w] = await Promise.all([tasksApi.list(), waysApi.list()]);
+      setTasks(t);
+      setWays(w);
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to load');
     } finally {
@@ -273,6 +276,32 @@ export default function Metrics() {
 
   const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
+  // ── Notes by tag aggregation ──────────────────────────────────────────────
+  const tagStats = useMemo(() => {
+    // Collect all notes from ways
+    const notes = [];
+    for (const w of ways) {
+      if (w.note) notes.push(w.note);
+      for (const t of w.topics) {
+        if (t.inline_note) notes.push(t.inline_note);
+        notes.push(...t.notes);
+      }
+    }
+
+    const byTag = new Map<string, { id: string; name: string; color: string; count: number }>();
+    for (const n of notes) {
+      for (const tag of n.tags ?? []) {
+        const existing = byTag.get(tag.id);
+        if (existing) existing.count += 1;
+        else byTag.set(tag.id, { id: tag.id, name: tag.name, color: tag.color, count: 1 });
+      }
+    }
+
+    const breakdown = [...byTag.values()].sort((a, b) => b.count - a.count);
+    const total = breakdown.reduce((s, t) => s + t.count, 0);
+    return { breakdown, total, totalNotes: notes.length };
+  }, [ways]);
+
   if (loading) {
     return (
       <div className="size-full flex items-center justify-center">
@@ -317,7 +346,7 @@ export default function Metrics() {
           />
         </div>
 
-        {totalTasks === 0 && allPractices.length === 0 ? (
+        {totalTasks === 0 && allPractices.length === 0 && tagStats.total === 0 ? (
           <div className="border border-dashed border-border rounded-xl py-16 text-center">
             <BarChart3 size={28} className="mx-auto mb-3 text-muted-foreground opacity-60" />
             <p className="text-sm text-muted-foreground">
@@ -470,6 +499,82 @@ export default function Metrics() {
                 </div>
               </div>
             </div>
+
+            {/* Notes by tag */}
+            {tagStats.total > 0 && (
+              <div className="p-5 bg-card border border-border rounded-xl mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm font-semibold">Notes by tag</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {tagStats.total} tagged of {tagStats.totalNotes} notes
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Hash size={12} />
+                    {tagStats.breakdown.length} tags
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Pie chart */}
+                  <div className="h-52">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={tagStats.breakdown}
+                          innerRadius={45}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="count"
+                          nameKey="name"
+                        >
+                          {tagStats.breakdown.map((d, i) => (
+                            <Cell key={i} fill={d.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--popover)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '0.5rem',
+                            fontSize: '12px',
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* List */}
+                  <div className="space-y-1.5">
+                    {tagStats.breakdown.slice(0, 8).map((t) => {
+                      const pct = (t.count / tagStats.total) * 100;
+                      return (
+                        <div key={t.id} className="flex items-center gap-3">
+                          <span
+                            className="inline-flex items-center h-6 px-2.5 rounded-full text-xs font-medium flex-shrink-0"
+                            style={{
+                              backgroundColor: `${t.color}20`,
+                              color: t.color,
+                              border: `1px solid ${t.color}40`,
+                            }}
+                          >
+                            {t.name}
+                          </span>
+                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full transition-all"
+                              style={{ width: `${pct}%`, backgroundColor: t.color }}
+                            />
+                          </div>
+                          <span className="text-xs font-medium text-muted-foreground w-8 text-right flex-shrink-0">
+                            {t.count}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* All practices progress */}
             {allPractices.length > 0 && (

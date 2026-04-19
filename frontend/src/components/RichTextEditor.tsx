@@ -81,13 +81,21 @@ function ResizableImageView({
   const imgRef = useRef<HTMLImageElement>(null);
 
   const width = node.attrs.width || 'auto';
+  const rotation = (node.attrs.rotation as number) || 0;
+
+  const startResize = useCallback(
+    (clientX: number) => {
+      setIsResizing(true);
+      startX.current = clientX;
+      startWidth.current = imgRef.current?.getBoundingClientRect().width || 300;
+    },
+    []
+  );
 
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      setIsResizing(true);
-      startX.current = e.clientX;
-      startWidth.current = imgRef.current?.getBoundingClientRect().width || 300;
+      startResize(e.clientX);
 
       const onMouseMove = (ev: MouseEvent) => {
         const delta = ev.clientX - startX.current;
@@ -102,8 +110,43 @@ function ResizableImageView({
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
     },
-    [updateAttributes]
+    [updateAttributes, startResize]
   );
+
+  const onTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      e.stopPropagation();
+      const touch = e.touches[0];
+      startResize(touch.clientX);
+
+      const onTouchMove = (ev: TouchEvent) => {
+        ev.preventDefault();
+        const t = ev.touches[0];
+        const delta = t.clientX - startX.current;
+        const newWidth = Math.max(80, startWidth.current + delta);
+        updateAttributes({ width: `${Math.round(newWidth)}px` });
+      };
+      const onTouchEnd = () => {
+        setIsResizing(false);
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+      };
+      document.addEventListener('touchmove', onTouchMove, { passive: false });
+      document.addEventListener('touchend', onTouchEnd);
+    },
+    [updateAttributes, startResize]
+  );
+
+  const rotate = () => {
+    const next = (rotation + 90) % 360;
+    updateAttributes({ rotation: next });
+  };
+
+  const resetSize = () => {
+    updateAttributes({ width: 'auto' });
+  };
+
+  const showControls = selected || isResizing;
 
   return (
     <NodeViewWrapper className="relative inline-block group/img my-2" style={{ maxWidth: '100%' }}>
@@ -117,17 +160,52 @@ function ResizableImageView({
           display: 'block',
           borderRadius: '0.5rem',
           userSelect: 'none',
-          outline: selected || isResizing ? '2px solid var(--primary)' : 'none',
+          outline: showControls ? '2px solid var(--primary)' : 'none',
+          transform: rotation ? `rotate(${rotation}deg)` : undefined,
+          transition: isResizing ? 'none' : 'transform 0.2s ease-out',
         }}
         draggable={false}
       />
+
+      {/* Rotate button (top-left) */}
+      {showControls && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); rotate(); }}
+          className="absolute top-1 left-1 w-8 h-8 md:w-7 md:h-7 bg-primary rounded-md flex items-center justify-center shadow-sm active:scale-95"
+          title="Rotate 90°"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </button>
+      )}
+
+      {/* Reset size button (top-right) */}
+      {showControls && width !== 'auto' && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); resetSize(); }}
+          className="absolute top-1 right-1 px-2 h-8 md:h-7 bg-primary rounded-md flex items-center justify-center shadow-sm active:scale-95 text-white text-xs font-medium"
+          title="Reset size"
+        >
+          Auto
+        </button>
+      )}
+
+      {/* Resize handle (bottom-right) */}
       <div
         onMouseDown={onMouseDown}
-        className="absolute bottom-1 right-1 w-5 h-5 bg-primary rounded-md opacity-0 group-hover/img:opacity-100 cursor-ew-resize transition-opacity flex items-center justify-center shadow-sm"
+        onTouchStart={onTouchStart}
+        className="absolute bottom-1 right-1 w-8 h-8 md:w-5 md:h-5 bg-primary rounded-md cursor-ew-resize flex items-center justify-center shadow-sm opacity-0 md:group-hover/img:opacity-100"
+        style={{
+          opacity: showControls ? 1 : undefined,
+          touchAction: 'none',
+        }}
         title="Drag to resize"
-        style={{ touchAction: 'none' }}
       >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="1.5">
+        <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="1.5">
           <path d="M3 1 L9 7 M7 9 L9 7 L7 5" />
         </svg>
       </div>
@@ -146,6 +224,17 @@ const ResizableImage = Node.create({
       alt: { default: null },
       title: { default: null },
       width: { default: 'auto' },
+      rotation: {
+        default: 0,
+        parseHTML: (element) => parseInt(element.getAttribute('data-rotation') || '0', 10),
+        renderHTML: (attributes) => {
+          if (!attributes.rotation) return {};
+          return {
+            'data-rotation': attributes.rotation,
+            style: `transform: rotate(${attributes.rotation}deg);`,
+          };
+        },
+      },
     };
   },
   parseHTML() {

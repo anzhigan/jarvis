@@ -1,0 +1,218 @@
+import { useEffect, useRef, useState } from 'react';
+import { Tag as TagIcon, Plus, X, Loader2, Check } from 'lucide-react';
+import { toast } from 'sonner';
+import { notesApi, tagsApi } from '../api/client';
+import type { Tag } from '../api/types';
+
+const PALETTE = [
+  '#4f46e5', // indigo
+  '#e11d48', // red
+  '#ea580c', // orange
+  '#d97706', // amber
+  '#65a30d', // lime
+  '#059669', // green
+  '#0891b2', // cyan
+  '#0ea5e9', // sky
+  '#7c3aed', // violet
+  '#db2777', // pink
+  '#78716c', // stone
+  '#1c1917', // black
+];
+
+interface Props {
+  noteId: string;
+  tags: Tag[];                   // Currently attached tags
+  onChange: () => void | Promise<void>;  // Called after attach/detach/create
+}
+
+export default function TagSelector({ noteId, tags, onChange }: Props) {
+  const [open, setOpen] = useState(false);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState(PALETTE[0]);
+  const [creating, setCreating] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Load all tags lazily
+  const loadAllTags = async () => {
+    setLoading(true);
+    try {
+      const data = await tagsApi.list();
+      setAllTags(data);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to load tags');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) loadAllTags();
+  }, [open]);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const attachedIds = new Set(tags.map((t) => t.id));
+
+  const toggleTag = async (tag: Tag) => {
+    try {
+      if (attachedIds.has(tag.id)) {
+        await notesApi.detachTag(noteId, tag.id);
+      } else {
+        await notesApi.attachTag(noteId, tag.id);
+      }
+      await onChange();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to update tag');
+    }
+  };
+
+  const createTag = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    setCreating(true);
+    try {
+      const created = await tagsApi.create(name, newColor);
+      await notesApi.attachTag(noteId, created.id);
+      setNewName('');
+      setNewColor(PALETTE[0]);
+      await loadAllTags();
+      await onChange();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to create tag');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const removeAttached = async (tag: Tag) => {
+    try {
+      await notesApi.detachTag(noteId, tag.id);
+      await onChange();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to remove tag');
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {tags.map((tag) => (
+        <span
+          key={tag.id}
+          className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full text-xs font-medium"
+          style={{ backgroundColor: `${tag.color}20`, color: tag.color, border: `1px solid ${tag.color}40` }}
+        >
+          {tag.name}
+          <button
+            onClick={() => removeAttached(tag)}
+            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-current/10 transition-colors"
+            title="Remove tag"
+          >
+            <X size={11} />
+          </button>
+        </span>
+      ))}
+
+      <div className="relative">
+        <button
+          onClick={() => setOpen(!open)}
+          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-medium border border-dashed border-border hover:border-border-strong hover:bg-secondary/40 text-muted-foreground transition-colors"
+          title="Add tag"
+        >
+          <TagIcon size={11} />
+          {tags.length === 0 ? 'Add tag' : '+'}
+        </button>
+
+        {open && (
+          <div
+            ref={panelRef}
+            className="absolute left-0 top-9 z-30 w-72 bg-popover border border-border rounded-lg shadow-lg p-3"
+          >
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Your tags
+            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 size={16} className="animate-spin text-muted-foreground" />
+              </div>
+            ) : allTags.length === 0 ? (
+              <div className="text-xs text-muted-foreground py-2">
+                No tags yet. Create one below.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 mb-3 max-h-48 overflow-y-auto">
+                {allTags.map((tag) => {
+                  const attached = attachedIds.has(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => toggleTag(tag)}
+                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-medium transition-all"
+                      style={{
+                        backgroundColor: attached ? tag.color : `${tag.color}15`,
+                        color: attached ? 'white' : tag.color,
+                        border: `1px solid ${tag.color}${attached ? '' : '40'}`,
+                      }}
+                    >
+                      {attached && <Check size={11} />}
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="border-t border-border pt-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Create new
+              </div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <input
+                  type="text"
+                  placeholder="Tag name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && createTag()}
+                  className="flex-1 h-8 px-2.5 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                  maxLength={50}
+                />
+                <button
+                  onClick={createTag}
+                  disabled={!newName.trim() || creating}
+                  className="h-8 w-8 bg-primary text-primary-foreground rounded-md flex items-center justify-center disabled:opacity-40"
+                  title="Create and add"
+                >
+                  {creating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={14} />}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setNewColor(c)}
+                    className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ${
+                      newColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''
+                    }`}
+                    style={{ backgroundColor: c }}
+                    title={c}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

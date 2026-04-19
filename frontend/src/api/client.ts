@@ -5,6 +5,7 @@ import type {
   PracticeEntry,
   PracticeKind,
   PracticeStatus,
+  Tag,
   Task,
   TaskPriority,
   TaskStatus,
@@ -132,6 +133,20 @@ export const notesApi = {
     form.append('file', file);
     return request<NoteImage>(`/notes/${noteId}/images`, { method: 'POST', body: form });
   },
+  attachTag: (noteId: string, tagId: string) =>
+    request<void>(`/notes/${noteId}/tags/${tagId}`, { method: 'POST' }),
+  detachTag: (noteId: string, tagId: string) =>
+    request<void>(`/notes/${noteId}/tags/${tagId}`, { method: 'DELETE' }),
+};
+
+// ── Tags ──────────────────────────────────────────────────────────────────────
+export const tagsApi = {
+  list: () => request<Tag[]>('/tags'),
+  create: (name: string, color: string) =>
+    request<Tag>('/tags', { method: 'POST', body: JSON.stringify({ name, color }) }),
+  update: (id: string, data: { name?: string; color?: string }) =>
+    request<Tag>(`/tags/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/tags/${id}`, { method: 'DELETE' }),
 };
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────

@@ -28,3 +28,4 @@ class User(Base):
     # Relationships
     ways: Mapped[list["Way"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821
     tasks: Mapped[list["Task"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821
+    tags: Mapped[list["Tag"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821

@@ -12,6 +12,13 @@ export interface NoteImage {
   size_bytes: number;
 }
 
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  created_at: string;
+}
+
 export interface Note {
   id: string;
   name: string;
@@ -20,6 +27,7 @@ export interface Note {
   way_id: string | null;
   topic_id: string | null;
   topic_inline_id: string | null;
+  tags: Tag[];
   created_at: string;
   updated_at: string;
 }

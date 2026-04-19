@@ -39,9 +39,9 @@ router = APIRouter(tags=["notes"])
 
 def _way_load_options():
     return (
-        selectinload(Way.topics).selectinload(Topic.notes),
-        selectinload(Way.topics).selectinload(Topic.inline_note),
-        selectinload(Way.note),
+        selectinload(Way.topics).selectinload(Topic.notes).selectinload(Note.tags),
+        selectinload(Way.topics).selectinload(Topic.inline_note).selectinload(Note.tags),
+        selectinload(Way.note).selectinload(Note.tags),
     )
 
 
@@ -62,7 +62,10 @@ async def _get_topic_or_404(topic_id: uuid.UUID, user: User, db: AsyncSession) -
         select(Topic)
         .join(Way, Topic.way_id == Way.id)
         .where(Topic.id == topic_id, Way.user_id == user.id)
-        .options(selectinload(Topic.notes), selectinload(Topic.inline_note))
+        .options(
+            selectinload(Topic.notes).selectinload(Note.tags),
+            selectinload(Topic.inline_note).selectinload(Note.tags),
+        )
     )
     topic = result.scalar_one_or_none()
     if not topic:
@@ -75,7 +78,7 @@ async def _get_note_or_404(note_id: uuid.UUID, user: User, db: AsyncSession) -> 
     result = await db.execute(
         select(Note)
         .where(Note.id == note_id)
-        .options(selectinload(Note.images))
+        .options(selectinload(Note.images), selectinload(Note.tags))
     )
     note = result.scalar_one_or_none()
     if not note:
@@ -239,7 +242,7 @@ async def create_note(
     note = Note(**body.model_dump())
     db.add(note)
     await db.flush()
-    await db.refresh(note, ["images"])
+    await db.refresh(note, ["images", "tags"])
     return note
 
 
