@@ -359,24 +359,24 @@ export default function Notes() {
       {/* ── Sidebar ──────────────────────────────────────────────────── */}
       <aside className="w-72 border-r border-border bg-sidebar flex flex-col flex-shrink-0">
         <div className="px-4 pt-4 pb-3 border-b border-sidebar-border">
-          <div className="flex items-center justify-end mb-3">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full h-8 pl-8 pr-2.5 text-xs bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+              />
+            </div>
             <button
               onClick={() => { setAdding({ kind: 'way' }); setAddName(''); }}
               title="Add way"
-              className="p-1 rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors"
+              className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
             >
               <Plus size={15} />
             </button>
-          </div>
-          <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-8 pl-8 pr-2.5 text-xs bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-            />
           </div>
         </div>
 

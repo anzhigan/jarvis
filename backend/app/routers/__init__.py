@@ -1,1 +1,1 @@
-from app.routers import auth, notes, tasks, metrics
+from app.routers import auth, notes, tasks

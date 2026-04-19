@@ -1,17 +1,20 @@
 # Jarvis
 
-Personal knowledge base + task manager + metrics tracker.
+Personal knowledge base + task manager + habit tracker.
 
-**Stack:** React 18 + TypeScript + Vite + Tailwind v4 + Tiptap (frontend) · FastAPI + SQLAlchemy 2.0 async + Alembic (backend) · PostgreSQL · MinIO (S3-compatible).
+**Stack:** React 18 + TypeScript + Vite + Tailwind v4 + Tiptap · FastAPI + SQLAlchemy async + Alembic · PostgreSQL · MinIO.
 
 ## Features
 
-- **Notes** — 3-level hierarchy: Ways → Topics → Notes. Full CRUD on every level. Notes can live at any level (way itself, topic itself, or under topic).
-- **Rich text editor** — Tiptap with headings, lists, quotes, code blocks, colors, font sizes, image upload with drag-to-resize handle.
-- **Auto-save** — every note change is saved to the backend after 600ms of inactivity.
-- **Tasks** — Kanban board (To Do / In Progress / Done), priorities, due dates, overdue highlighting.
-- **Metrics** — custom trackers with target values, entry logging, line charts via recharts.
-- **Auth** — JWT access + refresh tokens, auto-refresh on 401, per-user data isolation.
+- **Notes** — 3-level hierarchy: Ways → Topics → Notes. Full CRUD, Tiptap rich editor, image upload with drag-to-resize, color picker, auto-save.
+- **Tasks** — Kanban board (To Do / In Progress / On Hold / Done), priorities, due dates, overdue highlighting. Each task can have multiple **practices** embedded.
+- **Practices** — recurring actions attached to a task (e.g. "Don't smoke" for task "Quit smoking"). Two kinds:
+  - **Boolean** — daily check-in with a heatmap and streak tracking
+  - **Numeric** — log a value per day (e.g. km ran) with optional target
+  - Optional duration (e.g. 30 days) with progress bar
+  - Pause / resume / delete
+- **Dashboard** — analytics overview: total stats, 30-day activity chart, task status distribution (pie), priority breakdown, top streaks, per-practice progress.
+- **Auth** — JWT access + refresh tokens, race-safe auto-refresh on 401.
 - **Dark mode** — system-aware + manual toggle.
 
 ## Quick start
@@ -20,9 +23,9 @@ Personal knowledge base + task manager + metrics tracker.
 docker compose up --build
 ```
 
-Open http://localhost — register an account and start using.
+Open http://localhost — register and start using.
 
-| What | Where |
+| | |
 |---|---|
 | App | http://localhost |
 | API docs | http://localhost:8000/docs |
@@ -34,77 +37,56 @@ Open http://localhost — register an account and start using.
 ```
 jarvis/
 ├── docker-compose.yml
-├── backend/                    FastAPI + Alembic
+├── backend/
 │   ├── Dockerfile
 │   ├── pyproject.toml
-│   ├── alembic/
-│   │   └── versions/           mounted from host — migrations persist
+│   ├── alembic/versions/001_initial.py
 │   └── app/
-│       ├── main.py             FastAPI app, CORS, lifespan
-│       ├── core/               config, db session, security, deps
-│       ├── models/             SQLAlchemy models
-│       ├── schemas/            Pydantic I/O schemas
-│       ├── routers/            auth, notes, tasks, metrics
-│       └── services/
-│           └── s3.py           MinIO image upload + validation
-│
-└── frontend/                   React SPA
-    ├── Dockerfile              node build → nginx serve
-    ├── nginx.conf              SPA fallback + /api/ proxy
+│       ├── main.py
+│       ├── core/{config,database,security,deps}.py
+│       ├── models/{user,notes,tasks}.py       # tasks.py has Task, Practice, PracticeEntry
+│       ├── schemas/{auth,notes,tasks}.py
+│       ├── routers/{auth,notes,tasks}.py
+│       └── services/s3.py
+└── frontend/
+    ├── Dockerfile
+    ├── nginx.conf
     ├── package.json
     └── src/
-        ├── main.tsx
-        ├── api/
-        │   ├── client.ts       typed fetch client, auto-refresh
-        │   └── types.ts
-        ├── store/
-        │   └── auth.ts         zustand — user session
-        ├── app/App.tsx         tabs, theme, auth routing
+        ├── api/{client,types}.ts
+        ├── store/auth.ts
+        ├── app/App.tsx
         ├── components/
         │   ├── AuthPage.tsx
-        │   ├── Notes.tsx
-        │   ├── Tasks.tsx
-        │   ├── Metrics.tsx
-        │   └── RichTextEditor.tsx
-        └── styles/             theme.css, editor.css, fonts.css
+        │   ├── Notes.tsx, Tasks.tsx, Metrics.tsx (Dashboard), RichTextEditor.tsx
+        └── styles/{theme,editor,fonts,tailwind,index}.css
 ```
 
-## Local development (without Docker for code)
+## API overview
 
-### Backend
+| Method | Endpoint | Notes |
+|---|---|---|
+| `POST` | `/api/auth/register` / `login` / `refresh` | |
+| `GET` | `/api/auth/me` | |
+| `GET/POST/PATCH/DELETE` | `/api/ways`, `/api/ways/{id}` | |
+| `POST/PATCH/DELETE` | `/api/ways/{id}/topics`, `/api/topics/{id}` | |
+| `POST/PATCH/DELETE` | `/api/notes`, `/api/notes/{id}` | one of `way_id` / `topic_id` / `topic_inline_id` |
+| `POST/DELETE` | `/api/notes/{id}/images` | multipart upload |
+| `GET/POST/PATCH/DELETE` | `/api/tasks`, `/api/tasks/{id}` | |
+| `POST` | `/api/tasks/{id}/practices` | create practice on a task |
+| `PATCH/DELETE` | `/api/practices/{id}` | update status/title/etc. |
+| `POST/DELETE` | `/api/practices/{id}/entries` | upsert by date — log a check-in |
 
+## Troubleshooting
+
+**`Can't locate revision` on `alembic upgrade`** — the volume-mounted migrations are out of sync with the DB. Reset:
 ```bash
-cd backend
-docker compose -f ../docker-compose.yml up -d db minio   # just infra
-
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
-
-cp .env.example .env
-# Adjust DATABASE_URL host to localhost if needed
-
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+docker compose down -v && docker compose up --build
 ```
 
-### Frontend
+**Port 80 busy** — change frontend mapping in `docker-compose.yml` to `"8080:80"`.
 
-```bash
-cd frontend
-npm install
-npm run dev   # http://localhost:5173
-```
-
-## Creating new migrations
-
-After changing SQLAlchemy models:
-
-```bash
-docker compose exec api alembic revision --autogenerate -m "describe change"
-docker compose exec api alembic upgrade head
-```
-
-Migration files end up in `backend/alembic/versions/` on your host (volume-mounted).
+**Image upload 413** — `client_max_body_size` in `frontend/nginx.conf` is 20M by default.
 
 ## Tests
 
@@ -113,44 +95,3 @@ cd backend
 pip install -e ".[dev]"
 pytest tests/ -v
 ```
-
-Tests use SQLite in-memory — no need to run Postgres.
-
-## API overview
-
-| Method | Endpoint | Notes |
-|---|---|---|
-| `POST` | `/api/auth/register` | Create user |
-| `POST` | `/api/auth/login` | Returns `access_token` + `refresh_token` |
-| `POST` | `/api/auth/refresh` | New access token |
-| `GET`  | `/api/auth/me` | Current user |
-| `GET`  | `/api/ways` | Full tree (ways → topics → notes) |
-| `POST` | `/api/ways` | Create way |
-| `PATCH`| `/api/ways/{id}` | Rename / reorder |
-| `DELETE`| `/api/ways/{id}` | Cascade delete |
-| `POST` | `/api/ways/{id}/topics` | Create topic |
-| `PATCH`| `/api/topics/{id}` | Update topic |
-| `DELETE`| `/api/topics/{id}` | Delete topic |
-| `POST` | `/api/notes` | Body: exactly one of `way_id`, `topic_id`, `topic_inline_id` |
-| `PATCH`| `/api/notes/{id}` | Update name / content |
-| `DELETE`| `/api/notes/{id}` | Delete note + S3 images |
-| `POST` | `/api/notes/{id}/images` | Multipart `file`, returns `{url}` |
-| `GET`  | `/api/tasks` | Optional `?status_filter=` |
-| `POST` | `/api/tasks` | Create task |
-| `PATCH`| `/api/tasks/{id}` | Update |
-| `DELETE`| `/api/tasks/{id}` | |
-| `GET`  | `/api/metrics` | With entries |
-| `POST` | `/api/metrics` | Create |
-| `POST` | `/api/metrics/{id}/entries` | Log a data point |
-
-## Troubleshooting
-
-**`Can't locate revision` on `alembic upgrade`** — the volume-mounted migrations got out of sync with the DB. Quickest fix:
-```bash
-docker compose down -v && docker compose up -d
-```
-This wipes the DB volume so migrations apply cleanly.
-
-**Image upload fails with 413** — the nginx proxy has `client_max_body_size 20M`. Increase it in `frontend/nginx.conf` if you need bigger images.
-
-**Port 80 already in use** — change the frontend port in `docker-compose.yml` (`"8080:80"` instead of `"80:80"`), then open http://localhost:8080.

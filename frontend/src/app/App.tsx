@@ -3,16 +3,16 @@ import { Toaster } from 'sonner';
 import { Brain, Loader2, LogOut, Moon, Sun, BookOpen, CheckSquare, BarChart3 } from 'lucide-react';
 import Notes from '../components/Notes';
 import Tasks from '../components/Tasks';
-import Metrics from '../components/Metrics';
+import Dashboard from '../components/Metrics';
 import AuthPage from '../components/AuthPage';
 import { useAuthStore } from '../store/auth';
 
-type Tab = 'notes' | 'tasks' | 'metrics';
+type Tab = 'notes' | 'tasks' | 'dashboard';
 
 const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
-  { key: 'notes', label: 'Notes', icon: BookOpen },
-  { key: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { key: 'metrics', label: 'Metrics', icon: BarChart3 },
+  { key: 'notes',     label: 'Notes',     icon: BookOpen },
+  { key: 'tasks',     label: 'Tasks',     icon: CheckSquare },
+  { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
 ];
 
 export default function App() {
@@ -115,7 +115,7 @@ export default function App() {
       <main className="flex-1 overflow-hidden">
         {tab === 'notes' && <Notes />}
         {tab === 'tasks' && <Tasks />}
-        {tab === 'metrics' && <Metrics />}
+        {tab === 'dashboard' && <Dashboard />}
       </main>
 
       <Toaster richColors position="bottom-right" />

@@ -166,9 +166,19 @@ interface RichTextEditorProps {
   onChange: (content: string) => void;
 }
 
-const COLORS = [
-  '#1c1917', '#78716c', '#e11d48', '#d97706',
-  '#059669', '#0ea5e9', '#4f46e5', '#db2777',
+const COLORS: { color: string; name: string }[] = [
+  { color: '#1c1917', name: 'Default' },
+  { color: '#78716c', name: 'Gray' },
+  { color: '#e11d48', name: 'Red' },
+  { color: '#ea580c', name: 'Orange' },
+  { color: '#d97706', name: 'Amber' },
+  { color: '#65a30d', name: 'Lime' },
+  { color: '#059669', name: 'Green' },
+  { color: '#0891b2', name: 'Cyan' },
+  { color: '#0ea5e9', name: 'Sky' },
+  { color: '#4f46e5', name: 'Indigo' },
+  { color: '#7c3aed', name: 'Violet' },
+  { color: '#db2777', name: 'Pink' },
 ];
 
 const FONT_SIZES = [
@@ -366,21 +376,36 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
               />
             </button>
             {showColorPicker && (
-              <div className="absolute top-9 left-0 bg-popover border border-border rounded-lg shadow-lg p-2.5 z-20">
-                <div className="grid grid-cols-4 gap-1.5">
-                  {COLORS.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => {
-                        editor.chain().focus().setColor(color).run();
-                        setShowColorPicker(false);
-                      }}
-                      className="w-7 h-7 rounded-md border border-border hover:scale-110 transition-transform"
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
-                  ))}
+              <div className="absolute top-9 left-0 bg-popover border border-border rounded-lg shadow-lg p-3 z-20 w-[220px]">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 px-0.5">Text color</div>
+                <div className="grid grid-cols-6 gap-2">
+                  {COLORS.map(({ color, name }) => {
+                    const active = (editor.getAttributes('textStyle').color || '#1c1917') === color;
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => {
+                          editor.chain().focus().setColor(color).run();
+                          setShowColorPicker(false);
+                        }}
+                        className={`relative w-8 h-8 rounded-md transition-all hover:scale-110 ${
+                          active ? 'ring-2 ring-offset-2 ring-ring ring-offset-popover' : 'ring-1 ring-border'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        title={name}
+                      />
+                    );
+                  })}
                 </div>
+                <button
+                  onClick={() => {
+                    editor.chain().focus().unsetColor().run();
+                    setShowColorPicker(false);
+                  }}
+                  className="w-full mt-2.5 h-7 rounded-md text-xs text-muted-foreground hover:bg-secondary transition-colors border border-border"
+                >
+                  Reset
+                </button>
               </div>
             )}
           </div>

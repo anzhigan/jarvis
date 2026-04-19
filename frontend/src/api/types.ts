@@ -48,6 +48,32 @@ export interface Way {
 export type TaskStatus = 'todo' | 'in_progress' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
+export type PracticeKind = 'boolean' | 'numeric';
+export type PracticeStatus = 'active' | 'paused' | 'done';
+
+export interface PracticeEntry {
+  id: string;
+  practice_id: string;
+  date: string;       // YYYY-MM-DD
+  value: number;
+  note: string;
+  created_at: string;
+}
+
+export interface Practice {
+  id: string;
+  task_id: string;
+  title: string;
+  kind: PracticeKind;
+  unit: string;
+  target_value: number | null;
+  duration_days: number | null;
+  color: string;
+  status: PracticeStatus;
+  entries: PracticeEntry[];
+  created_at: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -57,26 +83,7 @@ export interface Task {
   due_date: string | null;
   is_completed: boolean;
   order: number;
+  practices: Practice[];
   created_at: string;
   updated_at: string;
-}
-
-export interface MetricEntry {
-  id: string;
-  metric_id: string;
-  value: number;
-  date: string;
-  note: string;
-  created_at: string;
-}
-
-export interface Metric {
-  id: string;
-  name: string;
-  description: string;
-  unit: string;
-  target_value: number | null;
-  color: string;
-  entries: MetricEntry[];
-  created_at: string;
 }

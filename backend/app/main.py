@@ -5,20 +5,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import engine
-from app.models import *  # noqa: F401, F403 — import all models for Alembic
-from app.routers import auth, metrics, notes, tasks
+from app.models import *  # noqa: F401, F403
+from app.routers import auth, notes, tasks
 from app.services.s3 import ensure_bucket_exists
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     try:
         ensure_bucket_exists()
     except Exception as e:
         print(f"[S3] Warning: could not ensure bucket exists: {e}")
     yield
-    # Shutdown
     await engine.dispose()
 
 
@@ -40,7 +38,6 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(notes.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
-app.include_router(metrics.router, prefix="/api")
 
 
 @app.get("/health")
