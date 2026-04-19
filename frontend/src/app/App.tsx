@@ -60,13 +60,13 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-5 h-14 border-b border-border flex-shrink-0">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2">
+      <header className="flex items-center justify-between px-3 md:px-5 h-14 border-b border-border flex-shrink-0 gap-2">
+        <div className="flex items-center gap-3 md:gap-8 min-w-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
               <Brain size={14} className="text-primary-foreground" />
             </div>
-            <span className="font-semibold tracking-tight">Jarvis</span>
+            <span className="hidden sm:inline font-semibold tracking-tight">Jarvis</span>
           </div>
 
           <nav className="flex items-center gap-1">
@@ -77,36 +77,37 @@ export default function App() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`flex items-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium transition-all ${
+                  className={`flex items-center gap-1.5 h-9 px-2.5 md:h-8 md:px-3 rounded-md text-sm font-medium transition-all ${
                     active
                       ? 'bg-secondary text-foreground'
                       : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                   }`}
+                  title={t.label}
                 >
-                  <Icon size={14} />
-                  {t.label}
+                  <Icon size={15} />
+                  <span className="hidden md:inline">{t.label}</span>
                 </button>
               );
             })}
           </nav>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
             onClick={toggleTheme}
-            className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            className="h-9 w-9 md:h-8 md:w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             title="Toggle theme"
           >
-            {dark ? <Sun size={15} /> : <Moon size={15} />}
+            {dark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <div className="w-px h-5 bg-border mx-0.5" />
-          <span className="text-sm text-muted-foreground pr-1">{user.username}</span>
+          <div className="hidden md:block w-px h-5 bg-border mx-0.5" />
+          <span className="hidden md:inline text-sm text-muted-foreground pr-1 truncate max-w-[120px]">{user.username}</span>
           <button
             onClick={logout}
-            className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="h-9 w-9 md:h-8 md:w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             title="Sign out"
           >
-            <LogOut size={14} />
+            <LogOut size={15} />
           </button>
         </div>
       </header>

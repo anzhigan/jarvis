@@ -13,6 +13,8 @@ import {
   Search,
   Loader2,
   BookOpen,
+  Menu,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
@@ -51,6 +53,12 @@ export default function Notes() {
   const [renameValue, setRenameValue] = useState('');
 
   const [search, setSearch] = useState('');
+
+  // Mobile sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth >= 768;
+  });
 
   // Editor state — single source of truth per currently-edited note
   const [editorState, setEditorState] = useState<{ noteId: string; content: string; dirty: boolean } | null>(null);
@@ -117,6 +125,11 @@ export default function Notes() {
 
     // Same note? Nothing to do
     if (prev && prev.noteId === newNoteId) return;
+
+    // Auto-close sidebar on mobile when a new note is picked
+    if (newNoteId && typeof window !== 'undefined' && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
 
     // Switching away from a dirty note — save it first (fire-and-forget — we captured its state)
     if (prev && prev.dirty) {
@@ -355,9 +368,28 @@ export default function Notes() {
   }
 
   return (
-    <div className="size-full flex">
+    <div className="size-full flex relative">
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="md:hidden fixed inset-0 bg-black/40 z-30"
+        />
+      )}
+
       {/* ── Sidebar ──────────────────────────────────────────────────── */}
-      <aside className="w-72 border-r border-border bg-sidebar flex flex-col flex-shrink-0">
+      <aside
+        className={`
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0
+          fixed md:relative
+          inset-y-0 left-0
+          w-72 z-40
+          border-r border-border bg-sidebar
+          flex flex-col flex-shrink-0
+          transition-transform duration-200 ease-out
+        `}
+      >
         <div className="px-4 pt-4 pb-3 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -367,15 +399,23 @@ export default function Notes() {
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-8 pl-8 pr-2.5 text-xs bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                className="w-full h-9 md:h-8 pl-8 pr-2.5 text-sm md:text-xs bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
               />
             </div>
             <button
               onClick={() => { setAdding({ kind: 'way' }); setAddName(''); }}
               title="Add way"
-              className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
             >
-              <Plus size={15} />
+              <Plus size={16} />
+            </button>
+            {/* Close sidebar on mobile */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              title="Close"
+              className="md:hidden h-9 w-9 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
+            >
+              <X size={16} />
             </button>
           </div>
         </div>
@@ -541,12 +581,19 @@ export default function Notes() {
       </aside>
 
       {/* ── Editor ───────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         {currentNote && editorState?.noteId === currentNote.id ? (
           <>
-            <header className="px-8 py-4 border-b border-border bg-background/80 backdrop-blur-sm flex items-center justify-between flex-shrink-0">
-              <h2 className="text-xl font-semibold tracking-tight">{currentNote.name}</h2>
-              <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <header className="px-4 md:px-8 py-3 md:py-4 border-b border-border bg-background/80 backdrop-blur-sm flex items-center gap-3 flex-shrink-0">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="md:hidden h-9 w-9 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                title="Open sidebar"
+              >
+                <Menu size={18} />
+              </button>
+              <h2 className="text-lg md:text-xl font-semibold tracking-tight flex-1 min-w-0 truncate">{currentNote.name}</h2>
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-shrink-0">
                 {saving ? (
                   <><Loader2 size={12} className="animate-spin" /> Saving...</>
                 ) : editorState.dirty ? (
@@ -558,7 +605,7 @@ export default function Notes() {
             </header>
 
             <div className="flex-1 overflow-y-auto">
-              <div className="max-w-4xl mx-auto px-10 py-8">
+              <div className="max-w-4xl mx-auto px-4 md:px-10 py-5 md:py-8">
                 <RichTextEditor
                   key={currentNote.id}
                   noteId={currentNote.id}
@@ -574,10 +621,22 @@ export default function Notes() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
-              <p className="text-sm">Select or create a note to start</p>
+          <div className="flex-1 flex flex-col">
+            {/* Top bar on mobile when no note selected */}
+            <div className="md:hidden px-4 py-3 border-b border-border flex items-center gap-3 flex-shrink-0">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="h-9 w-9 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Menu size={18} />
+              </button>
+              <span className="text-sm text-muted-foreground">Menu</span>
+            </div>
+            <div className="flex-1 flex items-center justify-center text-muted-foreground px-4">
+              <div className="text-center">
+                <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
+                <p className="text-sm">Select or create a note to start</p>
+              </div>
             </div>
           </div>
         )}

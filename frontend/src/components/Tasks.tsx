@@ -631,7 +631,7 @@ export default function Tasks() {
 
   return (
     <div className="size-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
