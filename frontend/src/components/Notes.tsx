@@ -14,6 +14,7 @@ import {
   Search,
   Loader2,
   BookOpen,
+  Menu,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
@@ -73,6 +74,9 @@ export default function Notes() {
 
   // Mobile navigation stack
   const [mobileView, setMobileView] = useState<MobileView>({ kind: 'root' });
+
+  // Desktop sidebar visibility
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Editor state
   const [editorState, setEditorState] = useState<{ noteId: string; content: string; dirty: boolean } | null>(null);
@@ -439,6 +443,7 @@ export default function Notes() {
   // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div className="size-full flex">
+      {sidebarOpen && (
       <aside className="w-72 border-r border-border bg-sidebar flex flex-col flex-shrink-0">
         <div className="px-4 pt-4 pb-3 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
@@ -621,11 +626,19 @@ export default function Notes() {
           ))}
         </div>
       </aside>
+      )}
 
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         {currentNote && editorState?.noteId === currentNote.id ? (
           <>
             <header className="px-8 py-4 border-b border-border bg-background/80 backdrop-blur-sm flex items-center gap-3 flex-shrink-0">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              >
+                <Menu size={16} />
+              </button>
               <h2 className="text-xl font-semibold tracking-tight flex-1 min-w-0 truncate">{currentNote.name}</h2>
               <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-shrink-0">
                 {saving ? <><Loader2 size={12} className="animate-spin" /> Saving...</> : editorState.dirty ? 'Unsaved' : 'Saved'}
@@ -650,10 +663,23 @@ export default function Notes() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
-              <p className="text-sm">Select or create a note to start</p>
+          <div className="flex-1 flex flex-col">
+            {!sidebarOpen && (
+              <header className="px-8 py-4 border-b border-border flex items-center flex-shrink-0">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                  title="Show sidebar"
+                >
+                  <Menu size={16} />
+                </button>
+              </header>
+            )}
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
+                <p className="text-sm">Select or create a note to start</p>
+              </div>
             </div>
           </div>
         )}

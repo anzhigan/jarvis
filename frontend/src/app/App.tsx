@@ -107,12 +107,12 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main */}
-      <main className="flex-1 overflow-hidden">
-        {tab === 'notes' && <Notes />}
-        {tab === 'tasks' && <Tasks />}
-        {tab === 'dashboard' && <Dashboard />}
-        {tab === 'profile' && <Profile />}
+      {/* Main — keep all tabs mounted; toggle visibility. Preserves state across tab switches. */}
+      <main className="flex-1 overflow-hidden relative">
+        <div className={`absolute inset-0 ${tab === 'notes' ? '' : 'hidden'}`}><Notes /></div>
+        <div className={`absolute inset-0 ${tab === 'tasks' ? '' : 'hidden'}`}><Tasks /></div>
+        <div className={`absolute inset-0 ${tab === 'dashboard' ? '' : 'hidden'}`}><Dashboard /></div>
+        <div className={`absolute inset-0 ${tab === 'profile' ? '' : 'hidden'}`}><Profile /></div>
       </main>
 
       <Toaster richColors position="bottom-right" />
