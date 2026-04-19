@@ -8,7 +8,7 @@ Notes hierarchy:
 """
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -30,7 +30,7 @@ from app.schemas.notes import (
     WayOut,
     WayUpdate,
 )
-from app.services.s3 import delete_image, upload_image
+from app.services.s3 import delete_image, get_image_bytes, upload_image
 
 router = APIRouter(tags=["notes"])
 
@@ -289,18 +289,35 @@ async def upload_note_image(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_note_or_404(note_id, user, db)
-    s3_key, url = await upload_image(file, note_id)
+    s3_key, _ = await upload_image(file, note_id)
+
+    # Always serve images via our API so CORS and auth headers are consistent
+    # regardless of whether MinIO is exposed publicly.
+    public_url = f"/api/images/{s3_key}"
 
     img_record = NoteImage(
         note_id=note_id,
         s3_key=s3_key,
-        url=url,
+        url=public_url,
         filename=file.filename or "image",
         size_bytes=file.size or 0,
     )
     db.add(img_record)
     await db.flush()
     return img_record
+
+
+@router.get("/images/{s3_key:path}")
+async def serve_image(s3_key: str):
+    """Public endpoint that streams image bytes from S3.
+    Exposed without auth so <img src=...> tags work in the browser.
+    """
+    data, content_type = get_image_bytes(s3_key)
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=31536000"},
+    )
 
 
 @router.delete("/notes/{note_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)

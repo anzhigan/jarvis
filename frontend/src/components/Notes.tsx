@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
   FileText,
   Folder,
   FolderPlus,
@@ -13,13 +14,11 @@ import {
   Search,
   Loader2,
   BookOpen,
-  Menu,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
 import { notesApi, topicsApi, waysApi } from '../api/client';
-import type { Note, Way } from '../api/types';
+import type { Note, Topic, Way } from '../api/types';
 
 type Selection =
   | { kind: 'note'; noteId: string; parentType: 'way' | 'topic'; parentId: string }
@@ -38,6 +37,12 @@ type RenameState =
   | { kind: 'note'; id: string }
   | null;
 
+// Mobile navigation state
+type MobileView =
+  | { kind: 'root' }                      // list of ways
+  | { kind: 'way'; wayId: string }        // inside a way — shows topics + way note
+  | { kind: 'topic'; topicId: string };   // inside a topic — shows notes
+
 export default function Notes() {
   const [ways, setWays] = useState<Way[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,13 +59,20 @@ export default function Notes() {
 
   const [search, setSearch] = useState('');
 
-  // Mobile sidebar state
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.innerWidth >= 768;
-  });
+  // Detect mobile (<768px)
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
-  // Editor state — single source of truth per currently-edited note
+  // Mobile navigation stack
+  const [mobileView, setMobileView] = useState<MobileView>({ kind: 'root' });
+
+  // Editor state
   const [editorState, setEditorState] = useState<{ noteId: string; content: string; dirty: boolean } | null>(null);
   const editorStateRef = useRef(editorState);
   editorStateRef.current = editorState;
@@ -99,15 +111,13 @@ export default function Notes() {
     return null;
   }, [ways, selection]);
 
-  // ── Save helper ───────────────────────────────────────────────────────────
-  // Save the CURRENT editor state (captured before any state changes)
+  // ── Autosave ──────────────────────────────────────────────────────────────
   const saveCurrentEditor = async (): Promise<void> => {
     const st = editorStateRef.current;
     if (!st || !st.dirty) return;
     setSaving(true);
     try {
       await notesApi.update(st.noteId, { content: st.content });
-      // Only clear dirty if the state still refers to the same note+content
       if (editorStateRef.current && editorStateRef.current.noteId === st.noteId && editorStateRef.current.content === st.content) {
         setEditorState({ ...editorStateRef.current, dirty: false });
       }
@@ -118,27 +128,15 @@ export default function Notes() {
     }
   };
 
-  // ── When selection changes: save previous, then load new ──────────────────
   useEffect(() => {
     const newNoteId = currentNote?.id ?? null;
     const prev = editorStateRef.current;
-
-    // Same note? Nothing to do
     if (prev && prev.noteId === newNoteId) return;
 
-    // Auto-close sidebar on mobile when a new note is picked
-    if (newNoteId && typeof window !== 'undefined' && window.innerWidth < 768) {
-      setSidebarOpen(false);
-    }
-
-    // Switching away from a dirty note — save it first (fire-and-forget — we captured its state)
     if (prev && prev.dirty) {
-      notesApi.update(prev.noteId, { content: prev.content }).catch(() => {
-        /* ignore — best effort */
-      });
+      notesApi.update(prev.noteId, { content: prev.content }).catch(() => {});
     }
 
-    // Load new note's content
     if (currentNote) {
       setEditorState({ noteId: currentNote.id, content: currentNote.content, dirty: false });
     } else {
@@ -146,12 +144,10 @@ export default function Notes() {
     }
   }, [currentNote?.id]);
 
-  // ── Debounced autosave while typing ───────────────────────────────────────
   useEffect(() => {
     if (!editorState?.dirty) return;
-    const snapshot = editorState; // capture
+    const snapshot = editorState;
     const timer = setTimeout(() => {
-      // Make sure we're still on the same note with the same content
       const cur = editorStateRef.current;
       if (cur && cur.noteId === snapshot.noteId && cur.content === snapshot.content && cur.dirty) {
         saveCurrentEditor();
@@ -160,7 +156,6 @@ export default function Notes() {
     return () => clearTimeout(timer);
   }, [editorState?.noteId, editorState?.content, editorState?.dirty]);
 
-  // ── Flush on unmount / page unload ────────────────────────────────────────
   useEffect(() => {
     const onBeforeUnload = () => {
       const st = editorStateRef.current;
@@ -186,15 +181,11 @@ export default function Notes() {
     };
   }, []);
 
-  // ── Add ───────────────────────────────────────────────────────────────────
+  // ── CRUD handlers ─────────────────────────────────────────────────────────
   const commitAdd = async () => {
     if (!adding || !addName.trim()) { cancelAdd(); return; }
     const name = addName.trim();
-
-    // CRITICAL: Save any pending edits BEFORE creating a new note
-    // (otherwise the pending save could race with the note switch)
     await saveCurrentEditor();
-
     try {
       if (adding.kind === 'way') {
         const newWay = await waysApi.create(name, ways.length);
@@ -221,14 +212,11 @@ export default function Notes() {
       await loadWays();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to create');
-    } finally {
-      cancelAdd();
-    }
+    } finally { cancelAdd(); }
   };
 
   const cancelAdd = () => { setAdding(null); setAddName(''); };
 
-  // ── Rename ────────────────────────────────────────────────────────────────
   const startRename = (state: NonNullable<RenameState>, currentName: string) => {
     setRenaming(state); setRenameValue(currentName);
   };
@@ -248,12 +236,12 @@ export default function Notes() {
 
   const cancelRename = () => { setRenaming(null); setRenameValue(''); };
 
-  // ── Delete ────────────────────────────────────────────────────────────────
   const deleteWay = async (id: string) => {
     if (!confirm('Delete this way and everything inside?')) return;
     try {
       await waysApi.delete(id);
-      if (selection && 'parentId' in selection && selection.parentId === id) setSelection(null);
+      if (selection && selection.parentId === id) setSelection(null);
+      if (mobileView.kind === 'way' && mobileView.wayId === id) setMobileView({ kind: 'root' });
       await loadWays();
       toast.success('Way deleted');
     } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
@@ -263,7 +251,13 @@ export default function Notes() {
     if (!confirm('Delete this topic and all its notes?')) return;
     try {
       await topicsApi.delete(id);
-      if (selection && 'parentId' in selection && selection.parentId === id) setSelection(null);
+      if (selection && selection.parentId === id) setSelection(null);
+      if (mobileView.kind === 'topic' && mobileView.topicId === id) {
+        // Go back to the parent way
+        const parentWay = ways.find((w) => w.topics.some((t) => t.id === id));
+        if (parentWay) setMobileView({ kind: 'way', wayId: parentWay.id });
+        else setMobileView({ kind: 'root' });
+      }
       await loadWays();
       toast.success('Topic deleted');
     } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
@@ -280,7 +274,6 @@ export default function Notes() {
     } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
   };
 
-  // ── Toggle ────────────────────────────────────────────────────────────────
   const toggleWay = (id: string) => setExpandedWays((prev) => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -293,7 +286,7 @@ export default function Notes() {
     return next;
   });
 
-  // ── Filter by search ──────────────────────────────────────────────────────
+  // ── Filtering ─────────────────────────────────────────────────────────────
   const filteredWays = useMemo(() => {
     if (!search.trim()) return ways;
     const q = search.toLowerCase();
@@ -319,7 +312,7 @@ export default function Notes() {
       .filter(Boolean) as Way[];
   }, [ways, search]);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Shared input components ───────────────────────────────────────────────
   const InlineInput = ({ placeholder, onCommit, onCancel }: { placeholder: string; onCommit: () => void; onCancel: () => void }) => (
     <div className="px-2 py-1">
       <input
@@ -329,7 +322,7 @@ export default function Notes() {
         onChange={(e) => setAddName(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') onCommit(); if (e.key === 'Escape') onCancel(); }}
         onBlur={() => (addName.trim() ? onCommit() : onCancel())}
-        className="w-full h-8 px-2.5 text-sm bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+        className="w-full h-9 px-3 text-base md:text-sm bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
         autoFocus
       />
     </div>
@@ -343,19 +336,9 @@ export default function Notes() {
         onChange={(e) => setRenameValue(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') onCommit(); if (e.key === 'Escape') onCancel(); }}
         onBlur={() => (renameValue.trim() ? onCommit() : onCancel())}
-        className="w-full h-8 px-2.5 text-sm bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+        className="w-full h-9 px-3 text-base md:text-sm bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
         autoFocus
       />
-    </div>
-  );
-
-  const ActionBtn = ({ icon: Icon, onClick, title }: { icon: React.ElementType; onClick: (e: React.MouseEvent) => void; title: string }) => (
-    <div
-      title={title}
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      className="p-1 rounded-md hover:bg-card/80 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-    >
-      <Icon size={12} />
     </div>
   );
 
@@ -367,29 +350,81 @@ export default function Notes() {
     );
   }
 
-  return (
-    <div className="size-full flex relative">
-      {/* Mobile backdrop */}
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          className="md:hidden fixed inset-0 bg-black/40 z-30"
-        />
-      )}
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MOBILE VIEW
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (isMobile) {
+    // Mobile editor view (when a note is selected)
+    if (currentNote && editorState?.noteId === currentNote.id) {
+      return (
+        <div className="size-full flex flex-col">
+          <header className="px-3 py-3 border-b border-border bg-background/80 backdrop-blur-sm flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={async () => {
+                await saveCurrentEditor();
+                setSelection(null);
+              }}
+              className="h-10 w-10 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+              title="Back"
+            >
+              <ChevronLeft size={22} />
+            </button>
+            <h2 className="text-base font-semibold tracking-tight flex-1 min-w-0 truncate">{currentNote.name}</h2>
+            <div className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
+              {saving ? <><Loader2 size={12} className="animate-spin" /> Saving</> : editorState.dirty ? 'Unsaved' : 'Saved'}
+            </div>
+          </header>
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-4 py-4">
+              <RichTextEditor
+                key={currentNote.id}
+                noteId={currentNote.id}
+                content={editorState.content}
+                onChange={(html) => {
+                  const cur = editorStateRef.current;
+                  if (!cur || cur.noteId !== currentNote.id) return;
+                  setEditorState({ noteId: currentNote.id, content: html, dirty: html !== currentNote.content });
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
 
-      {/* ── Sidebar ──────────────────────────────────────────────────── */}
-      <aside
-        className={`
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:translate-x-0
-          fixed md:relative
-          inset-y-0 left-0
-          w-72 z-40
-          border-r border-border bg-sidebar
-          flex flex-col flex-shrink-0
-          transition-transform duration-200 ease-out
-        `}
-      >
+    // Mobile hierarchy views
+    return (
+      <MobileHierarchy
+        view={mobileView}
+        setView={setMobileView}
+        ways={filteredWays}
+        search={search}
+        setSearch={setSearch}
+        adding={adding}
+        setAdding={setAdding}
+        addName={addName}
+        commitAdd={commitAdd}
+        cancelAdd={cancelAdd}
+        renaming={renaming}
+        startRename={startRename}
+        InlineInput={InlineInput}
+        RenameInput={RenameInput}
+        onSelectNote={(noteId, parentType, parentId) =>
+          setSelection({ kind: 'note', noteId, parentType, parentId })
+        }
+        onDeleteWay={deleteWay}
+        onDeleteTopic={deleteTopic}
+        onDeleteNote={deleteNote}
+      />
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DESKTOP VIEW (original sidebar + editor)
+  // ═══════════════════════════════════════════════════════════════════════════
+  return (
+    <div className="size-full flex">
+      <aside className="w-72 border-r border-border bg-sidebar flex flex-col flex-shrink-0">
         <div className="px-4 pt-4 pb-3 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -399,23 +434,15 @@ export default function Notes() {
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-9 md:h-8 pl-8 pr-2.5 text-sm md:text-xs bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                className="w-full h-8 pl-8 pr-2.5 text-xs bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
               />
             </div>
             <button
               onClick={() => { setAdding({ kind: 'way' }); setAddName(''); }}
               title="Add way"
-              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
+              className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
             >
-              <Plus size={16} />
-            </button>
-            {/* Close sidebar on mobile */}
-            <button
-              onClick={() => setSidebarOpen(false)}
-              title="Close"
-              className="md:hidden h-9 w-9 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
-            >
-              <X size={16} />
+              <Plus size={15} />
             </button>
           </div>
         </div>
@@ -580,38 +607,22 @@ export default function Notes() {
         </div>
       </aside>
 
-      {/* ── Editor ───────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         {currentNote && editorState?.noteId === currentNote.id ? (
           <>
-            <header className="px-4 md:px-8 py-3 md:py-4 border-b border-border bg-background/80 backdrop-blur-sm flex items-center gap-3 flex-shrink-0">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="md:hidden h-9 w-9 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
-                title="Open sidebar"
-              >
-                <Menu size={18} />
-              </button>
-              <h2 className="text-lg md:text-xl font-semibold tracking-tight flex-1 min-w-0 truncate">{currentNote.name}</h2>
+            <header className="px-8 py-4 border-b border-border bg-background/80 backdrop-blur-sm flex items-center gap-3 flex-shrink-0">
+              <h2 className="text-xl font-semibold tracking-tight flex-1 min-w-0 truncate">{currentNote.name}</h2>
               <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-shrink-0">
-                {saving ? (
-                  <><Loader2 size={12} className="animate-spin" /> Saving...</>
-                ) : editorState.dirty ? (
-                  <>Unsaved</>
-                ) : (
-                  <>Saved</>
-                )}
+                {saving ? <><Loader2 size={12} className="animate-spin" /> Saving...</> : editorState.dirty ? 'Unsaved' : 'Saved'}
               </div>
             </header>
-
             <div className="flex-1 overflow-y-auto">
-              <div className="max-w-4xl mx-auto px-4 md:px-10 py-5 md:py-8">
+              <div className="max-w-4xl mx-auto px-10 py-8">
                 <RichTextEditor
                   key={currentNote.id}
                   noteId={currentNote.id}
                   content={editorState.content}
                   onChange={(html) => {
-                    // Guard: only update if this belongs to the current note
                     const cur = editorStateRef.current;
                     if (!cur || cur.noteId !== currentNote.id) return;
                     setEditorState({ noteId: currentNote.id, content: html, dirty: html !== currentNote.content });
@@ -621,26 +632,351 @@ export default function Notes() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col">
-            {/* Top bar on mobile when no note selected */}
-            <div className="md:hidden px-4 py-3 border-b border-border flex items-center gap-3 flex-shrink-0">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="h-9 w-9 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Menu size={18} />
-              </button>
-              <span className="text-sm text-muted-foreground">Menu</span>
-            </div>
-            <div className="flex-1 flex items-center justify-center text-muted-foreground px-4">
-              <div className="text-center">
-                <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
-                <p className="text-sm">Select or create a note to start</p>
-              </div>
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
+              <p className="text-sm">Select or create a note to start</p>
             </div>
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function ActionBtn({ icon: Icon, onClick, title }: { icon: React.ElementType; onClick: (e: React.MouseEvent) => void; title: string }) {
+  return (
+    <div
+      title={title}
+      onClick={(e) => { e.stopPropagation(); onClick(e); }}
+      className="p-1 rounded-md hover:bg-card/80 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+    >
+      <Icon size={12} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SWIPEABLE ROW — slides left to reveal edit/delete actions
+// ═══════════════════════════════════════════════════════════════════════════
+function SwipeRow({
+  children,
+  onEdit,
+  onDelete,
+}: {
+  children: React.ReactNode;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [offset, setOffset] = useState(0);
+  const startX = useRef(0);
+  const startOffset = useRef(0);
+  const dragging = useRef(false);
+
+  const ACTIONS_WIDTH = 140; // two 70px buttons
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX;
+    startOffset.current = offset;
+    dragging.current = true;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!dragging.current) return;
+    const dx = e.touches[0].clientX - startX.current;
+    const next = Math.max(-ACTIONS_WIDTH, Math.min(0, startOffset.current + dx));
+    setOffset(next);
+  };
+  const onTouchEnd = () => {
+    dragging.current = false;
+    // Snap
+    if (offset < -ACTIONS_WIDTH / 2) setOffset(-ACTIONS_WIDTH);
+    else setOffset(0);
+  };
+
+  const close = () => setOffset(0);
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* Action buttons (behind) */}
+      <div className="absolute right-0 top-0 bottom-0 flex">
+        <button
+          onClick={(e) => { e.stopPropagation(); close(); onEdit(); }}
+          className="w-[70px] bg-chart-3 text-white flex items-center justify-center font-medium text-sm active:opacity-80"
+        >
+          <Pencil size={18} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); close(); onDelete(); }}
+          className="w-[70px] bg-destructive text-white flex items-center justify-center font-medium text-sm active:opacity-80"
+        >
+          <Trash2 size={18} />
+        </button>
+      </div>
+      {/* Foreground content */}
+      <div
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onClick={() => offset !== 0 && close()}
+        style={{ transform: `translateX(${offset}px)`, transition: dragging.current ? 'none' : 'transform 0.2s ease-out' }}
+        className="relative bg-background"
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MOBILE HIERARCHY
+// ═══════════════════════════════════════════════════════════════════════════
+function MobileHierarchy({
+  view,
+  setView,
+  ways,
+  search,
+  setSearch,
+  adding,
+  setAdding,
+  addName,
+  commitAdd,
+  cancelAdd,
+  renaming,
+  startRename,
+  InlineInput,
+  RenameInput,
+  onSelectNote,
+  onDeleteWay,
+  onDeleteTopic,
+  onDeleteNote,
+}: {
+  view: MobileView;
+  setView: (v: MobileView) => void;
+  ways: Way[];
+  search: string;
+  setSearch: (s: string) => void;
+  adding: AddingState;
+  setAdding: (a: AddingState) => void;
+  addName: string;
+  commitAdd: () => void;
+  cancelAdd: () => void;
+  renaming: RenameState;
+  startRename: (state: NonNullable<RenameState>, name: string) => void;
+  InlineInput: React.FC<{ placeholder: string; onCommit: () => void; onCancel: () => void }>;
+  RenameInput: React.FC<{ onCommit: () => void; onCancel: () => void }>;
+  onSelectNote: (noteId: string, parentType: 'way' | 'topic', parentId: string) => void;
+  onDeleteWay: (id: string) => void;
+  onDeleteTopic: (id: string) => void;
+  onDeleteNote: (id: string) => void;
+}) {
+  const currentWay = view.kind === 'way' ? ways.find((w) => w.id === view.wayId) : null;
+  const currentTopic = view.kind === 'topic'
+    ? ways.flatMap((w) => w.topics).find((t) => t.id === view.topicId)
+    : null;
+  const parentWayOfTopic = view.kind === 'topic'
+    ? ways.find((w) => w.topics.some((t) => t.id === view.topicId))
+    : null;
+
+  const title =
+    view.kind === 'root' ? 'Notes'
+    : view.kind === 'way' ? (currentWay?.name ?? '...')
+    : (currentTopic?.name ?? '...');
+
+  const goBack = () => {
+    if (view.kind === 'way') setView({ kind: 'root' });
+    else if (view.kind === 'topic' && parentWayOfTopic) setView({ kind: 'way', wayId: parentWayOfTopic.id });
+    else setView({ kind: 'root' });
+  };
+
+  const onAddClick = () => {
+    if (view.kind === 'root') {
+      setAdding({ kind: 'way' });
+    } else if (view.kind === 'way' && currentWay) {
+      // At way level, add a topic (most common need)
+      setAdding({ kind: 'topic', wayId: currentWay.id });
+    } else if (view.kind === 'topic' && currentTopic && parentWayOfTopic) {
+      setAdding({ kind: 'topic-note', wayId: parentWayOfTopic.id, topicId: currentTopic.id });
+    }
+  };
+
+  return (
+    <div className="size-full flex flex-col bg-background">
+      {/* Top bar */}
+      <header className="px-3 py-3 border-b border-border flex items-center gap-2 flex-shrink-0">
+        {view.kind !== 'root' && (
+          <button
+            onClick={goBack}
+            className="h-10 w-10 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+            title="Back"
+          >
+            <ChevronLeft size={22} />
+          </button>
+        )}
+        <h2 className="text-lg font-semibold tracking-tight flex-1 min-w-0 truncate">{title}</h2>
+        <button
+          onClick={onAddClick}
+          className="h-10 w-10 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+          title="Add"
+        >
+          <Plus size={20} />
+        </button>
+      </header>
+
+      {/* Search (only at root) */}
+      {view.kind === 'root' && (
+        <div className="px-3 py-2 border-b border-border flex-shrink-0">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-10 pl-10 pr-3 text-base bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Add-way inline */}
+      {view.kind === 'root' && adding?.kind === 'way' && (
+        <div className="border-b border-border">
+          <InlineInput placeholder="Way name" onCommit={commitAdd} onCancel={cancelAdd} />
+        </div>
+      )}
+      {view.kind === 'way' && currentWay && adding?.kind === 'topic' && adding.wayId === currentWay.id && (
+        <div className="border-b border-border">
+          <InlineInput placeholder="Topic name" onCommit={commitAdd} onCancel={cancelAdd} />
+        </div>
+      )}
+      {view.kind === 'topic' && currentTopic && adding?.kind === 'topic-note' && adding.topicId === currentTopic.id && (
+        <div className="border-b border-border">
+          <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
+        </div>
+      )}
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto">
+        {view.kind === 'root' && (
+          <>
+            {ways.length === 0 && !adding && (
+              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+                No ways yet. Tap + to create one.
+              </div>
+            )}
+            {ways.map((way) => (
+              <SwipeRow
+                key={way.id}
+                onEdit={() => startRename({ kind: 'way', id: way.id }, way.name)}
+                onDelete={() => onDeleteWay(way.id)}
+              >
+                {renaming?.kind === 'way' && renaming.id === way.id ? (
+                  <RenameInput onCommit={() => {}} onCancel={() => {}} />
+                ) : (
+                  <button
+                    onClick={() => setView({ kind: 'way', wayId: way.id })}
+                    className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                  >
+                    <BookOpen size={20} className="text-primary flex-shrink-0" />
+                    <span className="flex-1 text-base font-medium truncate">{way.name}</span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      {way.topics.length + (way.note ? 1 : 0)}
+                    </span>
+                    <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                  </button>
+                )}
+              </SwipeRow>
+            ))}
+          </>
+        )}
+
+        {view.kind === 'way' && currentWay && (
+          <>
+            {/* Way's own note */}
+            {currentWay.note ? (
+              <SwipeRow
+                onEdit={() => startRename({ kind: 'note', id: currentWay.note!.id }, currentWay.note!.name)}
+                onDelete={() => onDeleteNote(currentWay.note!.id)}
+              >
+                <button
+                  onClick={() => onSelectNote(currentWay.note!.id, 'way', currentWay.id)}
+                  className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                >
+                  <FileText size={18} className="text-muted-foreground flex-shrink-0" />
+                  <span className="flex-1 text-base truncate">{currentWay.note.name}</span>
+                  <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                </button>
+              </SwipeRow>
+            ) : (
+              adding?.kind !== 'way-inline-note' && (
+                <button
+                  onClick={() => setAdding({ kind: 'way-inline-note', wayId: currentWay.id })}
+                  className="w-full flex items-center gap-3 px-4 py-3 border-b border-border text-muted-foreground hover:bg-secondary/40 active:bg-secondary/60 text-left text-sm"
+                >
+                  <FilePlus size={18} />
+                  Add main note
+                </button>
+              )
+            )}
+            {adding?.kind === 'way-inline-note' && adding.wayId === currentWay.id && (
+              <div className="border-b border-border">
+                <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
+              </div>
+            )}
+
+            {/* Topics */}
+            {currentWay.topics.map((topic) => (
+              <SwipeRow
+                key={topic.id}
+                onEdit={() => startRename({ kind: 'topic', id: topic.id }, topic.name)}
+                onDelete={() => onDeleteTopic(topic.id)}
+              >
+                <button
+                  onClick={() => setView({ kind: 'topic', topicId: topic.id })}
+                  className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                >
+                  <Folder size={18} className="text-muted-foreground flex-shrink-0" />
+                  <span className="flex-1 text-base truncate">{topic.name}</span>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">{topic.notes.length}</span>
+                  <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                </button>
+              </SwipeRow>
+            ))}
+
+            {currentWay.topics.length === 0 && !currentWay.note && !adding && (
+              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+                Empty. Tap + to add a topic.
+              </div>
+            )}
+          </>
+        )}
+
+        {view.kind === 'topic' && currentTopic && (
+          <>
+            {currentTopic.notes.map((note) => (
+              <SwipeRow
+                key={note.id}
+                onEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
+                onDelete={() => onDeleteNote(note.id)}
+              >
+                <button
+                  onClick={() => onSelectNote(note.id, 'topic', currentTopic.id)}
+                  className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                >
+                  <FileText size={18} className="text-muted-foreground flex-shrink-0" />
+                  <span className="flex-1 text-base truncate">{note.name}</span>
+                  <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                </button>
+              </SwipeRow>
+            ))}
+            {currentTopic.notes.length === 0 && !adding && (
+              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+                No notes yet. Tap + to create one.
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

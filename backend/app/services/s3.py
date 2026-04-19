@@ -85,3 +85,13 @@ def delete_image(s3_key: str) -> None:
         client.delete_object(Bucket=settings.S3_BUCKET_NAME, Key=s3_key)
     except ClientError:
         pass  # best-effort
+
+
+def get_image_bytes(s3_key: str) -> tuple[bytes, str]:
+    """Fetch image bytes and content-type from S3."""
+    client = _get_client()
+    try:
+        resp = client.get_object(Bucket=settings.S3_BUCKET_NAME, Key=s3_key)
+        return resp["Body"].read(), resp.get("ContentType", "application/octet-stream")
+    except ClientError:
+        raise HTTPException(404, "Image not found")

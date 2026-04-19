@@ -2,3 +2,17 @@
 @import './tailwind.css';
 @import './theme.css';
 @import './editor.css';
+
+/* Prevent iOS auto-zoom when focusing inputs with font-size < 16px */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Remove tap highlight on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}

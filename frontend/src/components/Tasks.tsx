@@ -656,7 +656,7 @@ export default function Tasks() {
               exit={{ opacity: 0, height: 0, marginBottom: 0 }}
               className="overflow-hidden"
             >
-              <div className="p-5 bg-card border border-border rounded-lg">
+              <div className="p-4 md:p-5 bg-card border border-border rounded-lg">
                 <input
                   type="text"
                   placeholder="What needs to be done?"
@@ -666,11 +666,11 @@ export default function Tasks() {
                   className="w-full h-10 px-3 mb-3 rounded-lg border border-border bg-input-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
                   autoFocus
                 />
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap gap-2">
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                    className="h-9 px-3 rounded-lg border border-border bg-input-background text-sm cursor-pointer"
+                    className="h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm cursor-pointer flex-1 md:flex-none min-w-0"
                   >
                     <option value="low">Low priority</option>
                     <option value="medium">Medium priority</option>
@@ -680,19 +680,20 @@ export default function Tasks() {
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="h-9 px-3 rounded-lg border border-border bg-input-background text-sm"
+                    className="h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm flex-1 md:flex-none min-w-0"
                   />
-                  <div className="flex-1" />
+                  <div className="w-full md:hidden" />
+                  <div className="hidden md:block flex-1" />
                   <button
                     onClick={() => setShowForm(false)}
-                    className="h-9 px-3.5 text-sm text-muted-foreground hover:text-foreground"
+                    className="h-10 md:h-9 px-3.5 text-sm text-muted-foreground hover:text-foreground rounded-lg"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={create}
                     disabled={creating || !title.trim()}
-                    className="h-9 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5"
+                    className="h-10 md:h-9 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
                   >
                     {creating && <Loader2 size={13} className="animate-spin" />}
                     Create
