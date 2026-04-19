@@ -13,7 +13,15 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserOut
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    LoginRequest,
+    RefreshRequest,
+    RegisterRequest,
+    TokenResponse,
+    UpdateProfileRequest,
+    UserOut,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -76,3 +84,53 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 async def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_profile(
+    body: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    data = body.model_dump(exclude_none=True)
+    if not data:
+        return current_user
+
+    # Check for conflicts on username/email if they are being changed
+    if "username" in data and data["username"] != current_user.username:
+        exists = await db.execute(
+            select(User).where(User.username == data["username"], User.id != current_user.id)
+        )
+        if exists.scalar_one_or_none():
+            raise HTTPException(status.HTTP_409_CONFLICT, "Username already taken")
+    if "email" in data and data["email"] != current_user.email:
+        exists = await db.execute(
+            select(User).where(User.email == data["email"], User.id != current_user.id)
+        )
+        if exists.scalar_one_or_none():
+            raise HTTPException(status.HTTP_409_CONFLICT, "Email already taken")
+
+    for field, value in data.items():
+        setattr(current_user, field, value)
+    await db.flush()
+    return current_user
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Current password is incorrect")
+    current_user.hashed_password = hash_password(body.new_password)
+    await db.flush()
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await db.delete(current_user)

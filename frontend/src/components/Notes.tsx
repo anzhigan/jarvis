@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
+import SwipeRow from './SwipeRow';
 import { notesApi, topicsApi, waysApi } from '../api/client';
 import type { Note, Topic, Way } from '../api/types';
 
@@ -657,76 +658,6 @@ function ActionBtn({ icon: Icon, onClick, title }: { icon: React.ElementType; on
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SWIPEABLE ROW — slides left to reveal edit/delete actions
-// ═══════════════════════════════════════════════════════════════════════════
-function SwipeRow({
-  children,
-  onEdit,
-  onDelete,
-}: {
-  children: React.ReactNode;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const [offset, setOffset] = useState(0);
-  const startX = useRef(0);
-  const startOffset = useRef(0);
-  const dragging = useRef(false);
-
-  const ACTIONS_WIDTH = 140; // two 70px buttons
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    startX.current = e.touches[0].clientX;
-    startOffset.current = offset;
-    dragging.current = true;
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!dragging.current) return;
-    const dx = e.touches[0].clientX - startX.current;
-    const next = Math.max(-ACTIONS_WIDTH, Math.min(0, startOffset.current + dx));
-    setOffset(next);
-  };
-  const onTouchEnd = () => {
-    dragging.current = false;
-    // Snap
-    if (offset < -ACTIONS_WIDTH / 2) setOffset(-ACTIONS_WIDTH);
-    else setOffset(0);
-  };
-
-  const close = () => setOffset(0);
-
-  return (
-    <div className="relative overflow-hidden">
-      {/* Action buttons (behind) */}
-      <div className="absolute right-0 top-0 bottom-0 flex">
-        <button
-          onClick={(e) => { e.stopPropagation(); close(); onEdit(); }}
-          className="w-[70px] bg-chart-3 text-white flex items-center justify-center font-medium text-sm active:opacity-80"
-        >
-          <Pencil size={18} />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); close(); onDelete(); }}
-          className="w-[70px] bg-destructive text-white flex items-center justify-center font-medium text-sm active:opacity-80"
-        >
-          <Trash2 size={18} />
-        </button>
-      </div>
-      {/* Foreground content */}
-      <div
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onClick={() => offset !== 0 && close()}
-        style={{ transform: `translateX(${offset}px)`, transition: dragging.current ? 'none' : 'transform 0.2s ease-out' }}
-        className="relative bg-background"
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // MOBILE HIERARCHY
 // ═══════════════════════════════════════════════════════════════════════════

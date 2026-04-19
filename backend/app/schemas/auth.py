@@ -31,3 +31,13 @@ class UserOut(BaseModel):
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+class UpdateProfileRequest(BaseModel):
+    username: str | None = Field(default=None, min_length=3, max_length=100)
+    email: EmailStr | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)

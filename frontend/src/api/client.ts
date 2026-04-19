@@ -93,6 +93,14 @@ export const authApi = {
     localStorage.removeItem('refresh_token');
   },
   me: () => request<User>('/auth/me'),
+  updateProfile: (data: { username?: string; email?: string }) =>
+    request<User>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
+  changePassword: (current_password: string, new_password: string) =>
+    request<void>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password, new_password }),
+    }),
+  deleteAccount: () => request<void>('/auth/me', { method: 'DELETE' }),
 };
 
 // ── Ways / Topics / Notes (unchanged) ─────────────────────────────────────────

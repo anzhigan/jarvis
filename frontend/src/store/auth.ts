@@ -10,12 +10,15 @@ interface AuthState {
   register: (email: string, username: string, password: string) => Promise<void>;
   logout: () => void;
   init: () => Promise<void>;
+  setUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: false,
   isReady: false,
+
+  setUser: (user) => set({ user }),
 
   init: async () => {
     if (!localStorage.getItem('access_token')) {

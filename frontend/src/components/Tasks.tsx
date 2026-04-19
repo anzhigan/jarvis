@@ -16,9 +16,11 @@ import {
   TrendingUp,
   Pause,
   Play,
+  Pencil,
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import SwipeRow from './SwipeRow';
 import { practicesApi, tasksApi } from '../api/client';
 import type {
   Practice,
@@ -294,6 +296,7 @@ function TaskCard({
   onDragStart,
   onDragEnd,
   isDragging,
+  isMobile,
 }: {
   task: Task;
   onUpdate: (data: Partial<Task>) => Promise<void>;
@@ -302,9 +305,17 @@ function TaskCard({
   onDragStart: () => void;
   onDragEnd: () => void;
   isDragging: boolean;
+  isMobile: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  // Edit fields
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editPriority, setEditPriority] = useState<TaskPriority>(task.priority);
+  const [editDueDate, setEditDueDate] = useState(task.due_date ?? '');
+  const [editSaving, setEditSaving] = useState(false);
 
   // New practice form
   const [pTitle, setPTitle] = useState('');
@@ -319,6 +330,30 @@ function TaskCard({
     task.status !== 'done' &&
     task.due_date &&
     new Date(task.due_date) < new Date(new Date().setHours(0, 0, 0, 0));
+
+  const startEdit = () => {
+    setEditTitle(task.title);
+    setEditPriority(task.priority);
+    setEditDueDate(task.due_date ?? '');
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editTitle.trim()) return;
+    setEditSaving(true);
+    try {
+      await onUpdate({
+        title: editTitle.trim(),
+        priority: editPriority,
+        due_date: editDueDate || null,
+      });
+      setEditing(false);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to save');
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   const createPractice = async () => {
     if (!pTitle.trim()) return;
@@ -347,190 +382,288 @@ function TaskCard({
     }
   };
 
+  const cardBody = (
+    <>
+      {editing ? (
+        // Edit mode
+        <div className="p-4 space-y-2.5">
+          <input
+            type="text"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditing(false); }}
+            className="w-full h-10 px-3 text-base md:text-sm rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+            autoFocus
+          />
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={editPriority}
+              onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
+              className="h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm cursor-pointer flex-1 min-w-0"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+            <input
+              type="date"
+              value={editDueDate}
+              onChange={(e) => setEditDueDate(e.target.value)}
+              className="h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm flex-1 min-w-0"
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-1">
+            <button
+              onClick={() => setEditing(false)}
+              className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground rounded-md"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveEdit}
+              disabled={editSaving || !editTitle.trim()}
+              className="h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {editSaving && <Loader2 size={12} className="animate-spin" />}
+              Save
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="p-4 md:p-3.5">
+            <div className="flex items-start justify-between mb-2 gap-2">
+              <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] md:text-[10px] font-medium border ${PRIORITY_CLS[task.priority]}`}>
+                {task.priority === 'high' && <AlertCircle size={11} />}
+                {task.priority === 'medium' && <ArrowUp size={11} />}
+                {task.priority === 'low' && <ArrowRight size={11} />}
+                {task.priority.toUpperCase()}
+              </div>
+              {!isMobile && (
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); startEdit(); }}
+                    className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"
+                    title="Edit"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                    className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                    title="Delete"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <h4 className="text-base md:text-sm font-medium mb-2.5 leading-snug">{task.title}</h4>
+
+            <div className="flex items-center justify-between">
+              <div className={`flex items-center gap-1 text-sm md:text-xs ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {task.due_date && (
+                  <>
+                    <Calendar size={13} />
+                    {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </>
+                )}
+              </div>
+              <select
+                value={task.status}
+                onChange={(e) => onUpdate({ status: e.target.value as TaskStatus })}
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm md:text-xs bg-transparent border-0 focus:outline-none text-muted-foreground cursor-pointer hover:text-foreground"
+              >
+                {STATUSES.map((s) => (
+                  <option key={s.key} value={s.key}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Practices toggle */}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="w-full px-4 md:px-3.5 py-2.5 md:py-2 border-t border-border flex items-center gap-1.5 text-sm md:text-xs text-muted-foreground hover:bg-secondary/50 transition-colors"
+          >
+            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <TrendingUp size={13} />
+            <span>Practices</span>
+            {task.practices.length > 0 && (
+              <span className="ml-auto px-1.5 py-0.5 rounded-full bg-muted text-[11px] md:text-[10px] font-medium">
+                {task.practices.length}
+              </span>
+            )}
+          </button>
+
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="p-3 bg-secondary/20 space-y-2">
+                  {task.practices.map((p) => (
+                    <SwipeRow
+                      key={p.id}
+                      enabled={isMobile}
+                      onDelete={async () => {
+                        if (!confirm('Delete this practice?')) return;
+                        await practicesApi.delete(p.id);
+                        await onReload();
+                      }}
+                    >
+                      <PracticeWidget
+                        practice={p}
+                        onUpdate={async (data) => {
+                          await practicesApi.update(p.id, data as any);
+                          await onReload();
+                        }}
+                        onDelete={async () => {
+                          if (!confirm('Delete this practice?')) return;
+                          await practicesApi.delete(p.id);
+                          await onReload();
+                        }}
+                        onReload={onReload}
+                      />
+                    </SwipeRow>
+                  ))}
+
+                  {!adding ? (
+                    <button
+                      onClick={() => setAdding(true)}
+                      className="w-full h-10 md:h-8 flex items-center justify-center gap-1.5 text-sm md:text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors"
+                    >
+                      <Plus size={13} />
+                      Add practice
+                    </button>
+                  ) : (
+                    <div className="p-2.5 bg-card border border-border rounded-md space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Practice title (e.g. Don't smoke)"
+                        value={pTitle}
+                        onChange={(e) => setPTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && createPractice()}
+                        autoFocus
+                        className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                      />
+                      <div className="flex flex-wrap gap-1.5">
+                        <select
+                          value={pKind}
+                          onChange={(e) => setPKind(e.target.value as PracticeKind)}
+                          className="h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+                        >
+                          <option value="boolean">Yes / No</option>
+                          <option value="numeric">Numeric</option>
+                        </select>
+                        {pKind === 'numeric' && (
+                          <input
+                            type="text"
+                            placeholder="Unit"
+                            value={pUnit}
+                            onChange={(e) => setPUnit(e.target.value)}
+                            className="w-20 h-9 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                          />
+                        )}
+                        <input
+                          type="number"
+                          placeholder="Days"
+                          value={pDuration}
+                          onChange={(e) => setPDuration(e.target.value)}
+                          className="w-16 h-9 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                        />
+                        {pKind === 'numeric' && (
+                          <input
+                            type="number"
+                            placeholder="Target"
+                            value={pTarget}
+                            onChange={(e) => setPTarget(e.target.value)}
+                            className="w-20 h-9 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex gap-1">
+                          {COLORS.map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => setPColor(c)}
+                              className={`w-6 h-6 rounded transition-all ${pColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+                              style={{ backgroundColor: c }}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => setAdding(false)}
+                            className="h-8 px-2 text-sm text-muted-foreground hover:text-foreground"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={createPractice}
+                            disabled={pSaving || !pTitle.trim()}
+                            className="h-8 px-3 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50"
+                          >
+                            {pSaving ? <Loader2 size={11} className="animate-spin" /> : 'Create'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
+    </>
+  );
+
+  const cardClasses = `group bg-card border border-border rounded-lg hover:border-border-strong hover:shadow-sm transition-all overflow-hidden ${
+    isDragging ? 'opacity-40' : ''
+  } ${isMobile ? '' : 'cursor-grab active:cursor-grabbing'}`;
+
+  // On desktop — native HTML5 drag. On mobile — wrap in SwipeRow.
+  if (isMobile) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+      >
+        <SwipeRow
+          enabled={!editing}
+          onEdit={startEdit}
+          onDelete={onDelete}
+        >
+          <div className={cardClasses}>{cardBody}</div>
+        </SwipeRow>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      draggable
+      draggable={!editing}
       onDragStart={(e) => {
         (e as unknown as DragEvent).dataTransfer?.setData('text/plain', task.id);
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`group bg-card border border-border rounded-lg hover:border-border-strong hover:shadow-sm transition-all overflow-hidden cursor-grab active:cursor-grabbing ${
-        isDragging ? 'opacity-40' : ''
-      }`}
+      className={cardClasses}
     >
-      <div className="p-3.5">
-        <div className="flex items-start justify-between mb-2">
-          <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${PRIORITY_CLS[task.priority]}`}>
-            {task.priority === 'high' && <AlertCircle size={11} />}
-            {task.priority === 'medium' && <ArrowUp size={11} />}
-            {task.priority === 'low' && <ArrowRight size={11} />}
-            {task.priority.toUpperCase()}
-          </div>
-          <button
-            onClick={onDelete}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
-          >
-            <X size={13} />
-          </button>
-        </div>
-
-        <h4 className="text-sm font-medium mb-2.5 leading-snug">{task.title}</h4>
-
-        <div className="flex items-center justify-between">
-          <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
-            {task.due_date && (
-              <>
-                <Calendar size={11} />
-                {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-              </>
-            )}
-          </div>
-          <select
-            value={task.status}
-            onChange={(e) => onUpdate({ status: e.target.value as TaskStatus })}
-            onClick={(e) => e.stopPropagation()}
-            className="text-xs bg-transparent border-0 focus:outline-none text-muted-foreground cursor-pointer hover:text-foreground"
-          >
-            {STATUSES.map((s) => (
-              <option key={s.key} value={s.key}>{s.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Practices toggle */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full px-3.5 py-2 border-t border-border flex items-center gap-1.5 text-xs text-muted-foreground hover:bg-secondary/50 transition-colors"
-      >
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        <TrendingUp size={11} />
-        <span>Practices</span>
-        {task.practices.length > 0 && (
-          <span className="ml-auto px-1.5 py-0.5 rounded-full bg-muted text-[10px] font-medium">
-            {task.practices.length}
-          </span>
-        )}
-      </button>
-
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="p-3 bg-secondary/20 space-y-2">
-              {task.practices.map((p) => (
-                <PracticeWidget
-                  key={p.id}
-                  practice={p}
-                  onUpdate={async (data) => {
-                    await practicesApi.update(p.id, data as any);
-                    await onReload();
-                  }}
-                  onDelete={async () => {
-                    if (!confirm('Delete this practice?')) return;
-                    await practicesApi.delete(p.id);
-                    await onReload();
-                  }}
-                  onReload={onReload}
-                />
-              ))}
-
-              {!adding ? (
-                <button
-                  onClick={() => setAdding(true)}
-                  className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors"
-                >
-                  <Plus size={11} />
-                  Add practice
-                </button>
-              ) : (
-                <div className="p-2.5 bg-card border border-border rounded-md space-y-2">
-                  <input
-                    type="text"
-                    placeholder="Practice title (e.g. Don't smoke)"
-                    value={pTitle}
-                    onChange={(e) => setPTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && createPractice()}
-                    autoFocus
-                    className="w-full h-8 px-2.5 text-xs bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                  />
-                  <div className="flex gap-1.5">
-                    <select
-                      value={pKind}
-                      onChange={(e) => setPKind(e.target.value as PracticeKind)}
-                      className="h-8 px-2 text-xs bg-input-background border border-border rounded-md"
-                    >
-                      <option value="boolean">Yes / No</option>
-                      <option value="numeric">Numeric</option>
-                    </select>
-                    {pKind === 'numeric' && (
-                      <input
-                        type="text"
-                        placeholder="Unit"
-                        value={pUnit}
-                        onChange={(e) => setPUnit(e.target.value)}
-                        className="w-20 h-8 px-2 text-xs bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                      />
-                    )}
-                    <input
-                      type="number"
-                      placeholder="Days"
-                      value={pDuration}
-                      onChange={(e) => setPDuration(e.target.value)}
-                      className="w-16 h-8 px-2 text-xs bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                    />
-                    {pKind === 'numeric' && (
-                      <input
-                        type="number"
-                        placeholder="Target"
-                        value={pTarget}
-                        onChange={(e) => setPTarget(e.target.value)}
-                        className="w-20 h-8 px-2 text-xs bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                      />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-1">
-                      {COLORS.map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => setPColor(c)}
-                          className={`w-5 h-5 rounded transition-all ${pColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => setAdding(false)}
-                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={createPractice}
-                        disabled={pSaving || !pTitle.trim()}
-                        className="h-7 px-3 bg-primary text-primary-foreground rounded text-xs font-medium disabled:opacity-50"
-                      >
-                        {pSaving ? <Loader2 size={10} className="animate-spin" /> : 'Create'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {cardBody}
     </motion.div>
   );
 }
@@ -549,6 +682,14 @@ export default function Tasks() {
   // Drag state
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const load = async () => {
     try {
@@ -755,6 +896,7 @@ export default function Tasks() {
                           setDragOverStatus(null);
                         }}
                         isDragging={draggingId === task.id}
+                        isMobile={isMobile}
                       />
                     ))}
                   </AnimatePresence>
