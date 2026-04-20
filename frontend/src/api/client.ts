@@ -102,6 +102,12 @@ export const authApi = {
       body: JSON.stringify({ current_password, new_password }),
     }),
   deleteAccount: () => request<void>('/auth/me', { method: 'DELETE' }),
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<User>('/auth/me/avatar', { method: 'POST', body: form });
+  },
+  deleteAvatar: () => request<User>('/auth/me/avatar', { method: 'DELETE' }),
 };
 
 // ── Ways / Topics / Notes (unchanged) ─────────────────────────────────────────
@@ -158,6 +164,10 @@ export const tasksApi = {
   update: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; due_date?: string | null; is_completed?: boolean; order?: number }) =>
     request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
+  attachTag: (taskId: string, tagId: string) =>
+    request<void>(`/tasks/${taskId}/tags/${tagId}`, { method: 'POST' }),
+  detachTag: (taskId: string, tagId: string) =>
+    request<void>(`/tasks/${taskId}/tags/${tagId}`, { method: 'DELETE' }),
 };
 
 // ── Practices ─────────────────────────────────────────────────────────────────

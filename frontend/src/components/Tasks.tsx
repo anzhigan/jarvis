@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SwipeRow from './SwipeRow';
+import TagSelector from './TagSelector';
 import { practicesApi, tasksApi } from '../api/client';
 import type {
   Practice,
@@ -459,7 +460,17 @@ function TaskCard({
               )}
             </div>
 
-            <h4 className="text-base md:text-sm font-medium mb-2.5 leading-snug">{task.title}</h4>
+            <h4 className="text-base md:text-sm font-medium mb-2 leading-snug">{task.title}</h4>
+
+            <div className="mb-2.5">
+              <TagSelector
+                targetId={task.id}
+                targetKind="task"
+                tags={task.tags ?? []}
+                onChange={onReload}
+                compact
+              />
+            </div>
 
             <div className="flex items-center justify-between">
               <div className={`flex items-center gap-1 text-sm md:text-xs ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>

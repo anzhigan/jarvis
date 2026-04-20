@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Jarvis API",
+    title="Jarvnote API",
     description="Personal knowledge base, tasks, and metrics",
     version="1.0.0",
     lifespan=lifespan,

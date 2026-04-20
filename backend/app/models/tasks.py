@@ -1,11 +1,20 @@
 import uuid
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+
+# ── Many-to-many: task_tags ─────────────────────────────────────────────────
+task_tags = Table(
+    "task_tags",
+    Base.metadata,
+    Column("task_id", UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", UUID(as_uuid=True), ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Task(Base):
@@ -30,6 +39,9 @@ class Task(Base):
     user: Mapped["User"] = relationship(back_populates="tasks")  # noqa: F821
     practices: Mapped[list["Practice"]] = relationship(
         back_populates="task", cascade="all, delete-orphan", order_by="Practice.created_at"
+    )
+    tags: Mapped[list["Tag"]] = relationship(  # noqa: F821
+        secondary=task_tags, back_populates="tasks", order_by="Tag.name"
     )
 
 

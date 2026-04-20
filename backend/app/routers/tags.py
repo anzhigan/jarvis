@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.notes import Note, Tag, Topic, Way
+from app.models.tasks import Task
 from app.models.user import User
 from app.schemas.notes import TagCreate, TagOut, TagUpdate
 
@@ -162,4 +163,46 @@ async def detach_tag(
     tag = await _get_tag_or_404(tag_id, user, db)
     if tag in note.tags:
         note.tags.remove(tag)
+        await db.flush()
+
+
+# ── Task-tag attach/detach ────────────────────────────────────────────────────
+
+async def _get_task_for_user_or_404(task_id: uuid.UUID, user: User, db: AsyncSession) -> Task:
+    result = await db.execute(
+        select(Task)
+        .where(Task.id == task_id, Task.user_id == user.id)
+        .options(selectinload(Task.tags))
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+    return task
+
+
+@router.post("/tasks/{task_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def attach_task_tag(
+    task_id: uuid.UUID,
+    tag_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    task = await _get_task_for_user_or_404(task_id, user, db)
+    tag = await _get_tag_or_404(tag_id, user, db)
+    if tag not in task.tags:
+        task.tags.append(tag)
+        await db.flush()
+
+
+@router.delete("/tasks/{task_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def detach_task_tag(
+    task_id: uuid.UUID,
+    tag_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    task = await _get_task_for_user_or_404(task_id, user, db)
+    tag = await _get_tag_or_404(tag_id, user, db)
+    if tag in task.tags:
+        task.tags.remove(tag)
         await db.flush()

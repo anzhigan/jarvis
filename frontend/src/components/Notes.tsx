@@ -4,8 +4,6 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronLeft,
-  FileText,
-  Folder,
   FolderPlus,
   FilePlus,
   Plus,
@@ -14,7 +12,7 @@ import {
   Search,
   Loader2,
   BookOpen,
-  Menu,
+  PanelLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
@@ -53,7 +51,18 @@ export default function Notes() {
 
   const [expandedWays, setExpandedWays] = useState<Set<string>>(new Set());
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
-  const [selection, setSelection] = useState<Selection>(null);
+  const [selection, setSelection] = useState<Selection>(() => {
+    try {
+      const raw = localStorage.getItem('notes:selection');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+
+  // Persist selection to localStorage
+  useEffect(() => {
+    if (selection) localStorage.setItem('notes:selection', JSON.stringify(selection));
+    else localStorage.removeItem('notes:selection');
+  }, [selection]);
 
   const [adding, setAdding] = useState<AddingState>(null);
   const [addName, setAddName] = useState('');
@@ -90,6 +99,20 @@ export default function Notes() {
       setWays(data);
       if (data.length > 0 && expandedWays.size === 0) {
         setExpandedWays(new Set([data[0].id]));
+      }
+      // If we have a restored selection, expand its parent way/topic
+      if (selection) {
+        for (const w of data) {
+          for (const t of w.topics) {
+            if (t.id === selection.parentId || t.notes.some((n) => n.id === selection.noteId)) {
+              setExpandedWays((p) => new Set([...p, w.id]));
+              setExpandedTopics((p) => new Set([...p, t.id]));
+            }
+          }
+          if (w.id === selection.parentId || w.note?.id === selection.noteId) {
+            setExpandedWays((p) => new Set([...p, w.id]));
+          }
+        }
       }
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to load knowledge base');
@@ -392,7 +415,7 @@ export default function Notes() {
           </header>
           <div className="flex-1 overflow-y-auto">
             <div className="px-4 py-3 border-b border-border">
-              <TagSelector noteId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+              <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
             </div>
             <div className="px-4 py-4">
               <RichTextEditor
@@ -540,7 +563,6 @@ export default function Notes() {
                             : 'hover:bg-sidebar-accent'
                         }`}
                       >
-                        <FileText size={13} className="flex-shrink-0 opacity-80" />
                         <span className="flex-1 text-sm truncate">{way.note.name}</span>
                         <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: way.note!.id }, way.note!.name)} />
                         <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(way.note!.id)} />
@@ -561,7 +583,6 @@ export default function Notes() {
                             ) : (
                               <ChevronRight size={12} className="text-muted-foreground flex-shrink-0" />
                             )}
-                            <Folder size={12} className="text-muted-foreground flex-shrink-0" />
                             <span className="flex-1 text-sm truncate">{topic.name}</span>
                             <ActionBtn
                               icon={Plus}
@@ -598,7 +619,6 @@ export default function Notes() {
                                           : 'hover:bg-sidebar-accent'
                                       }`}
                                     >
-                                      <FileText size={12} className="flex-shrink-0 opacity-80" />
                                       <span className="flex-1 text-sm truncate">{note.name}</span>
                                       <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: note.id }, note.name)} />
                                       <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(note.id)} />
@@ -637,7 +657,7 @@ export default function Notes() {
                 className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
                 title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
               >
-                <Menu size={16} />
+                <PanelLeft size={16} />
               </button>
               <h2 className="text-xl font-semibold tracking-tight flex-1 min-w-0 truncate">{currentNote.name}</h2>
               <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-shrink-0">
@@ -646,7 +666,7 @@ export default function Notes() {
             </header>
             <div className="flex-1 overflow-y-auto">
               <div className="max-w-4xl mx-auto px-10 pt-6 pb-3">
-                <TagSelector noteId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+                <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
               </div>
               <div className="max-w-4xl mx-auto px-10 pb-8">
                 <RichTextEditor
@@ -671,7 +691,7 @@ export default function Notes() {
                   className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
                   title="Show sidebar"
                 >
-                  <Menu size={16} />
+                  <PanelLeft size={16} />
                 </button>
               </header>
             )}
@@ -876,7 +896,6 @@ function MobileHierarchy({
                   onClick={() => onSelectNote(currentWay.note!.id, 'way', currentWay.id)}
                   className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
                 >
-                  <FileText size={18} className="text-muted-foreground flex-shrink-0" />
                   <span className="flex-1 text-base truncate">{currentWay.note.name}</span>
                   <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
                 </button>
@@ -909,7 +928,6 @@ function MobileHierarchy({
                   onClick={() => setView({ kind: 'topic', topicId: topic.id })}
                   className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
                 >
-                  <Folder size={18} className="text-muted-foreground flex-shrink-0" />
                   <span className="flex-1 text-base truncate">{topic.name}</span>
                   <span className="text-xs text-muted-foreground flex-shrink-0">{topic.notes.length}</span>
                   <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
@@ -937,7 +955,6 @@ function MobileHierarchy({
                   onClick={() => onSelectNote(note.id, 'topic', currentTopic.id)}
                   className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
                 >
-                  <FileText size={18} className="text-muted-foreground flex-shrink-0" />
                   <span className="flex-1 text-base truncate">{note.name}</span>
                   <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
                 </button>

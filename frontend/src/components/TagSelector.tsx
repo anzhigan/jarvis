@@ -1,31 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { Tag as TagIcon, Plus, X, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { notesApi, tagsApi } from '../api/client';
+import { notesApi, tagsApi, tasksApi } from '../api/client';
 import type { Tag } from '../api/types';
 
 const PALETTE = [
-  '#4f46e5', // indigo
-  '#e11d48', // red
-  '#ea580c', // orange
-  '#d97706', // amber
-  '#65a30d', // lime
-  '#059669', // green
-  '#0891b2', // cyan
-  '#0ea5e9', // sky
-  '#7c3aed', // violet
-  '#db2777', // pink
-  '#78716c', // stone
-  '#1c1917', // black
+  '#4f46e5', '#e11d48', '#ea580c', '#d97706',
+  '#65a30d', '#059669', '#0891b2', '#0ea5e9',
+  '#7c3aed', '#db2777', '#78716c', '#1c1917',
 ];
 
 interface Props {
-  noteId: string;
-  tags: Tag[];                   // Currently attached tags
-  onChange: () => void | Promise<void>;  // Called after attach/detach/create
+  targetId: string;
+  targetKind?: 'note' | 'task';          // Default: note
+  tags: Tag[];
+  onChange: () => void | Promise<void>;
+  compact?: boolean;                      // Smaller chips
 }
 
-export default function TagSelector({ noteId, tags, onChange }: Props) {
+export default function TagSelector({ targetId, targetKind = 'note', tags, onChange, compact }: Props) {
   const [open, setOpen] = useState(false);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
@@ -34,7 +27,9 @@ export default function TagSelector({ noteId, tags, onChange }: Props) {
   const [creating, setCreating] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Load all tags lazily
+  const attachApi = targetKind === 'task' ? tasksApi.attachTag : notesApi.attachTag;
+  const detachApi = targetKind === 'task' ? tasksApi.detachTag : notesApi.detachTag;
+
   const loadAllTags = async () => {
     setLoading(true);
     try {
@@ -47,11 +42,8 @@ export default function TagSelector({ noteId, tags, onChange }: Props) {
     }
   };
 
-  useEffect(() => {
-    if (open) loadAllTags();
-  }, [open]);
+  useEffect(() => { if (open) loadAllTags(); }, [open]);
 
-  // Close on click outside
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -67,11 +59,8 @@ export default function TagSelector({ noteId, tags, onChange }: Props) {
 
   const toggleTag = async (tag: Tag) => {
     try {
-      if (attachedIds.has(tag.id)) {
-        await notesApi.detachTag(noteId, tag.id);
-      } else {
-        await notesApi.attachTag(noteId, tag.id);
-      }
+      if (attachedIds.has(tag.id)) await detachApi(targetId, tag.id);
+      else await attachApi(targetId, tag.id);
       await onChange();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to update tag');
@@ -84,7 +73,7 @@ export default function TagSelector({ noteId, tags, onChange }: Props) {
     setCreating(true);
     try {
       const created = await tagsApi.create(name, newColor);
-      await notesApi.attachTag(noteId, created.id);
+      await attachApi(targetId, created.id);
       setNewName('');
       setNewColor(PALETTE[0]);
       await loadAllTags();
@@ -98,45 +87,50 @@ export default function TagSelector({ noteId, tags, onChange }: Props) {
 
   const removeAttached = async (tag: Tag) => {
     try {
-      await notesApi.detachTag(noteId, tag.id);
+      await detachApi(targetId, tag.id);
       await onChange();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to remove tag');
     }
   };
 
+  const chipHeight = compact ? 'h-6' : 'h-7';
+  const chipText = compact ? 'text-[10px]' : 'text-xs';
+  const iconSize = compact ? 9 : 11;
+
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {tags.map((tag) => (
         <span
           key={tag.id}
-          className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full text-xs font-medium"
+          className={`inline-flex items-center gap-1 ${chipHeight} pl-2 pr-1 rounded-full ${chipText} font-medium`}
           style={{ backgroundColor: `${tag.color}20`, color: tag.color, border: `1px solid ${tag.color}40` }}
         >
           {tag.name}
           <button
-            onClick={() => removeAttached(tag)}
-            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-current/10 transition-colors"
+            onClick={(e) => { e.stopPropagation(); removeAttached(tag); }}
+            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-current/10"
             title="Remove tag"
           >
-            <X size={11} />
+            <X size={iconSize} />
           </button>
         </span>
       ))}
 
       <div className="relative">
         <button
-          onClick={() => setOpen(!open)}
-          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-medium border border-dashed border-border hover:border-border-strong hover:bg-secondary/40 text-muted-foreground transition-colors"
+          onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+          className={`inline-flex items-center gap-1 ${chipHeight} px-2 rounded-full ${chipText} font-medium border border-dashed border-border hover:border-border-strong hover:bg-secondary/40 text-muted-foreground transition-colors`}
           title="Add tag"
         >
-          <TagIcon size={11} />
-          {tags.length === 0 ? 'Add tag' : '+'}
+          <TagIcon size={iconSize} />
+          {tags.length === 0 ? 'Tag' : '+'}
         </button>
 
         {open && (
           <div
             ref={panelRef}
+            onClick={(e) => e.stopPropagation()}
             className="absolute left-0 top-9 z-30 w-72 bg-popover border border-border rounded-lg shadow-lg p-3"
           >
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
@@ -147,9 +141,7 @@ export default function TagSelector({ noteId, tags, onChange }: Props) {
                 <Loader2 size={16} className="animate-spin text-muted-foreground" />
               </div>
             ) : allTags.length === 0 ? (
-              <div className="text-xs text-muted-foreground py-2">
-                No tags yet. Create one below.
-              </div>
+              <div className="text-xs text-muted-foreground py-2">No tags yet. Create one below.</div>
             ) : (
               <div className="flex flex-wrap gap-1.5 mb-3 max-h-48 overflow-y-auto">
                 {allTags.map((tag) => {
@@ -205,7 +197,6 @@ export default function TagSelector({ noteId, tags, onChange }: Props) {
                       newColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''
                     }`}
                     style={{ backgroundColor: c }}
-                    title={c}
                   />
                 ))}
               </div>

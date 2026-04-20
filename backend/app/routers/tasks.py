@@ -33,6 +33,7 @@ VALID_PRACTICE_STATUSES = {"active", "paused", "done"}
 def _task_opts():
     return (
         selectinload(Task.practices).selectinload(Practice.entries),
+        selectinload(Task.tags),
     )
 
 
@@ -90,7 +91,7 @@ async def create_task(
     task = Task(user_id=user.id, **body.model_dump())
     db.add(task)
     await db.flush()
-    await db.refresh(task, ["practices"])
+    await db.refresh(task, ["practices", "tags"])
     return task
 
 

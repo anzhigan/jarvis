@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
-import { Loader2, Moon, Sun, BookOpen, CheckSquare, BarChart3, User } from 'lucide-react';
+import { Loader2, Moon, Sun, BookOpen, CheckSquare, BarChart3, User, PanelLeft } from 'lucide-react';
 import Notes from '../components/Notes';
 import Tasks from '../components/Tasks';
 import Dashboard from '../components/Metrics';
@@ -8,22 +8,30 @@ import Profile from '../components/Profile';
 import AuthPage from '../components/AuthPage';
 import { useAuthStore } from '../store/auth';
 
-type Tab = 'notes' | 'tasks' | 'dashboard' | 'profile';
+type Tab = 'notes' | 'tasks' | 'analysis' | 'profile';
 
 const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
-  { key: 'notes',     label: 'Notes',     icon: BookOpen },
-  { key: 'tasks',     label: 'Tasks',     icon: CheckSquare },
-  { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+  { key: 'notes',    label: 'Notes',    icon: BookOpen },
+  { key: 'tasks',    label: 'Tasks',    icon: CheckSquare },
+  { key: 'analysis', label: 'Analysis', icon: BarChart3 },
 ];
+
+export { PanelLeft }; // Re-export for other components to use same icon
 
 export default function App() {
   const { user, isReady, init } = useAuthStore();
-  const [tab, setTab] = useState<Tab>('notes');
+  const [tab, setTab] = useState<Tab>(() => {
+    const saved = localStorage.getItem('jarvnote:tab');
+    if (saved === 'notes' || saved === 'tasks' || saved === 'analysis' || saved === 'profile') return saved;
+    return 'notes';
+  });
   const [dark, setDark] = useState(false);
 
+  useEffect(() => { init(); }, []);
+
   useEffect(() => {
-    init();
-  }, []);
+    localStorage.setItem('jarvnote:tab', tab);
+  }, [tab]);
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');
@@ -60,9 +68,12 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="flex items-center px-2 md:px-4 h-14 border-b border-border flex-shrink-0 gap-1">
-        {/* Left: main tabs */}
-        <nav className="flex items-center gap-0.5 md:gap-1 flex-1 min-w-0">
+      <header className="flex items-center px-3 md:px-4 h-14 border-b border-border flex-shrink-0 gap-2">
+        {/* Left spacer */}
+        <div className="flex-1 min-w-0"></div>
+
+        {/* Center: main tabs */}
+        <nav className="flex items-center gap-0.5 flex-shrink-0">
           {TABS.map((t) => {
             const active = tab === t.key;
             const Icon = t.icon;
@@ -70,14 +81,14 @@ export default function App() {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-2 h-10 px-3 md:px-4 rounded-md text-sm md:text-base font-medium transition-all ${
+                className={`flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium transition-all ${
                   active
                     ? 'bg-secondary text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                 }`}
                 title={t.label}
               >
-                <Icon size={18} />
+                <Icon size={16} />
                 <span className="hidden sm:inline">{t.label}</span>
               </button>
             );
@@ -85,33 +96,46 @@ export default function App() {
         </nav>
 
         {/* Right: theme + profile */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
           <button
             onClick={toggleTheme}
-            className="h-10 w-10 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             title="Toggle theme"
           >
-            {dark ? <Sun size={18} /> : <Moon size={18} />}
+            {dark ? <Sun size={17} /> : <Moon size={17} />}
           </button>
           <button
             onClick={() => setTab('profile')}
-            className={`h-10 w-10 rounded-md flex items-center justify-center transition-colors ${
+            className={`h-9 flex items-center gap-2 pr-3 pl-1 rounded-full transition-colors ${
               tab === 'profile'
                 ? 'bg-secondary text-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
             }`}
             title="Account"
           >
-            <User size={18} />
+            {user.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt=""
+                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
+                <User size={14} />
+              </div>
+            )}
+            <span className="hidden sm:inline text-sm font-medium truncate max-w-[120px]">
+              {user.username}
+            </span>
           </button>
         </div>
       </header>
 
-      {/* Main — keep all tabs mounted; toggle visibility. Preserves state across tab switches. */}
+      {/* Main — keep all tabs mounted; toggle visibility. */}
       <main className="flex-1 overflow-hidden relative">
         <div className={`absolute inset-0 ${tab === 'notes' ? '' : 'hidden'}`}><Notes /></div>
         <div className={`absolute inset-0 ${tab === 'tasks' ? '' : 'hidden'}`}><Tasks /></div>
-        <div className={`absolute inset-0 ${tab === 'dashboard' ? '' : 'hidden'}`}><Dashboard /></div>
+        <div className={`absolute inset-0 ${tab === 'analysis' ? '' : 'hidden'}`}><Dashboard /></div>
         <div className={`absolute inset-0 ${tab === 'profile' ? '' : 'hidden'}`}><Profile /></div>
       </main>
 

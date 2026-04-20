@@ -123,3 +123,6 @@ class Tag(Base):
 
     user: Mapped["User"] = relationship(back_populates="tags")
     notes: Mapped[list["Note"]] = relationship(secondary=note_tags, back_populates="tags")
+    tasks: Mapped[list["Task"]] = relationship(  # noqa: F821
+        secondary="task_tags", back_populates="tags"
+    )

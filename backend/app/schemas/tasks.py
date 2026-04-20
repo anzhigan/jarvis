@@ -3,6 +3,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
+from app.schemas.notes import TagOut
+
 
 # ── Practice Entry ────────────────────────────────────────────────────────────
 
@@ -91,6 +93,7 @@ class TaskOut(BaseModel):
     is_completed: bool
     order: int
     practices: list[PracticeOut] = []
+    tags: list[TagOut] = []
     created_at: datetime
     updated_at: datetime
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +22,7 @@ from app.schemas.auth import (
     UpdateProfileRequest,
     UserOut,
 )
+from app.services.s3 import upload_avatar
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -134,3 +135,25 @@ async def delete_account(
     db: AsyncSession = Depends(get_db),
 ):
     await db.delete(current_user)
+
+
+@router.post("/me/avatar", response_model=UserOut)
+async def upload_user_avatar(
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    s3_key = await upload_avatar(file, current_user.id)
+    current_user.avatar_url = f"/api/images/{s3_key}"
+    await db.flush()
+    return current_user
+
+
+@router.delete("/me/avatar", response_model=UserOut)
+async def delete_user_avatar(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_user.avatar_url = None
+    await db.flush()
+    return current_user

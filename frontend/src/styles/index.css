@@ -3,6 +3,14 @@
 @import './theme.css';
 @import './editor.css';
 
+:root {
+  --note-font-size: 18px;
+}
+
+.ProseMirror {
+  font-size: var(--note-font-size);
+}
+
 /* Prevent iOS auto-zoom when focusing inputs with font-size < 16px */
 @media (max-width: 767px) {
   input,

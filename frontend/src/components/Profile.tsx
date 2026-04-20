@@ -1,8 +1,16 @@
-import { useState } from 'react';
-import { Loader2, Save, LogOut, Trash2, AlertCircle, User as UserIcon, Mail, Lock } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Loader2, Save, LogOut, Trash2, AlertCircle, User as UserIcon, Lock, Camera, Type, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { authApi } from '../api/client';
 import { useAuthStore } from '../store/auth';
+
+const FONT_SIZES = [14, 16, 18, 20, 22, 24, 28];
+
+function getSavedFontSize(): number {
+  const raw = localStorage.getItem('note-font-size');
+  const n = raw ? parseInt(raw, 10) : 18;
+  return FONT_SIZES.includes(n) ? n : 18;
+}
 
 export default function Profile() {
   const { user, logout, setUser } = useAuthStore();
@@ -17,6 +25,16 @@ export default function Profile() {
   const [savingPassword, setSavingPassword] = useState(false);
 
   const [deleting, setDeleting] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const [fontSize, setFontSize] = useState<number>(getSavedFontSize);
+
+  const applyFontSize = (n: number) => {
+    setFontSize(n);
+    localStorage.setItem('note-font-size', String(n));
+    document.documentElement.style.setProperty('--editor-font-size', `${n}px`);
+  };
 
   if (!user) return null;
 
@@ -40,18 +58,9 @@ export default function Profile() {
   };
 
   const changePassword = async () => {
-    if (!currentPassword || !newPassword) {
-      toast.error('Fill in all password fields');
-      return;
-    }
-    if (newPassword.length < 8) {
-      toast.error('New password must be at least 8 characters');
-      return;
-    }
-    if (newPassword !== repeatPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
+    if (!currentPassword || !newPassword) { toast.error('Fill in all password fields'); return; }
+    if (newPassword.length < 8) { toast.error('New password must be at least 8 characters'); return; }
+    if (newPassword !== repeatPassword) { toast.error('Passwords do not match'); return; }
     setSavingPassword(true);
     try {
       await authApi.changePassword(currentPassword, newPassword);
@@ -79,15 +88,137 @@ export default function Profile() {
     }
   };
 
+  const uploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image too large (max 5MB)'); return; }
+    setUploadingAvatar(true);
+    try {
+      const updated = await authApi.uploadAvatar(file);
+      setUser(updated);
+      toast.success('Avatar updated');
+    } catch (e2: any) {
+      toast.error(e2?.detail ?? 'Failed to upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
+  const deleteAvatar = async () => {
+    if (!user.avatar_url) return;
+    try {
+      const updated = await authApi.deleteAvatar();
+      setUser(updated);
+      toast.success('Avatar removed');
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to remove avatar');
+    }
+  };
+
   return (
     <div className="size-full overflow-y-auto">
       <div className="max-w-2xl mx-auto px-4 md:px-6 py-6 md:py-8">
         <div className="mb-6 md:mb-8">
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Account</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your profile settings
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Manage your profile settings</p>
         </div>
+
+        {/* Avatar */}
+        <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt="" className="w-20 h-20 rounded-full object-cover" />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-primary/15 text-primary flex items-center justify-center">
+                  <UserIcon size={32} />
+                </div>
+              )}
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-md hover:scale-105 transition-transform"
+                title="Change avatar"
+              >
+                {uploadingAvatar ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+              </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                onChange={uploadAvatar}
+                className="hidden"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-semibold truncate">{user.username}</h2>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              {user.avatar_url && (
+                <button
+                  onClick={deleteAvatar}
+                  className="mt-2 text-xs text-muted-foreground hover:text-destructive"
+                >
+                  Remove avatar
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Font size */}
+        <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-chart-2/10 text-chart-2 flex items-center justify-center flex-shrink-0">
+              <Type size={18} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">Note font size</h2>
+              <p className="text-xs text-muted-foreground">Text size inside the note editor</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              onClick={() => {
+                const idx = FONT_SIZES.indexOf(fontSize);
+                if (idx > 0) applyFontSize(FONT_SIZES[idx - 1]);
+              }}
+              disabled={FONT_SIZES.indexOf(fontSize) <= 0}
+              className="h-10 w-10 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-30"
+            >
+              <Minus size={16} />
+            </button>
+            <div className="flex-1 text-center">
+              <div className="text-3xl font-semibold">{fontSize}px</div>
+            </div>
+            <button
+              onClick={() => {
+                const idx = FONT_SIZES.indexOf(fontSize);
+                if (idx < FONT_SIZES.length - 1) applyFontSize(FONT_SIZES[idx + 1]);
+              }}
+              disabled={FONT_SIZES.indexOf(fontSize) >= FONT_SIZES.length - 1}
+              className="h-10 w-10 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-30"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+          <div className="flex gap-1 justify-center">
+            {FONT_SIZES.map((n) => (
+              <button
+                key={n}
+                onClick={() => applyFontSize(n)}
+                className={`h-8 px-2.5 text-xs rounded-md transition-colors ${
+                  n === fontSize ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-muted-foreground'
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 p-3 bg-muted/40 rounded-lg" style={{ fontSize: `${fontSize}px`, lineHeight: 1.7 }}>
+            The quick brown fox jumps over the lazy dog.
+          </div>
+        </section>
 
         {/* Profile info */}
         <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">

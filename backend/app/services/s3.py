@@ -44,6 +44,17 @@ def ensure_bucket_exists() -> None:
 
 async def upload_image(file: UploadFile, note_id: uuid.UUID) -> tuple[str, str]:
     """Upload image to S3. Returns (s3_key, public_url)."""
+    s3_key = await _upload_validated(file, f"notes/{note_id}")
+    url = f"{settings.S3_PUBLIC_URL}/{s3_key}"
+    return s3_key, url
+
+
+async def upload_avatar(file: UploadFile, user_id: uuid.UUID) -> str:
+    """Upload avatar to S3. Returns s3_key."""
+    return await _upload_validated(file, f"avatars/{user_id}")
+
+
+async def _upload_validated(file: UploadFile, prefix: str) -> str:
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(400, f"Unsupported image type: {file.content_type}")
 
@@ -51,7 +62,6 @@ async def upload_image(file: UploadFile, note_id: uuid.UUID) -> tuple[str, str]:
     if len(raw) > MAX_SIZE_MB * 1024 * 1024:
         raise HTTPException(400, f"Image too large (max {MAX_SIZE_MB}MB)")
 
-    # Validate it's actually an image and strip EXIF
     try:
         img = Image.open(io.BytesIO(raw))
         img.verify()
@@ -65,7 +75,7 @@ async def upload_image(file: UploadFile, note_id: uuid.UUID) -> tuple[str, str]:
         raise HTTPException(400, "Invalid image file")
 
     ext = file.filename.rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "jpg"
-    key = f"notes/{note_id}/{uuid.uuid4()}.{ext}"
+    key = f"{prefix}/{uuid.uuid4()}.{ext}"
 
     client = _get_client()
     client.put_object(
@@ -74,9 +84,7 @@ async def upload_image(file: UploadFile, note_id: uuid.UUID) -> tuple[str, str]:
         Body=clean_bytes,
         ContentType=file.content_type,
     )
-
-    url = f"{settings.S3_PUBLIC_URL}/{key}"
-    return key, url
+    return key
 
 
 def delete_image(s3_key: str) -> None:

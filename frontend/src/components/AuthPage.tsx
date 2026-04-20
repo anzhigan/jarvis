@@ -35,7 +35,7 @@ export default function AuthPage() {
           <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
             <Brain size={18} className="text-primary-foreground" />
           </div>
-          <span className="text-xl font-semibold tracking-tight">Jarvis</span>
+          <span className="text-xl font-semibold tracking-tight">Jarvnote</span>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-7 shadow-sm">

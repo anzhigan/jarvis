@@ -3,6 +3,7 @@ export interface User {
   email: string;
   username: string;
   is_active: boolean;
+  avatar_url: string | null;
 }
 
 export interface NoteImage {
@@ -92,6 +93,7 @@ export interface Task {
   is_completed: boolean;
   order: number;
   practices: Practice[];
+  tags: Tag[];
   created_at: string;
   updated_at: string;
 }

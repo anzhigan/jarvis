@@ -4,7 +4,7 @@
   min-height: 400px;
   color: var(--foreground);
   line-height: 1.7;
-  font-size: 0.95rem;
+  font-size: var(--editor-font-size, 18px);
 }
 
 .ProseMirror p {
