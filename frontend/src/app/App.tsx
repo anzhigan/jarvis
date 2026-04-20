@@ -69,8 +69,33 @@ export default function App() {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
       <header className="flex items-center px-3 md:px-4 h-14 border-b border-border flex-shrink-0 gap-2">
-        {/* Left spacer */}
-        <div className="flex-1 min-w-0"></div>
+        {/* Left: profile pill */}
+        <div className="flex-1 min-w-0 flex items-center">
+          <button
+            onClick={() => setTab('profile')}
+            className={`h-9 flex items-center gap-2 pr-3 pl-1 rounded-full transition-colors ${
+              tab === 'profile'
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+            }`}
+            title="Account"
+          >
+            {user.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt=""
+                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
+                <User size={14} />
+              </div>
+            )}
+            <span className="hidden sm:inline text-sm font-medium truncate max-w-[100px] md:max-w-[140px]">
+              {user.username}
+            </span>
+          </button>
+        </div>
 
         {/* Center: main tabs */}
         <nav className="flex items-center gap-0.5 flex-shrink-0">
@@ -95,38 +120,14 @@ export default function App() {
           })}
         </nav>
 
-        {/* Right: theme + profile */}
-        <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+        {/* Right: theme */}
+        <div className="flex-1 min-w-0 flex items-center justify-end">
           <button
             onClick={toggleTheme}
             className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             title="Toggle theme"
           >
             {dark ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
-          <button
-            onClick={() => setTab('profile')}
-            className={`h-9 flex items-center gap-2 pr-3 pl-1 rounded-full transition-colors ${
-              tab === 'profile'
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-            }`}
-            title="Account"
-          >
-            {user.avatar_url ? (
-              <img
-                src={user.avatar_url}
-                alt=""
-                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
-                <User size={14} />
-              </div>
-            )}
-            <span className="hidden sm:inline text-sm font-medium truncate max-w-[120px]">
-              {user.username}
-            </span>
           </button>
         </div>
       </header>

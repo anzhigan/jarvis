@@ -3,13 +3,15 @@ import { Loader2, Save, LogOut, Trash2, AlertCircle, User as UserIcon, Lock, Cam
 import { toast } from 'sonner';
 import { authApi } from '../api/client';
 import { useAuthStore } from '../store/auth';
+import AvatarCropper from './AvatarCropper';
 
-const FONT_SIZES = [14, 16, 18, 20, 22, 24, 28];
+const FONT_SIZES = [14, 15, 16, 17, 18, 20, 22, 24];
+const DEFAULT_FONT_SIZE = 15;
 
 function getSavedFontSize(): number {
   const raw = localStorage.getItem('note-font-size');
-  const n = raw ? parseInt(raw, 10) : 18;
-  return FONT_SIZES.includes(n) ? n : 18;
+  const n = raw ? parseInt(raw, 10) : DEFAULT_FONT_SIZE;
+  return FONT_SIZES.includes(n) ? n : DEFAULT_FONT_SIZE;
 }
 
 export default function Profile() {
@@ -27,14 +29,25 @@ export default function Profile() {
   const [deleting, setDeleting] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   const [fontSize, setFontSize] = useState<number>(getSavedFontSize);
+  const [pendingFontSize, setPendingFontSize] = useState<number>(getSavedFontSize);
+  const [savingFontSize, setSavingFontSize] = useState(false);
 
-  const applyFontSize = (n: number) => {
-    setFontSize(n);
-    localStorage.setItem('note-font-size', String(n));
-    document.documentElement.style.setProperty('--editor-font-size', `${n}px`);
+  const saveFontSize = () => {
+    setSavingFontSize(true);
+    try {
+      localStorage.setItem('note-font-size', String(pendingFontSize));
+      document.documentElement.style.setProperty('--editor-font-size', `${pendingFontSize}px`);
+      setFontSize(pendingFontSize);
+      toast.success('Font size saved');
+    } finally {
+      setSavingFontSize(false);
+    }
   };
+
+  const fontSizeDirty = pendingFontSize !== fontSize;
 
   if (!user) return null;
 
@@ -88,21 +101,28 @@ export default function Profile() {
     }
   };
 
-  const uploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { toast.error('Please select an image'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image too large (max 5MB)'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Image too large (max 10MB)'); return; }
+    // Don't upload yet — open crop modal first
+    setCropFile(file);
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+  };
+
+  const handleCropConfirm = async (blob: Blob) => {
     setUploadingAvatar(true);
     try {
-      const updated = await authApi.uploadAvatar(file);
+      const croppedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+      const updated = await authApi.uploadAvatar(croppedFile);
       setUser(updated);
       toast.success('Avatar updated');
-    } catch (e2: any) {
-      toast.error(e2?.detail ?? 'Failed to upload avatar');
+      setCropFile(null);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to upload avatar');
     } finally {
       setUploadingAvatar(false);
-      if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
   };
 
@@ -118,6 +138,14 @@ export default function Profile() {
   };
 
   return (
+    <>
+      {cropFile && (
+        <AvatarCropper
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onConfirm={handleCropConfirm}
+        />
+      )}
     <div className="size-full overflow-y-auto">
       <div className="max-w-2xl mx-auto px-4 md:px-6 py-6 md:py-8">
         <div className="mb-6 md:mb-8">
@@ -180,43 +208,66 @@ export default function Profile() {
           <div className="flex items-center gap-3 mb-3">
             <button
               onClick={() => {
-                const idx = FONT_SIZES.indexOf(fontSize);
-                if (idx > 0) applyFontSize(FONT_SIZES[idx - 1]);
+                const idx = FONT_SIZES.indexOf(pendingFontSize);
+                if (idx > 0) setPendingFontSize(FONT_SIZES[idx - 1]);
               }}
-              disabled={FONT_SIZES.indexOf(fontSize) <= 0}
+              disabled={FONT_SIZES.indexOf(pendingFontSize) <= 0}
               className="h-10 w-10 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-30"
             >
               <Minus size={16} />
             </button>
             <div className="flex-1 text-center">
-              <div className="text-3xl font-semibold">{fontSize}px</div>
+              <div className="text-3xl font-semibold">{pendingFontSize}px</div>
+              {fontSizeDirty && (
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  Unsaved (current: {fontSize}px)
+                </div>
+              )}
             </div>
             <button
               onClick={() => {
-                const idx = FONT_SIZES.indexOf(fontSize);
-                if (idx < FONT_SIZES.length - 1) applyFontSize(FONT_SIZES[idx + 1]);
+                const idx = FONT_SIZES.indexOf(pendingFontSize);
+                if (idx < FONT_SIZES.length - 1) setPendingFontSize(FONT_SIZES[idx + 1]);
               }}
-              disabled={FONT_SIZES.indexOf(fontSize) >= FONT_SIZES.length - 1}
+              disabled={FONT_SIZES.indexOf(pendingFontSize) >= FONT_SIZES.length - 1}
               className="h-10 w-10 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-30"
             >
               <Plus size={16} />
             </button>
           </div>
-          <div className="flex gap-1 justify-center">
+          <div className="flex gap-1 justify-center flex-wrap mb-3">
             {FONT_SIZES.map((n) => (
               <button
                 key={n}
-                onClick={() => applyFontSize(n)}
+                onClick={() => setPendingFontSize(n)}
                 className={`h-8 px-2.5 text-xs rounded-md transition-colors ${
-                  n === fontSize ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-muted-foreground'
+                  n === pendingFontSize ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-muted-foreground'
                 }`}
               >
                 {n}
               </button>
             ))}
           </div>
-          <div className="mt-4 p-3 bg-muted/40 rounded-lg" style={{ fontSize: `${fontSize}px`, lineHeight: 1.7 }}>
+          <div className="p-3 bg-muted/40 rounded-lg mb-3" style={{ fontSize: `${pendingFontSize}px`, lineHeight: 1.7 }}>
             The quick brown fox jumps over the lazy dog.
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            {fontSizeDirty && (
+              <button
+                onClick={() => setPendingFontSize(fontSize)}
+                className="h-10 px-4 text-sm text-muted-foreground hover:text-foreground rounded-md"
+              >
+                Revert
+              </button>
+            )}
+            <button
+              onClick={saveFontSize}
+              disabled={!fontSizeDirty || savingFontSize}
+              className="h-10 px-5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-40 flex items-center gap-2"
+            >
+              {savingFontSize ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              Save
+            </button>
           </div>
         </section>
 
@@ -360,5 +411,6 @@ export default function Profile() {
         </section>
       </div>
     </div>
+    </>
   );
 }
