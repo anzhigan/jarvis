@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/auth';
 import AvatarCropper from './AvatarCropper';
 
 const FONT_SIZES = [14, 15, 16, 17, 18, 20, 22, 24];
-const DEFAULT_FONT_SIZE = 15;
+const DEFAULT_FONT_SIZE = 16;
 
 function getSavedFontSize(): number {
   const raw = localStorage.getItem('note-font-size');

@@ -40,6 +40,13 @@ class NoteUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     content: str | None = None
     order: int | None = None
+    pinned: bool | None = None
+
+
+class NoteReparent(BaseModel):
+    # Exactly one of these should be provided (to move the note to new parent)
+    way_id: uuid.UUID | None = None
+    topic_id: uuid.UUID | None = None
 
 
 class NoteOut(BaseModel):
@@ -47,6 +54,7 @@ class NoteOut(BaseModel):
     name: str
     content: str
     order: int
+    pinned: bool = False
     way_id: uuid.UUID | None
     topic_id: uuid.UUID | None
     topic_inline_id: uuid.UUID | None
@@ -99,7 +107,7 @@ class WayOut(BaseModel):
     name: str
     order: int
     topics: list[TopicOut] = []
-    note: NoteOut | None = None
+    notes: list[NoteOut] = []
     created_at: datetime
     updated_at: datetime
 

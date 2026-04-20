@@ -25,6 +25,7 @@ export interface Note {
   name: string;
   content: string;
   order: number;
+  pinned: boolean;
   way_id: string | null;
   topic_id: string | null;
   topic_inline_id: string | null;
@@ -49,7 +50,7 @@ export interface Way {
   name: string;
   order: number;
   topics: Topic[];
-  note: Note | null;
+  notes: Note[];
   created_at: string;
   updated_at: string;
 }

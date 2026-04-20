@@ -35,11 +35,11 @@ class Way(Base):
     topics: Mapped[list["Topic"]] = relationship(
         back_populates="way", cascade="all, delete-orphan", order_by="Topic.order"
     )
-    note: Mapped["Note | None"] = relationship(
+    notes: Mapped[list["Note"]] = relationship(
         "Note",
         primaryjoin="and_(Way.id==Note.way_id, Note.way_id.isnot(None))",
         cascade="all, delete-orphan",
-        uselist=False,
+        order_by="(Note.pinned.desc(), Note.order, Note.created_at)",
     )
 
 
@@ -62,6 +62,7 @@ class Topic(Base):
         "Note",
         primaryjoin="and_(Topic.id==Note.topic_id, Note.topic_id.isnot(None))",
         cascade="all, delete-orphan",
+        order_by="(Note.pinned.desc(), Note.order, Note.created_at)",
     )
     inline_note: Mapped["Note | None"] = relationship(
         "Note",
@@ -78,6 +79,7 @@ class Note(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     content: Mapped[str] = mapped_column(Text, default="")
     order: Mapped[int] = mapped_column(Integer, default=0)
+    pinned: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     way_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("ways.id", ondelete="CASCADE"), nullable=True, index=True)
     topic_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), nullable=True, index=True)

@@ -21,6 +21,7 @@ from app.schemas.notes import (
     ImageOut,
     NoteCreate,
     NoteOut,
+    NoteReparent,
     NoteUpdate,
     ReorderRequest,
     TopicCreate,
@@ -41,7 +42,7 @@ def _way_load_options():
     return (
         selectinload(Way.topics).selectinload(Topic.notes).selectinload(Note.tags),
         selectinload(Way.topics).selectinload(Topic.inline_note).selectinload(Note.tags),
-        selectinload(Way.note).selectinload(Note.tags),
+        selectinload(Way.notes).selectinload(Note.tags),
     )
 
 
@@ -265,6 +266,43 @@ async def update_note(
     note = await _get_note_or_404(note_id, user, db)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(note, field, value)
+    await db.flush()
+    return note
+
+
+@router.post("/notes/{note_id}/move", response_model=NoteOut)
+async def move_note(
+    note_id: uuid.UUID,
+    body: NoteReparent,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    note = await _get_note_or_404(note_id, user, db)
+
+    if body.way_id is None and body.topic_id is None:
+        raise HTTPException(400, "Specify way_id or topic_id")
+    if body.way_id is not None and body.topic_id is not None:
+        raise HTTPException(400, "Cannot specify both way_id and topic_id")
+
+    if body.way_id is not None:
+        # Validate ownership
+        w = await db.execute(select(Way).where(Way.id == body.way_id, Way.user_id == user.id))
+        if not w.scalar_one_or_none():
+            raise HTTPException(404, "Way not found")
+        note.way_id = body.way_id
+        note.topic_id = None
+        note.topic_inline_id = None
+    else:
+        # topic_id
+        t = await db.execute(
+            select(Topic).join(Way).where(Topic.id == body.topic_id, Way.user_id == user.id)
+        )
+        if not t.scalar_one_or_none():
+            raise HTTPException(404, "Topic not found")
+        note.topic_id = body.topic_id
+        note.way_id = None
+        note.topic_inline_id = None
+
     await db.flush()
     return note
 

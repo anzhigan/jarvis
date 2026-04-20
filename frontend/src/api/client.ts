@@ -131,8 +131,10 @@ export const topicsApi = {
 export const notesApi = {
   create: (data: { name: string; content?: string; way_id?: string; topic_id?: string; topic_inline_id?: string }) =>
     request<Note>('/notes', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: { name?: string; content?: string }) =>
+  update: (id: string, data: { name?: string; content?: string; pinned?: boolean }) =>
     request<Note>(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  move: (id: string, target: { way_id?: string; topic_id?: string }) =>
+    request<Note>(`/notes/${id}/move`, { method: 'POST', body: JSON.stringify(target) }),
   delete: (id: string) => request<void>(`/notes/${id}`, { method: 'DELETE' }),
   uploadImage: (noteId: string, file: File) => {
     const form = new FormData();

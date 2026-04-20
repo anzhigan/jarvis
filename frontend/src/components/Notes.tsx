@@ -5,6 +5,9 @@ import {
   ChevronDown,
   ChevronLeft,
   FolderPlus,
+  FileText,
+  Pin,
+  PinOff,
   FilePlus,
   Plus,
   Pencil,
@@ -17,7 +20,9 @@ import {
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
 import SwipeRow from './SwipeRow';
+import LongPressRow from './LongPressRow';
 import TagSelector from './TagSelector';
+import ConfirmDialog from './ConfirmDialog';
 import { notesApi, topicsApi, waysApi } from '../api/client';
 import type { Note, Topic, Way } from '../api/types';
 
@@ -29,7 +34,7 @@ type AddingState =
   | { kind: 'way' }
   | { kind: 'topic'; wayId: string }
   | { kind: 'topic-note'; wayId: string; topicId: string }
-  | { kind: 'way-inline-note'; wayId: string }
+  | { kind: 'way-note'; wayId: string }
   | null;
 
 type RenameState =
@@ -127,8 +132,9 @@ export default function Notes() {
   const currentNote: Note | null = useMemo(() => {
     if (!selection) return null;
     for (const way of ways) {
-      if (selection.parentType === 'way' && way.id === selection.parentId && way.note?.id === selection.noteId) {
-        return way.note;
+      if (selection.parentType === 'way' && way.id === selection.parentId) {
+        const n = way.notes.find((n) => n.id === selection.noteId);
+        if (n) return n;
       }
       for (const topic of way.topics) {
         if (selection.parentType === 'topic' && topic.id === selection.parentId) {
@@ -150,7 +156,7 @@ export default function Notes() {
       // Update local ways state in-place so content matches server
       setWays((prev) => prev.map((w) => ({
         ...w,
-        note: w.note?.id === st.noteId ? { ...w.note, content: st.content } : w.note,
+        notes: w.notes.map((n) => n.id === st.noteId ? { ...n, content: st.content } : n),
         topics: w.topics.map((t) => ({
           ...t,
           notes: t.notes.map((n) => n.id === st.noteId ? { ...n, content: st.content } : n),
@@ -239,7 +245,7 @@ export default function Notes() {
         setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: adding.topicId });
         cancelAdd();
         return;
-      } else if (adding.kind === 'way-inline-note') {
+      } else if (adding.kind === 'way-note') {
         const note = await notesApi.create({ name, way_id: adding.wayId, content: '' });
         setExpandedWays((p) => new Set([...p, adding.wayId]));
         await loadWays();
@@ -274,42 +280,78 @@ export default function Notes() {
 
   const cancelRename = () => { setRenaming(null); setRenameValue(''); };
 
-  const deleteWay = async (id: string) => {
-    if (!confirm('Delete this way and everything inside?')) return;
+  // Confirmation dialog state
+  const [confirmState, setConfirmState] = useState<{ title: string; message?: string; onConfirm: () => void } | null>(null);
+  const askConfirm = (title: string, message: string, onConfirm: () => void) =>
+    setConfirmState({ title, message, onConfirm });
+
+  // Drag & drop state
+  const [draggingNote, setDraggingNote] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<{ kind: 'way' | 'topic'; id: string } | null>(null);
+
+  // Mobile drag state (long-press triggers, then tap on target to drop)
+  const [mobileDragNoteId, setMobileDragNoteId] = useState<string | null>(null);
+
+  const togglePin = async (note: Note) => {
     try {
-      await waysApi.delete(id);
-      if (selection && selection.parentId === id) setSelection(null);
-      if (mobileView.kind === 'way' && mobileView.wayId === id) setMobileView({ kind: 'root' });
+      await notesApi.update(note.id, { pinned: !note.pinned });
       await loadWays();
-      toast.success('Way deleted');
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
+    } catch (e: any) { toast.error(e?.detail ?? 'Failed to pin'); }
   };
 
-  const deleteTopic = async (id: string) => {
-    if (!confirm('Delete this topic and all its notes?')) return;
+  const handleDrop = async (e: React.DragEvent, target: { kind: 'way' | 'topic'; id: string }) => {
+    e.preventDefault();
+    const noteId = e.dataTransfer.getData('note-id');
+    setDraggingNote(null);
+    setDragOver(null);
+    if (!noteId) return;
     try {
-      await topicsApi.delete(id);
-      if (selection && selection.parentId === id) setSelection(null);
-      if (mobileView.kind === 'topic' && mobileView.topicId === id) {
-        // Go back to the parent way
-        const parentWay = ways.find((w) => w.topics.some((t) => t.id === id));
-        if (parentWay) setMobileView({ kind: 'way', wayId: parentWay.id });
-        else setMobileView({ kind: 'root' });
-      }
+      await notesApi.move(noteId, target.kind === 'way' ? { way_id: target.id } : { topic_id: target.id });
       await loadWays();
-      toast.success('Topic deleted');
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
+      toast.success('Note moved');
+    } catch (err: any) {
+      toast.error(err?.detail ?? 'Failed to move note');
+    }
   };
 
-  const deleteNote = async (id: string) => {
-    if (!confirm('Delete this note?')) return;
-    try {
-      await notesApi.delete(id);
-      if (selection?.noteId === id) setSelection(null);
-      if (editorState?.noteId === id) setEditorState(null);
-      await loadWays();
-      toast.success('Note deleted');
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
+  const deleteWay = (id: string) => {
+    askConfirm('Delete way?', 'This will delete the way and everything inside it.', async () => {
+      try {
+        await waysApi.delete(id);
+        if (selection && selection.parentId === id) setSelection(null);
+        if (mobileView.kind === 'way' && mobileView.wayId === id) setMobileView({ kind: 'root' });
+        await loadWays();
+        toast.success('Way deleted');
+      } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
+    });
+  };
+
+  const deleteTopic = (id: string) => {
+    askConfirm('Delete topic?', 'This will delete the topic and all its notes.', async () => {
+      try {
+        await topicsApi.delete(id);
+        if (selection && selection.parentId === id) setSelection(null);
+        if (mobileView.kind === 'topic' && mobileView.topicId === id) {
+          const parentWay = ways.find((w) => w.topics.some((t) => t.id === id));
+          if (parentWay) setMobileView({ kind: 'way', wayId: parentWay.id });
+          else setMobileView({ kind: 'root' });
+        }
+        await loadWays();
+        toast.success('Topic deleted');
+      } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
+    });
+  };
+
+  const deleteNote = (id: string) => {
+    askConfirm('Delete note?', 'This cannot be undone.', async () => {
+      try {
+        await notesApi.delete(id);
+        if (selection?.noteId === id) setSelection(null);
+        if (editorState?.noteId === id) setEditorState(null);
+        await loadWays();
+        toast.success('Note deleted');
+      } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
+    });
   };
 
   const toggleWay = (id: string) => setExpandedWays((prev) => {
@@ -341,9 +383,13 @@ export default function Notes() {
           })
           .filter(Boolean) as typeof way.topics;
         const wayMatches = way.name.toLowerCase().includes(q);
-        const wayNoteMatches = way.note?.name.toLowerCase().includes(q) ?? false;
-        if (wayMatches || topics.length || wayNoteMatches) {
-          return { ...way, topics: wayMatches ? way.topics : topics };
+        const wayNotes = way.notes.filter((n) => n.name.toLowerCase().includes(q));
+        if (wayMatches || topics.length || wayNotes.length) {
+          return {
+            ...way,
+            topics: wayMatches ? way.topics : topics,
+            notes: wayMatches ? way.notes : wayNotes,
+          };
         }
         return null;
       })
@@ -395,6 +441,14 @@ export default function Notes() {
     // Mobile editor view (when a note is selected)
     if (currentNote && editorState?.noteId === currentNote.id) {
       return (
+        <>
+          <ConfirmDialog
+            open={confirmState !== null}
+            title={confirmState?.title ?? ''}
+            message={confirmState?.message}
+            onCancel={() => setConfirmState(null)}
+            onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
+          />
         <div className="size-full flex flex-col">
           <header className="px-3 py-3 border-b border-border bg-background/80 backdrop-blur-sm flex items-center gap-2 flex-shrink-0">
             <button
@@ -431,11 +485,20 @@ export default function Notes() {
             </div>
           </div>
         </div>
+        </>
       );
     }
 
     // Mobile hierarchy views
     return (
+      <>
+        <ConfirmDialog
+          open={confirmState !== null}
+          title={confirmState?.title ?? ''}
+          message={confirmState?.message}
+          onCancel={() => setConfirmState(null)}
+          onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
+        />
       <MobileHierarchy
         view={mobileView}
         setView={setMobileView}
@@ -457,7 +520,23 @@ export default function Notes() {
         onDeleteWay={deleteWay}
         onDeleteTopic={deleteTopic}
         onDeleteNote={deleteNote}
+        mobileDragNoteId={mobileDragNoteId}
+        onStartMobileDrag={(noteId) => {
+          setMobileDragNoteId(noteId);
+          toast.info('Tap a way or topic to move the note, or tap here to cancel.', { duration: 4000 });
+        }}
+        onDropMobileDrag={async (target) => {
+          if (!mobileDragNoteId) return;
+          try {
+            await notesApi.move(mobileDragNoteId, target.kind === 'way' ? { way_id: target.id } : { topic_id: target.id });
+            await loadWays();
+            toast.success('Note moved');
+          } catch (err: any) { toast.error(err?.detail ?? 'Failed'); }
+          finally { setMobileDragNoteId(null); }
+        }}
+        onCancelMobileDrag={() => setMobileDragNoteId(null)}
       />
+      </>
     );
   }
 
@@ -465,6 +544,14 @@ export default function Notes() {
   // DESKTOP VIEW (original sidebar + editor)
   // ═══════════════════════════════════════════════════════════════════════════
   return (
+    <>
+      <ConfirmDialog
+        open={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        onCancel={() => setConfirmState(null)}
+        onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
+      />
     <div className="size-full flex">
       {sidebarOpen && (
       <aside className="w-72 border-r border-border bg-sidebar flex flex-col flex-shrink-0">
@@ -520,12 +607,8 @@ export default function Notes() {
                     icon={FilePlus}
                     title="Add note"
                     onClick={() => {
-                      if (way.note) {
-                        setSelection({ kind: 'note', noteId: way.note.id, parentType: 'way', parentId: way.id });
-                      } else {
-                        setAdding({ kind: 'way-inline-note', wayId: way.id });
-                        setAddName('');
-                      }
+                      setAdding({ kind: 'way-note', wayId: way.id });
+                      setAddName('');
                       setExpandedWays((p) => new Set([...p, way.id]));
                     }}
                   />
@@ -550,24 +633,38 @@ export default function Notes() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     className="ml-3.5 overflow-hidden border-l border-sidebar-border"
+                    onDragOver={(e) => { e.preventDefault(); setDragOver({ kind: 'way', id: way.id }); }}
+                    onDragLeave={() => setDragOver((p) => p?.kind === 'way' && p.id === way.id ? null : p)}
+                    onDrop={(e) => handleDrop(e, { kind: 'way', id: way.id })}
+                    style={dragOver?.kind === 'way' && dragOver.id === way.id ? { backgroundColor: 'var(--primary-rgb, rgba(79,70,229,0.08))' } : undefined}
                   >
-                    {adding?.kind === 'way-inline-note' && adding.wayId === way.id && (
+                    {adding?.kind === 'way-note' && adding.wayId === way.id && (
                       <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
                     )}
-                    {way.note && (
+                    {way.notes.map((n) => (
                       <div
-                        onClick={() => setSelection({ kind: 'note', noteId: way.note!.id, parentType: 'way', parentId: way.id })}
+                        key={n.id}
+                        draggable
+                        onDragStart={(e) => { e.dataTransfer.setData('note-id', n.id); setDraggingNote(n.id); }}
+                        onDragEnd={() => { setDraggingNote(null); setDragOver(null); }}
+                        onClick={() => setSelection({ kind: 'note', noteId: n.id, parentType: 'way', parentId: way.id })}
                         className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
-                          selection?.noteId === way.note.id
+                          selection?.noteId === n.id
                             ? 'bg-primary text-primary-foreground'
                             : 'hover:bg-sidebar-accent'
-                        }`}
+                        } ${draggingNote === n.id ? 'opacity-40' : ''}`}
                       >
-                        <span className="flex-1 text-sm truncate">{way.note.name}</span>
-                        <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: way.note!.id }, way.note!.name)} />
-                        <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(way.note!.id)} />
+                        {n.pinned ? (
+                          <Pin size={11} className="text-primary flex-shrink-0 fill-current" />
+                        ) : (
+                          <FileText size={12} className="text-muted-foreground flex-shrink-0" />
+                        )}
+                        <span className="flex-1 text-sm truncate">{n.name}</span>
+                        <ActionBtn icon={n.pinned ? PinOff : Pin} title={n.pinned ? 'Unpin' : 'Pin'} onClick={() => togglePin(n)} />
+                        <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: n.id }, n.name)} />
+                        <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(n.id)} />
                       </div>
-                    )}
+                    ))}
 
                     {way.topics.map((topic) => (
                       <div key={topic.id}>
@@ -619,6 +716,7 @@ export default function Notes() {
                                           : 'hover:bg-sidebar-accent'
                                       }`}
                                     >
+                                      <FileText size={12} className="text-muted-foreground flex-shrink-0" />
                                       <span className="flex-1 text-sm truncate">{note.name}</span>
                                       <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: note.id }, note.name)} />
                                       <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(note.id)} />
@@ -705,6 +803,7 @@ export default function Notes() {
         )}
       </main>
     </div>
+    </>
   );
 }
 
@@ -743,6 +842,10 @@ function MobileHierarchy({
   onDeleteWay,
   onDeleteTopic,
   onDeleteNote,
+  mobileDragNoteId,
+  onStartMobileDrag,
+  onDropMobileDrag,
+  onCancelMobileDrag,
 }: {
   view: MobileView;
   setView: (v: MobileView) => void;
@@ -762,6 +865,10 @@ function MobileHierarchy({
   onDeleteWay: (id: string) => void;
   onDeleteTopic: (id: string) => void;
   onDeleteNote: (id: string) => void;
+  mobileDragNoteId: string | null;
+  onStartMobileDrag: (noteId: string) => void;
+  onDropMobileDrag: (target: { kind: 'way' | 'topic'; id: string }) => void;
+  onCancelMobileDrag: () => void;
 }) {
   const currentWay = view.kind === 'way' ? ways.find((w) => w.id === view.wayId) : null;
   const currentTopic = view.kind === 'topic'
@@ -816,6 +923,20 @@ function MobileHierarchy({
         </button>
       </header>
 
+      {mobileDragNoteId && (
+        <div className="px-4 py-3 bg-primary/10 border-b border-primary/20 flex items-center gap-2 flex-shrink-0">
+          <div className="text-xs font-medium text-primary flex-1">
+            Moving note — tap a way or topic to drop, or Cancel.
+          </div>
+          <button
+            onClick={onCancelMobileDrag}
+            className="h-8 px-3 text-xs bg-card border border-border rounded-md hover:bg-secondary"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       {/* Search (only at root) */}
       {view.kind === 'root' && (
         <div className="px-3 py-2 border-b border-border flex-shrink-0">
@@ -868,13 +989,21 @@ function MobileHierarchy({
                   <RenameInput onCommit={() => {}} onCancel={() => {}} />
                 ) : (
                   <button
-                    onClick={() => setView({ kind: 'way', wayId: way.id })}
-                    className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                    onClick={() => {
+                      if (mobileDragNoteId) {
+                        onDropMobileDrag({ kind: 'way', id: way.id });
+                      } else {
+                        setView({ kind: 'way', wayId: way.id });
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left ${
+                      mobileDragNoteId ? 'bg-primary/5 hover:bg-primary/10' : ''
+                    }`}
                   >
                     <BookOpen size={20} className="text-primary flex-shrink-0" />
                     <span className="flex-1 text-base font-medium truncate">{way.name}</span>
                     <span className="text-xs text-muted-foreground flex-shrink-0">
-                      {way.topics.length + (way.note ? 1 : 0)}
+                      {way.topics.length + way.notes.length}
                     </span>
                     <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
                   </button>
@@ -886,32 +1015,44 @@ function MobileHierarchy({
 
         {view.kind === 'way' && currentWay && (
           <>
-            {/* Way's own note */}
-            {currentWay.note ? (
-              <SwipeRow
-                onEdit={() => startRename({ kind: 'note', id: currentWay.note!.id }, currentWay.note!.name)}
-                onDelete={() => onDeleteNote(currentWay.note!.id)}
+            {/* Drop-zone header for current way when dragging */}
+            {mobileDragNoteId && (
+              <button
+                onClick={() => onDropMobileDrag({ kind: 'way', id: currentWay.id })}
+                className="w-full px-4 py-3 border-b border-primary/20 bg-primary/10 text-sm font-medium text-primary text-left active:bg-primary/20"
+              >
+                ↓ Drop here (in "{currentWay.name}")
+              </button>
+            )}
+
+            {/* Way's notes */}
+            {currentWay.notes.map((note) => (
+              <LongPressRow
+                key={note.id}
+                onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
+                onSwipeDelete={() => onDeleteNote(note.id)}
+                onLongPress={() => onStartMobileDrag(note.id)}
+                isDragging={mobileDragNoteId === note.id}
               >
                 <button
-                  onClick={() => onSelectNote(currentWay.note!.id, 'way', currentWay.id)}
+                  onClick={() => {
+                    if (mobileDragNoteId) return; // ignore clicks during drag
+                    onSelectNote(note.id, 'way', currentWay.id);
+                  }}
                   className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
                 >
-                  <span className="flex-1 text-base truncate">{currentWay.note.name}</span>
+                  {note.pinned ? (
+                    <Pin size={14} className="text-primary flex-shrink-0 fill-current" />
+                  ) : (
+                    <FileText size={16} className="text-muted-foreground flex-shrink-0" />
+                  )}
+                  <span className="flex-1 text-base truncate">{note.name}</span>
                   <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
                 </button>
-              </SwipeRow>
-            ) : (
-              adding?.kind !== 'way-inline-note' && (
-                <button
-                  onClick={() => setAdding({ kind: 'way-inline-note', wayId: currentWay.id })}
-                  className="w-full flex items-center gap-3 px-4 py-3 border-b border-border text-muted-foreground hover:bg-secondary/40 active:bg-secondary/60 text-left text-sm"
-                >
-                  <FilePlus size={18} />
-                  Add main note
-                </button>
-              )
-            )}
-            {adding?.kind === 'way-inline-note' && adding.wayId === currentWay.id && (
+              </LongPressRow>
+            ))}
+
+            {adding?.kind === 'way-note' && adding.wayId === currentWay.id && (
               <div className="border-b border-border">
                 <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
               </div>
@@ -925,8 +1066,16 @@ function MobileHierarchy({
                 onDelete={() => onDeleteTopic(topic.id)}
               >
                 <button
-                  onClick={() => setView({ kind: 'topic', topicId: topic.id })}
-                  className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                  onClick={() => {
+                    if (mobileDragNoteId) {
+                      onDropMobileDrag({ kind: 'topic', id: topic.id });
+                    } else {
+                      setView({ kind: 'topic', topicId: topic.id });
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left ${
+                    mobileDragNoteId ? 'bg-primary/5 hover:bg-primary/10' : ''
+                  }`}
                 >
                   <span className="flex-1 text-base truncate">{topic.name}</span>
                   <span className="text-xs text-muted-foreground flex-shrink-0">{topic.notes.length}</span>
@@ -935,7 +1084,7 @@ function MobileHierarchy({
               </SwipeRow>
             ))}
 
-            {currentWay.topics.length === 0 && !currentWay.note && !adding && (
+            {currentWay.topics.length === 0 && currentWay.notes.length === 0 && !adding && (
               <div className="px-6 py-12 text-center text-sm text-muted-foreground">
                 Empty. Tap + to add a topic.
               </div>
@@ -945,20 +1094,38 @@ function MobileHierarchy({
 
         {view.kind === 'topic' && currentTopic && (
           <>
+            {mobileDragNoteId && (
+              <button
+                onClick={() => onDropMobileDrag({ kind: 'topic', id: currentTopic.id })}
+                className="w-full px-4 py-3 border-b border-primary/20 bg-primary/10 text-sm font-medium text-primary text-left active:bg-primary/20"
+              >
+                ↓ Drop here (in "{currentTopic.name}")
+              </button>
+            )}
             {currentTopic.notes.map((note) => (
-              <SwipeRow
+              <LongPressRow
                 key={note.id}
-                onEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
-                onDelete={() => onDeleteNote(note.id)}
+                onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
+                onSwipeDelete={() => onDeleteNote(note.id)}
+                onLongPress={() => onStartMobileDrag(note.id)}
+                isDragging={mobileDragNoteId === note.id}
               >
                 <button
-                  onClick={() => onSelectNote(note.id, 'topic', currentTopic.id)}
+                  onClick={() => {
+                    if (mobileDragNoteId) return;
+                    onSelectNote(note.id, 'topic', currentTopic.id);
+                  }}
                   className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
                 >
+                  {note.pinned ? (
+                    <Pin size={14} className="text-primary flex-shrink-0 fill-current" />
+                  ) : (
+                    <FileText size={16} className="text-muted-foreground flex-shrink-0" />
+                  )}
                   <span className="flex-1 text-base truncate">{note.name}</span>
                   <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
                 </button>
-              </SwipeRow>
+              </LongPressRow>
             ))}
             {currentTopic.notes.length === 0 && !adding && (
               <div className="px-6 py-12 text-center text-sm text-muted-foreground">

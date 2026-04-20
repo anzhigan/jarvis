@@ -17,14 +17,13 @@ import {
   CheckCircle2,
   Clock,
   Flame,
-  Hash,
   Loader2,
   Target as TargetIcon,
   Activity,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { tasksApi, waysApi } from '../api/client';
-import type { Practice, Task, Way } from '../api/types';
+import { tasksApi } from '../api/client';
+import type { Practice, Task } from '../api/types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function isoDay(d: Date): string {
@@ -504,14 +503,12 @@ function PracticeTimeline({ practices }: { practices: { task: Task; practice: Pr
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function Metrics() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [ways, setWays] = useState<Way[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     try {
-      const [t, w] = await Promise.all([tasksApi.list(), waysApi.list()]);
+      const t = await tasksApi.list();
       setTasks(t);
-      setWays(w);
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to load');
     } finally {
@@ -567,29 +564,6 @@ export default function Metrics() {
     };
   }, [tasks]);
 
-  // Notes tag breakdown
-  const tagStats = useMemo(() => {
-    const notes = [];
-    for (const w of ways) {
-      if (w.note) notes.push(w.note);
-      for (const t of w.topics) {
-        if (t.inline_note) notes.push(t.inline_note);
-        notes.push(...t.notes);
-      }
-    }
-    const byTag = new Map<string, { id: string; name: string; color: string; count: number }>();
-    for (const n of notes) {
-      for (const tag of n.tags ?? []) {
-        const existing = byTag.get(tag.id);
-        if (existing) existing.count += 1;
-        else byTag.set(tag.id, { id: tag.id, name: tag.name, color: tag.color, count: 1 });
-      }
-    }
-    const breakdown = [...byTag.values()].sort((a, b) => b.count - a.count);
-    const total = breakdown.reduce((s, t) => s + t.count, 0);
-    return { breakdown, total, totalNotes: notes.length };
-  }, [ways]);
-
   const completionRate = analytics.totalTasks > 0 ? (analytics.completedTasks / analytics.totalTasks) * 100 : 0;
 
   if (loading) {
@@ -616,7 +590,7 @@ export default function Metrics() {
           <StatTile icon={Activity} label="Active practices" value={analytics.activePractices.length} sub={`${analytics.allPractices.length} total`} />
         </div>
 
-        {analytics.totalTasks === 0 && analytics.allPractices.length === 0 && tagStats.total === 0 ? (
+        {analytics.totalTasks === 0 && analytics.allPractices.length === 0 ? (
           <div className="border border-dashed border-border rounded-xl py-16 text-center">
             <BarChart3 size={28} className="mx-auto mb-3 text-muted-foreground opacity-60" />
             <p className="text-sm text-muted-foreground">Create tasks, practices, or tag notes to see analytics.</p>
@@ -639,49 +613,6 @@ export default function Metrics() {
             <div className="mb-6">
               <PracticeTimeline practices={analytics.allPractices} />
             </div>
-
-            {/* Notes by tag (small) */}
-            {tagStats.total > 0 && (
-              <div className="p-5 bg-card border border-border rounded-xl mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-sm font-semibold">Notes by tag</h3>
-                    <p className="text-xs text-muted-foreground">
-                      {tagStats.total} tagged of {tagStats.totalNotes} notes
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Hash size={12} />
-                    {tagStats.breakdown.length} tags
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  {tagStats.breakdown.slice(0, 10).map((t) => {
-                    const pct = (t.count / tagStats.total) * 100;
-                    return (
-                      <div key={t.id} className="flex items-center gap-3">
-                        <span
-                          className="inline-flex items-center h-6 px-2.5 rounded-full text-xs font-medium flex-shrink-0"
-                          style={{
-                            backgroundColor: `${t.color}20`,
-                            color: t.color,
-                            border: `1px solid ${t.color}40`,
-                          }}
-                        >
-                          {t.name}
-                        </span>
-                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: t.color }} />
-                        </div>
-                        <span className="text-xs font-medium text-muted-foreground w-8 text-right flex-shrink-0">
-                          {t.count}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>
