@@ -4,11 +4,12 @@
   min-height: 400px;
   color: var(--foreground);
   line-height: 1.7;
-  font-size: var(--editor-font-size, 16px);
+  font-size: var(--editor-font-size, 16px) !important;
 }
 
 .ProseMirror p {
   margin: 0.75em 0;
+  font-size: inherit;
 }
 
 .ProseMirror > *:first-child {
@@ -16,7 +17,7 @@
 }
 
 .ProseMirror h1 {
-  font-size: 2rem;
+  font-size: 2em;
   font-weight: 700;
   margin: 1.5em 0 0.5em;
   letter-spacing: -0.025em;
@@ -24,7 +25,7 @@
 }
 
 .ProseMirror h2 {
-  font-size: 1.5rem;
+  font-size: 1.5em;
   font-weight: 600;
   margin: 1.3em 0 0.5em;
   letter-spacing: -0.02em;
@@ -32,7 +33,7 @@
 }
 
 .ProseMirror h3 {
-  font-size: 1.25rem;
+  font-size: 1.25em;
   font-weight: 600;
   margin: 1.2em 0 0.4em;
   line-height: 1.4;

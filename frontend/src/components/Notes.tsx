@@ -23,6 +23,7 @@ import SwipeRow from './SwipeRow';
 import LongPressRow from './LongPressRow';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
+import NoteTitle from './NoteTitle';
 import { notesApi, topicsApi, waysApi } from '../api/client';
 import type { Note, Topic, Way } from '../api/types';
 
@@ -450,28 +451,41 @@ export default function Notes() {
             onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
           />
         <div className="size-full flex flex-col">
-          <header className="px-3 py-3 border-b border-border bg-background/80 backdrop-blur-sm flex items-center gap-2 flex-shrink-0">
+          <div className="flex-1 overflow-y-auto relative">
+            {/* Floating back button top-left */}
             <button
               onClick={async () => {
                 await saveCurrentEditor();
                 await loadWays();
                 setSelection(null);
               }}
-              className="h-10 w-10 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+              className="absolute top-3 left-2 z-10 h-10 w-10 flex items-center justify-center rounded-md bg-background/70 backdrop-blur-sm hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
               title="Back"
             >
               <ChevronLeft size={22} />
             </button>
-            <h2 className="text-base font-semibold tracking-tight flex-1 min-w-0 truncate">{currentNote.name}</h2>
-            <div className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
+            {/* Floating save status top-right */}
+            <div className="absolute top-4 right-4 z-10 text-xs text-muted-foreground flex items-center gap-1">
               {saving ? <><Loader2 size={12} className="animate-spin" /> Saving</> : editorState.dirty ? 'Unsaved' : 'Saved'}
             </div>
-          </header>
-          <div className="flex-1 overflow-y-auto">
-            <div className="px-4 py-3 border-b border-border">
-              <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+
+            <div className="px-4 pt-16 pb-2">
+              <NoteTitle
+                key={currentNote.id + '-title'}
+                initial={currentNote.name}
+                onChange={async (newName) => {
+                  if (newName === currentNote.name) return;
+                  try {
+                    await notesApi.update(currentNote.id, { name: newName });
+                    await loadWays();
+                  } catch (e: any) { toast.error(e?.detail ?? 'Failed to rename'); }
+                }}
+              />
+              <div className="mt-2">
+                <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+              </div>
             </div>
-            <div className="px-4 py-4">
+            <div className="px-4 pb-8">
               <RichTextEditor
                 key={currentNote.id}
                 noteId={currentNote.id}
@@ -749,22 +763,36 @@ export default function Notes() {
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         {currentNote && editorState?.noteId === currentNote.id ? (
           <>
-            <header className="px-8 py-4 border-b border-border bg-background/80 backdrop-blur-sm flex items-center gap-3 flex-shrink-0">
+            <div className="flex-1 overflow-y-auto relative">
+              {/* Floating burger top-left */}
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                className="absolute top-4 left-4 z-10 h-9 w-9 flex items-center justify-center rounded-md bg-background/70 backdrop-blur-sm hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
                 title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
               >
                 <PanelLeft size={16} />
               </button>
-              <h2 className="text-xl font-semibold tracking-tight flex-1 min-w-0 truncate">{currentNote.name}</h2>
-              <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-shrink-0">
+              {/* Floating save status top-right */}
+              <div className="absolute top-4 right-6 z-10 text-xs text-muted-foreground flex items-center gap-1.5">
                 {saving ? <><Loader2 size={12} className="animate-spin" /> Saving...</> : editorState.dirty ? 'Unsaved' : 'Saved'}
               </div>
-            </header>
-            <div className="flex-1 overflow-y-auto">
-              <div className="max-w-4xl mx-auto px-10 pt-6 pb-3">
-                <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+
+              <div className="max-w-4xl mx-auto px-10 pt-16 pb-3">
+                {/* Note title as h1 */}
+                <NoteTitle
+                  key={currentNote.id + '-title'}
+                  initial={currentNote.name}
+                  onChange={async (newName) => {
+                    if (newName === currentNote.name) return;
+                    try {
+                      await notesApi.update(currentNote.id, { name: newName });
+                      await loadWays();
+                    } catch (e: any) { toast.error(e?.detail ?? 'Failed to rename'); }
+                  }}
+                />
+                <div className="mt-3">
+                  <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+                </div>
               </div>
               <div className="max-w-4xl mx-auto px-10 pb-8">
                 <RichTextEditor
