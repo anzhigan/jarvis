@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,46 +37,52 @@ class Task(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="tasks")  # noqa: F821
-    practices: Mapped[list["Practice"]] = relationship(
-        back_populates="task", cascade="all, delete-orphan", order_by="Practice.created_at"
+    todos: Mapped[list["Todo"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan", order_by="Todo.created_at"
     )
     tags: Mapped[list["Tag"]] = relationship(  # noqa: F821
         secondary=task_tags, back_populates="tasks", order_by="Tag.name"
     )
 
 
-class Practice(Base):
-    """A recurring action linked to a Task (e.g. 'don't smoke' for task 'quit smoking')."""
-    __tablename__ = "practices"
+class Todo(Base):
+    """A todo-item linked to a Task. Either one-off (with due_date)
+    or recurring (daily/weekly)."""
+    __tablename__ = "todos"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(300), nullable=False)
-    # kind: 'boolean' (did/didn't) | 'numeric' (logged a value, e.g. km ran)
+    # kind: 'boolean' (done/not done) | 'numeric' (logged value, e.g. pages read)
     kind: Mapped[str] = mapped_column(String(20), default="boolean")
-    unit: Mapped[str] = mapped_column(String(50), default="")  # e.g. "day", "km", "pages"
+    unit: Mapped[str] = mapped_column(String(50), default="")          # e.g. pages, km, min
     target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
-    duration_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # e.g. 30 days
+    # recurrence: 'none' | 'daily' | 'weekly'
+    recurrence: Mapped[str] = mapped_column(String(20), default="none")
+    # one-off todos have a concrete due_date
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     color: Mapped[str] = mapped_column(String(20), default="#4f46e5")
-    status: Mapped[str] = mapped_column(String(20), default="active")  # active | paused | done
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    task: Mapped["Task"] = relationship(back_populates="practices")
-    entries: Mapped[list["PracticeEntry"]] = relationship(
-        back_populates="practice", cascade="all, delete-orphan", order_by="PracticeEntry.date"
+    task: Mapped["Task | None"] = relationship(back_populates="todos")
+    user: Mapped["User"] = relationship(back_populates="todos")  # noqa: F821
+    entries: Mapped[list["TodoEntry"]] = relationship(
+        back_populates="todo", cascade="all, delete-orphan", order_by="TodoEntry.date"
     )
 
 
-class PracticeEntry(Base):
-    __tablename__ = "practice_entries"
+class TodoEntry(Base):
+    """Single day's completion log for a Todo."""
+    __tablename__ = "todo_entries"
+    __table_args__ = (UniqueConstraint("todo_id", "date", name="uq_todo_entries_todo_date"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    practice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("practices.id", ondelete="CASCADE"), nullable=False, index=True)
+    todo_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("todos.id", ondelete="CASCADE"), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
-    # For boolean practices: value>0 = success, 0 = fail
-    # For numeric practices: actual logged value
+    # For boolean: value>0 = done, 0 = not done
+    # For numeric: actual logged value (pages, km, etc.)
     value: Mapped[float] = mapped_column(Float, default=0.0)
-    note: Mapped[str] = mapped_column(String(500), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    practice: Mapped["Practice"] = relationship(back_populates="entries")
+    todo: Mapped["Todo"] = relationship(back_populates="entries")

@@ -58,29 +58,29 @@ export interface Way {
 export type TaskStatus = 'todo' | 'in_progress' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
-export type PracticeKind = 'boolean' | 'numeric';
-export type PracticeStatus = 'active' | 'paused' | 'done';
+export type TodoKind = 'boolean' | 'numeric';
+export type TodoRecurrence = 'none' | 'daily' | 'weekly';
 
-export interface PracticeEntry {
+export interface TodoEntry {
   id: string;
-  practice_id: string;
+  todo_id: string;
   date: string;       // YYYY-MM-DD
   value: number;
-  note: string;
-  created_at: string;
 }
 
-export interface Practice {
+export interface Todo {
   id: string;
-  task_id: string;
+  task_id: string | null;
+  user_id: string;
   title: string;
-  kind: PracticeKind;
+  kind: TodoKind;
   unit: string;
   target_value: number | null;
-  duration_days: number | null;
+  recurrence: TodoRecurrence;
+  due_date: string | null;
   color: string;
-  status: PracticeStatus;
-  entries: PracticeEntry[];
+  entries: TodoEntry[];
+  task_title: string | null;
   created_at: string;
 }
 
@@ -93,8 +93,9 @@ export interface Task {
   due_date: string | null;
   is_completed: boolean;
   order: number;
-  practices: Practice[];
+  todos: Todo[];
   tags: Tag[];
+  progress: number;   // 0..100
   created_at: string;
   updated_at: string;
 }

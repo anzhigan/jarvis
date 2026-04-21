@@ -16,52 +16,18 @@ import {
   BarChart3,
   CheckCircle2,
   Clock,
-  Flame,
   Loader2,
   Target as TargetIcon,
   Activity,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi } from '../api/client';
-import type { Practice, Task } from '../api/types';
+import type { Task, Todo } from '../api/types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-function isoDay(d: Date): string {
-  return d.toISOString().split('T')[0];
-}
-function parseDate(s: string): Date {
-  return new Date(s + 'T00:00:00');
-}
-function daysBetween(a: Date, b: Date): number {
-  return Math.round((+b - +a) / 86_400_000);
-}
-function pastDays(n: number): string[] {
-  const out: string[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    out.push(isoDay(d));
-  }
-  return out;
-}
-function computeStreak(p: Practice): number {
-  const byDate = new Map<string, number>();
-  p.entries.forEach((e) => byDate.set(e.date, e.value));
-  let streak = 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  for (let i = 0; i < 365; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = isoDay(d);
-    const v = byDate.get(key);
-    if (v === undefined) { if (i === 0) continue; break; }
-    if (v > 0) streak++; else break;
-  }
-  return streak;
-}
+function isoDay(d: Date): string { return d.toISOString().split('T')[0]; }
+function parseDate(s: string): Date { return new Date(s + 'T00:00:00'); }
+function daysBetween(a: Date, b: Date): number { return Math.round((+b - +a) / 86_400_000); }
 
 const STATUS_LABEL: Record<string, string> = {
   todo: 'Backlog', in_progress: 'In Progress', done: 'Done',
@@ -100,7 +66,7 @@ function StatTile({ icon: Icon, label, value, sub, tone = 'default' }: {
   );
 }
 
-// ─── Generic pie chart with stacked status ───────────────────────────────────
+// ─── Generic pie chart ───────────────────────────────────────────────────────
 function StatusPie({ title, subtitle, data }: {
   title: string; subtitle: string;
   data: { name: string; value: number; color: string }[];
@@ -120,14 +86,7 @@ function StatusPie({ title, subtitle, data }: {
                 <Pie data={data} innerRadius={38} outerRadius={66} paddingAngle={2} dataKey="value">
                   {data.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '0.5rem',
-                    fontSize: '12px',
-                  }}
-                />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '12px' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -149,7 +108,6 @@ function StatusPie({ title, subtitle, data }: {
 // ─── Gantt-style Task Timeline ───────────────────────────────────────────────
 function TaskTimeline({ tasks }: { tasks: Task[] }) {
   const now = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-
   const rangedTasks = useMemo(() => tasks.filter((t) => t.due_date), [tasks]);
 
   const range = useMemo(() => {
@@ -162,9 +120,7 @@ function TaskTimeline({ tasks }: { tasks: Task[] }) {
       if (start < min) min = start;
       if (due > max) max = due;
     }
-    // Normalize to midnight
-    min.setHours(0, 0, 0, 0);
-    max.setHours(0, 0, 0, 0);
+    min.setHours(0, 0, 0, 0); max.setHours(0, 0, 0, 0);
     const days = Math.max(daysBetween(min, max), 14);
     return { start: min, end: new Date(min.getTime() + days * 86_400_000), days };
   }, [rangedTasks, now]);
@@ -181,13 +137,8 @@ function TaskTimeline({ tasks }: { tasks: Task[] }) {
     );
   }
 
-  const sorted = [...rangedTasks].sort((a, b) => {
-    return +parseDate(a.due_date!) - +parseDate(b.due_date!);
-  });
-
+  const sorted = [...rangedTasks].sort((a, b) => +parseDate(a.due_date!) - +parseDate(b.due_date!));
   const nowPct = (daysBetween(range.start, now) / range.days) * 100;
-
-  // Month labels every ~7 days
   const ticks: { label: string; pct: number }[] = [];
   for (let i = 0; i <= range.days; i += Math.max(1, Math.floor(range.days / 7))) {
     const d = new Date(range.start);
@@ -205,38 +156,22 @@ function TaskTimeline({ tasks }: { tasks: Task[] }) {
       <p className="text-xs text-muted-foreground mb-4">{sorted.length} tasks with due dates</p>
       <div className="overflow-x-auto">
         <div className="min-w-[600px]">
-          {/* Date axis */}
           <div className="relative h-6 mb-2 border-b border-border">
             {ticks.map((t) => (
-              <div
-                key={t.pct}
-                className="absolute top-0 text-[10px] text-muted-foreground"
-                style={{ left: `${t.pct}%`, transform: 'translateX(-50%)' }}
-              >
+              <div key={t.pct} className="absolute top-0 text-[10px] text-muted-foreground" style={{ left: `${t.pct}%`, transform: 'translateX(-50%)' }}>
                 {t.label}
               </div>
             ))}
-            {/* Current date marker */}
             {nowPct >= 0 && nowPct <= 100 && (
-              <div
-                className="absolute top-0 bottom-0 w-px bg-primary"
-                style={{ left: `${nowPct}%` }}
-              >
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] text-primary font-medium whitespace-nowrap">
-                  Today
-                </div>
+              <div className="absolute top-0 bottom-0 w-px bg-primary" style={{ left: `${nowPct}%` }}>
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] text-primary font-medium whitespace-nowrap">Today</div>
               </div>
             )}
           </div>
 
-          {/* Task rows */}
           <div className="space-y-2 relative">
-            {/* Today line across all rows */}
             {nowPct >= 0 && nowPct <= 100 && (
-              <div
-                className="absolute top-0 bottom-0 w-px bg-primary/40 pointer-events-none z-10"
-                style={{ left: `${nowPct}%` }}
-              />
+              <div className="absolute top-0 bottom-0 w-px bg-primary/40 pointer-events-none z-10" style={{ left: `${nowPct}%` }} />
             )}
             {sorted.map((task) => {
               const startDate = new Date(task.created_at);
@@ -247,7 +182,6 @@ function TaskTimeline({ tasks }: { tasks: Task[] }) {
               const widthPct = Math.max(1, endPct - startPct);
               const isOverdue = task.status !== 'done' && dueDate < now;
               const statusColor = STATUS_COLORS[task.status] ?? '#94a3b8';
-
               return (
                 <div key={task.id} className="flex items-center gap-3 text-xs">
                   <div className="w-32 md:w-48 truncate flex-shrink-0 flex items-center gap-1.5">
@@ -280,24 +214,26 @@ function TaskTimeline({ tasks }: { tasks: Task[] }) {
   );
 }
 
-// ─── Practice Timeline (Line chart) ──────────────────────────────────────────
-function PracticeTimeline({ practices }: { practices: { task: Task; practice: Practice }[] }) {
-  const active = practices.filter((pp) => pp.practice.status !== 'done');
+// ─── Progress trend (line chart over 30 days based on daily todo completion) ─
+function ProgressTrend({ tasks }: { tasks: Task[] }) {
   const [mode, setMode] = useState<'combined' | 'per'>('combined');
 
-  if (active.length === 0) {
+  // Collect all todos
+  const allTodos: { task: Task; todo: Todo }[] = [];
+  tasks.forEach((t) => t.todos.forEach((td) => allTodos.push({ task: t, todo: td })));
+
+  if (allTodos.length === 0) {
     return (
       <div className="p-5 bg-card border border-border rounded-xl">
         <h3 className="text-sm font-semibold">Productivity trend</h3>
-        <p className="text-xs text-muted-foreground mb-3">Daily progress across practices</p>
+        <p className="text-xs text-muted-foreground mb-3">Daily progress across all todos</p>
         <div className="h-24 flex items-center justify-center text-xs text-muted-foreground">
-          No active practices
+          No todos yet
         </div>
       </div>
     );
   }
 
-  // Build timeline: 30 past days
   const DAYS = 30;
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -308,60 +244,40 @@ function PracticeTimeline({ practices }: { practices: { task: Task; practice: Pr
     dayList.push(isoDay(d));
   }
 
-  // For each day, compute each practice's score (0..1)
-  // boolean: 1 if val>0, 0 if val==0, null if no entry
-  // numeric: clamped val/target or val/maxSeen (if no target)
-  type DayRow = { date: string; dateLabel: string; combined?: number | null; [key: string]: string | number | null | undefined };
+  type Row = { date: string; dateLabel: string; combined: number | null; [key: string]: string | number | null };
 
-  // Precompute numeric scaling (per-practice max for normalization when no target)
-  const practiceScaling = new Map<string, { target: number; seen: number[] }>();
-  for (const { practice: p } of active) {
-    const seen = p.entries.map((e) => e.value);
-    practiceScaling.set(p.id, {
-      target: p.target_value ?? 0,
-      seen,
-    });
-  }
-
-  function scorePractice(p: Practice, val: number | undefined): number | null {
+  // For each todo compute per-day score (0..1)
+  function scoreTodo(t: Todo, val: number | undefined): number | null {
     if (val === undefined) return null;
-    if (p.kind === 'boolean') return val > 0 ? 1 : 0;
+    if (t.kind === 'boolean') return val > 0 ? 1 : 0;
     // numeric
-    const scaling = practiceScaling.get(p.id)!;
-    const target = scaling.target;
+    const target = t.target_value ?? 0;
     if (target > 0) return Math.min(1, val / target);
-    const max = Math.max(1, ...scaling.seen);
+    const max = Math.max(1, ...t.entries.map((e) => e.value));
     return val / max;
   }
 
-  // Build rows
-  const rows: DayRow[] = dayList.map((date) => {
+  const rows: Row[] = dayList.map((date) => {
     const d = parseDate(date);
-    const row: DayRow = {
+    const row: Row = {
       date,
       dateLabel: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      combined: null,
     };
     const scores: number[] = [];
-    for (const { practice: p } of active) {
-      const entry = p.entries.find((e) => e.date === date);
-      const score = scorePractice(p, entry?.value);
-      row[`p_${p.id}`] = score;
-      if (score !== null) scores.push(score);
+    for (const { todo } of allTodos) {
+      const entry = todo.entries.find((e) => e.date === date);
+      const s = scoreTodo(todo, entry?.value);
+      row[`t_${todo.id}`] = s === null ? null : Math.round(s * 100);
+      if (s !== null) scores.push(s);
     }
-    // Combined = average of available scores * 100 (percent)
     row.combined = scores.length > 0 ? Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 100) : null;
-    // For per-practice mode we store as percent too
-    for (const { practice: p } of active) {
-      const raw = row[`p_${p.id}`];
-      row[`p_${p.id}`] = raw === null || raw === undefined ? null : Math.round((raw as number) * 100);
-    }
     return row;
   });
 
-  // Overall summary stats for badge
-  const filledPoints = rows.map((r) => r.combined).filter((v): v is number => v !== null && v !== undefined);
-  const avg = filledPoints.length > 0 ? Math.round(filledPoints.reduce((s, v) => s + v, 0) / filledPoints.length) : 0;
-  const last7 = rows.slice(-7).map((r) => r.combined).filter((v): v is number => v !== null && v !== undefined);
+  const filled = rows.map((r) => r.combined).filter((v): v is number => v !== null);
+  const avg = filled.length > 0 ? Math.round(filled.reduce((s, v) => s + v, 0) / filled.length) : 0;
+  const last7 = rows.slice(-7).map((r) => r.combined).filter((v): v is number => v !== null);
   const last7Avg = last7.length > 0 ? Math.round(last7.reduce((s, v) => s + v, 0) / last7.length) : 0;
   const trend = last7Avg - avg;
 
@@ -370,27 +286,14 @@ function PracticeTimeline({ practices }: { practices: { task: Task; practice: Pr
       <div className="flex items-start justify-between mb-2 gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold">Productivity trend</h3>
-          <p className="text-xs text-muted-foreground">Last {DAYS} days — average completion across all practices</p>
+          <p className="text-xs text-muted-foreground">Last {DAYS} days — average completion across todos</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex text-xs bg-muted rounded-md p-0.5">
-            <button
-              onClick={() => setMode('combined')}
-              className={`px-2.5 h-7 rounded ${mode === 'combined' ? 'bg-card shadow-sm' : 'text-muted-foreground'}`}
-            >
-              Combined
-            </button>
-            <button
-              onClick={() => setMode('per')}
-              className={`px-2.5 h-7 rounded ${mode === 'per' ? 'bg-card shadow-sm' : 'text-muted-foreground'}`}
-            >
-              Per practice
-            </button>
-          </div>
+        <div className="flex text-xs bg-muted rounded-md p-0.5">
+          <button onClick={() => setMode('combined')} className={`px-2.5 h-7 rounded ${mode === 'combined' ? 'bg-card shadow-sm' : 'text-muted-foreground'}`}>Combined</button>
+          <button onClick={() => setMode('per')} className={`px-2.5 h-7 rounded ${mode === 'per' ? 'bg-card shadow-sm' : 'text-muted-foreground'}`}>Per todo</button>
         </div>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-3 gap-2 mb-4">
         <div className="p-2.5 rounded-lg bg-muted/40">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">30-day avg</div>
@@ -412,89 +315,27 @@ function PracticeTimeline({ practices }: { practices: { task: Task; practice: Pr
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.4} />
-            <XAxis
-              dataKey="dateLabel"
-              tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-              interval={Math.max(1, Math.floor(DAYS / 8))}
-              stroke="var(--border)"
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-              domain={[0, 100]}
-              stroke="var(--border)"
-              tickFormatter={(v) => `${v}%`}
-            />
+            <XAxis dataKey="dateLabel" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} interval={Math.max(1, Math.floor(DAYS / 8))} stroke="var(--border)" />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} domain={[0, 100]} stroke="var(--border)" tickFormatter={(v) => `${v}%`} />
             <Tooltip
-              contentStyle={{
-                backgroundColor: 'var(--popover)',
-                border: '1px solid var(--border)',
-                borderRadius: '0.5rem',
-                fontSize: '12px',
-              }}
+              contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '12px' }}
               formatter={(value: number | null, name: string) => {
                 if (value === null || value === undefined) return ['—', name];
                 return [`${value}%`, name];
               }}
             />
             {mode === 'combined' ? (
-              <Line
-                type="monotone"
-                dataKey="combined"
-                name="Productivity"
-                stroke="#4f46e5"
-                strokeWidth={2.5}
-                dot={{ r: 3, strokeWidth: 0, fill: '#4f46e5' }}
-                activeDot={{ r: 5 }}
-                connectNulls
-              />
+              <Line type="monotone" dataKey="combined" name="Productivity" stroke="#4f46e5" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: '#4f46e5' }} activeDot={{ r: 5 }} connectNulls />
             ) : (
               <>
                 <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
-                {active.map(({ practice: p }) => (
-                  <Line
-                    key={p.id}
-                    type="monotone"
-                    dataKey={`p_${p.id}`}
-                    name={p.title}
-                    stroke={p.color}
-                    strokeWidth={2}
-                    dot={{ r: 2, strokeWidth: 0, fill: p.color }}
-                    activeDot={{ r: 4 }}
-                    connectNulls
-                  />
+                {allTodos.map(({ todo }) => (
+                  <Line key={todo.id} type="monotone" dataKey={`t_${todo.id}`} name={todo.title} stroke={todo.color} strokeWidth={2} dot={{ r: 2, strokeWidth: 0, fill: todo.color }} activeDot={{ r: 4 }} connectNulls />
                 ))}
               </>
             )}
           </LineChart>
         </ResponsiveContainer>
-      </div>
-
-      {/* Per-practice mini stats */}
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2">
-        {active.map(({ task, practice: p }) => {
-          const streak = computeStreak(p);
-          const completed = p.entries.filter((e) => e.value > 0).length;
-          return (
-            <div
-              key={p.id}
-              className="flex items-center gap-2 p-2 rounded-lg bg-muted/30"
-            >
-              <div className="w-1 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium truncate">{p.title}</div>
-                <div className="text-[10px] text-muted-foreground truncate">
-                  {task.title} · {completed} logs
-                </div>
-              </div>
-              {streak > 0 && (
-                <div className="flex items-center gap-0.5 text-xs flex-shrink-0">
-                  <Flame size={11} className="text-orange-500" />
-                  <span className="font-medium">{streak}</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -518,30 +359,23 @@ export default function Metrics() {
 
   useEffect(() => { load(); }, []);
 
-  // Aggregations
   const analytics = useMemo(() => {
-    // Basic status counts
     const byStatus: Record<string, number> = { todo: 0, in_progress: 0, done: 0 };
     tasks.forEach((t) => { byStatus[t.status] = (byStatus[t.status] ?? 0) + 1; });
 
-    // Practices
-    const allPractices: { task: Task; practice: Practice }[] = [];
-    tasks.forEach((t) => t.practices.forEach((p) => allPractices.push({ task: t, practice: p })));
-    const activePractices = allPractices.filter((pp) => pp.practice.status === 'active');
+    const allTodos: { task: Task; todo: Todo }[] = [];
+    tasks.forEach((t) => t.todos.forEach((td) => allTodos.push({ task: t, todo: td })));
 
-    // Status × Status (just status counts)
     const statusByStatus = Object.entries(byStatus)
       .filter(([, v]) => v > 0)
       .map(([k, v]) => ({ name: STATUS_LABEL[k], value: v, color: STATUS_COLORS[k] }));
 
-    // Status × Priority (count per priority)
     const statusByPriority: { name: string; value: number; color: string }[] = [];
     for (const p of ['high', 'medium', 'low'] as const) {
       const count = tasks.filter((t) => t.priority === p).length;
       if (count > 0) statusByPriority.push({ name: PRIORITY_LABEL[p], value: count, color: PRIORITY_COLORS[p] });
     }
 
-    // Status × Tag — count tasks per tag
     const tagCounts = new Map<string, { name: string; color: string; count: number }>();
     for (const t of tasks) {
       for (const tg of t.tags ?? []) {
@@ -559,7 +393,7 @@ export default function Metrics() {
       completedTasks: byStatus.done,
       inProgressTasks: byStatus.in_progress,
       backlogTasks: byStatus.todo,
-      allPractices, activePractices,
+      allTodos,
       statusByStatus, statusByPriority, statusByTag,
     };
   }, [tasks]);
@@ -567,11 +401,7 @@ export default function Metrics() {
   const completionRate = analytics.totalTasks > 0 ? (analytics.completedTasks / analytics.totalTasks) * 100 : 0;
 
   if (loading) {
-    return (
-      <div className="size-full flex items-center justify-center">
-        <Loader2 size={24} className="animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="size-full flex items-center justify-center"><Loader2 size={24} className="animate-spin text-muted-foreground" /></div>;
   }
 
   return (
@@ -582,36 +412,32 @@ export default function Metrics() {
           <p className="text-sm text-muted-foreground mt-0.5">Visual breakdown of your work</p>
         </div>
 
-        {/* Top stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatTile icon={TargetIcon} label="Total tasks" value={analytics.totalTasks} sub={`${analytics.backlogTasks} in backlog`} />
           <StatTile icon={Clock} label="In progress" value={analytics.inProgressTasks} sub="currently working on" tone="warning" />
           <StatTile icon={CheckCircle2} label="Completed" value={analytics.completedTasks} sub={`${completionRate.toFixed(0)}% done`} tone="success" />
-          <StatTile icon={Activity} label="Active practices" value={analytics.activePractices.length} sub={`${analytics.allPractices.length} total`} />
+          <StatTile icon={Activity} label="Todos" value={analytics.allTodos.length} sub="total tracked" />
         </div>
 
-        {analytics.totalTasks === 0 && analytics.allPractices.length === 0 ? (
+        {analytics.totalTasks === 0 && analytics.allTodos.length === 0 ? (
           <div className="border border-dashed border-border rounded-xl py-16 text-center">
             <BarChart3 size={28} className="mx-auto mb-3 text-muted-foreground opacity-60" />
-            <p className="text-sm text-muted-foreground">Create tasks, practices, or tag notes to see analytics.</p>
+            <p className="text-sm text-muted-foreground">Create tasks and todos to see analytics.</p>
           </div>
         ) : (
           <>
-            {/* Three pie charts */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <StatusPie title="Tasks by tag" subtitle="Distribution across tags" data={analytics.statusByTag} />
-              <StatusPie title="Tasks by priority" subtitle="Distribution by priority level" data={analytics.statusByPriority} />
-              <StatusPie title="Tasks by status" subtitle="Distribution by workflow status" data={analytics.statusByStatus} />
+              <StatusPie title="Tasks by priority" subtitle="Distribution by priority" data={analytics.statusByPriority} />
+              <StatusPie title="Tasks by status" subtitle="Distribution by status" data={analytics.statusByStatus} />
             </div>
 
-            {/* Task timeline */}
             <div className="mb-6">
               <TaskTimeline tasks={tasks} />
             </div>
 
-            {/* Practice timeline */}
             <div className="mb-6">
-              <PracticeTimeline practices={analytics.allPractices} />
+              <ProgressTrend tasks={tasks} />
             </div>
           </>
         )}

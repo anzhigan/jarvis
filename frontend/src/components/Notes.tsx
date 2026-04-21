@@ -469,7 +469,7 @@ export default function Notes() {
               {saving ? <><Loader2 size={12} className="animate-spin" /> Saving</> : editorState.dirty ? 'Unsaved' : 'Saved'}
             </div>
 
-            <div className="px-4 pt-16 pb-2">
+            <div className="pl-14 pr-4 pt-4 pb-2">
               <NoteTitle
                 key={currentNote.id + '-title'}
                 initial={currentNote.name}
@@ -526,6 +526,8 @@ export default function Notes() {
         cancelAdd={cancelAdd}
         renaming={renaming}
         startRename={startRename}
+        commitRename={commitRename}
+        cancelRename={cancelRename}
         InlineInput={InlineInput}
         RenameInput={RenameInput}
         onSelectNote={(noteId, parentType, parentId) =>
@@ -571,6 +573,13 @@ export default function Notes() {
       <aside className="w-72 border-r border-border bg-sidebar flex flex-col flex-shrink-0">
         <div className="px-4 pt-4 pb-3 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSidebarOpen(false)}
+              title="Hide sidebar"
+              className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
+            >
+              <PanelLeft size={15} />
+            </button>
             <div className="relative flex-1">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -764,20 +773,24 @@ export default function Notes() {
         {currentNote && editorState?.noteId === currentNote.id ? (
           <>
             <div className="flex-1 overflow-y-auto relative">
-              {/* Floating burger top-left */}
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="absolute top-4 left-4 z-10 h-9 w-9 flex items-center justify-center rounded-md bg-background/70 backdrop-blur-sm hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-              >
-                <PanelLeft size={16} />
-              </button>
-              {/* Floating save status top-right */}
-              <div className="absolute top-4 right-6 z-10 text-xs text-muted-foreground flex items-center gap-1.5">
+              {/* Floating burger — only when sidebar closed, sticks to top-left while scrolling */}
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="sticky top-4 left-4 z-10 float-left h-9 w-9 flex items-center justify-center rounded-md bg-background/80 backdrop-blur-sm border border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+                  style={{ marginLeft: '1rem', marginTop: '1rem' }}
+                  title="Show sidebar"
+                >
+                  <PanelLeft size={16} />
+                </button>
+              )}
+              {/* Save status top-right — inline, not floating absolute */}
+              <div className="sticky top-4 right-6 z-10 float-right text-xs text-muted-foreground flex items-center gap-1.5"
+                   style={{ marginRight: '1.5rem', marginTop: '1rem' }}>
                 {saving ? <><Loader2 size={12} className="animate-spin" /> Saving...</> : editorState.dirty ? 'Unsaved' : 'Saved'}
               </div>
 
-              <div className="max-w-4xl mx-auto px-10 pt-16 pb-3">
+              <div className="max-w-4xl mx-auto px-10 pt-4 pb-3">
                 {/* Note title as h1 */}
                 <NoteTitle
                   key={currentNote.id + '-title'}
@@ -809,17 +822,15 @@ export default function Notes() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col relative">
             {!sidebarOpen && (
-              <header className="px-8 py-4 border-b border-border flex items-center flex-shrink-0">
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                  title="Show sidebar"
-                >
-                  <PanelLeft size={16} />
-                </button>
-              </header>
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="absolute top-4 left-4 z-10 h-9 w-9 flex items-center justify-center rounded-md bg-background/80 backdrop-blur-sm border border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+                title="Show sidebar"
+              >
+                <PanelLeft size={16} />
+              </button>
             )}
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
               <div className="text-center">
@@ -864,6 +875,8 @@ function MobileHierarchy({
   cancelAdd,
   renaming,
   startRename,
+  commitRename,
+  cancelRename,
   InlineInput,
   RenameInput,
   onSelectNote,
@@ -887,6 +900,8 @@ function MobileHierarchy({
   cancelAdd: () => void;
   renaming: RenameState;
   startRename: (state: NonNullable<RenameState>, name: string) => void;
+  commitRename: () => void;
+  cancelRename: () => void;
   InlineInput: React.FC<{ placeholder: string; onCommit: () => void; onCancel: () => void }>;
   RenameInput: React.FC<{ onCommit: () => void; onCancel: () => void }>;
   onSelectNote: (noteId: string, parentType: 'way' | 'topic', parentId: string) => void;
@@ -917,12 +932,14 @@ function MobileHierarchy({
     else setView({ kind: 'root' });
   };
 
+  const [showAddMenu, setShowAddMenu] = useState(false);
+
   const onAddClick = () => {
     if (view.kind === 'root') {
       setAdding({ kind: 'way' });
-    } else if (view.kind === 'way' && currentWay) {
-      // At way level, add a topic (most common need)
-      setAdding({ kind: 'topic', wayId: currentWay.id });
+    } else if (view.kind === 'way') {
+      // Show menu: note or topic
+      setShowAddMenu(true);
     } else if (view.kind === 'topic' && currentTopic && parentWayOfTopic) {
       setAdding({ kind: 'topic-note', wayId: parentWayOfTopic.id, topicId: currentTopic.id });
     }
@@ -950,6 +967,32 @@ function MobileHierarchy({
           <Plus size={20} />
         </button>
       </header>
+
+      {/* Add-menu (way view: note or topic) */}
+      {showAddMenu && view.kind === 'way' && currentWay && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40"
+          onClick={() => setShowAddMenu(false)}
+        >
+          <div
+            className="absolute top-16 right-3 bg-card border border-border rounded-lg shadow-lg p-1 min-w-[180px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => { setAdding({ kind: 'way-note', wayId: currentWay.id }); setShowAddMenu(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-secondary text-sm text-left"
+            >
+              <FileText size={15} /> New note
+            </button>
+            <button
+              onClick={() => { setAdding({ kind: 'topic', wayId: currentWay.id }); setShowAddMenu(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-secondary text-sm text-left"
+            >
+              <FolderPlus size={15} /> New topic
+            </button>
+          </div>
+        </div>
+      )}
 
       {mobileDragNoteId && (
         <div className="px-4 py-3 bg-primary/10 border-b border-primary/20 flex items-center gap-2 flex-shrink-0">
@@ -1014,7 +1057,7 @@ function MobileHierarchy({
                 onDelete={() => onDeleteWay(way.id)}
               >
                 {renaming?.kind === 'way' && renaming.id === way.id ? (
-                  <RenameInput onCommit={() => {}} onCancel={() => {}} />
+                  <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                 ) : (
                   <button
                     onClick={() => {
@@ -1028,7 +1071,6 @@ function MobileHierarchy({
                       mobileDragNoteId ? 'bg-primary/5 hover:bg-primary/10' : ''
                     }`}
                   >
-                    <BookOpen size={20} className="text-primary flex-shrink-0" />
                     <span className="flex-1 text-base font-medium truncate">{way.name}</span>
                     <span className="text-xs text-muted-foreground flex-shrink-0">
                       {way.topics.length + way.notes.length}
@@ -1055,29 +1097,36 @@ function MobileHierarchy({
 
             {/* Way's notes */}
             {currentWay.notes.map((note) => (
-              <LongPressRow
-                key={note.id}
-                onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
-                onSwipeDelete={() => onDeleteNote(note.id)}
-                onLongPress={() => onStartMobileDrag(note.id)}
-                isDragging={mobileDragNoteId === note.id}
-              >
-                <button
-                  onClick={() => {
-                    if (mobileDragNoteId) return; // ignore clicks during drag
-                    onSelectNote(note.id, 'way', currentWay.id);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
-                >
-                  {note.pinned ? (
-                    <Pin size={14} className="text-primary flex-shrink-0 fill-current" />
-                  ) : (
-                    <FileText size={16} className="text-muted-foreground flex-shrink-0" />
-                  )}
-                  <span className="flex-1 text-base truncate">{note.name}</span>
-                  <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
-                </button>
-              </LongPressRow>
+              <div key={note.id}>
+                {renaming?.kind === 'note' && renaming.id === note.id ? (
+                  <div className="border-b border-border">
+                    <RenameInput onCommit={commitRename} onCancel={cancelRename} />
+                  </div>
+                ) : (
+                  <LongPressRow
+                    onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
+                    onSwipeDelete={() => onDeleteNote(note.id)}
+                    onLongPress={() => onStartMobileDrag(note.id)}
+                    isDragging={mobileDragNoteId === note.id}
+                  >
+                    <button
+                      onClick={() => {
+                        if (mobileDragNoteId) return;
+                        onSelectNote(note.id, 'way', currentWay.id);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                    >
+                      {note.pinned ? (
+                        <Pin size={14} className="text-primary flex-shrink-0 fill-current" />
+                      ) : (
+                        <FileText size={16} className="text-muted-foreground flex-shrink-0" />
+                      )}
+                      <span className="flex-1 text-base truncate">{note.name}</span>
+                      <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                    </button>
+                  </LongPressRow>
+                )}
+              </div>
             ))}
 
             {adding?.kind === 'way-note' && adding.wayId === currentWay.id && (
@@ -1088,28 +1137,35 @@ function MobileHierarchy({
 
             {/* Topics */}
             {currentWay.topics.map((topic) => (
-              <SwipeRow
-                key={topic.id}
-                onEdit={() => startRename({ kind: 'topic', id: topic.id }, topic.name)}
-                onDelete={() => onDeleteTopic(topic.id)}
-              >
-                <button
-                  onClick={() => {
-                    if (mobileDragNoteId) {
-                      onDropMobileDrag({ kind: 'topic', id: topic.id });
-                    } else {
-                      setView({ kind: 'topic', topicId: topic.id });
-                    }
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left ${
-                    mobileDragNoteId ? 'bg-primary/5 hover:bg-primary/10' : ''
-                  }`}
-                >
-                  <span className="flex-1 text-base truncate">{topic.name}</span>
-                  <span className="text-xs text-muted-foreground flex-shrink-0">{topic.notes.length}</span>
-                  <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
-                </button>
-              </SwipeRow>
+              <div key={topic.id}>
+                {renaming?.kind === 'topic' && renaming.id === topic.id ? (
+                  <div className="border-b border-border">
+                    <RenameInput onCommit={commitRename} onCancel={cancelRename} />
+                  </div>
+                ) : (
+                  <SwipeRow
+                    onEdit={() => startRename({ kind: 'topic', id: topic.id }, topic.name)}
+                    onDelete={() => onDeleteTopic(topic.id)}
+                  >
+                    <button
+                      onClick={() => {
+                        if (mobileDragNoteId) {
+                          onDropMobileDrag({ kind: 'topic', id: topic.id });
+                        } else {
+                          setView({ kind: 'topic', topicId: topic.id });
+                        }
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left ${
+                        mobileDragNoteId ? 'bg-primary/5 hover:bg-primary/10' : ''
+                      }`}
+                    >
+                      <span className="flex-1 text-base truncate">{topic.name}</span>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{topic.notes.length}</span>
+                      <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                    </button>
+                  </SwipeRow>
+                )}
+              </div>
             ))}
 
             {currentWay.topics.length === 0 && currentWay.notes.length === 0 && !adding && (
@@ -1131,29 +1187,36 @@ function MobileHierarchy({
               </button>
             )}
             {currentTopic.notes.map((note) => (
-              <LongPressRow
-                key={note.id}
-                onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
-                onSwipeDelete={() => onDeleteNote(note.id)}
-                onLongPress={() => onStartMobileDrag(note.id)}
-                isDragging={mobileDragNoteId === note.id}
-              >
-                <button
-                  onClick={() => {
-                    if (mobileDragNoteId) return;
-                    onSelectNote(note.id, 'topic', currentTopic.id);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
-                >
-                  {note.pinned ? (
-                    <Pin size={14} className="text-primary flex-shrink-0 fill-current" />
-                  ) : (
-                    <FileText size={16} className="text-muted-foreground flex-shrink-0" />
-                  )}
-                  <span className="flex-1 text-base truncate">{note.name}</span>
-                  <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
-                </button>
-              </LongPressRow>
+              <div key={note.id}>
+                {renaming?.kind === 'note' && renaming.id === note.id ? (
+                  <div className="border-b border-border">
+                    <RenameInput onCommit={commitRename} onCancel={cancelRename} />
+                  </div>
+                ) : (
+                  <LongPressRow
+                    onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
+                    onSwipeDelete={() => onDeleteNote(note.id)}
+                    onLongPress={() => onStartMobileDrag(note.id)}
+                    isDragging={mobileDragNoteId === note.id}
+                  >
+                    <button
+                      onClick={() => {
+                        if (mobileDragNoteId) return;
+                        onSelectNote(note.id, 'topic', currentTopic.id);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                    >
+                      {note.pinned ? (
+                        <Pin size={14} className="text-primary flex-shrink-0 fill-current" />
+                      ) : (
+                        <FileText size={16} className="text-muted-foreground flex-shrink-0" />
+                      )}
+                      <span className="flex-1 text-base truncate">{note.name}</span>
+                      <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                    </button>
+                  </LongPressRow>
+                )}
+              </div>
             ))}
             {currentTopic.notes.length === 0 && !adding && (
               <div className="px-6 py-12 text-center text-sm text-muted-foreground">

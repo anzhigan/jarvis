@@ -1,14 +1,14 @@
 import type {
   Note,
   NoteImage,
-  Practice,
-  PracticeEntry,
-  PracticeKind,
-  PracticeStatus,
   Tag,
   Task,
   TaskPriority,
   TaskStatus,
+  Todo,
+  TodoEntry,
+  TodoKind,
+  TodoRecurrence,
   User,
   Way,
 } from './types';
@@ -172,35 +172,47 @@ export const tasksApi = {
     request<void>(`/tasks/${taskId}/tags/${tagId}`, { method: 'DELETE' }),
 };
 
-// ── Practices ─────────────────────────────────────────────────────────────────
-export const practicesApi = {
-  create: (taskId: string, data: {
+// ── Todos ─────────────────────────────────────────────────────────────────────
+export const todosApi = {
+  createForTask: (taskId: string, data: {
     title: string;
-    kind?: PracticeKind;
+    kind?: TodoKind;
     unit?: string;
     target_value?: number | null;
-    duration_days?: number | null;
+    recurrence?: TodoRecurrence;
+    due_date?: string | null;
     color?: string;
-  }) => request<Practice>(`/tasks/${taskId}/practices`, { method: 'POST', body: JSON.stringify(data) }),
+  }) => request<Todo>(`/tasks/${taskId}/todos`, { method: 'POST', body: JSON.stringify(data) }),
+
+  createStandalone: (data: {
+    title: string;
+    kind?: TodoKind;
+    unit?: string;
+    target_value?: number | null;
+    recurrence?: TodoRecurrence;
+    due_date?: string | null;
+    color?: string;
+  }) => request<Todo>('/todos/standalone', { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id: string, data: {
     title?: string;
-    kind?: PracticeKind;
+    kind?: TodoKind;
     unit?: string;
     target_value?: number | null;
-    duration_days?: number | null;
+    recurrence?: TodoRecurrence;
+    due_date?: string | null;
     color?: string;
-    status?: PracticeStatus;
-  }) => request<Practice>(`/practices/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  }) => request<Todo>(`/todos/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
-  delete: (id: string) => request<void>(`/practices/${id}`, { method: 'DELETE' }),
+  delete: (id: string) => request<void>(`/todos/${id}`, { method: 'DELETE' }),
 
-  logEntry: (practiceId: string, date: string, value: number, note = '') =>
-    request<PracticeEntry>(`/practices/${practiceId}/entries`, {
+  // Upsert: value=0 will auto-delete the entry
+  upsertEntry: (todoId: string, date: string, value: number) =>
+    request<TodoEntry>(`/todos/${todoId}/entries`, {
       method: 'POST',
-      body: JSON.stringify({ date, value, note }),
+      body: JSON.stringify({ date, value }),
     }),
 
-  deleteEntry: (practiceId: string, entryId: string) =>
-    request<void>(`/practices/${practiceId}/entries/${entryId}`, { method: 'DELETE' }),
+  agenda: (range: 'today' | 'week') =>
+    request<Todo[]>(`/todos/agenda?range=${range}`),
 };
