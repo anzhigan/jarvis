@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Brain, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
+import { useT, useLangStore } from '../store/i18n';
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -9,6 +10,8 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login, register, isLoading } = useAuthStore();
+  const t = useT();
+  const { lang, setLang } = useLangStore();
 
   const handleSubmit = async () => {
     setError('');
@@ -31,6 +34,20 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
+        {/* Language switcher */}
+        <div className="flex justify-end mb-3">
+          <div className="inline-flex text-xs bg-muted rounded-md p-0.5">
+            <button
+              onClick={() => setLang('en')}
+              className={`px-2.5 h-7 rounded font-medium ${lang === 'en' ? 'bg-card shadow-sm' : 'text-muted-foreground'}`}
+            >EN</button>
+            <button
+              onClick={() => setLang('ru')}
+              className={`px-2.5 h-7 rounded font-medium ${lang === 'ru' ? 'bg-card shadow-sm' : 'text-muted-foreground'}`}
+            >RU</button>
+          </div>
+        </div>
+
         <div className="flex items-center gap-2.5 mb-8 justify-center">
           <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
             <Brain size={18} className="text-primary-foreground" />
@@ -40,18 +57,16 @@ export default function AuthPage() {
 
         <div className="bg-card border border-border rounded-xl p-7 shadow-sm">
           <h1 className="text-2xl font-semibold tracking-tight mb-1.5">
-            {mode === 'login' ? 'Welcome back' : 'Create account'}
+            {mode === 'login' ? t('auth.welcomeBack') : t('auth.createAccount')}
           </h1>
           <p className="text-muted-foreground text-sm mb-6">
-            {mode === 'login'
-              ? 'Sign in to your knowledge base'
-              : 'Build your personal knowledge graph'}
+            {mode === 'login' ? t('auth.signInSubtitle') : t('auth.signUpSubtitle')}
           </p>
 
           <div className="flex flex-col gap-3">
             <input
               type="email"
-              placeholder="Email"
+              placeholder={t('auth.email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
@@ -61,7 +76,7 @@ export default function AuthPage() {
             {mode === 'register' && (
               <input
                 type="text"
-                placeholder="Username"
+                placeholder={t('auth.name')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
@@ -71,7 +86,7 @@ export default function AuthPage() {
 
             <input
               type="password"
-              placeholder="Password"
+              placeholder={t('auth.password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
@@ -90,13 +105,13 @@ export default function AuthPage() {
               className="h-11 mt-1 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isLoading && <Loader2 size={16} className="animate-spin" />}
-              {mode === 'login' ? 'Sign in' : 'Create account'}
+              {mode === 'login' ? t('auth.signInCta') : t('auth.createAccount')}
             </button>
           </div>
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-5">
-          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+          {mode === 'login' ? t('auth.noAccount') + ' ' : t('auth.hasAccount') + ' '}
           <button
             onClick={() => {
               setMode(mode === 'login' ? 'register' : 'login');
@@ -104,7 +119,7 @@ export default function AuthPage() {
             }}
             className="text-primary font-medium hover:underline"
           >
-            {mode === 'login' ? 'Register' : 'Sign in'}
+            {mode === 'login' ? t('auth.signUpCta') : t('auth.signInCta')}
           </button>
         </p>
       </div>

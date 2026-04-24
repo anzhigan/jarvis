@@ -11,15 +11,16 @@ import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
 import { tasksApi, gosApi, sprintsApi } from '../api/client';
 import type { Task, TaskPriority, TaskStatus, Go, GoKind, GoRecurrence, Sprint } from '../api/types';
+import { useT } from '../store/i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
 // ═══════════════════════════════════════════════════════════════════════════
-const STATUSES: { key: TaskStatus; label: string }[] = [
-  { key: 'todo', label: 'Backlog' },
-  { key: 'background', label: 'Background' },
-  { key: 'in_progress', label: 'In Progress' },
-  { key: 'done', label: 'Done' },
+const STATUSES: { key: TaskStatus; labelKey: string }[] = [
+  { key: 'todo', labelKey: 'tasks.status.todo' },
+  { key: 'background', labelKey: 'tasks.status.background' },
+  { key: 'in_progress', labelKey: 'tasks.status.in_progress' },
+  { key: 'done', labelKey: 'tasks.status.done' },
 ];
 
 const PRIORITY_DOT: Record<TaskPriority, string> = {
@@ -82,6 +83,12 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
   onLocalUpdate?: (patched: Go) => void;   // optimistic-local update (avoids full refetch flicker)
   showMeta?: boolean;
 }) {
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [numInput, setNumInput] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -196,7 +203,9 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
         onCancel={() => setConfirmDelete(false)}
         onConfirm={deleteGo}
       />
-      <div className="group relative flex items-stretch rounded-md bg-card border border-border overflow-hidden">
+      {(() => {
+        const cardBody = (
+    <div className="group relative flex items-stretch rounded-md bg-card border border-border overflow-hidden">
         <div className="w-1 flex-shrink-0" style={{ backgroundColor: stripeColor }} />
         <div className="flex-1 p-2.5 min-w-0">
           <div className="flex items-center gap-2">
@@ -351,6 +360,11 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
           )}
         </div>
       </div>
+        );
+        return isMobile && !editing
+          ? <SwipeRow enabled onEdit={() => setEditing(true)} onDelete={() => setConfirmDelete(true)}>{cardBody}</SwipeRow>
+          : cardBody;
+      })()}
     </>
   );
 }
@@ -458,6 +472,12 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addingGo, setAddingGo] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const save = async () => {
     if (!editTitle.trim()) return;
@@ -494,6 +514,8 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
         onCancel={() => setConfirmDelete(false)}
         onConfirm={del}
       />
+      {(() => {
+        const sprintCard = (
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <div className="flex items-stretch">
           <div className="w-1 flex-shrink-0" style={{ backgroundColor: sprint.color }} />
@@ -507,7 +529,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                   />
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground">Start</label>
+                      <label className="text-[10px] text-muted-foreground">{t("tasks.start")}</label>
                       <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)}
                         className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md" />
                     </div>
@@ -602,7 +624,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                     onClick={() => setAddingGo(true)}
                     className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
                   >
-                    <Plus size={12} /> Add go
+                    <Plus size={12} /> {t('tasks.addGo')}
                   </button>
                 ) : (
                   <CreateGoForm
@@ -621,6 +643,11 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
           </div>
         </div>
       </div>
+        );
+        return isMobile && !editing
+          ? <SwipeRow enabled onEdit={() => setEditing(true)} onDelete={() => setConfirmDelete(true)}>{sprintCard}</SwipeRow>
+          : sprintCard;
+      })()}
     </>
   );
 }
@@ -779,13 +806,13 @@ function CreateSprintForm({
   return (
     <div className="p-3 bg-card border border-border rounded-md space-y-2">
       <input
-        type="text" placeholder="Sprint title (e.g. April — 300 problems)"
+        type="text" placeholder="{t('sprint.titlePh')}"
         value={title} onChange={(e) => setTitle(e.target.value)} autoFocus
         className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md"
       />
       <div className="flex gap-2">
         <div className="flex-1">
-          <label className="text-[10px] text-muted-foreground">Start</label>
+          <label className="text-[10px] text-muted-foreground">{t("tasks.start")}</label>
           <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
             className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
         </div>
@@ -871,7 +898,7 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
           onClick={() => setAddingSprint(true)}
           className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
         >
-          <Zap size={12} /> Add sprint
+          <Zap size={12} /> {t('tasks.addSprint')}
         </button>
       ) : (
         <CreateSprintForm
@@ -899,7 +926,7 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
           onClick={() => setAddingGo(true)}
           className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
         >
-          <Plus size={12} /> Add go
+          <Plus size={12} /> {t('tasks.addGo')}
         </button>
       ) : (
         <CreateGoForm
@@ -932,6 +959,7 @@ function TaskCard({
   isDragging: boolean;
   isMobile: boolean;
 }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
@@ -986,12 +1014,12 @@ function TaskCard({
           </select>
           <div className="flex flex-wrap gap-2">
             <div className="flex-1 min-w-0">
-              <label className="text-[11px] text-muted-foreground">Start</label>
+              <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
               <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)}
                 className="w-full h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm" />
             </div>
             <div className="flex-1 min-w-0">
-              <label className="text-[11px] text-muted-foreground">Due</label>
+              <label className="text-[11px] text-muted-foreground">{t("tasks.due")}</label>
               <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)}
                 className="w-full h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm" />
             </div>
@@ -1064,7 +1092,7 @@ function TaskCard({
                 onChange={(e) => onUpdate({ status: e.target.value as TaskStatus })}
                 onClick={(e) => e.stopPropagation()}
                 className="text-sm md:text-xs bg-transparent border-0 focus:outline-none text-muted-foreground cursor-pointer">
-                {STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                {STATUSES.map((s) => <option key={s.key} value={s.key}>{t(s.labelKey)}</option>)}
               </select>
             </div>
           </div>
@@ -1129,6 +1157,7 @@ function TaskCard({
 // GoPanel — Past / Today / Future
 // ═══════════════════════════════════════════════════════════════════════════
 function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<void> }) {
+  const t = useT();
   const [todayItems, setTodayItems] = useState<Go[]>([]);
   const [pastItems, setPastItems] = useState<Go[]>([]);
   const [futureItems, setFutureItems] = useState<Go[]>([]);
@@ -1196,11 +1225,11 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
     <div className="space-y-4">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">Go</h1>
+        <h1 className="text-base font-semibold">{t('tasks.goTab')}</h1>
         {!adding && (
           <button onClick={() => setAdding(true)}
             className="h-8 px-3 flex items-center gap-1.5 text-sm bg-primary text-primary-foreground rounded-md font-medium">
-            <Plus size={14} /> Add go
+            <Plus size={14} /> {t('tasks.addGo')}
           </button>
         )}
       </div>
@@ -1209,7 +1238,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
         <div className="space-y-2 p-3 bg-card border border-border rounded-xl">
           <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
             className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
-            <option value="">— Standalone (no task) —</option>
+            <option value="">{t('go.standalone')}</option>
             {tasks.map((t) => (<option key={t.id} value={t.id}>{t.title}</option>))}
           </select>
           <CreateGoForm
@@ -1230,13 +1259,13 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
         <button onClick={() => setPastOpen(!pastOpen)}
           className="w-full flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           {pastOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          <span>Past</span>
-          <span className="ml-auto text-xs">{pastItems.length} items</span>
+          <span>{t('go.past')}</span>
+          <span className="ml-auto text-xs">{t('go.items', { n: pastItems.length })}</span>
         </button>
         {pastOpen && (
           <div className="mt-3 space-y-1.5">
             {pastItems.length === 0 ? (
-              <div className="py-4 text-center text-xs text-muted-foreground">Nothing in the past {pastDays} days.</div>
+              <div className="py-4 text-center text-xs text-muted-foreground">{t('go.nothingPast', { days: pastDays })}</div>
             ) : pastItems.map((g) => (
               <GoRow key={g.id} go={g}
                 availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
@@ -1244,7 +1273,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
             ))}
             <button onClick={() => setPastDays(pastDays + 30)}
               className="w-full h-8 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md">
-              Show older ({pastDays}+ days)
+              {t('go.showOlder', { days: pastDays })}
             </button>
           </div>
         )}
@@ -1253,11 +1282,11 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
       {/* Today */}
       <div>
         <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-base font-semibold">Today · {todayLabel}</h2>
-          <span className="text-xs text-muted-foreground">{completedToday} of {todayItems.length} done</span>
+          <h2 className="text-base font-semibold">{t('go.today')} · {todayLabel}</h2>
+          <span className="text-xs text-muted-foreground">{t('go.ofDone', { done: completedToday, total: todayItems.length })}</span>
         </div>
         {todayItems.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">Nothing for today.</div>
+          <div className="py-6 text-center text-sm text-muted-foreground">{t('go.nothingToday')}</div>
         ) : (
           <div className="space-y-1.5">
             {todayItems.map((g) => (
@@ -1272,11 +1301,11 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
       {/* Future */}
       <div>
         <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-base font-semibold">Future</h2>
-          <span className="text-xs text-muted-foreground">{futureItems.length} upcoming</span>
+          <h2 className="text-base font-semibold">{t('go.future')}</h2>
+          <span className="text-xs text-muted-foreground">{t('go.upcoming', { n: futureItems.length })}</span>
         </div>
         {futureGroups.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">No future items.</div>
+          <div className="py-6 text-center text-sm text-muted-foreground">{t('go.noFuture')}</div>
         ) : (
           <div className="space-y-3">
             {futureGroups.map(([date, list]) => (
@@ -1305,6 +1334,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
 // SprintPanel — Past / Current / Future
 // ═══════════════════════════════════════════════════════════════════════════
 function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<void> }) {
+  const t = useT();
   const [current, setCurrent] = useState<Sprint[]>([]);
   const [past, setPast] = useState<Sprint[]>([]);
   const [future, setFuture] = useState<Sprint[]>([]);
@@ -1364,11 +1394,11 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
     <div className="space-y-4">
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">Sprint</h1>
+        <h1 className="text-base font-semibold">{t('tasks.sprintTab')}</h1>
         {!adding && (
           <button onClick={() => setAdding(true)}
             className="h-8 px-3 flex items-center gap-1.5 text-sm bg-primary text-primary-foreground rounded-md font-medium">
-            <Plus size={14} /> Add sprint
+            <Plus size={14} /> {t('tasks.addSprint')}
           </button>
         )}
       </div>
@@ -1377,7 +1407,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
         <div className="space-y-2 p-3 bg-card border border-border rounded-xl">
           <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
             className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
-            <option value="">— Pick a task —</option>
+            <option value="">{t('sprint.pickTask')}</option>
             {tasks.map((t) => (<option key={t.id} value={t.id}>{t.title}</option>))}
           </select>
           {addTaskId && (
@@ -1396,20 +1426,20 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
         <button onClick={() => setPastOpen(!pastOpen)}
           className="w-full flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           {pastOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          <span>Past sprints</span>
+          <span>{t('sprint.past')}</span>
           <span className="ml-auto text-xs">{past.length}</span>
         </button>
         {pastOpen && (
           <div className="mt-3 space-y-2">
             {past.length === 0 ? (
-              <div className="py-4 text-center text-xs text-muted-foreground">No past sprints in last {pastDays} days.</div>
+              <div className="py-4 text-center text-xs text-muted-foreground">{t('sprint.none_past', { days: pastDays })}</div>
             ) : past.map((s) => {
               const taskSprints = tasks.find((t) => t.id === s.task_id)?.sprints ?? [];
               return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
             })}
             <button onClick={() => setPastDays(pastDays + 90)}
               className="w-full h-8 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md">
-              Show older ({pastDays}+ days)
+              {t('go.showOlder', { days: pastDays })}
             </button>
           </div>
         )}
@@ -1418,11 +1448,11 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
       {/* Current */}
       <div>
         <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-base font-semibold">Current sprints</h2>
-          <span className="text-xs text-muted-foreground">{current.length} active</span>
+          <h2 className="text-base font-semibold">{t('sprint.current')}</h2>
+          <span className="text-xs text-muted-foreground">{t('sprint.active', { n: current.length })}</span>
         </div>
         {current.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">No current sprints.</div>
+          <div className="py-6 text-center text-sm text-muted-foreground">{t('sprint.none_current')}</div>
         ) : (
           <div className="space-y-2">
             {current.map((s) => {
@@ -1436,11 +1466,11 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
       {/* Future */}
       <div>
         <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-base font-semibold">Future sprints</h2>
-          <span className="text-xs text-muted-foreground">{future.length} upcoming</span>
+          <h2 className="text-base font-semibold">{t('sprint.future')}</h2>
+          <span className="text-xs text-muted-foreground">{t('sprint.upcoming', { n: future.length })}</span>
         </div>
         {future.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">No future sprints.</div>
+          <div className="py-6 text-center text-sm text-muted-foreground">{t('sprint.none_future')}</div>
         ) : (
           <div className="space-y-2">
             {future.map((s) => {
@@ -1458,6 +1488,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
 // Main
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Tasks() {
+  const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'tasks' | 'go' | 'sprint'>('tasks');
@@ -1524,7 +1555,7 @@ export default function Tasks() {
   const deleteTask = async (id: string) => {
     setConfirmState({
       title: 'Delete task?',
-      message: 'All sprints and gos will be deleted too.',
+      message: t('tasks.deleteMsg'),
       onConfirm: async () => {
         try { await tasksApi.delete(id); await load(); }
         catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
@@ -1550,15 +1581,15 @@ export default function Tasks() {
             <div className="hidden md:flex text-sm bg-muted rounded-md p-0.5 w-fit">
               <button onClick={() => setView('tasks')}
                 className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'tasks' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
-                <TargetIcon size={14} /> Tasks
+                <TargetIcon size={14} /> {t('tasks.tasksTab')}
               </button>
               <button onClick={() => setView('go')}
                 className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'go' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
-                <ListTodo size={14} /> Go
+                <ListTodo size={14} /> {t('tasks.goTab')}
               </button>
               <button onClick={() => setView('sprint')}
                 className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'sprint' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
-                <Zap size={14} /> Sprint
+                <Zap size={14} /> {t('tasks.sprintTab')}
               </button>
             </div>
 
@@ -1573,7 +1604,7 @@ export default function Tasks() {
                 }`}
               >
                 <TargetIcon size={15} />
-                Tasks
+                {t('tasks.tasksTab')}
               </button>
               <button
                 onClick={() => setView('go')}
@@ -1584,7 +1615,7 @@ export default function Tasks() {
                 }`}
               >
                 <ListTodo size={16} />
-                Go
+                {t('tasks.goTab')}
               </button>
               <button
                 onClick={() => setView('sprint')}
@@ -1595,7 +1626,7 @@ export default function Tasks() {
                 }`}
               >
                 <Zap size={15} />
-                Sprint
+                {t('tasks.sprintTab')}
               </button>
             </div>
           </div>
@@ -1608,7 +1639,7 @@ export default function Tasks() {
             <>
               <div className="p-3 bg-card border border-border rounded-xl mb-5 space-y-2">
                 <div className="flex flex-wrap gap-2">
-                  <input type="text" placeholder="New task..." value={newTitle}
+                  <input type="text" placeholder={t("tasks.new")} value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && createTask()}
                     className="flex-1 min-w-0 h-10 px-3 rounded-md border border-border bg-input-background" />
@@ -1618,17 +1649,17 @@ export default function Tasks() {
                   </select>
                   <button onClick={createTask} disabled={!newTitle.trim()}
                     className="h-10 px-4 bg-primary text-primary-foreground rounded-md font-medium disabled:opacity-50 flex items-center gap-1.5">
-                    <Plus size={15} /> Create
+                    <Plus size={15} /> {t('common.create')}
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="min-w-0">
-                    <label className="text-[11px] text-muted-foreground">Start</label>
+                    <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
                     <input type="date" value={newStart} onChange={(e) => setNewStart(e.target.value)}
                       className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
                   </div>
                   <div className="min-w-0">
-                    <label className="text-[11px] text-muted-foreground">Due</label>
+                    <label className="text-[11px] text-muted-foreground">{t("tasks.due")}</label>
                     <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)}
                       className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
                   </div>
@@ -1636,9 +1667,10 @@ export default function Tasks() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                {STATUSES.map(({ key, label }) => {
+                {STATUSES.map(({ key, labelKey }) => {
                   const list = tasksByStatus[key] ?? [];
                   const isDropTarget = dragOverStatus === key;
+                  const label = t(labelKey);
                   return (
                     <div key={key}
                       onDragOver={(e) => { if (!draggingId) return; e.preventDefault(); setDragOverStatus(key); }}
@@ -1681,7 +1713,7 @@ export default function Tasks() {
                           </AnimatePresence>
                           {list.length === 0 && !isDropTarget && (
                             <div className="py-6 px-3 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
-                              {draggingId ? 'Drop here' : 'No tasks'}
+                              {draggingId ? t('tasks.dropHere') : t('tasks.noTasks')}
                             </div>
                           )}
                         </div>

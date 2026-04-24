@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
-import { Loader2, Save, LogOut, Trash2, AlertCircle, User as UserIcon, Lock, Camera, Type, Minus, Plus } from 'lucide-react';
+import { Loader2, Save, LogOut, Trash2, AlertCircle, User as UserIcon, Lock, Camera, Type, Minus, Plus, Languages } from 'lucide-react';
 import { toast } from 'sonner';
 import { authApi } from '../api/client';
 import { useAuthStore } from '../store/auth';
+import { useT, useLangStore } from '../store/i18n';
 import AvatarCropper from './AvatarCropper';
 
 const FONT_SIZES = [14, 15, 16, 17, 18, 20, 22, 24];
@@ -16,6 +17,8 @@ function getSavedFontSize(): number {
 
 export default function Profile() {
   const { user, logout, setUser } = useAuthStore();
+  const t = useT();
+  const { lang, setLang } = useLangStore();
 
   const [username, setUsername] = useState(user?.username ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
@@ -267,6 +270,41 @@ export default function Profile() {
             >
               {savingFontSize ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               Save
+            </button>
+          </div>
+        </section>
+
+        {/* Language */}
+        <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center flex-shrink-0">
+              <Languages size={18} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">{t('profile.language')}</h2>
+              <p className="text-xs text-muted-foreground">English / Русский</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setLang('en')}
+              className={`h-11 rounded-lg font-medium text-sm border transition-all ${
+                lang === 'en'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background border-border text-muted-foreground hover:border-primary/40'
+              }`}
+            >
+              🇬🇧 English
+            </button>
+            <button
+              onClick={() => setLang('ru')}
+              className={`h-11 rounded-lg font-medium text-sm border transition-all ${
+                lang === 'ru'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background border-border text-muted-foreground hover:border-primary/40'
+              }`}
+            >
+              🇷🇺 Русский
             </button>
           </div>
         </section>

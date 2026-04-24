@@ -25,6 +25,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useT } from '../store/i18n';
 import { tasksApi } from '../api/client';
 import type { Task, Go, Sprint } from '../api/types';
 
@@ -56,56 +57,214 @@ const PRIORITY_COLORS: Record<string, string> = { low: '#94a3b8', medium: '#f59e
 const PRIORITY_LABEL: Record<string, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// KPI tile — large number + trend
+// ─── 4 Specialized KPI cards — each visually different ─────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
-function KPI({ icon: Icon, label, value, sub, trend, tone = 'default' }: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  sub?: string;
-  trend?: { value: number; label: string };
-  tone?: 'default' | 'success' | 'warning' | 'info' | 'accent';
+
+// Card 1: Active tasks — dominated by a stacked bar of task statuses
+function ActiveTasksCard({ stats }: {
+  stats: { totalTasks: number; done: number; inProgress: number; backlog: number; background: number; activeSprints: number; totalSprints: number };
 }) {
-  const toneBg = {
-    default: 'from-primary/10 to-primary/5',
-    success: 'from-emerald-500/10 to-emerald-500/5',
-    warning: 'from-amber-500/10 to-amber-500/5',
-    info:    'from-blue-500/10 to-blue-500/5',
-    accent:  'from-violet-500/10 to-violet-500/5',
-  }[tone];
-  const iconCls = {
-    default: 'text-primary bg-primary/15',
-    success: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/15',
-    warning: 'text-amber-600 dark:text-amber-400 bg-amber-500/15',
-    info:    'text-blue-600 dark:text-blue-400 bg-blue-500/15',
-    accent:  'text-violet-600 dark:text-violet-400 bg-violet-500/15',
-  }[tone];
+  const active = stats.inProgress + stats.backlog + stats.background;
+  const total = stats.totalTasks || 1;
+  const segs = [
+    { key: 'in_progress', value: stats.inProgress, color: '#f59e0b', label: 'In progress' },
+    { key: 'todo',        value: stats.backlog,    color: '#94a3b8', label: 'Backlog' },
+    { key: 'background',  value: stats.background, color: '#a78bfa', label: 'Background' },
+    { key: 'done',        value: stats.done,       color: '#10b981', label: 'Done' },
+  ].filter((s) => s.value > 0);
 
   return (
-    <div className={`relative p-4 rounded-xl border border-border bg-gradient-to-br ${toneBg} overflow-hidden`}>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-muted-foreground font-medium">{label}</span>
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${iconCls}`}>
-          <Icon size={17} />
+    <div className="relative p-4 rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-blue-400/5 to-transparent overflow-hidden">
+      <div className="flex items-start justify-between mb-2">
+        <span className="text-xs text-muted-foreground font-medium">Active tasks</span>
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400 bg-blue-500/15">
+          <TargetIcon size={17} />
         </div>
       </div>
-      <div className="text-3xl font-semibold tracking-tight">{value}</div>
-      <div className="flex items-center gap-2 mt-1">
-        {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
-        {trend && (
-          <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
-            trend.value > 0 ? 'text-emerald-600 dark:text-emerald-400' :
-            trend.value < 0 ? 'text-destructive' : 'text-muted-foreground'
-          }`}>
-            {trend.value > 0 ? <TrendingUp size={11} /> :
-             trend.value < 0 ? <TrendingDown size={11} /> : <Minus size={11} />}
-            {trend.value > 0 ? '+' : ''}{trend.value}% {trend.label}
+      <div className="flex items-baseline gap-1.5 mb-2">
+        <span className="text-4xl font-semibold tracking-tight">{active}</span>
+        <span className="text-xs text-muted-foreground">/ {stats.totalTasks} total</span>
+      </div>
+      {/* Stacked bar */}
+      <div className="h-2 bg-muted rounded-full overflow-hidden flex mb-2">
+        {segs.map((s) => (
+          <div
+            key={s.key}
+            className="h-full transition-all"
+            style={{ width: `${(s.value / total) * 100}%`, backgroundColor: s.color }}
+            title={`${s.label}: ${s.value}`}
+          />
+        ))}
+      </div>
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
+        {stats.activeSprints > 0 && (
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-600 dark:text-violet-400 font-medium">
+            <Zap size={9} /> {stats.activeSprints} sprint{stats.activeSprints !== 1 ? 's' : ''} active
           </span>
         )}
+        {stats.totalSprints > stats.activeSprints && (
+          <span>· {stats.totalSprints - stats.activeSprints} queued</span>
+        )}
+        {stats.totalSprints === 0 && <span>no sprints yet</span>}
       </div>
     </div>
   );
 }
+
+// Card 2: Completed — big semi-circular progress arc
+function CompletedCard({ stats }: {
+  stats: { done: number; totalTasks: number; completionRate: number };
+}) {
+  // Semi-circular arc: svg path from left to right across top
+  // r=48, stroke-dasharray based on completion
+  const r = 48;
+  const circumference = Math.PI * r;
+  const offset = circumference * (1 - stats.completionRate / 100);
+
+  return (
+    <div className="relative p-4 rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-400/5 to-transparent overflow-hidden">
+      <div className="flex items-start justify-between mb-2">
+        <span className="text-xs text-muted-foreground font-medium">Completed</span>
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/15">
+          <CheckCircle2 size={17} />
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        {/* Circular gauge */}
+        <div className="relative w-[72px] h-[72px] flex-shrink-0">
+          <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+            <circle cx="60" cy="60" r={r} fill="none" stroke="var(--muted)" strokeWidth="9" />
+            <circle
+              cx="60" cy="60" r={r}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth="9"
+              strokeLinecap="round"
+              strokeDasharray={`${circumference} ${circumference}`}
+              strokeDashoffset={offset}
+              style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center flex-col">
+            <div className="text-xl font-semibold leading-none">{stats.completionRate}%</div>
+            <div className="text-[9px] text-muted-foreground mt-0.5">done</div>
+          </div>
+        </div>
+        <div>
+          <div className="text-3xl font-semibold leading-none">{stats.done}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">tasks completed</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">of {stats.totalTasks} total</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Card 3: Avg progress — radial-ish gauge with milestones
+function AvgProgressCard({ stats }: {
+  stats: { avgProgress: number; totalTasks: number };
+}) {
+  const milestones = [25, 50, 75, 100];
+  return (
+    <div className="relative p-4 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent overflow-hidden">
+      <div className="flex items-start justify-between mb-2">
+        <span className="text-xs text-muted-foreground font-medium">Avg progress</span>
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-primary bg-primary/15">
+          <Clock size={17} />
+        </div>
+      </div>
+      <div className="flex items-baseline gap-2 mb-3">
+        <span className="text-4xl font-semibold tracking-tight">{stats.avgProgress}</span>
+        <span className="text-lg text-muted-foreground">%</span>
+      </div>
+      {/* Thick bar with milestone markers */}
+      <div className="relative h-3 bg-muted rounded-full overflow-visible mb-1">
+        <div
+          className="h-full bg-gradient-to-r from-primary/70 to-primary rounded-full transition-all"
+          style={{ width: `${stats.avgProgress}%` }}
+        />
+        {milestones.map((m) => (
+          <div
+            key={m}
+            className="absolute top-1/2 -translate-y-1/2 w-[2px] h-4 bg-background"
+            style={{ left: `${m}%` }}
+          />
+        ))}
+      </div>
+      <div className="flex justify-between text-[9px] text-muted-foreground px-0.5">
+        <span>0%</span>
+        <span>25</span>
+        <span>50</span>
+        <span>75</span>
+        <span>100%</span>
+      </div>
+      <div className="text-[10px] text-muted-foreground mt-1.5">
+        across {stats.totalTasks} {stats.totalTasks === 1 ? 'task' : 'tasks'}
+      </div>
+    </div>
+  );
+}
+
+// Card 4: Done this week — mini sparkline of last 7 days
+function WeekCompletionsCard({ last7Counts, weekTrend, total }: {
+  last7Counts: number[];
+  weekTrend: number;
+  total: number;
+}) {
+  const max = Math.max(1, ...last7Counts);
+  const W = 120;
+  const H = 38;
+  const step = W / (last7Counts.length - 1 || 1);
+
+  // Build path
+  const pts = last7Counts.map((v, i) => ({ x: i * step, y: H - (v / max) * H }));
+  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const areaD = `${pathD} L${W},${H} L0,${H} Z`;
+
+  return (
+    <div className="relative p-4 rounded-xl border border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-violet-400/5 to-transparent overflow-hidden">
+      <div className="flex items-start justify-between mb-2">
+        <span className="text-xs text-muted-foreground font-medium">Done this week</span>
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-violet-600 dark:text-violet-400 bg-violet-500/15">
+          <Flame size={17} />
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div>
+          <div className="text-4xl font-semibold tracking-tight leading-none">{total}</div>
+          <div className="text-[10px] text-muted-foreground mt-1">Go completions</div>
+        </div>
+        {/* Sparkline */}
+        <svg width={W} height={H} className="flex-shrink-0">
+          <defs>
+            <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+          <path d={areaD} fill="url(#sparkGrad)" />
+          <path d={pathD} fill="none" stroke="#8b5cf6" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+          {pts.map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r={1.5} fill="#8b5cf6" />
+          ))}
+        </svg>
+      </div>
+      <div className="flex items-center gap-1 text-[11px] mt-2">
+        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium ${
+          weekTrend > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' :
+          weekTrend < 0 ? 'bg-red-500/15 text-red-600 dark:text-red-400' :
+          'bg-muted text-muted-foreground'
+        }`}>
+          {weekTrend > 0 ? <TrendingUp size={10} /> :
+           weekTrend < 0 ? <TrendingDown size={10} /> : <Minus size={10} />}
+          {weekTrend > 0 ? '+' : ''}{weekTrend}%
+        </span>
+        <span className="text-muted-foreground text-[10px]">vs last week</span>
+      </div>
+    </div>
+  );
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GitHub-style year heatmap
@@ -441,17 +600,28 @@ function ProductivityTrend({ gos }: { gos: Go[] }) {
   const DAYS = 30;
   const now = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
 
+  // Pick up to N daily Gos — each becomes a background line
+  const MAX_BG_LINES = 6;
+  const dailyGos = useMemo(() => {
+    const ds = gos.filter((g) => g.recurrence === 'daily' && g.kind === 'boolean');
+    // If too many, take first MAX_BG_LINES (by created_at ascending already)
+    return ds.slice(0, MAX_BG_LINES);
+  }, [gos]);
+
+  // Each row in `rows`: { label, score, go_<id>: 0|100, ... }
+  // overall "score" = avg across all gos that day (0 | 100)
+  // Each daily go: 100 if done on this day else 0 (step-like line, visually it rises/falls)
   const rows = useMemo(() => {
-    const result: { date: string; label: string; score: number }[] = [];
+    const result: Record<string, any>[] = [];
     for (let i = DAYS - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const key = isoDay(d);
-      // Count completions per day
+
+      // Overall
       let completed = 0;
       let tracked = 0;
       for (const g of gos) {
-        // Only count if go was "active" on that day (created before or on this day)
         const created = new Date(g.created_at);
         created.setHours(0, 0, 0, 0);
         if (created > d) continue;
@@ -460,22 +630,38 @@ function ProductivityTrend({ gos }: { gos: Go[] }) {
         if (entry && entry.value > 0) completed += 1;
       }
       const score = tracked > 0 ? Math.round((completed / tracked) * 100) : 0;
-      result.push({
+
+      const row: Record<string, any> = {
         date: key,
         label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
         score,
-      });
+      };
+
+      // Per-daily-go value — 100 if done on this day, otherwise undefined (recharts skips)
+      for (const g of dailyGos) {
+        const created = new Date(g.created_at);
+        created.setHours(0, 0, 0, 0);
+        if (created > d) continue;
+        const entry = g.entries.find((e) => e.date === key);
+        const v = entry && entry.value > 0 ? 100 : 0;
+        row[`go_${g.id}`] = v;
+      }
+
+      result.push(row);
     }
     return result;
-  }, [now, gos]);
+  }, [now, gos, dailyGos]);
 
-  const scores = rows.map((r) => r.score).filter((v) => v > 0);
+  const scores = rows.map((r) => r.score as number).filter((v) => v > 0);
   const avg = scores.length > 0 ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : 0;
-  const last7 = rows.slice(-7).map((r) => r.score);
+  const last7 = rows.slice(-7).map((r) => r.score as number);
   const last7Avg = last7.length > 0 ? Math.round(last7.reduce((s, v) => s + v, 0) / last7.length) : 0;
-  const prev7 = rows.slice(-14, -7).map((r) => r.score);
+  const prev7 = rows.slice(-14, -7).map((r) => r.score as number);
   const prev7Avg = prev7.length > 0 ? Math.round(prev7.reduce((s, v) => s + v, 0) / prev7.length) : 0;
   const trend = last7Avg - prev7Avg;
+
+  // Distinct muted colors for bg lines
+  const bgColors = ['#94a3b8', '#cbd5e1', '#a8a29e', '#d4d4d8', '#a3a3a3', '#bfbfbf'];
 
   return (
     <div className="p-5 bg-card border border-border rounded-xl">
@@ -485,7 +671,7 @@ function ProductivityTrend({ gos }: { gos: Go[] }) {
             <Activity size={14} className="text-primary" />
             Productivity trend
           </h3>
-          <p className="text-xs text-muted-foreground">Daily completion rate across all Gos</p>
+          <p className="text-xs text-muted-foreground">Overall completion rate + individual daily Go lines</p>
         </div>
         <div className="flex items-end gap-4 text-right">
           <div>
@@ -518,12 +704,52 @@ function ProductivityTrend({ gos }: { gos: Go[] }) {
             <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} domain={[0, 100]} stroke="var(--border)" tickFormatter={(v) => `${v}%`} />
             <Tooltip
               contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '12px' }}
-              formatter={(v: number) => [`${v}%`, 'Completion']}
+              formatter={(v: number, name: string) => {
+                if (name === 'score') return [`${v}%`, 'Overall'];
+                const id = name.replace('go_', '');
+                const g = dailyGos.find((dg) => dg.id === id);
+                return [v > 0 ? '✓ done' : '✗ missed', g?.title || 'Go'];
+              }}
             />
-            <Area type="monotone" dataKey="score" stroke="#4f46e5" strokeWidth={2} fill="url(#prodFill)" />
+            {/* Background per-daily-go lines (thin, step, grey tones) */}
+            {dailyGos.map((g, i) => (
+              <Area
+                key={g.id}
+                type="stepAfter"
+                dataKey={`go_${g.id}`}
+                stroke={bgColors[i % bgColors.length]}
+                strokeWidth={1}
+                strokeDasharray="2 2"
+                fill="transparent"
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+            ))}
+            {/* Main overall line + area */}
+            <Area type="monotone" dataKey="score" stroke="#4f46e5" strokeWidth={2.5} fill="url(#prodFill)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Legend */}
+      {dailyGos.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 pt-3 border-t border-border text-[10px]">
+          <div className="inline-flex items-center gap-1.5">
+            <div className="w-3 h-0.5 bg-primary rounded-full" />
+            <span className="font-medium">Overall</span>
+          </div>
+          {dailyGos.map((g, i) => (
+            <div key={g.id} className="inline-flex items-center gap-1.5 text-muted-foreground">
+              <div className="w-3 h-0.5 border-t border-dashed" style={{ borderColor: bgColors[i % bgColors.length] }} />
+              <span className="truncate max-w-[140px]">{g.title}</span>
+            </div>
+          ))}
+          {gos.filter((g) => g.recurrence === 'daily' && g.kind === 'boolean').length > MAX_BG_LINES && (
+            <span className="text-muted-foreground italic">+ {gos.filter((g) => g.recurrence === 'daily' && g.kind === 'boolean').length - MAX_BG_LINES} more (hidden)</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -647,6 +873,7 @@ function CompactGantt({ tasks }: { tasks: Task[] }) {
 // Main
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Metrics() {
+  const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -663,7 +890,7 @@ export default function Metrics() {
 
   useEffect(() => { load(); }, []);
 
-  const { allGos, stats, trend } = useMemo(() => {
+  const { allGos, last7Counts, stats, trend } = useMemo(() => {
     const allGos: Go[] = [];
     tasks.forEach((t) => {
       t.gos.forEach((g) => allGos.push(g));
@@ -681,11 +908,17 @@ export default function Metrics() {
     const week2Start = new Date(week2End); week2Start.setDate(week2Start.getDate() - 6);
 
     let week1Done = 0; let week2Done = 0;
+    // Also count per-day completions for last-7 sparkline
+    const last7Counts: number[] = Array(7).fill(0);
     for (const g of allGos) {
       for (const e of g.entries) {
         if (e.value <= 0) continue;
         const ed = parseDate(e.date);
-        if (ed >= week1Start && ed <= week1End) week1Done += 1;
+        if (ed >= week1Start && ed <= week1End) {
+          week1Done += 1;
+          const diff = Math.floor((ed.getTime() - week1Start.getTime()) / 86_400_000);
+          if (diff >= 0 && diff < 7) last7Counts[diff] += 1;
+        }
         else if (ed >= week2Start && ed <= week2End) week2Done += 1;
       }
     }
@@ -701,8 +934,21 @@ export default function Metrics() {
       ? Math.round((statusCounts.done / tasks.length) * 100)
       : 0;
 
+    // Sprint stats
+    let activeSprints = 0;
+    let totalSprints = 0;
+    tasks.forEach((t) => {
+      t.sprints.forEach((s) => {
+        totalSprints += 1;
+        const start = parseDate(s.start_date);
+        const end = parseDate(s.end_date);
+        if (start <= today && today <= end) activeSprints += 1;
+      });
+    });
+
     return {
       allGos,
+      last7Counts,
       stats: {
         totalTasks: tasks.length,
         done: statusCounts.done,
@@ -713,6 +959,8 @@ export default function Metrics() {
         avgProgress,
         completionRate,
         week1Done,
+        activeSprints,
+        totalSprints,
       },
       trend: { weekTrend },
     };
@@ -728,48 +976,27 @@ export default function Metrics() {
     <div className="size-full overflow-y-auto">
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6 space-y-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Analysis</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Your productivity at a glance</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('analysis.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('analysis.subtitle')}</p>
         </div>
 
         {!hasData ? (
           <div className="border border-dashed border-border rounded-xl py-20 text-center">
             <Activity size={32} className="mx-auto mb-3 text-muted-foreground opacity-60" />
-            <p className="text-base font-medium mb-1">Nothing to analyze yet</p>
-            <p className="text-sm text-muted-foreground">Create tasks and Go items, check them off, come back</p>
+            <p className="text-base font-medium mb-1">{t('analysis.empty')}</p>
+            <p className="text-sm text-muted-foreground">{t('analysis.emptySub')}</p>
           </div>
         ) : (
           <>
             {/* KPI row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <KPI
-                icon={TargetIcon}
-                label="Active tasks"
-                value={stats.inProgress + stats.backlog + stats.background}
-                sub={`${stats.totalTasks} total`}
-                tone="info"
-              />
-              <KPI
-                icon={CheckCircle2}
-                label="Completed"
-                value={stats.done}
-                sub={`${stats.completionRate}% completion rate`}
-                tone="success"
-              />
-              <KPI
-                icon={Clock}
-                label="Avg progress"
-                value={`${stats.avgProgress}%`}
-                sub="across all tasks"
-                tone="default"
-              />
-              <KPI
-                icon={Flame}
-                label="Done this week"
-                value={stats.week1Done}
-                sub="Go completions"
-                trend={{ value: trend.weekTrend, label: 'vs prev week' }}
-                tone="accent"
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <ActiveTasksCard stats={stats} />
+              <CompletedCard stats={stats} />
+              <AvgProgressCard stats={stats} />
+              <WeekCompletionsCard
+                last7Counts={last7Counts}
+                weekTrend={trend.weekTrend}
+                total={stats.week1Done}
               />
             </div>
 

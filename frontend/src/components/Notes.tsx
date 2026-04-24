@@ -24,6 +24,7 @@ import LongPressRow from './LongPressRow';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
 import NoteTitle from './NoteTitle';
+import { useT } from '../store/i18n';
 import { notesApi, topicsApi, waysApi } from '../api/client';
 import type { Note, Topic, Way } from '../api/types';
 
@@ -51,6 +52,7 @@ type MobileView =
   | { kind: 'topic'; topicId: string };   // inside a topic — shows notes
 
 export default function Notes() {
+  const t = useT();
   const [ways, setWays] = useState<Way[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -309,14 +311,14 @@ export default function Notes() {
     try {
       await notesApi.move(noteId, target.kind === 'way' ? { way_id: target.id } : { topic_id: target.id });
       await loadWays();
-      toast.success('Note moved');
+      toast.success(t('notes.moveToast'));
     } catch (err: any) {
-      toast.error(err?.detail ?? 'Failed to move note');
+      toast.error(err?.detail ?? t('notes.moveFail'));
     }
   };
 
   const deleteWay = (id: string) => {
-    askConfirm('Delete way?', 'This will delete the way and everything inside it.', async () => {
+    askConfirm(t('notes.deleteWay'), t('notes.deleteWayMsg'), async () => {
       try {
         await waysApi.delete(id);
         if (selection && selection.parentId === id) setSelection(null);
@@ -546,7 +548,7 @@ export default function Notes() {
           try {
             await notesApi.move(mobileDragNoteId, target.kind === 'way' ? { way_id: target.id } : { topic_id: target.id });
             await loadWays();
-            toast.success('Note moved');
+            toast.success(t('notes.moveToast'));
           } catch (err: any) { toast.error(err?.detail ?? 'Failed'); }
           finally { setMobileDragNoteId(null); }
         }}

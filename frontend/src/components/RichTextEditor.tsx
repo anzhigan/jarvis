@@ -576,7 +576,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
 
       {/* Toolbar */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm mb-6 pb-2 -mx-4 md:-mx-10 px-4 md:px-10 border-b border-border">
-        <div className="flex items-center gap-0.5 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible pt-2 editor-toolbar-scroll">
+        <div className="flex items-center gap-0.5 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible pt-2 editor-toolbar-scroll -mx-1 px-1">
           <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnCls(editor.isActive('bold'))} title="Bold">
             <Bold size={15} />
           </button>
@@ -683,7 +683,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
               <Type size={15} />
             </button>
             {showSizePicker && (
-              <div className="absolute top-9 left-0 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[140px] z-20">
+              <div className="editor-dropdown absolute top-9 left-0 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[140px] z-50">
                 {FONT_SIZES.map((size) => (
                   <button
                     key={size.value}
@@ -714,7 +714,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
               />
             </button>
             {showColorPicker && (
-              <div className="absolute top-9 left-0 bg-popover border border-border rounded-lg shadow-lg p-3 z-20 w-[220px]">
+              <div className="editor-dropdown absolute top-9 left-0 bg-popover border border-border rounded-lg shadow-lg p-3 z-50 w-[220px]">
                 <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 px-0.5">Text color</div>
                 <div className="grid grid-cols-6 gap-2">
                   {COLORS.map(({ color, name }) => {

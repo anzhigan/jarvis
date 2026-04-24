@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Tag as TagIcon, Plus, X, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { notesApi, tagsApi, tasksApi } from '../api/client';
+import { useT } from '../store/i18n';
 import type { Tag } from '../api/types';
 
 const PALETTE = [
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function TagSelector({ targetId, targetKind = 'note', tags, onChange, compact }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
@@ -121,27 +123,33 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
         <button
           onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
           className={`inline-flex items-center gap-1 ${chipHeight} px-2 rounded-full ${chipText} font-medium border border-dashed border-border hover:border-border-strong hover:bg-secondary/40 text-muted-foreground transition-colors`}
-          title="Add tag"
+          title={t("tags.addTag")}
         >
           <TagIcon size={iconSize} />
-          {tags.length === 0 ? 'Tag' : '+'}
+          {tags.length === 0 ? t('tags.addTag') : '+'}
         </button>
 
         {open && (
-          <div
-            ref={panelRef}
-            onClick={(e) => e.stopPropagation()}
-            className="absolute left-0 top-9 z-30 w-72 bg-popover border border-border rounded-lg shadow-lg p-3"
-          >
+          <>
+            {/* Mobile backdrop */}
+            <div
+              className="fixed inset-0 z-40 bg-black/40 md:hidden"
+              onClick={() => setOpen(false)}
+            />
+            <div
+              ref={panelRef}
+              onClick={(e) => e.stopPropagation()}
+              className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-50 max-h-[80vh] overflow-y-auto md:absolute md:inset-auto md:left-0 md:top-9 md:translate-y-0 md:w-72 md:max-h-none md:overflow-visible bg-popover border border-border rounded-lg shadow-lg p-3"
+            >
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Your tags
+              {t('tags.yourTags')}
             </div>
             {loading ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 size={16} className="animate-spin text-muted-foreground" />
               </div>
             ) : allTags.length === 0 ? (
-              <div className="text-xs text-muted-foreground py-2">No tags yet. Create one below.</div>
+              <div className="text-xs text-muted-foreground py-2">{t('tags.none')}</div>
             ) : (
               <div className="flex flex-wrap gap-1.5 mb-3 max-h-48 overflow-y-auto">
                 {allTags.map((tag) => {
@@ -166,7 +174,7 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
-                          if (!window.confirm(`Delete tag "${tag.name}"? It will be removed from all notes and tasks.`)) return;
+                          if (!window.confirm(t('tags.deleteConfirm', { name: tag.name }))) return;
                           try {
                             await tagsApi.delete(tag.id);
                             await loadAllTags();
@@ -224,6 +232,7 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
               </div>
             </div>
           </div>
+          </>
         )}
       </div>
     </div>

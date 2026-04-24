@@ -253,3 +253,16 @@
 .editor-toolbar-scroll > * {
   flex-shrink: 0;
 }
+
+/* Mobile: toolbar dropdowns escape container via fixed positioning */
+@media (max-width: 767px) {
+  .editor-toolbar-scroll .editor-dropdown {
+    position: fixed !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    top: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+}

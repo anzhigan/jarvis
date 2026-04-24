@@ -7,19 +7,21 @@ import Dashboard from '../components/Metrics';
 import Profile from '../components/Profile';
 import AuthPage from '../components/AuthPage';
 import { useAuthStore } from '../store/auth';
+import { useT } from '../store/i18n';
 
 type Tab = 'notes' | 'tasks' | 'analysis' | 'profile';
 
-const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
-  { key: 'notes',    label: 'Notes',    icon: BookOpen },
-  { key: 'tasks',    label: 'Go',    icon: CheckSquare },
-  { key: 'analysis', label: 'Analysis', icon: BarChart3 },
+const TABS: { key: Tab; labelKey: string; icon: React.ElementType }[] = [
+  { key: 'notes',    labelKey: 'nav.notes',    icon: BookOpen },
+  { key: 'tasks',    labelKey: 'nav.tasks',    icon: CheckSquare },
+  { key: 'analysis', labelKey: 'nav.analysis', icon: BarChart3 },
 ];
 
 export { PanelLeft }; // Re-export for other components to use same icon
 
 export default function App() {
   const { user, isReady, init } = useAuthStore();
+  const t = useT();
   const [tab, setTab] = useState<Tab>(() => {
     const saved = localStorage.getItem('jarvnote:tab');
     if (saved === 'notes' || saved === 'tasks' || saved === 'analysis' || saved === 'profile') return saved;
@@ -99,22 +101,23 @@ export default function App() {
 
         {/* Center: main tabs */}
         <nav className="flex items-center gap-0.5 flex-shrink-0">
-          {TABS.map((t) => {
-            const active = tab === t.key;
-            const Icon = t.icon;
+          {TABS.map((tabDef) => {
+            const active = tab === tabDef.key;
+            const Icon = tabDef.icon;
+            const label = t(tabDef.labelKey);
             return (
               <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
+                key={tabDef.key}
+                onClick={() => setTab(tabDef.key)}
                 className={`flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium transition-all ${
                   active
                     ? 'bg-secondary text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                 }`}
-                title={t.label}
+                title={label}
               >
                 <Icon size={16} />
-                <span className="hidden sm:inline">{t.label}</span>
+                <span className="hidden sm:inline">{label}</span>
               </button>
             );
           })}
