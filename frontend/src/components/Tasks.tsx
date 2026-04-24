@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plus, Calendar, X, AlertCircle, ArrowUp, ArrowRight, Loader2, Check,
-  ChevronDown, ChevronRight, TrendingUp, Pencil, Trash2, Target as TargetIcon,
-  Inbox, ListTodo, Repeat,
+  ChevronDown, ChevronRight, Pencil, Trash2, Target as TargetIcon,
+  ListTodo, Repeat,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SwipeRow from './SwipeRow';
@@ -12,8 +12,12 @@ import ConfirmDialog from './ConfirmDialog';
 import { tasksApi, todosApi } from '../api/client';
 import type { Task, TaskPriority, TaskStatus, Todo, TodoKind, TodoRecurrence } from '../api/types';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Constants
+// ═══════════════════════════════════════════════════════════════════════════
 const STATUSES: { key: TaskStatus; label: string }[] = [
   { key: 'todo', label: 'Backlog' },
+  { key: 'background', label: 'Background' },
   { key: 'in_progress', label: 'In Progress' },
   { key: 'done', label: 'Done' },
 ];
@@ -25,6 +29,13 @@ const PRIORITY_CLS: Record<TaskPriority, string> = {
 };
 
 const TODO_COLORS = ['#4f46e5', '#e11d48', '#ea580c', '#d97706', '#65a30d', '#059669', '#0891b2', '#7c3aed'];
+
+// Left-stripe colors by recurrence kind
+const STRIPE_COLOR: Record<TodoRecurrence, string> = {
+  weekly: '#3b82f6',   // blue
+  daily:  '#10b981',   // green
+  none:   '#8b5cf6',   // purple (one-off)
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -41,174 +52,32 @@ function todoValueToday(todo: Todo): number {
   return entry?.value ?? 0;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Progress block — shows completion bar + compact todo list
-// ═══════════════════════════════════════════════════════════════════════════
-function ProgressBlock({ task, onReload }: { task: Task; onReload: () => Promise<void> }) {
-  const [adding, setAdding] = useState(false);
-  const [tTitle, setTTitle] = useState('');
-  const [tKind, setTKind] = useState<TodoKind>('boolean');
-  const [tUnit, setTUnit] = useState('');
-  const [tTarget, setTTarget] = useState('');
-  const [tRecurrence, setTRecurrence] = useState<TodoRecurrence>('none');
-  const [tDue, setTDue] = useState('');
-  const [tColor, setTColor] = useState(TODO_COLORS[0]);
-  const [tSaving, setTSaving] = useState(false);
-
-  const createTodo = async () => {
-    if (!tTitle.trim()) return;
-    setTSaving(true);
-    try {
-      await todosApi.createForTask(task.id, {
-        title: tTitle.trim(),
-        kind: tKind,
-        unit: tUnit.trim(),
-        target_value: tTarget ? parseFloat(tTarget) : null,
-        recurrence: tRecurrence,
-        due_date: tDue || null,
-        color: tColor,
-      });
-      setTTitle(''); setTUnit(''); setTTarget(''); setTDue('');
-      setTRecurrence('none'); setTKind('boolean'); setTColor(TODO_COLORS[0]);
-      setAdding(false);
-      await onReload();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to create todo');
-    } finally {
-      setTSaving(false);
-    }
-  };
-
-  return (
-    <div className="p-3 bg-secondary/20 space-y-2.5">
-      {/* Progress bar */}
-      {task.todos.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="font-medium text-muted-foreground">Progress</span>
-            <span className="font-semibold">{task.progress}%</span>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${task.progress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Todo list */}
-      {task.todos.map((todo) => (
-        <TodoRow key={todo.id} todo={todo} onReload={onReload} />
-      ))}
-
-      {!adding ? (
-        <button
-          onClick={() => setAdding(true)}
-          className="w-full h-10 md:h-8 flex items-center justify-center gap-1.5 text-sm md:text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors"
-        >
-          <Plus size={13} />
-          Add todo
-        </button>
-      ) : (
-        <div className="p-2.5 bg-card border border-border rounded-md space-y-2">
-          <input
-            type="text"
-            placeholder='Todo title (e.g. "Read 20 pages")'
-            value={tTitle}
-            onChange={(e) => setTTitle(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && createTodo()}
-            autoFocus
-            className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-          />
-          <div className="flex flex-wrap gap-1.5">
-            <select
-              value={tKind}
-              onChange={(e) => setTKind(e.target.value as TodoKind)}
-              className="h-9 px-2 text-sm bg-input-background border border-border rounded-md"
-            >
-              <option value="boolean">Done / Not done</option>
-              <option value="numeric">Numeric</option>
-            </select>
-            <select
-              value={tRecurrence}
-              onChange={(e) => setTRecurrence(e.target.value as TodoRecurrence)}
-              className="h-9 px-2 text-sm bg-input-background border border-border rounded-md"
-            >
-              <option value="none">One-off</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-            </select>
-            {tKind === 'numeric' && (
-              <>
-                <input
-                  type="text"
-                  placeholder="Unit (pages)"
-                  value={tUnit}
-                  onChange={(e) => setTUnit(e.target.value)}
-                  className="w-24 h-9 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                />
-                <input
-                  type="number"
-                  placeholder="Target"
-                  value={tTarget}
-                  onChange={(e) => setTTarget(e.target.value)}
-                  className="w-20 h-9 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                />
-              </>
-            )}
-            {tRecurrence === 'none' && (
-              <input
-                type="date"
-                value={tDue}
-                onChange={(e) => setTDue(e.target.value)}
-                className="h-9 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-              />
-            )}
-          </div>
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex gap-1">
-              {TODO_COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setTColor(c)}
-                  className={`w-6 h-6 rounded transition-all ${tColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => setAdding(false)}
-                className="h-8 px-2 text-sm text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={createTodo}
-                disabled={tSaving || !tTitle.trim()}
-                className="h-8 px-3 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50 flex items-center gap-1"
-              >
-                {tSaving && <Loader2 size={11} className="animate-spin" />}
-                Create
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+// Adaptive increment steps based on target value
+function adaptiveSteps(target: number | null | undefined): number[] {
+  if (!target || target <= 0) return [1, 5];
+  if (target <= 10) return [1];
+  if (target <= 50) return [1, 5];
+  if (target <= 200) return [5, 10, 25];
+  if (target <= 1000) return [10, 50, 100];
+  return [50, 100, 500];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Single todo row — check/uncheck or numeric input for today's value
+// TodoRow — single todo with stripe, checkbox/numeric input, +N buttons
 // ═══════════════════════════════════════════════════════════════════════════
-export function TodoRow({ todo, onReload, showTask = false }: { todo: Todo; onReload: () => Promise<void>; showTask?: boolean }) {
+function TodoRow({ todo, onReload, showMeta = false }: {
+  todo: Todo;
+  onReload: () => Promise<void>;
+  showMeta?: boolean;
+}) {
   const [busy, setBusy] = useState(false);
   const [numInput, setNumInput] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const today = todayIso();
   const todayVal = todoValueToday(todo);
+  const steps = adaptiveSteps(todo.target_value);
+
+  const stripeColor = STRIPE_COLOR[todo.recurrence];
 
   const toggle = async () => {
     if (todo.kind !== 'boolean') return;
@@ -223,12 +92,12 @@ export function TodoRow({ todo, onReload, showTask = false }: { todo: Todo; onRe
     }
   };
 
-  const logNumeric = async () => {
-    const v = parseFloat(numInput);
+  const logNumeric = async (valueOverride?: number) => {
+    const v = valueOverride !== undefined ? valueOverride : parseFloat(numInput);
     if (isNaN(v) || v < 0) return;
     setBusy(true);
     try {
-      await todosApi.upsertEntry(todo.id, today, v);
+      await todosApi.upsertEntry(todo.id, today, todayVal + v);
       setNumInput('');
       await onReload();
     } catch (e: any) {
@@ -257,6 +126,12 @@ export function TodoRow({ todo, onReload, showTask = false }: { todo: Todo; onRe
     todo.due_date ? new Date(todo.due_date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) :
     '';
 
+  // Numeric progress based on total_value (which sums own + children entries)
+  const numericTotal = todo.total_value;
+  const numericPct = todo.target_value && todo.target_value > 0
+    ? Math.min(100, (numericTotal / todo.target_value) * 100)
+    : 0;
+
   return (
     <>
       <ConfirmDialog
@@ -266,87 +141,368 @@ export function TodoRow({ todo, onReload, showTask = false }: { todo: Todo; onRe
         onCancel={() => setConfirmDelete(false)}
         onConfirm={deleteTodo}
       />
-      <div className="group flex items-center gap-2 p-2 rounded-md bg-card border border-border">
-        {/* Color strip */}
-        <div className="w-1 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: todo.color }} />
+      <div className="group relative flex items-stretch gap-0 rounded-md bg-card border border-border overflow-hidden">
+        {/* Left stripe — color by recurrence */}
+        <div className="w-1 flex-shrink-0" style={{ backgroundColor: stripeColor }} />
 
-        {/* Boolean: checkbox-style button */}
-        {todo.kind === 'boolean' && (
-          <button
-            onClick={toggle}
-            disabled={busy}
-            className={`w-7 h-7 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-              todayVal > 0 ? 'bg-primary border-primary' : 'border-border hover:border-primary/50'
-            }`}
-            title={todayVal > 0 ? 'Mark as not done' : 'Mark as done'}
-          >
-            {busy ? <Loader2 size={14} className="animate-spin text-muted-foreground" /> :
-             todayVal > 0 ? <Check size={15} className="text-primary-foreground" /> : null}
-          </button>
-        )}
+        <div className="flex-1 p-2.5 min-w-0">
+          <div className="flex items-center gap-2">
+            {/* Boolean: checkbox */}
+            {todo.kind === 'boolean' && (
+              <button
+                onClick={toggle}
+                disabled={busy}
+                className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                  todayVal > 0 ? 'bg-primary border-primary' : 'border-border hover:border-primary/50'
+                }`}
+                title={todayVal > 0 ? 'Mark as not done' : 'Mark as done'}
+              >
+                {busy ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> :
+                 todayVal > 0 ? <Check size={13} className="text-primary-foreground" /> : null}
+              </button>
+            )}
 
-        {/* Title + meta */}
-        <div className="flex-1 min-w-0">
-          <div className={`text-sm font-medium truncate ${todayVal > 0 && todo.kind === 'boolean' ? 'line-through text-muted-foreground' : ''}`}>
-            {todo.title}
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            {todo.recurrence !== 'none' && (
-              <span className="inline-flex items-center gap-0.5">
-                <Repeat size={10} />
-                {recurrenceLabel}
-              </span>
-            )}
-            {todo.recurrence === 'none' && recurrenceLabel && (
-              <span className="inline-flex items-center gap-0.5">
-                <Calendar size={10} />
-                {recurrenceLabel}
-              </span>
-            )}
-            {todo.kind === 'numeric' && (
-              <span>
-                {todo.entries.reduce((s, e) => s + e.value, 0)}
-                {todo.target_value ? ` / ${todo.target_value}` : ''}
-                {todo.unit ? ` ${todo.unit}` : ''}
-              </span>
-            )}
-            {showTask && todo.task_title && (
-              <span className="truncate max-w-[160px]">· {todo.task_title}</span>
-            )}
-          </div>
-        </div>
+            {/* Title + meta */}
+            <div className="flex-1 min-w-0">
+              <div className={`text-sm font-medium truncate ${todayVal > 0 && todo.kind === 'boolean' ? 'line-through text-muted-foreground' : ''}`}>
+                {todo.title}
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
+                {todo.recurrence !== 'none' && (
+                  <span className="inline-flex items-center gap-0.5">
+                    <Repeat size={10} />
+                    {recurrenceLabel}
+                  </span>
+                )}
+                {todo.recurrence === 'none' && recurrenceLabel && (
+                  <span className="inline-flex items-center gap-0.5">
+                    <Calendar size={10} />
+                    {recurrenceLabel}
+                  </span>
+                )}
+                {todo.kind === 'numeric' && (
+                  <span>
+                    {numericTotal}{todo.target_value ? ` / ${todo.target_value}` : ''}
+                    {todo.unit ? ` ${todo.unit}` : ''}
+                  </span>
+                )}
+                {showMeta && todo.task_title && (
+                  <span className="truncate max-w-[160px]">· {todo.task_title}</span>
+                )}
+              </div>
+            </div>
 
-        {/* Numeric: input for today */}
-        {todo.kind === 'numeric' && (
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <input
-              type="number"
-              inputMode="decimal"
-              placeholder="+"
-              value={numInput}
-              onChange={(e) => setNumInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && logNumeric()}
-              className="w-14 h-8 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-            />
+            {/* Delete */}
             <button
-              onClick={logNumeric}
-              disabled={busy || !numInput}
-              className="h-8 px-2 text-xs bg-primary text-primary-foreground rounded-md disabled:opacity-40"
+              onClick={() => setConfirmDelete(true)}
+              className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+              title="Delete"
             >
-              Log
+              <Trash2 size={13} />
             </button>
           </div>
-        )}
 
-        {/* Delete */}
-        <button
-          onClick={() => setConfirmDelete(true)}
-          className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-        >
-          <Trash2 size={13} />
-        </button>
+          {/* Numeric input row + adaptive +N buttons */}
+          {todo.kind === 'numeric' && (
+            <>
+              {todo.target_value && todo.target_value > 0 && (
+                <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full transition-all" style={{ width: `${numericPct}%`, backgroundColor: stripeColor }} />
+                </div>
+              )}
+              <div className="mt-2 flex items-center gap-1 flex-wrap">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="+value"
+                  value={numInput}
+                  onChange={(e) => setNumInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && logNumeric()}
+                  className="w-20 h-8 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                />
+                {steps.map((step) => (
+                  <button
+                    key={step}
+                    onClick={() => logNumeric(step)}
+                    disabled={busy}
+                    className="h-8 px-2 text-xs bg-secondary border border-border rounded-md hover:bg-secondary/80 disabled:opacity-50 font-medium"
+                  >
+                    +{step}
+                  </button>
+                ))}
+                <button
+                  onClick={() => logNumeric()}
+                  disabled={busy || !numInput}
+                  className="h-8 px-2.5 text-xs bg-primary text-primary-foreground rounded-md disabled:opacity-40 font-medium"
+                >
+                  Log
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Weekly with children — shown in Weekly section
+// ═══════════════════════════════════════════════════════════════════════════
+function WeeklyTodoBlock({ weekly, allTodos, onReload }: {
+  weekly: Todo;
+  allTodos: Todo[];
+  onReload: () => Promise<void>;
+}) {
+  const children = allTodos.filter((t) => t.parent_todo_id === weekly.id);
+  const stripeColor = STRIPE_COLOR.weekly;
+
+  const numericTotal = weekly.total_value;
+  const pct = weekly.target_value && weekly.target_value > 0
+    ? Math.min(100, (numericTotal / weekly.target_value) * 100)
+    : 0;
+
+  return (
+    <div className="rounded-md border border-border bg-card overflow-hidden">
+      <div className="flex items-stretch">
+        <div className="w-1 flex-shrink-0" style={{ backgroundColor: stripeColor }} />
+        <div className="flex-1 p-3 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: `${stripeColor}20`, color: stripeColor }}>
+              WEEKLY
+            </span>
+            <span className="font-medium text-sm flex-1 truncate">{weekly.title}</span>
+            {weekly.kind === 'numeric' && (
+              <span className="text-xs text-muted-foreground">
+                {numericTotal}/{weekly.target_value} {weekly.unit}
+              </span>
+            )}
+          </div>
+          {weekly.task_title && (
+            <div className="text-[11px] text-muted-foreground mb-2">from task: {weekly.task_title}</div>
+          )}
+          {weekly.kind === 'numeric' && weekly.target_value && (
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-2">
+              <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: stripeColor }} />
+            </div>
+          )}
+          {children.length > 0 && (
+            <div className="mt-2 pl-3 border-l-2 border-border space-y-1.5">
+              {children.map((child) => (
+                <TodoRow key={child.id} todo={child} onReload={onReload} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Create-todo form (used inside a task and in agenda)
+// ═══════════════════════════════════════════════════════════════════════════
+function CreateTodoForm({
+  weeklies, defaultTaskId, onCreate, onCancel,
+}: {
+  weeklies?: Todo[];           // available weeklies to attach as parent
+  defaultTaskId?: string | null;
+  onCreate: (data: {
+    title: string;
+    kind: TodoKind;
+    unit: string;
+    target_value: number | null;
+    recurrence: TodoRecurrence;
+    due_date: string | null;
+    color: string;
+    parent_todo_id: string | null;
+  }) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [kind, setKind] = useState<TodoKind>('boolean');
+  const [unit, setUnit] = useState('');
+  const [target, setTarget] = useState('');
+  const [recurrence, setRecurrence] = useState<TodoRecurrence>('none');
+  const [due, setDue] = useState('');
+  const [color, setColor] = useState(TODO_COLORS[0]);
+  const [parentId, setParentId] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!title.trim()) return;
+    setSaving(true);
+    try {
+      await onCreate({
+        title: title.trim(),
+        kind,
+        unit: unit.trim(),
+        target_value: target ? parseFloat(target) : null,
+        recurrence,
+        due_date: due || null,
+        color,
+        parent_todo_id: parentId || null,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Can only attach to weekly if this is a daily
+  const canAttachParent = recurrence === 'daily' && weeklies && weeklies.length > 0;
+
+  return (
+    <div className="p-2.5 bg-card border border-border rounded-md space-y-2">
+      <input
+        type="text"
+        placeholder='Todo title (e.g. "Solve 50 algebra problems")'
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        autoFocus
+        className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+      />
+      <div className="flex flex-wrap gap-1.5">
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value as TodoKind)}
+          className="h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+        >
+          <option value="boolean">Done / Not done</option>
+          <option value="numeric">Numeric</option>
+        </select>
+        <select
+          value={recurrence}
+          onChange={(e) => {
+            const v = e.target.value as TodoRecurrence;
+            setRecurrence(v);
+            if (v !== 'daily') setParentId('');
+          }}
+          className="h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+        >
+          <option value="none">One-off</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+        </select>
+        {kind === 'numeric' && (
+          <>
+            <input
+              type="text"
+              placeholder="Unit (pages)"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              className="w-24 h-9 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+            />
+            <input
+              type="number"
+              placeholder="Target"
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              className="w-20 h-9 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+            />
+          </>
+        )}
+        {recurrence === 'none' && (
+          <input
+            type="date"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+            className="h-9 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+          />
+        )}
+        {canAttachParent && (
+          <select
+            value={parentId}
+            onChange={(e) => setParentId(e.target.value)}
+            className="h-9 px-2 text-sm bg-input-background border border-border rounded-md max-w-[200px]"
+          >
+            <option value="">No weekly parent</option>
+            {weeklies!.map((w) => (
+              <option key={w.id} value={w.id}>↳ {w.title}</option>
+            ))}
+          </select>
+        )}
+      </div>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex gap-1">
+          {TODO_COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => setColor(c)}
+              className={`w-6 h-6 rounded transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          <button onClick={onCancel} className="h-8 px-2 text-sm text-muted-foreground hover:text-foreground">
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={saving || !title.trim()}
+            className="h-8 px-3 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50 flex items-center gap-1"
+          >
+            {saving && <Loader2 size={11} className="animate-spin" />}
+            Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Progress block inside a task — weekly with children + flat list + create
+// ═══════════════════════════════════════════════════════════════════════════
+function ProgressBlock({ task, onReload }: { task: Task; onReload: () => Promise<void> }) {
+  const [adding, setAdding] = useState(false);
+  const weeklies = task.todos.filter((t) => t.recurrence === 'weekly');
+  const topLevelNonWeekly = task.todos.filter((t) => !t.parent_todo_id && t.recurrence !== 'weekly');
+
+  return (
+    <div className="p-3 bg-secondary/20 space-y-2.5">
+      {task.todos.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="font-medium text-muted-foreground">Progress</span>
+            <span className="font-semibold">{task.progress}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* Weekly blocks with children */}
+      {weeklies.map((w) => (
+        <WeeklyTodoBlock key={w.id} weekly={w} allTodos={task.todos} onReload={onReload} />
+      ))}
+
+      {/* Non-weekly top-level todos (flat) */}
+      {topLevelNonWeekly.map((todo) => (
+        <TodoRow key={todo.id} todo={todo} onReload={onReload} />
+      ))}
+
+      {!adding ? (
+        <button
+          onClick={() => setAdding(true)}
+          className="w-full h-10 md:h-8 flex items-center justify-center gap-1.5 text-sm md:text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors"
+        >
+          <Plus size={13} /> Add todo
+        </button>
+      ) : (
+        <CreateTodoForm
+          weeklies={weeklies}
+          onCancel={() => setAdding(false)}
+          onCreate={async (data) => {
+            await todosApi.createForTask(task.id, data);
+            setAdding(false);
+            await onReload();
+          }}
+        />
+      )}
+    </div>
   );
 }
 
@@ -369,7 +525,8 @@ function TaskCard({
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editPriority, setEditPriority] = useState<TaskPriority>(task.priority);
-  const [editDueDate, setEditDueDate] = useState(task.due_date ?? '');
+  const [editStart, setEditStart] = useState(task.start_date ?? '');
+  const [editDue, setEditDue] = useState(task.due_date ?? '');
   const [editSaving, setEditSaving] = useState(false);
 
   const isOverdue =
@@ -380,7 +537,8 @@ function TaskCard({
   const startEdit = () => {
     setEditTitle(task.title);
     setEditPriority(task.priority);
-    setEditDueDate(task.due_date ?? '');
+    setEditStart(task.start_date ?? '');
+    setEditDue(task.due_date ?? '');
     setEditing(true);
   };
 
@@ -391,15 +549,24 @@ function TaskCard({
       await onUpdate({
         title: editTitle.trim(),
         priority: editPriority,
-        due_date: editDueDate || null,
+        start_date: editStart || null,
+        due_date: editDue || null,
       });
       setEditing(false);
     } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to save');
+      toast.error(e?.detail ?? 'Failed');
     } finally {
       setEditSaving(false);
     }
   };
+
+  const formatDate = (iso: string | null) => iso
+    ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : null;
+
+  const periodLabel = task.start_date && task.due_date
+    ? `${formatDate(task.start_date)} – ${formatDate(task.due_date)}`
+    : formatDate(task.due_date);
 
   const cardBody = (
     <>
@@ -423,12 +590,26 @@ function TaskCard({
               <option value="medium">Medium</option>
               <option value="high">High</option>
             </select>
-            <input
-              type="date"
-              value={editDueDate}
-              onChange={(e) => setEditDueDate(e.target.value)}
-              className="h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm flex-1 min-w-0"
-            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex-1 min-w-0">
+              <label className="text-[11px] text-muted-foreground">Start</label>
+              <input
+                type="date"
+                value={editStart}
+                onChange={(e) => setEditStart(e.target.value)}
+                className="w-full h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <label className="text-[11px] text-muted-foreground">Due</label>
+              <input
+                type="date"
+                value={editDue}
+                onChange={(e) => setEditDue(e.target.value)}
+                className="w-full h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm"
+              />
+            </div>
           </div>
           <div className="flex gap-2 justify-end pt-1">
             <button onClick={() => setEditing(false)} className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground rounded-md">
@@ -472,7 +653,6 @@ function TaskCard({
               <TagSelector targetId={task.id} targetKind="task" tags={task.tags ?? []} onChange={onReload} compact />
             </div>
 
-            {/* Progress bar (collapsed) */}
             {task.todos.length > 0 && (
               <div className="mb-2">
                 <div className="flex items-center justify-between text-[11px] mb-0.5 text-muted-foreground">
@@ -487,9 +667,9 @@ function TaskCard({
 
             <div className="flex items-center justify-between">
               <div className={`flex items-center gap-1 text-sm md:text-xs ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
-                {task.due_date && (<>
+                {periodLabel && (<>
                   <Calendar size={13} />
-                  {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  {periodLabel}
                 </>)}
               </div>
               <select
@@ -503,7 +683,6 @@ function TaskCard({
             </div>
           </div>
 
-          {/* Progress toggle */}
           <button
             onClick={() => setExpanded(!expanded)}
             className="w-full px-4 md:px-3.5 py-2.5 md:py-2 border-t border-border flex items-center gap-1.5 text-sm md:text-xs text-muted-foreground hover:bg-secondary/50 transition-colors"
@@ -569,27 +748,21 @@ function TaskCard({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Today / Week agenda panel
+// ToDo panel — 4 sections: Today / Weekly / Future / Past
 // ═══════════════════════════════════════════════════════════════════════════
-function AgendaPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<void> }) {
-  const [range, setRange] = useState<'today' | 'week'>('today');
-  const [agendaTodos, setAgendaTodos] = useState<Todo[]>([]);
+function TodoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<void> }) {
+  const [section, setSection] = useState<'today' | 'week' | 'future' | 'past'>('today');
+  const [items, setItems] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Ad-hoc todo creation
+  const [pastDays, setPastDays] = useState(30);
   const [adding, setAdding] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newKind, setNewKind] = useState<TodoKind>('boolean');
-  const [newTaskId, setNewTaskId] = useState<string>('');
-  const [newRecurrence, setNewRecurrence] = useState<TodoRecurrence>('none');
-  const [newDueDate, setNewDueDate] = useState(todayIso());
-  const [creating, setCreating] = useState(false);
+  const [addTaskId, setAddTaskId] = useState<string>('');
 
-  const loadAgenda = async () => {
+  const loadSection = async () => {
     setLoading(true);
     try {
-      const data = await todosApi.agenda(range);
-      setAgendaTodos(data);
+      const data = await todosApi.agenda(section, pastDays);
+      setItems(data);
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to load');
     } finally {
@@ -597,160 +770,184 @@ function AgendaPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
     }
   };
 
-  useEffect(() => { loadAgenda(); }, [range]);
+  useEffect(() => { loadSection(); }, [section, pastDays]);
 
-  const addTodo = async () => {
-    if (!newTitle.trim()) return;
-    setCreating(true);
+  const addTodo = async (data: any) => {
     try {
-      if (newTaskId) {
-        await todosApi.createForTask(newTaskId, {
-          title: newTitle.trim(),
-          kind: newKind,
-          recurrence: newRecurrence,
-          due_date: newRecurrence === 'none' ? newDueDate : null,
-        });
+      if (addTaskId) {
+        await todosApi.createForTask(addTaskId, data);
       } else {
-        await todosApi.createStandalone({
-          title: newTitle.trim(),
-          kind: newKind,
-          recurrence: newRecurrence,
-          due_date: newRecurrence === 'none' ? newDueDate : null,
-        });
+        await todosApi.createStandalone(data);
       }
-      setNewTitle(''); setNewTaskId(''); setNewRecurrence('none'); setNewKind('boolean');
       setAdding(false);
-      await loadAgenda();
+      setAddTaskId('');
+      await loadSection();
       await onReload();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed');
-    } finally {
-      setCreating(false);
     }
   };
 
-  const completedToday = agendaTodos.filter((t) => todoValueToday(t) > 0).length;
+  // Group future items by due_date
+  const futureGroups = useMemo(() => {
+    if (section !== 'future') return [];
+    const groups = new Map<string, Todo[]>();
+    for (const item of items) {
+      const key = item.due_date || 'no-date';
+      const arr = groups.get(key) ?? [];
+      arr.push(item);
+      groups.set(key, arr);
+    }
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [items, section]);
+
+  // For weekly view: find all weeklies from tasks
+  const weeklyWithChildren = useMemo(() => {
+    if (section !== 'week') return null;
+    const allTodos: Todo[] = [];
+    tasks.forEach((t) => allTodos.push(...t.todos));
+    // Show weeklies (recurrence='weekly') with their children OR any item from agenda
+    const weeklies = items.filter((t) => t.recurrence === 'weekly');
+    const others = items.filter((t) => t.recurrence !== 'weekly');
+    return { weeklies, others, allTodos };
+  }, [items, section, tasks]);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = today.toISOString().split('T')[0];
+  const todayLabel = today.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  const completedToday = items.filter((t) => (t.entries.find((e) => e.date === todayIso)?.value ?? 0) > 0).length;
 
   return (
-    <div className="p-4 md:p-5 bg-card border border-border rounded-xl">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <div>
-          <h2 className="text-lg font-semibold">Agenda</h2>
-          <p className="text-xs text-muted-foreground">
-            {completedToday} of {agendaTodos.length} done
-          </p>
-        </div>
-        <div className="flex text-xs bg-muted rounded-md p-0.5">
+    <div className="space-y-4">
+      {/* Section tabs */}
+      <div className="flex gap-1 p-1 bg-muted rounded-md w-fit">
+        {(['today', 'week', 'future', 'past'] as const).map((s) => (
           <button
-            onClick={() => setRange('today')}
-            className={`px-3 h-7 rounded ${range === 'today' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
+            key={s}
+            onClick={() => setSection(s)}
+            className={`px-3 h-8 rounded text-sm capitalize ${section === s ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
           >
-            Today
+            {s === 'today' ? 'Today' : s === 'week' ? 'Weekly' : s === 'future' ? 'Future' : 'Past'}
           </button>
-          <button
-            onClick={() => setRange('week')}
-            className={`px-3 h-7 rounded ${range === 'week' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
-          >
-            Week
-          </button>
-        </div>
+        ))}
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-6">
+        <div className="flex items-center justify-center py-10">
           <Loader2 size={18} className="animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="space-y-2">
-          {agendaTodos.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              Nothing on your {range === 'today' ? 'today' : 'this week'} list.
+        <div className="space-y-3">
+          {/* Section header */}
+          {section === 'today' && (
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-base font-semibold">{todayLabel}</h2>
+              <span className="text-xs text-muted-foreground">{completedToday} of {items.length} done</span>
             </div>
-          ) : (
-            agendaTodos.map((todo) => (
-              <TodoRow
-                key={todo.id}
-                todo={todo}
-                onReload={async () => { await loadAgenda(); await onReload(); }}
-                showTask
-              />
+          )}
+
+          {/* Today: flat list */}
+          {section === 'today' && items.length === 0 && (
+            <div className="py-10 text-center text-sm text-muted-foreground">Nothing for today.</div>
+          )}
+          {section === 'today' && items.map((t) => (
+            <TodoRow key={t.id} todo={t} onReload={async () => { await loadSection(); await onReload(); }} showMeta />
+          ))}
+
+          {/* Weekly: show weeklies with children + other non-weekly one-off items due this week */}
+          {section === 'week' && weeklyWithChildren && (
+            <>
+              {weeklyWithChildren.weeklies.length === 0 && weeklyWithChildren.others.length === 0 && (
+                <div className="py-10 text-center text-sm text-muted-foreground">Nothing for this week.</div>
+              )}
+              {weeklyWithChildren.weeklies.map((w) => (
+                <WeeklyTodoBlock
+                  key={w.id}
+                  weekly={w}
+                  allTodos={weeklyWithChildren.allTodos}
+                  onReload={async () => { await loadSection(); await onReload(); }}
+                />
+              ))}
+              {weeklyWithChildren.others.length > 0 && (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wider">Other this week</div>
+                  {weeklyWithChildren.others.map((t) => (
+                    <div key={t.id} className="mb-1.5">
+                      <TodoRow todo={t} onReload={async () => { await loadSection(); await onReload(); }} showMeta />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Future: grouped by date */}
+          {section === 'future' && (
+            futureGroups.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">No future items.</div>
+            ) : futureGroups.map(([date, list]) => (
+              <div key={date}>
+                <div className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  {date === 'no-date' ? 'No date' :
+                    new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                </div>
+                <div className="space-y-1.5">
+                  {list.map((t) => (
+                    <TodoRow key={t.id} todo={t} onReload={async () => { await loadSection(); await onReload(); }} showMeta />
+                  ))}
+                </div>
+              </div>
             ))
           )}
 
-          {!adding ? (
-            <button
-              onClick={() => setAdding(true)}
-              className="w-full h-10 md:h-9 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors mt-2"
-            >
-              <Plus size={14} />
-              Add todo
-            </button>
-          ) : (
-            <div className="p-3 bg-secondary/30 border border-border rounded-md space-y-2 mt-2">
-              <input
-                type="text"
-                placeholder="Todo title"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addTodo()}
-                autoFocus
-                className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-              />
-              <div className="flex flex-wrap gap-1.5">
+          {/* Past: list + "Show older" button */}
+          {section === 'past' && (
+            <>
+              {items.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">Nothing in the past {pastDays} days.</div>
+              ) : (
+                items.map((t) => (
+                  <TodoRow key={t.id} todo={t} onReload={async () => { await loadSection(); await onReload(); }} showMeta />
+                ))
+              )}
+              <button
+                onClick={() => setPastDays(pastDays + 30)}
+                className="w-full h-9 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors"
+              >
+                Show older ({pastDays}+ days)
+              </button>
+            </>
+          )}
+
+          {/* Add todo (only in today/week/future) */}
+          {section !== 'past' && (
+            !adding ? (
+              <button
+                onClick={() => setAdding(true)}
+                className="w-full h-10 md:h-9 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors mt-3"
+              >
+                <Plus size={14} /> Add todo
+              </button>
+            ) : (
+              <div className="mt-3 space-y-2">
                 <select
-                  value={newTaskId}
-                  onChange={(e) => setNewTaskId(e.target.value)}
-                  className="h-9 px-2 text-sm bg-input-background border border-border rounded-md max-w-[180px]"
+                  value={addTaskId}
+                  onChange={(e) => setAddTaskId(e.target.value)}
+                  className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
                 >
-                  <option value="">— No task —</option>
+                  <option value="">— Standalone (no task) —</option>
                   {tasks.map((t) => (
                     <option key={t.id} value={t.id}>{t.title}</option>
                   ))}
                 </select>
-                <select
-                  value={newKind}
-                  onChange={(e) => setNewKind(e.target.value as TodoKind)}
-                  className="h-9 px-2 text-sm bg-input-background border border-border rounded-md"
-                >
-                  <option value="boolean">Done / Not done</option>
-                  <option value="numeric">Numeric</option>
-                </select>
-                <select
-                  value={newRecurrence}
-                  onChange={(e) => setNewRecurrence(e.target.value as TodoRecurrence)}
-                  className="h-9 px-2 text-sm bg-input-background border border-border rounded-md"
-                >
-                  <option value="none">One-off</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                </select>
-                {newRecurrence === 'none' && (
-                  <input
-                    type="date"
-                    value={newDueDate}
-                    onChange={(e) => setNewDueDate(e.target.value)}
-                    className="h-9 px-2 text-sm bg-input-background border border-border rounded-md"
-                  />
-                )}
+                <CreateTodoForm
+                  weeklies={addTaskId ? tasks.find((t) => t.id === addTaskId)?.todos.filter((t) => t.recurrence === 'weekly') : []}
+                  onCancel={() => { setAdding(false); setAddTaskId(''); }}
+                  onCreate={addTodo}
+                />
               </div>
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={() => setAdding(false)}
-                  className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={addTodo}
-                  disabled={creating || !newTitle.trim()}
-                  className="h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {creating && <Loader2 size={12} className="animate-spin" />}
-                  Add
-                </button>
-              </div>
-            </div>
+            )
           )}
         </div>
       )}
@@ -764,18 +961,16 @@ function AgendaPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
 export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'board' | 'agenda'>('board');
+  const [view, setView] = useState<'tasks' | 'todo'>('tasks');
 
-  // New task form
   const [newTitle, setNewTitle] = useState('');
   const [newPriority, setNewPriority] = useState<TaskPriority>('medium');
-  const [newDueDate, setNewDueDate] = useState('');
+  const [newStart, setNewStart] = useState('');
+  const [newDue, setNewDue] = useState('');
 
-  // Drag state
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
 
-  // Mobile detection
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -783,7 +978,6 @@ export default function Tasks() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // Confirm dialog
   const [confirmState, setConfirmState] = useState<{ title: string; message?: string; onConfirm: () => void } | null>(null);
 
   const load = async () => {
@@ -791,7 +985,7 @@ export default function Tasks() {
       const data = await tasksApi.list();
       setTasks(data);
     } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to load');
+      toast.error(e?.detail ?? 'Failed');
     } finally {
       setLoading(false);
     }
@@ -800,7 +994,7 @@ export default function Tasks() {
   useEffect(() => { load(); }, []);
 
   const tasksByStatus = useMemo(() => {
-    const out: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], done: [] };
+    const out: Record<TaskStatus, Task[]> = { todo: [], background: [], in_progress: [], done: [] };
     for (const t of tasks) out[t.status]?.push(t);
     return out;
   }, [tasks]);
@@ -811,12 +1005,13 @@ export default function Tasks() {
       await tasksApi.create({
         title: newTitle.trim(),
         priority: newPriority,
-        due_date: newDueDate || null,
+        start_date: newStart || null,
+        due_date: newDue || null,
       });
-      setNewTitle(''); setNewPriority('medium'); setNewDueDate('');
+      setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue('');
       await load();
     } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to create');
+      toast.error(e?.detail ?? 'Failed');
     }
   };
 
@@ -832,7 +1027,7 @@ export default function Tasks() {
   const deleteTask = async (id: string) => {
     setConfirmState({
       title: 'Delete task?',
-      message: 'All todos attached to this task will also be deleted.',
+      message: 'All todos attached to this task will be deleted.',
       onConfirm: async () => {
         try { await tasksApi.delete(id); await load(); }
         catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
@@ -860,78 +1055,87 @@ export default function Tasks() {
 
       <div className="size-full overflow-y-auto">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
-          {/* View switcher */}
+          {/* View switcher: Tasks | ToDo */}
           <div className="flex items-center justify-between gap-3 mb-5">
             <div className="flex text-sm bg-muted rounded-md p-0.5">
               <button
-                onClick={() => setView('board')}
-                className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'board' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
+                onClick={() => setView('tasks')}
+                className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'tasks' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
               >
-                <TargetIcon size={14} />
-                Board
+                <TargetIcon size={14} /> Tasks
               </button>
               <button
-                onClick={() => setView('agenda')}
-                className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'agenda' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
+                onClick={() => setView('todo')}
+                className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'todo' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
               >
-                <Inbox size={14} />
-                Agenda
+                <ListTodo size={14} /> ToDo
               </button>
             </div>
           </div>
 
-          {view === 'agenda' ? (
-            <AgendaPanel tasks={tasks} onReload={load} />
+          {view === 'todo' ? (
+            <TodoPanel tasks={tasks} onReload={load} />
           ) : (
             <>
               {/* New task form */}
-              <div className="p-3 bg-card border border-border rounded-xl mb-5 flex flex-wrap gap-2">
-                <input
-                  type="text"
-                  placeholder="New task..."
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && createTask()}
-                  className="flex-1 min-w-[200px] h-10 px-3 rounded-md border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                />
-                <select
-                  value={newPriority}
-                  onChange={(e) => setNewPriority(e.target.value as TaskPriority)}
-                  className="h-10 px-3 rounded-md border border-border bg-input-background text-sm"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-                <input
-                  type="date"
-                  value={newDueDate}
-                  onChange={(e) => setNewDueDate(e.target.value)}
-                  className="h-10 px-3 rounded-md border border-border bg-input-background text-sm"
-                />
-                <button
-                  onClick={createTask}
-                  disabled={!newTitle.trim()}
-                  className="h-10 px-4 bg-primary text-primary-foreground rounded-md font-medium disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  <Plus size={15} />
-                  Create
-                </button>
+              <div className="p-3 bg-card border border-border rounded-xl mb-5 space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="text"
+                    placeholder="New task..."
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && createTask()}
+                    className="flex-1 min-w-[200px] h-10 px-3 rounded-md border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                  />
+                  <select
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value as TaskPriority)}
+                    className="h-10 px-3 rounded-md border border-border bg-input-background text-sm"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                  <button
+                    onClick={createTask}
+                    disabled={!newTitle.trim()}
+                    className="h-10 px-4 bg-primary text-primary-foreground rounded-md font-medium disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Plus size={15} /> Create
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="text-[11px] text-muted-foreground">Start</label>
+                    <input
+                      type="date"
+                      value={newStart}
+                      onChange={(e) => setNewStart(e.target.value)}
+                      className="w-full h-10 px-3 rounded-md border border-border bg-input-background text-sm"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="text-[11px] text-muted-foreground">Due</label>
+                    <input
+                      type="date"
+                      value={newDue}
+                      onChange={(e) => setNewDue(e.target.value)}
+                      className="w-full h-10 px-3 rounded-md border border-border bg-input-background text-sm"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Board */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Board — 4 columns */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 {STATUSES.map(({ key, label }) => {
                   const list = tasksByStatus[key] ?? [];
                   const isDropTarget = dragOverStatus === key;
                   return (
                     <div
                       key={key}
-                      onDragOver={(e) => {
-                        if (!draggingId) return;
-                        e.preventDefault();
-                        setDragOverStatus(key);
-                      }}
+                      onDragOver={(e) => { if (!draggingId) return; e.preventDefault(); setDragOverStatus(key); }}
                       onDragLeave={() => setDragOverStatus((p) => p === key ? null : p)}
                       onDrop={(e) => {
                         if (!draggingId) return;
@@ -942,9 +1146,7 @@ export default function Tasks() {
                         if (id) updateTask(id, { status: key });
                       }}
                       className={`rounded-xl border transition-all ${
-                        isDropTarget
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border bg-secondary/20'
+                        isDropTarget ? 'border-primary bg-primary/5' : 'border-border bg-secondary/20'
                       }`}
                     >
                       <div className="px-3 py-2.5 flex items-center justify-between">

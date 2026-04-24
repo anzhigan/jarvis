@@ -302,6 +302,20 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[400px]',
       },
+      // Strip inline font-size / line-height / font-family from pasted HTML
+      // so that user's global font-size setting applies to pasted content
+      // (common issue when copying from Telegram, Notion, Google Docs, etc.)
+      transformPastedHTML: (html: string) => {
+        // Remove font-size, line-height, font-family properties from style attributes
+        // Matches either at start or after a `;` — preserves other inline styles
+        return html
+          .replace(/font-size\s*:\s*[^;"']+;?/gi, '')
+          .replace(/line-height\s*:\s*[^;"']+;?/gi, '')
+          .replace(/font-family\s*:\s*[^;"']+;?/gi, '')
+          // Clean up empty style attributes like style=""
+          .replace(/style\s*=\s*"\s*"/gi, '')
+          .replace(/style\s*=\s*'\s*'/gi, '');
+      },
     },
   });
 

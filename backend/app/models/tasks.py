@@ -26,6 +26,7 @@ class Task(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(50), default="todo")  # todo | in_progress | done
     priority: Mapped[str] = mapped_column(String(20), default="medium")  # low | medium | high
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     order: Mapped[int] = mapped_column(Integer, default=0)
@@ -53,6 +54,9 @@ class Todo(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    parent_todo_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("todos.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     # kind: 'boolean' (done/not done) | 'numeric' (logged value, e.g. pages read)
     kind: Mapped[str] = mapped_column(String(20), default="boolean")
@@ -67,6 +71,12 @@ class Todo(Base):
 
     task: Mapped["Task | None"] = relationship(back_populates="todos")
     user: Mapped["User"] = relationship(back_populates="todos")  # noqa: F821
+    parent: Mapped["Todo | None"] = relationship(
+        "Todo", remote_side="Todo.id", back_populates="children"
+    )
+    children: Mapped[list["Todo"]] = relationship(
+        "Todo", back_populates="parent", cascade="all, delete-orphan"
+    )
     entries: Mapped[list["TodoEntry"]] = relationship(
         back_populates="todo", cascade="all, delete-orphan", order_by="TodoEntry.date"
     )

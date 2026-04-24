@@ -23,7 +23,7 @@ from app.schemas.tasks import (
 
 router = APIRouter(tags=["tasks"])
 
-VALID_STATUSES = {"todo", "in_progress", "done"}
+VALID_STATUSES = {"todo", "background", "in_progress", "done"}
 VALID_PRIORITIES = {"low", "medium", "high"}
 VALID_TODO_KINDS = {"boolean", "numeric"}
 VALID_RECURRENCE = {"none", "daily", "weekly"}
@@ -87,30 +87,42 @@ def _compute_task_progress(task: Task) -> int:
     For boolean one-off: done = 100, else 0.
     For boolean recurring: sum(completed days) / expected days.
     For numeric: sum(values) / (target * expected_occurrences).
-    Task progress = avg of todo progresses."""
-    if not task.todos:
+    Task progress = avg of todo progresses.
+
+    Children todos (those with a parent) are skipped — their values are
+    rolled up into the parent's total_value which we compute from entries."""
+    top_level = [t for t in task.todos if t.parent_todo_id is None]
+    if not top_level:
         return 0
 
+    # For each todo, gather all entries including descendants'
+    children_map: dict[uuid.UUID, list[Todo]] = {}
+    for t in task.todos:
+        if t.parent_todo_id:
+            children_map.setdefault(t.parent_todo_id, []).append(t)
+
     per_todo: list[float] = []
-    for todo in task.todos:
+    for todo in top_level:
         expected = _expected_occurrences_for_recurring(todo, task)
+
+        # Gather entries from self + descendants
+        own_entries = list(todo.entries)
+        for child in children_map.get(todo.id, []):
+            own_entries.extend(child.entries)
 
         if todo.kind == "boolean":
             if todo.recurrence == "none":
-                done = any(e.value > 0 for e in todo.entries)
+                done = any(e.value > 0 for e in own_entries)
                 per_todo.append(1.0 if done else 0.0)
             else:
-                # recurring: count completed days
-                done_count = sum(1 for e in todo.entries if e.value > 0)
+                done_count = sum(1 for e in own_entries if e.value > 0)
                 per_todo.append(min(1.0, done_count / expected) if expected > 0 else 0.0)
         else:
-            # numeric
-            total_value = sum(e.value for e in todo.entries)
+            total_value = sum(e.value for e in own_entries)
             if todo.target_value and todo.target_value > 0:
                 target = todo.target_value * expected
                 per_todo.append(min(1.0, total_value / target) if target > 0 else 0.0)
             else:
-                # No target, can't compute — treat logged value as half credit
                 per_todo.append(1.0 if total_value > 0 else 0.0)
 
     if not per_todo:
@@ -119,28 +131,47 @@ def _compute_task_progress(task: Task) -> int:
     return int(round(avg * 100))
 
 
+def _serialize_todo(t: Todo, task_title: str | None, children_map: dict[uuid.UUID, list[Todo]]) -> dict:
+    """Serialize a todo, computing total_value = own entries + children's entries (recursive)."""
+    own_total = sum(e.value for e in t.entries)
+    children = children_map.get(t.id, [])
+    children_total = sum(
+        sum(e.value for e in c.entries) for c in children
+    )
+    return {
+        "id": t.id,
+        "task_id": t.task_id,
+        "user_id": t.user_id,
+        "parent_todo_id": t.parent_todo_id,
+        "title": t.title,
+        "kind": t.kind,
+        "unit": t.unit,
+        "target_value": t.target_value,
+        "recurrence": t.recurrence,
+        "due_date": t.due_date,
+        "color": t.color,
+        "entries": [
+            {"id": e.id, "todo_id": e.todo_id, "date": e.date, "value": e.value}
+            for e in t.entries
+        ],
+        "task_title": task_title,
+        "total_value": own_total + children_total,
+        "created_at": t.created_at,
+    }
+
+
 def _serialize_task(task: Task) -> dict:
     """Turn a Task + todos + entries into a TaskOut dict with computed progress."""
-    todos_out = []
+    # Build children map: parent_id -> [child todos]
+    children_map: dict[uuid.UUID, list[Todo]] = {}
     for t in task.todos:
-        todos_out.append({
-            "id": t.id,
-            "task_id": t.task_id,
-            "user_id": t.user_id,
-            "title": t.title,
-            "kind": t.kind,
-            "unit": t.unit,
-            "target_value": t.target_value,
-            "recurrence": t.recurrence,
-            "due_date": t.due_date,
-            "color": t.color,
-            "entries": [
-                {"id": e.id, "todo_id": e.todo_id, "date": e.date, "value": e.value}
-                for e in t.entries
-            ],
-            "task_title": task.title,
-            "created_at": t.created_at,
-        })
+        if t.parent_todo_id:
+            children_map.setdefault(t.parent_todo_id, []).append(t)
+
+    todos_out = [
+        _serialize_todo(t, task.title, children_map)
+        for t in task.todos
+    ]
 
     return {
         "id": task.id,
@@ -148,6 +179,7 @@ def _serialize_task(task: Task) -> dict:
         "description": task.description,
         "status": task.status,
         "priority": task.priority,
+        "start_date": task.start_date,
         "due_date": task.due_date,
         "is_completed": task.is_completed,
         "order": task.order,
@@ -193,6 +225,7 @@ async def create_task(
         description=body.description,
         status=body.status,
         priority=body.priority,
+        start_date=body.start_date,
         due_date=body.due_date,
         order=body.order,
         is_completed=body.status == "done",
@@ -251,9 +284,23 @@ async def create_todo(
     if body.recurrence not in VALID_RECURRENCE:
         raise HTTPException(400, f"Invalid recurrence: {body.recurrence}")
 
+    # Validate parent_todo_id if provided
+    if body.parent_todo_id:
+        parent_q = await db.execute(
+            select(Todo).where(Todo.id == body.parent_todo_id, Todo.user_id == user.id)
+        )
+        parent = parent_q.scalar_one_or_none()
+        if not parent:
+            raise HTTPException(400, "Parent todo not found")
+        if parent.task_id != task.id:
+            raise HTTPException(400, "Parent todo must belong to the same task")
+        if parent.parent_todo_id is not None:
+            raise HTTPException(400, "Nesting todos more than one level deep is not allowed")
+
     todo = Todo(
         task_id=task.id,
         user_id=user.id,
+        parent_todo_id=body.parent_todo_id,
         title=body.title,
         kind=body.kind,
         unit=body.unit,
@@ -266,10 +313,13 @@ async def create_todo(
     await db.flush()
     await db.refresh(todo, ["entries"])
     return TodoOut(
-        id=todo.id, task_id=todo.task_id, user_id=todo.user_id, title=todo.title,
+        id=todo.id, task_id=todo.task_id, user_id=todo.user_id,
+        parent_todo_id=todo.parent_todo_id,
+        title=todo.title,
         kind=todo.kind, unit=todo.unit, target_value=todo.target_value,
         recurrence=todo.recurrence, due_date=todo.due_date, color=todo.color,
-        entries=[], task_title=task.title, created_at=todo.created_at,
+        entries=[], task_title=task.title, total_value=0.0,
+        created_at=todo.created_at,
     )
 
 
@@ -299,10 +349,13 @@ async def create_standalone_todo(
     db.add(todo)
     await db.flush()
     return TodoOut(
-        id=todo.id, task_id=None, user_id=todo.user_id, title=todo.title,
+        id=todo.id, task_id=None, user_id=todo.user_id,
+        parent_todo_id=None,
+        title=todo.title,
         kind=todo.kind, unit=todo.unit, target_value=todo.target_value,
         recurrence=todo.recurrence, due_date=todo.due_date, color=todo.color,
-        entries=[], task_title=None, created_at=todo.created_at,
+        entries=[], task_title=None, total_value=0.0,
+        created_at=todo.created_at,
     )
 
 
@@ -318,12 +371,16 @@ async def update_todo(
         setattr(todo, field, value)
     await db.flush()
     await db.refresh(todo, ["entries", "task"])
+    total = sum(e.value for e in todo.entries)
     return TodoOut(
-        id=todo.id, task_id=todo.task_id, user_id=todo.user_id, title=todo.title,
+        id=todo.id, task_id=todo.task_id, user_id=todo.user_id,
+        parent_todo_id=todo.parent_todo_id,
+        title=todo.title,
         kind=todo.kind, unit=todo.unit, target_value=todo.target_value,
         recurrence=todo.recurrence, due_date=todo.due_date, color=todo.color,
         entries=[TodoEntryOut.model_validate(e) for e in todo.entries],
         task_title=todo.task.title if todo.task else None,
+        total_value=total,
         created_at=todo.created_at,
     )
 
@@ -369,48 +426,120 @@ async def upsert_todo_entry(
     return TodoEntryOut(id=entry.id, todo_id=todo.id, date=body.date, value=entry.value)
 
 
-@router.get("/todos/agenda", response_model=list[TodoOut])
+@router.get("/todos/agenda")
 async def agenda(
-    range: str = "today",  # today | week
+    section: str = "today",  # today | week | future | past
+    days_back: int = 30,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return all todos relevant to a date range.
-    - today: todos due today OR recurring (daily/weekly that hits today)
-             OR with task.due_date=today (no own due_date)
-    - week: similar but for 7 days ahead
+    """Return todos relevant to a section.
+
+    - today: daily-recurring todos OR todos with due_date=today OR task in-period on today
+             (daily children of weeklies ARE shown — duplicated as user requested)
+    - week: weekly-recurring todos OR todos with due_date in next 7 days
+    - future: todos/tasks where period starts after today
+    - past: completed/expired todos (default 30 days back)
     """
     today = date_cls.today()
-    if range == "week":
-        end = today + timedelta(days=6)
-    else:
-        end = today
-
-    # Fetch all todos for user
     q = await db.execute(
         select(Todo).where(Todo.user_id == user.id)
-        .options(selectinload(Todo.entries), selectinload(Todo.task))
+        .options(
+            selectinload(Todo.entries),
+            selectinload(Todo.task),
+            selectinload(Todo.children).selectinload(Todo.entries),
+        )
     )
     all_todos = list(q.scalars().all())
 
-    result: list[TodoOut] = []
-    for todo in all_todos:
-        include = False
-        # recurring — always included (daily and weekly happen during any range)
-        if todo.recurrence in ("daily", "weekly"):
-            include = True
-        elif todo.due_date and today <= todo.due_date <= end:
-            include = True
-        elif not todo.due_date and todo.task and todo.task.due_date and today <= todo.task.due_date <= end:
-            include = True
+    def task_period_contains(task: Task | None, d: date_cls) -> bool:
+        if not task:
+            return False
+        start = task.start_date or task.created_at.date()
+        end = task.due_date or d
+        return start <= d <= end
 
-        if include:
-            result.append(TodoOut(
-                id=todo.id, task_id=todo.task_id, user_id=todo.user_id, title=todo.title,
-                kind=todo.kind, unit=todo.unit, target_value=todo.target_value,
-                recurrence=todo.recurrence, due_date=todo.due_date, color=todo.color,
-                entries=[TodoEntryOut.model_validate(e) for e in todo.entries],
-                task_title=todo.task.title if todo.task else None,
-                created_at=todo.created_at,
-            ))
+    def serialize(todo: Todo) -> dict:
+        own_total = sum(e.value for e in todo.entries)
+        children_total = sum(sum(e.value for e in c.entries) for c in (todo.children or []))
+        return {
+            "id": str(todo.id),
+            "task_id": str(todo.task_id) if todo.task_id else None,
+            "user_id": str(todo.user_id),
+            "parent_todo_id": str(todo.parent_todo_id) if todo.parent_todo_id else None,
+            "title": todo.title,
+            "kind": todo.kind,
+            "unit": todo.unit,
+            "target_value": todo.target_value,
+            "recurrence": todo.recurrence,
+            "due_date": todo.due_date.isoformat() if todo.due_date else None,
+            "color": todo.color,
+            "entries": [
+                {"id": str(e.id), "todo_id": str(e.todo_id),
+                 "date": e.date.isoformat(), "value": e.value}
+                for e in todo.entries
+            ],
+            "task_title": todo.task.title if todo.task else None,
+            "total_value": own_total + children_total,
+            "created_at": todo.created_at.isoformat(),
+        }
+
+    result: list[dict] = []
+
+    if section == "today":
+        # Today = daily-recurring + one-off today + todos whose task period covers today
+        #         + daily children of weeklies also included (duplicated)
+        for t in all_todos:
+            if t.recurrence == "daily":
+                result.append(serialize(t))
+            elif t.due_date == today:
+                result.append(serialize(t))
+            elif (t.recurrence == "none" and not t.due_date and
+                  task_period_contains(t.task, today) and
+                  t.parent_todo_id is None):
+                # Task-level todo that's currently "active" — show it
+                result.append(serialize(t))
+
+    elif section == "week":
+        # Week = weekly-recurring todos OR todos with due_date in [today, today+6]
+        week_end = today + timedelta(days=6)
+        for t in all_todos:
+            if t.recurrence == "weekly":
+                result.append(serialize(t))
+            elif t.due_date and today <= t.due_date <= week_end and t.recurrence == "none":
+                # Only show if not already counted as weekly
+                result.append(serialize(t))
+
+    elif section == "future":
+        # Future = todos with due_date > today+6, or task.start_date > today
+        week_end = today + timedelta(days=6)
+        for t in all_todos:
+            if t.due_date and t.due_date > week_end:
+                result.append(serialize(t))
+            elif (not t.due_date and t.recurrence == "none" and
+                  t.task and t.task.start_date and t.task.start_date > today and
+                  t.parent_todo_id is None):
+                result.append(serialize(t))
+        # Sort by effective date
+        def fut_key(d):
+            return d["due_date"] or "9999"
+        result.sort(key=fut_key)
+
+    elif section == "past":
+        past_cutoff = today - timedelta(days=days_back)
+        for t in all_todos:
+            # Past = due_date in past, OR task.due_date in past
+            was_past = False
+            if t.due_date and past_cutoff <= t.due_date < today:
+                was_past = True
+            elif (t.task and t.task.due_date and
+                  past_cutoff <= t.task.due_date < today and
+                  t.parent_todo_id is None):
+                was_past = True
+            if was_past:
+                result.append(serialize(t))
+        def past_key(d):
+            return d["due_date"] or d["created_at"]
+        result.sort(key=past_key, reverse=True)
+
     return result

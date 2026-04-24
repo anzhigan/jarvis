@@ -55,7 +55,7 @@ export interface Way {
   updated_at: string;
 }
 
-export type TaskStatus = 'todo' | 'in_progress' | 'done';
+export type TaskStatus = 'todo' | 'background' | 'in_progress' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
 export type TodoKind = 'boolean' | 'numeric';
@@ -72,6 +72,7 @@ export interface Todo {
   id: string;
   task_id: string | null;
   user_id: string;
+  parent_todo_id: string | null;
   title: string;
   kind: TodoKind;
   unit: string;
@@ -81,6 +82,7 @@ export interface Todo {
   color: string;
   entries: TodoEntry[];
   task_title: string | null;
+  total_value: number;
   created_at: string;
 }
 
@@ -90,6 +92,7 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
+  start_date: string | null;
   due_date: string | null;
   is_completed: boolean;
   order: number;
