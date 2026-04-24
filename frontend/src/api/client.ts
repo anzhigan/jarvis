@@ -5,10 +5,11 @@ import type {
   Task,
   TaskPriority,
   TaskStatus,
-  Todo,
-  TodoEntry,
-  TodoKind,
-  TodoRecurrence,
+  Go,
+  GoEntry,
+  GoKind,
+  GoRecurrence,
+  Sprint,
   User,
   Way,
 } from './types';
@@ -173,48 +174,70 @@ export const tasksApi = {
 };
 
 // ── Todos ─────────────────────────────────────────────────────────────────────
-export const todosApi = {
-  createForTask: (taskId: string, data: {
+export const gosApi = {
+  create: (data: {
     title: string;
-    kind?: TodoKind;
+    kind?: GoKind;
     unit?: string;
     target_value?: number | null;
-    recurrence?: TodoRecurrence;
+    recurrence?: GoRecurrence;
     due_date?: string | null;
     color?: string;
-    parent_todo_id?: string | null;
-  }) => request<Todo>(`/tasks/${taskId}/todos`, { method: 'POST', body: JSON.stringify(data) }),
-
-  createStandalone: (data: {
-    title: string;
-    kind?: TodoKind;
-    unit?: string;
-    target_value?: number | null;
-    recurrence?: TodoRecurrence;
-    due_date?: string | null;
-    color?: string;
-  }) => request<Todo>('/todos/standalone', { method: 'POST', body: JSON.stringify(data) }),
+    task_id?: string | null;
+    sprint_id?: string | null;
+  }) => request<Go>('/gos', { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id: string, data: {
     title?: string;
-    kind?: TodoKind;
+    kind?: GoKind;
     unit?: string;
     target_value?: number | null;
-    recurrence?: TodoRecurrence;
+    recurrence?: GoRecurrence;
     due_date?: string | null;
     color?: string;
-    parent_todo_id?: string | null;
-  }) => request<Todo>(`/todos/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    task_id?: string | null;
+    sprint_id?: string | null;
+  }) => request<Go>(`/gos/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
-  delete: (id: string) => request<void>(`/todos/${id}`, { method: 'DELETE' }),
+  delete: (id: string) => request<void>(`/gos/${id}`, { method: 'DELETE' }),
 
-  // Upsert: value=0 will auto-delete the entry
-  upsertEntry: (todoId: string, date: string, value: number) =>
-    request<TodoEntry>(`/todos/${todoId}/entries`, {
+  upsertEntry: (goId: string, date: string, value: number) =>
+    request<GoEntry>(`/gos/${goId}/entries`, {
       method: 'POST',
       body: JSON.stringify({ date, value }),
     }),
 
-  agenda: (section: 'today' | 'week' | 'future' | 'past', daysBack = 30) =>
-    request<Todo[]>(`/todos/agenda?section=${section}&days_back=${daysBack}`),
+  agenda: (section: 'today' | 'future' | 'past', daysBack = 30) =>
+    request<Go[]>(`/gos/agenda?section=${section}&days_back=${daysBack}`),
+};
+
+export const sprintsApi = {
+  create: (data: {
+    task_id: string;
+    title: string;
+    description?: string;
+    start_date: string;
+    end_date: string;
+    color?: string;
+  }) => request<Sprint>('/sprints', { method: 'POST', body: JSON.stringify(data) }),
+
+  update: (id: string, data: {
+    title?: string;
+    description?: string;
+    start_date?: string;
+    end_date?: string;
+    is_completed?: boolean;
+    color?: string;
+  }) => request<Sprint>(`/sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  delete: (id: string) => request<void>(`/sprints/${id}`, { method: 'DELETE' }),
+
+  attachGo: (sprintId: string, goId: string) =>
+    request<Go>(`/sprints/${sprintId}/attach/${goId}`, { method: 'POST' }),
+
+  detachGo: (sprintId: string, goId: string) =>
+    request<Go>(`/sprints/${sprintId}/detach/${goId}`, { method: 'POST' }),
+
+  agenda: (section: 'current' | 'future' | 'past', daysBack = 90) =>
+    request<Sprint[]>(`/sprints/agenda?section=${section}&days_back=${daysBack}`),
 };

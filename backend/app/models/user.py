@@ -30,4 +30,5 @@ class User(Base):
     ways: Mapped[list["Way"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821
     tasks: Mapped[list["Task"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821
     tags: Mapped[list["Tag"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821
-    todos: Mapped[list["Todo"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821
+    gos: Mapped[list["Go"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821
+    sprints: Mapped[list["Sprint"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821

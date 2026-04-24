@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksApi } from '../api/client';
-import type { Task, Todo } from '../api/types';
+import type { Task, Go } from '../api/types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function isoDay(d: Date): string { return d.toISOString().split('T')[0]; }
@@ -218,17 +218,20 @@ function TaskTimeline({ tasks }: { tasks: Task[] }) {
 function ProgressTrend({ tasks }: { tasks: Task[] }) {
   const [mode, setMode] = useState<'combined' | 'per'>('combined');
 
-  // Collect all todos
-  const allTodos: { task: Task; todo: Todo }[] = [];
-  tasks.forEach((t) => t.todos.forEach((td) => allTodos.push({ task: t, todo: td })));
+  // Collect all gos (direct + inside sprints)
+  const allTodos: { task: Task; todo: Go }[] = [];
+  tasks.forEach((t) => {
+    t.gos.forEach((g) => allTodos.push({ task: t, todo: g }));
+    t.sprints.forEach((s) => s.gos.forEach((g) => allTodos.push({ task: t, todo: g })));
+  });
 
   if (allTodos.length === 0) {
     return (
       <div className="p-5 bg-card border border-border rounded-xl">
         <h3 className="text-sm font-semibold">Productivity trend</h3>
-        <p className="text-xs text-muted-foreground mb-3">Daily progress across all todos</p>
+        <p className="text-xs text-muted-foreground mb-3">Daily progress across all gos</p>
         <div className="h-24 flex items-center justify-center text-xs text-muted-foreground">
-          No todos yet
+          No gos yet
         </div>
       </div>
     );
@@ -247,7 +250,7 @@ function ProgressTrend({ tasks }: { tasks: Task[] }) {
   type Row = { date: string; dateLabel: string; combined: number | null; [key: string]: string | number | null };
 
   // For each todo compute per-day score (0..1)
-  function scoreTodo(t: Todo, val: number | undefined): number | null {
+  function scoreTodo(t: Go, val: number | undefined): number | null {
     if (val === undefined) return null;
     if (t.kind === 'boolean') return val > 0 ? 1 : 0;
     // numeric
@@ -363,8 +366,11 @@ export default function Metrics() {
     const byStatus: Record<string, number> = { todo: 0, in_progress: 0, done: 0 };
     tasks.forEach((t) => { byStatus[t.status] = (byStatus[t.status] ?? 0) + 1; });
 
-    const allTodos: { task: Task; todo: Todo }[] = [];
-    tasks.forEach((t) => t.todos.forEach((td) => allTodos.push({ task: t, todo: td })));
+    const allTodos: { task: Task; todo: Go }[] = [];
+    tasks.forEach((t) => {
+      t.gos.forEach((g) => allTodos.push({ task: t, todo: g }));
+      t.sprints.forEach((s) => s.gos.forEach((g) => allTodos.push({ task: t, todo: g })));
+    });
 
     const statusByStatus = Object.entries(byStatus)
       .filter(([, v]) => v > 0)
@@ -416,7 +422,7 @@ export default function Metrics() {
           <StatTile icon={TargetIcon} label="Total tasks" value={analytics.totalTasks} sub={`${analytics.backlogTasks} in backlog`} />
           <StatTile icon={Clock} label="In progress" value={analytics.inProgressTasks} sub="currently working on" tone="warning" />
           <StatTile icon={CheckCircle2} label="Completed" value={analytics.completedTasks} sub={`${completionRate.toFixed(0)}% done`} tone="success" />
-          <StatTile icon={Activity} label="Todos" value={analytics.allTodos.length} sub="total tracked" />
+          <StatTile icon={Activity} label="Gos" value={analytics.allTodos.length} sub="total tracked" />
         </div>
 
         {analytics.totalTasks === 0 && analytics.allTodos.length === 0 ? (

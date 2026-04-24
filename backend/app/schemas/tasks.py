@@ -6,20 +6,21 @@ from pydantic import BaseModel, Field
 from app.schemas.notes import TagOut
 
 
-# ─── Todo ────────────────────────────────────────────────────────────────────
+# ─── Go ─────────────────────────────────────────────────────────────────────
 
-class TodoCreate(BaseModel):
+class GoCreate(BaseModel):
     title: str = Field(min_length=1, max_length=300)
-    kind: str = Field(default="boolean")  # boolean | numeric
+    kind: str = Field(default="boolean")
     unit: str = Field(default="", max_length=50)
     target_value: float | None = None
-    recurrence: str = Field(default="none")  # none | daily | weekly
+    recurrence: str = Field(default="none")
     due_date: date | None = None
     color: str = Field(default="#4f46e5", max_length=20)
-    parent_todo_id: uuid.UUID | None = None
+    task_id: uuid.UUID | None = None
+    sprint_id: uuid.UUID | None = None
 
 
-class TodoUpdate(BaseModel):
+class GoUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=300)
     kind: str | None = None
     unit: str | None = None
@@ -27,28 +28,29 @@ class TodoUpdate(BaseModel):
     recurrence: str | None = None
     due_date: date | None = None
     color: str | None = None
-    parent_todo_id: uuid.UUID | None = None
+    task_id: uuid.UUID | None = None
+    sprint_id: uuid.UUID | None = None
 
 
-class TodoEntryUpsert(BaseModel):
+class GoEntryUpsert(BaseModel):
     date: date
-    value: float  # for boolean, 1 = done, 0 = not done
+    value: float
 
 
-class TodoEntryOut(BaseModel):
+class GoEntryOut(BaseModel):
     id: uuid.UUID
-    todo_id: uuid.UUID
+    go_id: uuid.UUID
     date: date
     value: float
 
     model_config = {"from_attributes": True}
 
 
-class TodoOut(BaseModel):
+class GoOut(BaseModel):
     id: uuid.UUID
-    task_id: uuid.UUID | None
     user_id: uuid.UUID
-    parent_todo_id: uuid.UUID | None = None
+    task_id: uuid.UUID | None
+    sprint_id: uuid.UUID | None
     title: str
     kind: str
     unit: str
@@ -56,17 +58,56 @@ class TodoOut(BaseModel):
     recurrence: str
     due_date: date | None
     color: str
-    entries: list[TodoEntryOut] = []
-    # Backref task title for showing in global todo list
+    entries: list[GoEntryOut] = []
     task_title: str | None = None
-    # Sum of own entries + all children's entries (for weekly progress display)
+    sprint_title: str | None = None
     total_value: float = 0.0
+    is_done_today: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
-# ─── Task ────────────────────────────────────────────────────────────────────
+# ─── Sprint ─────────────────────────────────────────────────────────────────
+
+class SprintCreate(BaseModel):
+    task_id: uuid.UUID
+    title: str = Field(min_length=1, max_length=500)
+    description: str = ""
+    start_date: date
+    end_date: date
+    color: str = Field(default="#3b82f6", max_length=20)
+
+
+class SprintUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    is_completed: bool | None = None
+    color: str | None = None
+
+
+class SprintOut(BaseModel):
+    id: uuid.UUID
+    task_id: uuid.UUID
+    user_id: uuid.UUID
+    title: str
+    description: str
+    start_date: date
+    end_date: date
+    is_completed: bool
+    color: str
+    gos: list[GoOut] = []
+    task_title: str | None = None
+    progress: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Task ───────────────────────────────────────────────────────────────────
 
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
@@ -99,9 +140,9 @@ class TaskOut(BaseModel):
     due_date: date | None
     is_completed: bool
     order: int
-    todos: list[TodoOut] = []
+    sprints: list[SprintOut] = []
+    gos: list[GoOut] = []
     tags: list[TagOut] = []
-    # Computed progress % (0..100)
     progress: int = 0
     created_at: datetime
     updated_at: datetime

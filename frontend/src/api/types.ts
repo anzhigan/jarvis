@@ -58,32 +58,51 @@ export interface Way {
 export type TaskStatus = 'todo' | 'background' | 'in_progress' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
-export type TodoKind = 'boolean' | 'numeric';
-export type TodoRecurrence = 'none' | 'daily' | 'weekly';
+export type GoKind = 'boolean' | 'numeric';
+export type GoRecurrence = 'none' | 'daily' | 'weekly';
 
-export interface TodoEntry {
+export interface GoEntry {
   id: string;
-  todo_id: string;
+  go_id: string;
   date: string;       // YYYY-MM-DD
   value: number;
 }
 
-export interface Todo {
+export interface Go {
   id: string;
-  task_id: string | null;
   user_id: string;
-  parent_todo_id: string | null;
+  task_id: string | null;
+  sprint_id: string | null;
   title: string;
-  kind: TodoKind;
+  kind: GoKind;
   unit: string;
   target_value: number | null;
-  recurrence: TodoRecurrence;
+  recurrence: GoRecurrence;
   due_date: string | null;
   color: string;
-  entries: TodoEntry[];
+  entries: GoEntry[];
   task_title: string | null;
+  sprint_title: string | null;
   total_value: number;
+  is_done_today: boolean;
   created_at: string;
+}
+
+export interface Sprint {
+  id: string;
+  task_id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  is_completed: boolean;
+  color: string;
+  gos: Go[];
+  task_title: string | null;
+  progress: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Task {
@@ -96,9 +115,10 @@ export interface Task {
   due_date: string | null;
   is_completed: boolean;
   order: number;
-  todos: Todo[];
+  sprints: Sprint[];
+  gos: Go[];
   tags: Tag[];
-  progress: number;   // 0..100
+  progress: number;
   created_at: string;
   updated_at: string;
 }
