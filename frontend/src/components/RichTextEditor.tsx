@@ -44,6 +44,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { notesApi } from '../api/client';
+import InputDialog from './InputDialog';
 
 const lowlight = createLowlight(common);
 
@@ -379,6 +380,8 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
+  const [dialogExtra, setDialogExtra] = useState<{ prevUrl?: string }>({});
 
   const editor = useEditor({
     extensions: [
@@ -502,6 +505,66 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
     }`;
 
   return (
+    <>
+    <InputDialog
+      open={dialog === 'link'}
+      title="Insert link"
+      description="External URL or internal reference to another note (#note:<id>)"
+      fields={[
+        { key: 'url', label: 'URL', type: 'url', placeholder: 'https://example.com', defaultValue: dialogExtra.prevUrl ?? '', autoFocus: true, required: true, helpText: 'Tip: use #note:<note-id> to link to another note. Hold Ctrl/Cmd + click to open.' },
+      ]}
+      submitLabel="Insert"
+      extraActions={editor.isActive('link') ? [{
+        label: 'Remove link',
+        variant: 'destructive',
+        onClick: () => { editor.chain().focus().extendMarkRange('link').unsetLink().run(); setDialog(null); },
+      }] : undefined}
+      onSubmit={(v) => {
+        const url = v.url.trim();
+        if (url) editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+        setDialog(null);
+      }}
+      onCancel={() => setDialog(null)}
+    />
+
+    <InputDialog
+      open={dialog === 'table'}
+      title="Insert table"
+      description="Create a new table with specified dimensions"
+      fields={[
+        { key: 'rows', label: 'Rows', type: 'number', defaultValue: '3', autoFocus: true, required: true },
+        { key: 'cols', label: 'Columns', type: 'number', defaultValue: '3', required: true },
+        { key: 'header', label: 'Include header row', type: 'select', defaultValue: 'yes', options: [
+          { value: 'yes', label: 'Yes' },
+          { value: 'no', label: 'No' },
+        ]},
+      ]}
+      submitLabel="Insert table"
+      onSubmit={(v) => {
+        const rows = Math.max(1, Math.min(20, parseInt(v.rows, 10) || 3));
+        const cols = Math.max(1, Math.min(10, parseInt(v.cols, 10) || 3));
+        editor.chain().focus().insertTable({ rows, cols, withHeaderRow: v.header === 'yes' }).run();
+        setDialog(null);
+      }}
+      onCancel={() => setDialog(null)}
+    />
+
+    <InputDialog
+      open={dialog === 'math'}
+      title="Insert formula"
+      description="Enter a LaTeX expression"
+      fields={[
+        { key: 'latex', label: 'LaTeX', type: 'textarea', placeholder: 'x^2 + y^2 = z^2', defaultValue: 'x^2 + y^2 = z^2', autoFocus: true, required: true, helpText: 'Examples: \\frac{a}{b}, \\sqrt{x}, \\sum_{i=0}^{n}, \\int_a^b f(x)dx' },
+      ]}
+      submitLabel="Insert"
+      onSubmit={(v) => {
+        const latex = v.latex.trim();
+        if (latex) (editor.chain().focus() as any).insertInlineMath(latex).run();
+        setDialog(null);
+      }}
+      onCancel={() => setDialog(null)}
+    />
+
     <div className="w-full">
       <input
         ref={fileInputRef}
@@ -560,13 +623,8 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
           <button
             onClick={() => {
               const prev = editor.getAttributes('link').href as string | undefined;
-              const url = window.prompt('URL (leave empty to remove, or #note:<note-id> to link internal):', prev ?? 'https://');
-              if (url === null) return;
-              if (url === '') {
-                editor.chain().focus().extendMarkRange('link').unsetLink().run();
-              } else {
-                editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
-              }
+              setDialogExtra({ prevUrl: prev });
+              setDialog('link');
             }}
             className={btnCls(editor.isActive('link'))}
             title="Insert/edit link"
@@ -580,7 +638,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
               if (editor.isActive('table')) {
                 editor.chain().focus().deleteTable().run();
               } else {
-                editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+                setDialog('table');
               }
             }}
             className={btnCls(editor.isActive('table'))}
@@ -591,12 +649,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
 
           {/* Math */}
           <button
-            onClick={() => {
-              const latex = window.prompt('LaTeX formula:', 'x^2 + y^2 = z^2');
-              if (latex) {
-                (editor.chain().focus() as any).insertInlineMath(latex).run();
-              }
-            }}
+            onClick={() => setDialog('math')}
             className={btnCls(false)}
             title="Insert math formula (LaTeX)"
           >
@@ -710,5 +763,6 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
 
       <EditorContent editor={editor} />
     </div>
+    </>
   );
 }

@@ -1410,7 +1410,7 @@ export default function Tasks() {
                   <input type="text" placeholder="New task..." value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && createTask()}
-                    className="flex-1 min-w-[200px] h-10 px-3 rounded-md border border-border bg-input-background" />
+                    className="flex-1 min-w-0 h-10 px-3 rounded-md border border-border bg-input-background" />
                   <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)}
                     className="h-10 px-3 rounded-md border border-border bg-input-background text-sm">
                     <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
@@ -1420,16 +1420,16 @@ export default function Tasks() {
                     <Plus size={15} /> Create
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <div className="flex-1 min-w-[120px]">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="min-w-0">
                     <label className="text-[11px] text-muted-foreground">Start</label>
                     <input type="date" value={newStart} onChange={(e) => setNewStart(e.target.value)}
-                      className="w-full h-10 px-3 rounded-md border border-border bg-input-background text-sm" />
+                      className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
                   </div>
-                  <div className="flex-1 min-w-[120px]">
+                  <div className="min-w-0">
                     <label className="text-[11px] text-muted-foreground">Due</label>
                     <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)}
-                      className="w-full h-10 px-3 rounded-md border border-border bg-input-background text-sm" />
+                      className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
                   </div>
                 </div>
               </div>

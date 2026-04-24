@@ -696,7 +696,14 @@ export default function Notes() {
                         ) : (
                           <div
                             onClick={() => toggleTopic(topic.id)}
-                            className="group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md hover:bg-sidebar-accent cursor-pointer"
+                            onDragOver={(e) => { if (draggingNote) { e.preventDefault(); setDragOver({ kind: 'topic', id: topic.id }); } }}
+                            onDragLeave={() => setDragOver((p) => p?.kind === 'topic' && p.id === topic.id ? null : p)}
+                            onDrop={(e) => handleDrop(e, { kind: 'topic', id: topic.id })}
+                            className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
+                              dragOver?.kind === 'topic' && dragOver.id === topic.id
+                                ? 'bg-primary/15 ring-1 ring-primary'
+                                : 'hover:bg-sidebar-accent'
+                            }`}
                           >
                             {expandedTopics.has(topic.id) ? (
                               <ChevronDown size={12} className="text-muted-foreground flex-shrink-0" />
