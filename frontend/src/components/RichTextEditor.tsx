@@ -5,7 +5,19 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { Placeholder } from '@tiptap/extension-placeholder';
+import { Link } from '@tiptap/extension-link';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TaskList } from '@tiptap/extension-task-list';
+import { TaskItem } from '@tiptap/extension-task-item';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { common, createLowlight } from 'lowlight';
 import { mergeAttributes, Node } from '@tiptap/core';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+import 'highlight.js/styles/github-dark.css';
 import {
   Bold,
   Underline as UnderlineIcon,
@@ -20,13 +32,20 @@ import {
   Type,
   List,
   ListOrdered,
+  ListChecks,
   Quote,
   Code,
+  Link as LinkIcon,
+  Table as TableIcon,
+  Sigma,
+  ChevronsRight,
   Loader2,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { notesApi } from '../api/client';
+
+const lowlight = createLowlight(common);
 
 // Custom font size extension
 const FontSize = Extension.create({
@@ -248,6 +267,82 @@ const ResizableImage = Node.create({
   },
 });
 
+// ─── InlineMath — renders $...$ LaTeX inline ──────────────────────────────
+const InlineMathView = ({ node, updateAttributes, editor }: any) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState<string>(node.attrs.latex || '');
+
+  const rendered = (() => {
+    try {
+      return katex.renderToString(node.attrs.latex || '', { throwOnError: false, displayMode: false });
+    } catch {
+      return `<span style="color: var(--destructive)">[invalid LaTeX]</span>`;
+    }
+  })();
+
+  if (editing) {
+    return (
+      <NodeViewWrapper as="span" className="inline-block align-middle">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              updateAttributes({ latex: value });
+              setEditing(false);
+            }
+            if (e.key === 'Escape') { setEditing(false); setValue(node.attrs.latex || ''); }
+          }}
+          onBlur={() => { updateAttributes({ latex: value }); setEditing(false); }}
+          placeholder="LaTeX: e.g. x^2 + y^2 = z^2"
+          autoFocus
+          className="inline-block px-2 py-0.5 text-sm font-mono bg-secondary border border-primary rounded min-w-[200px]"
+        />
+      </NodeViewWrapper>
+    );
+  }
+
+  return (
+    <NodeViewWrapper as="span" className="inline-block align-middle">
+      <span
+        onClick={() => editor?.isEditable && setEditing(true)}
+        title="Click to edit formula"
+        className="inline-block px-1 rounded hover:bg-secondary cursor-pointer"
+        dangerouslySetInnerHTML={{ __html: rendered }}
+      />
+    </NodeViewWrapper>
+  );
+};
+
+const InlineMath = Node.create({
+  name: 'inlineMath',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return { latex: { default: '' } };
+  },
+  parseHTML() {
+    return [{ tag: 'span[data-inline-math]', getAttrs: (el) => ({ latex: (el as HTMLElement).getAttribute('data-latex') || '' }) }];
+  },
+  renderHTML({ HTMLAttributes, node }) {
+    return ['span', mergeAttributes(HTMLAttributes, { 'data-inline-math': 'true', 'data-latex': node.attrs.latex }), node.attrs.latex];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(InlineMathView);
+  },
+  addCommands() {
+    return {
+      insertInlineMath: (latex: string) => ({ chain }: any) => {
+        return chain().insertContent({ type: 'inlineMath', attrs: { latex } }).run();
+      },
+    } as any;
+  },
+});
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface RichTextEditorProps {
   noteId: string;
@@ -287,7 +382,11 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] }, underline: false }),
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        underline: false,
+        codeBlock: false, // we use CodeBlockLowlight instead
+      }),
       Underline,
       TextStyle,
       Color,
@@ -295,12 +394,43 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       ResizableImage,
       Placeholder.configure({ placeholder: 'Begin writing...' }),
+      Link.configure({
+        openOnClick: false,           // handled by our custom click; prevents nav while editing
+        autolink: true,
+        HTMLAttributes: { class: 'editor-link', rel: 'noopener noreferrer' },
+      }),
+      Table.configure({ resizable: true, HTMLAttributes: { class: 'editor-table' } }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      TaskList.configure({ HTMLAttributes: { class: 'editor-task-list' } }),
+      TaskItem.configure({ nested: true, HTMLAttributes: { class: 'editor-task-item' } }),
+      CodeBlockLowlight.configure({ lowlight, HTMLAttributes: { class: 'editor-code-block' } }),
+      InlineMath,
     ],
     content,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[400px]',
+      },
+      // Handle clicks on links; external open in new tab, internal (#note:<id>) scroll/navigate
+      handleClickOn: (_view, _pos, _node, _nodePos, event) => {
+        const target = event.target as HTMLElement | null;
+        const anchor = target?.closest('a') as HTMLAnchorElement | null;
+        if (!anchor || !anchor.href) return false;
+        const href = anchor.getAttribute('href') || '';
+        if (event.ctrlKey || event.metaKey) {
+          if (href.startsWith('#note:')) {
+            const noteId = href.slice('#note:'.length);
+            window.dispatchEvent(new CustomEvent('open-note', { detail: { noteId } }));
+          } else {
+            window.open(anchor.href, '_blank', 'noopener,noreferrer');
+          }
+          event.preventDefault();
+          return true;
+        }
+        return false;
       },
       // Strip inline font-size / line-height / font-family from pasted HTML
       // so that user's global font-size setting applies to pasted content
@@ -414,11 +544,63 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
           <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={btnCls(editor.isActive('orderedList'))} title="Numbered list">
             <ListOrdered size={15} />
           </button>
+          <button onClick={() => editor.chain().focus().toggleTaskList().run()} className={btnCls(editor.isActive('taskList'))} title="Task list">
+            <ListChecks size={15} />
+          </button>
           <button onClick={() => editor.chain().focus().toggleBlockquote().run()} className={btnCls(editor.isActive('blockquote'))} title="Quote">
             <Quote size={15} />
           </button>
-          <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} className={btnCls(editor.isActive('codeBlock'))} title="Code block">
+          <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} className={btnCls(editor.isActive('codeBlock'))} title="Code block (syntax highlighted)">
             <Code size={15} />
+          </button>
+
+          <div className="w-px h-5 bg-border mx-1" />
+
+          {/* Link */}
+          <button
+            onClick={() => {
+              const prev = editor.getAttributes('link').href as string | undefined;
+              const url = window.prompt('URL (leave empty to remove, or #note:<note-id> to link internal):', prev ?? 'https://');
+              if (url === null) return;
+              if (url === '') {
+                editor.chain().focus().extendMarkRange('link').unsetLink().run();
+              } else {
+                editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+              }
+            }}
+            className={btnCls(editor.isActive('link'))}
+            title="Insert/edit link"
+          >
+            <LinkIcon size={15} />
+          </button>
+
+          {/* Table */}
+          <button
+            onClick={() => {
+              if (editor.isActive('table')) {
+                editor.chain().focus().deleteTable().run();
+              } else {
+                editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+              }
+            }}
+            className={btnCls(editor.isActive('table'))}
+            title="Insert table (or delete if inside one)"
+          >
+            <TableIcon size={15} />
+          </button>
+
+          {/* Math */}
+          <button
+            onClick={() => {
+              const latex = window.prompt('LaTeX formula:', 'x^2 + y^2 = z^2');
+              if (latex) {
+                (editor.chain().focus() as any).insertInlineMath(latex).run();
+              }
+            }}
+            className={btnCls(false)}
+            title="Insert math formula (LaTeX)"
+          >
+            <Sigma size={15} />
           </button>
 
           <div className="w-px h-5 bg-border mx-1" />

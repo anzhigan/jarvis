@@ -118,3 +118,126 @@
   max-width: 100%;
   height: auto;
 }
+
+/* ─── Link ──────────────────────────────────────────────────────────────── */
+.ProseMirror .editor-link,
+.ProseMirror a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ProseMirror .editor-link:hover {
+  opacity: 0.8;
+}
+
+/* ─── Table ─────────────────────────────────────────────────────────────── */
+.ProseMirror .editor-table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  overflow: hidden;
+  table-layout: fixed;
+  width: 100%;
+}
+.ProseMirror .editor-table td,
+.ProseMirror .editor-table th {
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+  padding: 6px 10px;
+  position: relative;
+  vertical-align: top;
+  min-width: 100px;
+}
+.ProseMirror .editor-table th {
+  background: var(--muted);
+  font-weight: 600;
+  text-align: left;
+}
+.ProseMirror .editor-table .selectedCell::after {
+  background: rgba(79, 70, 229, 0.1);
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+.ProseMirror .editor-table .column-resize-handle {
+  background-color: var(--primary);
+  bottom: -2px;
+  pointer-events: none;
+  position: absolute;
+  right: -2px;
+  top: 0;
+  width: 4px;
+}
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+}
+
+/* ─── Task list ─────────────────────────────────────────────────────────── */
+.ProseMirror ul.editor-task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5em 0;
+}
+.ProseMirror .editor-task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  margin: 0.25em 0;
+}
+.ProseMirror .editor-task-item > label {
+  flex-shrink: 0;
+  margin-top: 0.35em;
+}
+.ProseMirror .editor-task-item > label > input[type='checkbox'] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+.ProseMirror .editor-task-item > div {
+  flex: 1;
+  min-width: 0;
+}
+.ProseMirror .editor-task-item[data-checked='true'] > div {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+.ProseMirror .editor-task-item > div > p {
+  margin: 0;
+}
+
+/* ─── Code block with syntax highlighting (github-dark theme loaded separately) ─ */
+.ProseMirror pre.editor-code-block,
+.ProseMirror pre {
+  background: #0d1117;
+  color: #c9d1d9;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin: 0.9em 0;
+  overflow-x: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+.ProseMirror pre code {
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  padding: 0;
+}
+.ProseMirror code {
+  background: var(--muted);
+  color: var(--foreground);
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+}
+
+/* ─── Inline math ──────────────────────────────────────────────────────── */
+.ProseMirror .katex {
+  font-size: 1.05em;
+}
+
