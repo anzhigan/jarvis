@@ -739,12 +739,15 @@ export default function Notes() {
                                     <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                                   ) : (
                                     <div
+                                      draggable
+                                      onDragStart={(e) => { e.dataTransfer.setData('note-id', note.id); setDraggingNote(note.id); }}
+                                      onDragEnd={() => { setDraggingNote(null); setDragOver(null); }}
                                       onClick={() => setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: topic.id })}
                                       className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
                                         selection?.noteId === note.id
                                           ? 'bg-primary text-primary-foreground'
                                           : 'hover:bg-sidebar-accent'
-                                      }`}
+                                      } ${draggingNote === note.id ? 'opacity-40' : ''}`}
                                     >
                                       <FileText size={12} className="text-muted-foreground flex-shrink-0" />
                                       <span className="flex-1 text-sm truncate">{note.name}</span>

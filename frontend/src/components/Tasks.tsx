@@ -321,9 +321,97 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
               </div>
             </>
           )}
+
+          {/* Daily streak heatmap (only for recurring daily boolean) */}
+          {go.kind === 'boolean' && go.recurrence === 'daily' && !editing && (
+            <DailyStreak go={go} />
+          )}
         </div>
       </div>
     </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DailyStreak — shows last N days as colored squares (green=done, red=missed)
+// ═══════════════════════════════════════════════════════════════════════════
+function DailyStreak({ go }: { go: Go }) {
+  const [expanded, setExpanded] = useState(false);
+  const baseDays = 10;
+  const allDaysMax = 60;
+
+  // Build map: date -> value
+  const entryMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of go.entries) m.set(e.date, e.value);
+    return m;
+  }, [go.entries]);
+
+  // Don't show days before go.created_at
+  const createdDate = useMemo(() => {
+    const d = new Date(go.created_at);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [go.created_at]);
+
+  const daysToShow = expanded ? allDaysMax : baseDays;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const squares: { date: string; value: number; isFuture: boolean; beforeCreation: boolean }[] = [];
+  for (let i = daysToShow - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const key = `${y}-${m}-${day}`;
+    squares.push({
+      date: key,
+      value: entryMap.get(key) ?? 0,
+      isFuture: d > today,
+      beforeCreation: d < createdDate,
+    });
+  }
+
+  const doneCount = squares.filter((s) => !s.beforeCreation && s.value > 0).length;
+  const eligible = squares.filter((s) => !s.beforeCreation).length;
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+        <span>Streak · {doneCount}/{eligible}</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+          className="text-[10px] hover:text-foreground underline"
+        >
+          {expanded ? 'collapse' : 'more'}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-[3px]">
+        {squares.map((s) => {
+          let bg = 'bg-muted';  // before creation / unknown
+          let title = s.date;
+          if (s.beforeCreation) {
+            bg = 'bg-muted/40';
+            title = `${s.date} — before start`;
+          } else if (s.value > 0) {
+            bg = 'bg-emerald-500';
+            title = `${s.date} — done`;
+          } else {
+            bg = 'bg-rose-400/60 dark:bg-rose-600/50';
+            title = `${s.date} — missed`;
+          }
+          return (
+            <div
+              key={s.date}
+              title={title}
+              className={`w-3 h-3 rounded-sm ${bg}`}
+            />
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -342,6 +430,8 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
   const [editTitle, setEditTitle] = useState(sprint.title);
   const [editStart, setEditStart] = useState(sprint.start_date);
   const [editEnd, setEditEnd] = useState(sprint.end_date);
+  const [editDescription, setEditDescription] = useState(sprint.description ?? '');
+  const [editColor, setEditColor] = useState(sprint.color);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addingGo, setAddingGo] = useState(false);
@@ -354,6 +444,8 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
         title: editTitle.trim(),
         start_date: editStart,
         end_date: editEnd,
+        description: editDescription,
+        color: editColor,
       });
       setEditing(false);
       await onReload();
@@ -402,6 +494,30 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                         className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md" />
                     </div>
                   </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">Description</label>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Sprint notes…"
+                      rows={2}
+                      className="w-full px-2 py-1.5 text-sm bg-input-background border border-border rounded-md resize-y"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground block mb-1">Color</label>
+                    <div className="flex gap-1">
+                      {['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0891b2'].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setEditColor(c)}
+                          className={`w-6 h-6 rounded ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex justify-end gap-1.5">
                     <button onClick={() => setEditing(false)} className="h-8 px-2 text-xs text-muted-foreground">Cancel</button>
                     <button onClick={save} disabled={busy} className="h-8 px-3 bg-primary text-primary-foreground rounded text-xs font-medium disabled:opacity-50 flex items-center gap-1">
@@ -412,9 +528,6 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
               ) : (
                 <>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: `${sprint.color}20`, color: sprint.color }}>
-                      SPRINT
-                    </span>
                     <button
                       onClick={() => setExpanded(!expanded)}
                       className="flex items-center gap-1 flex-1 min-w-0 text-left hover:text-primary"
@@ -436,6 +549,9 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                     {formatDate(sprint.start_date)} — {formatDate(sprint.end_date)}
                     {showMeta && sprint.task_title && <span> · task: {sprint.task_title}</span>}
                   </div>
+                  {sprint.description && sprint.description.trim() && (
+                    <p className="text-[11px] text-muted-foreground mb-2 whitespace-pre-wrap">{sprint.description}</p>
+                  )}
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-2">
                     <div className="h-full transition-all" style={{ width: `${sprint.progress}%`, backgroundColor: sprint.color }} />
                   </div>
@@ -569,9 +685,13 @@ function CreateGoForm({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex gap-1">
           {GO_COLORS.map((c) => (
-            <button key={c} onClick={() => setColor(c)}
+            <button
+              key={c}
+              type="button"
+              onClick={(e) => { e.preventDefault(); setColor(c); }}
               className={`w-6 h-6 rounded transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-              style={{ backgroundColor: c }} />
+              style={{ backgroundColor: c }}
+            />
           ))}
         </div>
         <div className="flex gap-1.5">
@@ -598,9 +718,10 @@ function CreateSprintForm({
   onCancel: () => void;
 }) {
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
-  const [color, setColor] = useState('#3b82f6');
+  const [color, setColor] = useState('#8b5cf6');
   const [toAttach, setToAttach] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
@@ -611,6 +732,7 @@ function CreateSprintForm({
       const sprint = await sprintsApi.create({
         task_id: taskId,
         title: title.trim(),
+        description,
         start_date: start,
         end_date: end,
         color,
@@ -667,9 +789,13 @@ function CreateSprintForm({
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1">
           {['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0891b2'].map((c) => (
-            <button key={c} onClick={() => setColor(c)}
+            <button
+              key={c}
+              type="button"
+              onClick={(e) => { e.preventDefault(); setColor(c); }}
               className={`w-6 h-6 rounded ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-              style={{ backgroundColor: c }} />
+              style={{ backgroundColor: c }}
+            />
           ))}
         </div>
         <div className="flex gap-1.5">
@@ -789,6 +915,7 @@ function TaskCard({
   const [editPriority, setEditPriority] = useState<TaskPriority>(task.priority);
   const [editStart, setEditStart] = useState(task.start_date ?? '');
   const [editDue, setEditDue] = useState(task.due_date ?? '');
+  const [editDescription, setEditDescription] = useState(task.description ?? '');
   const [editSaving, setEditSaving] = useState(false);
 
   const isOverdue = task.status !== 'done' && task.due_date &&
@@ -797,6 +924,7 @@ function TaskCard({
   const startEdit = () => {
     setEditTitle(task.title); setEditPriority(task.priority);
     setEditStart(task.start_date ?? ''); setEditDue(task.due_date ?? '');
+    setEditDescription(task.description ?? '');
     setEditing(true);
   };
 
@@ -807,6 +935,7 @@ function TaskCard({
       await onUpdate({
         title: editTitle.trim(), priority: editPriority,
         start_date: editStart || null, due_date: editDue || null,
+        description: editDescription,
       });
       setEditing(false);
     } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
@@ -844,6 +973,16 @@ function TaskCard({
                 className="w-full h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm" />
             </div>
           </div>
+          <div>
+            <label className="text-[11px] text-muted-foreground">Description</label>
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="Notes, context, details…"
+              rows={3}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-input-background resize-y min-h-[70px]"
+            />
+          </div>
           <div className="flex gap-2 justify-end pt-1">
             <button onClick={() => setEditing(false)} className="h-9 px-3 text-sm text-muted-foreground">Cancel</button>
             <button onClick={saveEdit} disabled={editSaving || !editTitle.trim()}
@@ -877,6 +1016,9 @@ function TaskCard({
             </div>
 
             <h4 className="text-base md:text-sm font-medium mb-2 leading-snug">{task.title}</h4>
+            {task.description && task.description.trim() && (
+              <p className="text-xs text-muted-foreground mb-2 whitespace-pre-wrap">{task.description}</p>
+            )}
 
             <div className="mb-2.5">
               <TagSelector targetId={task.id} targetKind="task" tags={task.tags ?? []} onChange={onReload} compact />
