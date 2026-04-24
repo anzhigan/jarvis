@@ -69,10 +69,11 @@ function formatDate(iso: string | null): string | null {
 // ═══════════════════════════════════════════════════════════════════════════
 // GoRow — single Go with stripe + checkbox/numeric + edit
 // ═══════════════════════════════════════════════════════════════════════════
-function GoRow({ go, availableSprints, onReload, showMeta = false }: {
+function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false }: {
   go: Go;
   availableSprints?: Sprint[];
   onReload: () => Promise<void>;
+  onLocalUpdate?: (patched: Go) => void;   // optimistic-local update (avoids full refetch flicker)
   showMeta?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
@@ -100,24 +101,51 @@ function GoRow({ go, availableSprints, onReload, showMeta = false }: {
 
   const toggle = async () => {
     if (go.kind !== 'boolean') return;
+    const newValue = todayVal > 0 ? 0 : 1;
+
+    // Optimistic local update — immediately reflect in UI
+    if (onLocalUpdate) {
+      const otherEntries = go.entries.filter((e) => e.date !== today);
+      const newEntries = newValue === 0
+        ? otherEntries
+        : [...otherEntries, { id: `temp-${Date.now()}`, go_id: go.id, date: today, value: newValue }];
+      const newTotal = newEntries.reduce((s, e) => s + e.value, 0);
+      onLocalUpdate({ ...go, entries: newEntries, total_value: newTotal });
+    }
+
     setBusy(true);
     try {
-      await gosApi.upsertEntry(go.id, today, todayVal > 0 ? 0 : 1);
-      await onReload();
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-    finally { setBusy(false); }
+      await gosApi.upsertEntry(go.id, today, newValue);
+      if (!onLocalUpdate) await onReload();  // fallback: full reload when no optimistic handler
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed');
+      if (onLocalUpdate) await onReload();   // on error: re-sync from server
+    } finally { setBusy(false); }
   };
 
   const logNumeric = async (override?: number) => {
     const v = override !== undefined ? override : parseFloat(numInput);
     if (isNaN(v) || v < 0) return;
+    const newValue = todayVal + v;
+
+    if (onLocalUpdate) {
+      const otherEntries = go.entries.filter((e) => e.date !== today);
+      const newEntries = newValue === 0
+        ? otherEntries
+        : [...otherEntries, { id: `temp-${Date.now()}`, go_id: go.id, date: today, value: newValue }];
+      const newTotal = newEntries.reduce((s, e) => s + e.value, 0);
+      onLocalUpdate({ ...go, entries: newEntries, total_value: newTotal });
+    }
+
     setBusy(true);
     try {
-      await gosApi.upsertEntry(go.id, today, todayVal + v);
+      await gosApi.upsertEntry(go.id, today, newValue);
       setNumInput('');
-      await onReload();
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-    finally { setBusy(false); }
+      if (!onLocalUpdate) await onReload();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed');
+      if (onLocalUpdate) await onReload();
+    } finally { setBusy(false); }
   };
 
   const deleteGo = async () => {
@@ -302,10 +330,11 @@ function GoRow({ go, availableSprints, onReload, showMeta = false }: {
 // ═══════════════════════════════════════════════════════════════════════════
 // SprintBlock — Sprint card with progress + children Go
 // ═══════════════════════════════════════════════════════════════════════════
-function SprintBlock({ sprint, allSprintsOfTask, onReload, showMeta = true }: {
+function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, showMeta = true }: {
   sprint: Sprint;
   allSprintsOfTask?: Sprint[];
   onReload: () => Promise<void>;
+  onGoLocalUpdate?: (go: Go) => void;
   showMeta?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -425,6 +454,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, showMeta = true }: {
                     go={go}
                     availableSprints={allSprintsOfTask}
                     onReload={onReload}
+                    onLocalUpdate={onGoLocalUpdate}
                   />
                 ))}
 
@@ -988,6 +1018,14 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
     return m;
   }, [tasks]);
 
+  // Patch a single Go locally across all section arrays — avoids full server refetch
+  const patchGoLocal = (patched: Go) => {
+    const upd = (list: Go[]) => list.map((g) => g.id === patched.id ? patched : g);
+    setTodayItems(upd);
+    setPastItems(upd);
+    setFutureItems(upd);
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center py-10"><Loader2 size={18} className="animate-spin text-muted-foreground" /></div>;
   }
@@ -1040,7 +1078,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
             ) : pastItems.map((g) => (
               <GoRow key={g.id} go={g}
                 availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
-                onReload={reload} showMeta />
+                onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
             ))}
             <button onClick={() => setPastDays(pastDays + 30)}
               className="w-full h-8 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md">
@@ -1063,7 +1101,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
             {todayItems.map((g) => (
               <GoRow key={g.id} go={g}
                 availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
-                onReload={reload} showMeta />
+                onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
             ))}
           </div>
         )}
@@ -1089,7 +1127,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
                   {list.map((g) => (
                     <GoRow key={g.id} go={g}
                       availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
-                      onReload={reload} showMeta />
+                      onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
                   ))}
                 </div>
               </div>
@@ -1130,6 +1168,31 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
   useEffect(() => { load(); }, [pastDays]);
 
   const reload = async () => { await load(); await onReload(); };
+
+  // Patch a Go inside all sprint arrays — avoids full refetch flicker
+  const patchGoInSprint = (patched: Go) => {
+    const updSprint = (s: Sprint): Sprint => {
+      if (!s.gos.some((g) => g.id === patched.id)) return s;
+      const newGos = s.gos.map((g) => g.id === patched.id ? patched : g);
+      // Recompute sprint progress locally
+      let completed = 0;
+      for (const g of newGos) {
+        if (g.kind === 'boolean') {
+          if (g.entries.some((e) => e.value > 0)) completed += 1;
+        } else {
+          const total = g.entries.reduce((sum, e) => sum + e.value, 0);
+          const target = g.target_value || 0;
+          if ((target > 0 && total >= target) || (target === 0 && total > 0)) completed += 1;
+        }
+      }
+      const progress = newGos.length > 0 ? Math.round(100 * completed / newGos.length) : 0;
+      return { ...s, gos: newGos, progress };
+    };
+    const upd = (list: Sprint[]) => list.map(updSprint);
+    setCurrent(upd);
+    setPast(upd);
+    setFuture(upd);
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center py-10"><Loader2 size={18} className="animate-spin text-muted-foreground" /></div>;
@@ -1180,7 +1243,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
               <div className="py-4 text-center text-xs text-muted-foreground">No past sprints in last {pastDays} days.</div>
             ) : past.map((s) => {
               const taskSprints = tasks.find((t) => t.id === s.task_id)?.sprints ?? [];
-              return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} />;
+              return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
             })}
             <button onClick={() => setPastDays(pastDays + 90)}
               className="w-full h-8 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md">
@@ -1202,7 +1265,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
           <div className="space-y-2">
             {current.map((s) => {
               const taskSprints = tasks.find((t) => t.id === s.task_id)?.sprints ?? [];
-              return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} />;
+              return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
             })}
           </div>
         )}
@@ -1220,7 +1283,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
           <div className="space-y-2">
             {future.map((s) => {
               const taskSprints = tasks.find((t) => t.id === s.task_id)?.sprints ?? [];
-              return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} />;
+              return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
             })}
           </div>
         )}
