@@ -12,7 +12,7 @@ type Tab = 'notes' | 'tasks' | 'analysis' | 'profile';
 
 const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
   { key: 'notes',    label: 'Notes',    icon: BookOpen },
-  { key: 'tasks',    label: 'Tasks',    icon: CheckSquare },
+  { key: 'tasks',    label: 'Go',    icon: CheckSquare },
   { key: 'analysis', label: 'Analysis', icon: BarChart3 },
 ];
 

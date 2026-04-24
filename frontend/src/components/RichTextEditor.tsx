@@ -576,7 +576,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
 
       {/* Toolbar */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm mb-6 pb-2 -mx-4 md:-mx-10 px-4 md:px-10 border-b border-border">
-        <div className="flex items-center gap-0.5 flex-wrap pt-2">
+        <div className="flex items-center gap-0.5 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible pt-2 editor-toolbar-scroll">
           <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnCls(editor.isActive('bold'))} title="Bold">
             <Bold size={15} />
           </button>

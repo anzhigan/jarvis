@@ -241,3 +241,15 @@
   font-size: 1.05em;
 }
 
+
+/* Horizontal-scroll toolbar on mobile: hide scrollbar, allow swipe */
+.editor-toolbar-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.editor-toolbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+.editor-toolbar-scroll > * {
+  flex-shrink: 0;
+}

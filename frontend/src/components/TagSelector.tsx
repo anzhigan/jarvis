@@ -147,19 +147,41 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
                 {allTags.map((tag) => {
                   const attached = attachedIds.has(tag.id);
                   return (
-                    <button
+                    <div
                       key={tag.id}
-                      onClick={() => toggleTag(tag)}
-                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-medium transition-all"
+                      className="group inline-flex items-center gap-0.5 rounded-full transition-all"
                       style={{
                         backgroundColor: attached ? tag.color : `${tag.color}15`,
-                        color: attached ? 'white' : tag.color,
                         border: `1px solid ${tag.color}${attached ? '' : '40'}`,
                       }}
                     >
-                      {attached && <Check size={11} />}
-                      {tag.name}
-                    </button>
+                      <button
+                        onClick={() => toggleTag(tag)}
+                        className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1.5 text-xs font-medium"
+                        style={{ color: attached ? 'white' : tag.color }}
+                      >
+                        {attached && <Check size={11} />}
+                        {tag.name}
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!window.confirm(`Delete tag "${tag.name}"? It will be removed from all notes and tasks.`)) return;
+                          try {
+                            await tagsApi.delete(tag.id);
+                            await loadAllTags();
+                            await onChange();
+                          } catch (err: any) {
+                            // fallback
+                          }
+                        }}
+                        className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-black/15 mr-0.5"
+                        style={{ color: attached ? 'white' : tag.color }}
+                        title="Delete tag permanently"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
                   );
                 })}
               </div>

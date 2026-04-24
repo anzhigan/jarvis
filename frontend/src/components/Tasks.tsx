@@ -22,6 +22,12 @@ const STATUSES: { key: TaskStatus; label: string }[] = [
   { key: 'done', label: 'Done' },
 ];
 
+const PRIORITY_DOT: Record<TaskPriority, string> = {
+  high:   'bg-red-500',
+  medium: 'bg-amber-500',
+  low:    'bg-slate-400',
+};
+
 const PRIORITY_CLS: Record<TaskPriority, string> = {
   high:   'text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900',
   medium: 'text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900',
@@ -83,11 +89,13 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
   const [editTitle, setEditTitle] = useState(go.title);
   const [editSprintId, setEditSprintId] = useState<string>(go.sprint_id ?? '');
   const [editDue, setEditDue] = useState(go.due_date ?? '');
+  const [editColor, setEditColor] = useState(go.color);
 
   const today = todayIso();
   const todayVal = goValueToday(go);
   const steps = adaptiveSteps(go.target_value);
-  const stripeColor = STRIPE_COLOR[go.recurrence];
+  // Use user-chosen go.color always. STRIPE_COLOR is only a legacy fallback if color missing.
+  const stripeColor = go.color || STRIPE_COLOR[go.recurrence];
   // Compute is_done locally instead of trusting server field (avoids timezone
   // edge cases where server UTC "today" differs from user's local "today")
   const isDone = go.kind === 'boolean'
@@ -162,6 +170,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
         title: editTitle.trim() || go.title,
         sprint_id: editSprintId || null,
         due_date: editDue || null,
+        color: editColor,
       });
       setEditing(false);
       await onReload();
@@ -279,9 +288,23 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
                   />
                 </div>
               )}
+              <div>
+                <label className="text-[11px] text-muted-foreground block mb-1">Color</label>
+                <div className="flex gap-1">
+                  {GO_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setEditColor(c); }}
+                      className={`w-6 h-6 rounded transition-all ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
               <div className="flex justify-end gap-1.5">
                 <button
-                  onClick={() => { setEditing(false); setEditTitle(go.title); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); }}
+                  onClick={() => { setEditing(false); setEditTitle(go.title); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }}
                   className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
                 >Cancel</button>
                 <button
@@ -994,13 +1017,12 @@ function TaskCard({
       ) : (
         <>
           <div className="p-4 md:p-3.5">
-            <div className="flex items-start justify-between mb-2 gap-2">
-              <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${PRIORITY_CLS[task.priority]}`}>
-                {task.priority === 'high' && <AlertCircle size={11} />}
-                {task.priority === 'medium' && <ArrowUp size={11} />}
-                {task.priority === 'low' && <ArrowRight size={11} />}
-                {task.priority.toUpperCase()}
-              </div>
+            <div className="flex items-start gap-2 mb-2">
+              <div
+                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${PRIORITY_DOT[task.priority]}`}
+                title={`${task.priority} priority`}
+              />
+              <h4 className="flex-1 min-w-0 text-base md:text-sm font-medium leading-snug">{task.title}</h4>
               {!isMobile && (
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
                   <button onClick={(e) => { e.stopPropagation(); startEdit(); }}
@@ -1014,8 +1036,6 @@ function TaskCard({
                 </div>
               )}
             </div>
-
-            <h4 className="text-base md:text-sm font-medium mb-2 leading-snug">{task.title}</h4>
             {task.description && task.description.trim() && (
               <p className="text-xs text-muted-foreground mb-2 whitespace-pre-wrap">{task.description}</p>
             )}
@@ -1524,8 +1544,10 @@ export default function Tasks() {
 
       <div className="size-full overflow-y-auto">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
-          <div className="flex items-center justify-between gap-3 mb-5">
-            <div className="flex text-sm bg-muted rounded-md p-0.5">
+          {/* Desktop segmented + mobile pill nav with Go in center */}
+          <div className="mb-5">
+            {/* Desktop */}
+            <div className="hidden md:flex text-sm bg-muted rounded-md p-0.5 w-fit">
               <button onClick={() => setView('tasks')}
                 className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'tasks' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
                 <TargetIcon size={14} /> Tasks
@@ -1537,6 +1559,43 @@ export default function Tasks() {
               <button onClick={() => setView('sprint')}
                 className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'sprint' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
                 <Zap size={14} /> Sprint
+              </button>
+            </div>
+
+            {/* Mobile: three pill-shaped buttons, Go centered (larger/primary) */}
+            <div className="md:hidden grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setView('tasks')}
+                className={`h-11 rounded-full font-medium text-sm flex items-center justify-center gap-1.5 transition-all ${
+                  view === 'tasks'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-card border border-border text-muted-foreground'
+                }`}
+              >
+                <TargetIcon size={15} />
+                Tasks
+              </button>
+              <button
+                onClick={() => setView('go')}
+                className={`h-11 rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 transition-all ${
+                  view === 'go'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-card border border-border text-muted-foreground'
+                }`}
+              >
+                <ListTodo size={16} />
+                Go
+              </button>
+              <button
+                onClick={() => setView('sprint')}
+                className={`h-11 rounded-full font-medium text-sm flex items-center justify-center gap-1.5 transition-all ${
+                  view === 'sprint'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-card border border-border text-muted-foreground'
+                }`}
+              >
+                <Zap size={15} />
+                Sprint
               </button>
             </div>
           </div>
