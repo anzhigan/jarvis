@@ -40,9 +40,12 @@ const STRIPE_COLOR: Record<GoRecurrence, string> = {
 // Helpers
 // ═══════════════════════════════════════════════════════════════════════════
 function todayIso(): string {
+  // Use local date, not UTC (avoids timezone edge case around midnight)
   const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().split('T')[0];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function goValueToday(go: Go): number {
@@ -84,7 +87,16 @@ function GoRow({ go, availableSprints, onReload, showMeta = false }: {
   const todayVal = goValueToday(go);
   const steps = adaptiveSteps(go.target_value);
   const stripeColor = STRIPE_COLOR[go.recurrence];
-  const isDone = go.is_done_today;
+  // Compute is_done locally instead of trusting server field (avoids timezone
+  // edge cases where server UTC "today" differs from user's local "today")
+  const isDone = go.kind === 'boolean'
+    ? todayVal > 0
+    : (() => {
+        if (go.recurrence === 'none') {
+          return go.target_value !== null && go.total_value >= (go.target_value ?? 0);
+        }
+        return go.target_value !== null && todayVal >= (go.target_value ?? 0);
+      })();
 
   const toggle = async () => {
     if (go.kind !== 'boolean') return;
@@ -982,6 +994,37 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
 
   return (
     <div className="space-y-4">
+      {/* Header with Add button */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-base font-semibold">Go</h1>
+        {!adding && (
+          <button onClick={() => setAdding(true)}
+            className="h-8 px-3 flex items-center gap-1.5 text-sm bg-primary text-primary-foreground rounded-md font-medium">
+            <Plus size={14} /> Add go
+          </button>
+        )}
+      </div>
+
+      {adding && (
+        <div className="space-y-2 p-3 bg-card border border-border rounded-xl">
+          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
+            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
+            <option value="">— Standalone (no task) —</option>
+            {tasks.map((t) => (<option key={t.id} value={t.id}>{t.title}</option>))}
+          </select>
+          <CreateGoForm
+            defaultTaskId={addTaskId || null}
+            availableSprints={addTaskId ? tasks.find((t) => t.id === addTaskId)?.sprints : []}
+            onCancel={() => { setAdding(false); setAddTaskId(''); }}
+            onCreate={async (data) => {
+              await gosApi.create(data);
+              setAdding(false); setAddTaskId('');
+              await reload();
+            }}
+          />
+        </div>
+      )}
+
       {/* Past */}
       <div className="border-b border-border pb-3">
         <button onClick={() => setPastOpen(!pastOpen)}
@@ -1054,31 +1097,6 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
           </div>
         )}
       </div>
-
-      {!adding ? (
-        <button onClick={() => setAdding(true)}
-          className="w-full h-10 md:h-9 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md">
-          <Plus size={14} /> Add go
-        </button>
-      ) : (
-        <div className="space-y-2">
-          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
-            <option value="">— Standalone (no task) —</option>
-            {tasks.map((t) => (<option key={t.id} value={t.id}>{t.title}</option>))}
-          </select>
-          <CreateGoForm
-            defaultTaskId={addTaskId || null}
-            availableSprints={addTaskId ? tasks.find((t) => t.id === addTaskId)?.sprints : []}
-            onCancel={() => { setAdding(false); setAddTaskId(''); }}
-            onCreate={async (data) => {
-              await gosApi.create(data);
-              setAdding(false); setAddTaskId('');
-              await reload();
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }
@@ -1119,6 +1137,35 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
 
   return (
     <div className="space-y-4">
+      {/* Header with Add button */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-base font-semibold">Sprint</h1>
+        {!adding && (
+          <button onClick={() => setAdding(true)}
+            className="h-8 px-3 flex items-center gap-1.5 text-sm bg-primary text-primary-foreground rounded-md font-medium">
+            <Plus size={14} /> Add sprint
+          </button>
+        )}
+      </div>
+
+      {adding && (
+        <div className="space-y-2 p-3 bg-card border border-border rounded-xl">
+          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
+            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
+            <option value="">— Pick a task —</option>
+            {tasks.map((t) => (<option key={t.id} value={t.id}>{t.title}</option>))}
+          </select>
+          {addTaskId && (
+            <CreateSprintForm
+              taskId={addTaskId}
+              availableGos={(tasks.find((t) => t.id === addTaskId)?.gos ?? []).filter((g) => !g.sprint_id)}
+              onCancel={() => { setAdding(false); setAddTaskId(''); }}
+              onCreate={async () => { setAdding(false); setAddTaskId(''); await reload(); }}
+            />
+          )}
+        </div>
+      )}
+
       {/* Past */}
       <div className="border-b border-border pb-3">
         <button onClick={() => setPastOpen(!pastOpen)}
@@ -1178,29 +1225,6 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
           </div>
         )}
       </div>
-
-      {!adding ? (
-        <button onClick={() => setAdding(true)}
-          className="w-full h-10 md:h-9 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md">
-          <Plus size={14} /> Add sprint
-        </button>
-      ) : (
-        <div className="space-y-2">
-          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
-            <option value="">— Pick a task —</option>
-            {tasks.map((t) => (<option key={t.id} value={t.id}>{t.title}</option>))}
-          </select>
-          {addTaskId && (
-            <CreateSprintForm
-              taskId={addTaskId}
-              availableGos={(tasks.find((t) => t.id === addTaskId)?.gos ?? []).filter((g) => !g.sprint_id)}
-              onCancel={() => { setAdding(false); setAddTaskId(''); }}
-              onCreate={async () => { setAdding(false); setAddTaskId(''); await reload(); }}
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -1220,6 +1244,15 @@ export default function Tasks() {
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
+  // Collapsed columns (mobile mainly — long scrolls)
+  const [collapsed, setCollapsed] = useState<Set<TaskStatus>>(new Set());
+  const toggleCollapsed = (s: TaskStatus) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s); else next.add(s);
+      return next;
+    });
+  };
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
@@ -1356,31 +1389,39 @@ export default function Tasks() {
                       className={`rounded-xl border transition-all ${
                         isDropTarget ? 'border-primary bg-primary/5' : 'border-border bg-secondary/20'
                       }`}>
-                      <div className="px-3 py-2.5 flex items-center justify-between">
+                      <button
+                        onClick={() => toggleCollapsed(key)}
+                        className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+                      >
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-semibold">{label}</h3>
                           <span className="text-xs text-muted-foreground">{list.length}</span>
                         </div>
-                      </div>
-                      <div className="p-2 space-y-2 min-h-[80px]">
-                        <AnimatePresence>
-                          {list.map((task) => (
-                            <TaskCard key={task.id} task={task}
-                              onUpdate={(data) => updateTask(task.id, data)}
-                              onDelete={() => deleteTask(task.id)}
-                              onReload={load}
-                              onDragStart={() => setDraggingId(task.id)}
-                              onDragEnd={() => { setDraggingId(null); setDragOverStatus(null); }}
-                              isDragging={draggingId === task.id}
-                              isMobile={isMobile} />
-                          ))}
-                        </AnimatePresence>
-                        {list.length === 0 && !isDropTarget && (
-                          <div className="py-6 px-3 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
-                            {draggingId ? 'Drop here' : 'No tasks'}
-                          </div>
-                        )}
-                      </div>
+                        {collapsed.has(key)
+                          ? <ChevronRight size={14} className="text-muted-foreground" />
+                          : <ChevronDown size={14} className="text-muted-foreground" />}
+                      </button>
+                      {!collapsed.has(key) && (
+                        <div className="p-2 space-y-2 min-h-[80px]">
+                          <AnimatePresence>
+                            {list.map((task) => (
+                              <TaskCard key={task.id} task={task}
+                                onUpdate={(data) => updateTask(task.id, data)}
+                                onDelete={() => deleteTask(task.id)}
+                                onReload={load}
+                                onDragStart={() => setDraggingId(task.id)}
+                                onDragEnd={() => { setDraggingId(null); setDragOverStatus(null); }}
+                                isDragging={draggingId === task.id}
+                                isMobile={isMobile} />
+                            ))}
+                          </AnimatePresence>
+                          {list.length === 0 && !isDropTarget && (
+                            <div className="py-6 px-3 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
+                              {draggingId ? 'Drop here' : 'No tasks'}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
