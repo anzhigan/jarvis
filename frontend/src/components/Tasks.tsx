@@ -65,14 +65,19 @@ function adaptiveSteps(target: number | null | undefined): number[] {
 // ═══════════════════════════════════════════════════════════════════════════
 // TodoRow — single todo with stripe, checkbox/numeric input, +N buttons
 // ═══════════════════════════════════════════════════════════════════════════
-function TodoRow({ todo, onReload, showMeta = false }: {
+function TodoRow({ todo, allTodosForTask, onReload, showMeta = false }: {
   todo: Todo;
+  allTodosForTask?: Todo[];     // for picking a weekly parent when editing
   onReload: () => Promise<void>;
   showMeta?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [numInput, setNumInput] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(todo.title);
+  const [editParent, setEditParent] = useState<string>(todo.parent_todo_id ?? '');
+  const [editDue, setEditDue] = useState(todo.due_date ?? '');
   const today = todayIso();
   const todayVal = todoValueToday(todo);
   const steps = adaptiveSteps(todo.target_value);
@@ -119,6 +124,27 @@ function TodoRow({ todo, onReload, showMeta = false }: {
       setConfirmDelete(false);
     }
   };
+
+  const saveEdit = async () => {
+    setBusy(true);
+    try {
+      await todosApi.update(todo.id, {
+        title: editTitle.trim() || todo.title,
+        parent_todo_id: editParent || null,
+        due_date: editDue || null,
+      });
+      setEditing(false);
+      await onReload();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Available weekly parents for this todo (same task, weekly recurrence)
+  const availableWeeklies = (allTodosForTask ?? [])
+    .filter((t) => t.recurrence === 'weekly' && t.id !== todo.id);
 
   const recurrenceLabel =
     todo.recurrence === 'daily' ? 'Daily' :
@@ -192,6 +218,17 @@ function TodoRow({ todo, onReload, showMeta = false }: {
               </div>
             </div>
 
+            {/* Edit */}
+            {allTodosForTask && !editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                title="Edit / attach to weekly"
+              >
+                <Pencil size={13} />
+              </button>
+            )}
+
             {/* Delete */}
             <button
               onClick={() => setConfirmDelete(true)}
@@ -201,6 +238,66 @@ function TodoRow({ todo, onReload, showMeta = false }: {
               <Trash2 size={13} />
             </button>
           </div>
+
+          {/* Edit form — attach/detach to weekly */}
+          {editing && (
+            <div className="mt-2 p-2 bg-secondary/30 border border-border rounded-md space-y-2">
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Title"
+                className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+              />
+              {availableWeeklies.length > 0 && (
+                <div>
+                  <label className="text-[11px] text-muted-foreground">Attach to weekly</label>
+                  <select
+                    value={editParent}
+                    onChange={(e) => setEditParent(e.target.value)}
+                    className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md"
+                  >
+                    <option value="">— No weekly parent —</option>
+                    {availableWeeklies.map((w) => (
+                      <option key={w.id} value={w.id}>↳ {w.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {todo.recurrence === 'none' && (
+                <div>
+                  <label className="text-[11px] text-muted-foreground">Due date</label>
+                  <input
+                    type="date"
+                    value={editDue}
+                    onChange={(e) => setEditDue(e.target.value)}
+                    className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md"
+                  />
+                </div>
+              )}
+              <div className="flex justify-end gap-1.5">
+                <button
+                  onClick={() => {
+                    setEditing(false);
+                    setEditTitle(todo.title);
+                    setEditParent(todo.parent_todo_id ?? '');
+                    setEditDue(todo.due_date ?? '');
+                  }}
+                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveEdit}
+                  disabled={busy}
+                  className="h-8 px-3 bg-primary text-primary-foreground rounded text-xs font-medium disabled:opacity-50 flex items-center gap-1"
+                >
+                  {busy && <Loader2 size={11} className="animate-spin" />}
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Numeric input row + adaptive +N buttons */}
           {todo.kind === 'numeric' && (
@@ -751,18 +848,33 @@ function TaskCard({
 // ToDo panel — 4 sections: Today / Weekly / Future / Past
 // ═══════════════════════════════════════════════════════════════════════════
 function TodoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<void> }) {
-  const [section, setSection] = useState<'today' | 'week' | 'future' | 'past'>('today');
-  const [items, setItems] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<'daily' | 'weekly'>('daily');
+  const [todayItems, setTodayItems] = useState<Todo[]>([]);
+  const [pastItems, setPastItems] = useState<Todo[]>([]);
+  const [futureItems, setFutureItems] = useState<Todo[]>([]);
+  const [weekItems, setWeekItems] = useState<Todo[]>([]);
   const [pastDays, setPastDays] = useState(30);
+  const [pastOpen, setPastOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [addTaskId, setAddTaskId] = useState<string>('');
 
-  const loadSection = async () => {
+  const loadAll = async () => {
     setLoading(true);
     try {
-      const data = await todosApi.agenda(section, pastDays);
-      setItems(data);
+      if (mode === 'daily') {
+        const [today, past, future] = await Promise.all([
+          todosApi.agenda('today'),
+          todosApi.agenda('past', pastDays),
+          todosApi.agenda('future'),
+        ]);
+        setTodayItems(today);
+        setPastItems(past);
+        setFutureItems(future);
+      } else {
+        const week = await todosApi.agenda('week');
+        setWeekItems(week);
+      }
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to load');
     } finally {
@@ -770,7 +882,9 @@ function TodoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise
     }
   };
 
-  useEffect(() => { loadSection(); }, [section, pastDays]);
+  useEffect(() => { loadAll(); }, [mode, pastDays]);
+
+  const reload = async () => { await loadAll(); await onReload(); };
 
   const addTodo = async (data: any) => {
     try {
@@ -781,173 +895,251 @@ function TodoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise
       }
       setAdding(false);
       setAddTaskId('');
-      await loadSection();
-      await onReload();
+      await reload();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed');
     }
   };
 
-  // Group future items by due_date
+  // Build map: task_id -> [todos] for edit "attach to weekly" dropdowns
+  const todosByTask = useMemo(() => {
+    const out = new Map<string, Todo[]>();
+    tasks.forEach((t) => out.set(t.id, t.todos));
+    return out;
+  }, [tasks]);
+
+  // Future grouped by date
   const futureGroups = useMemo(() => {
-    if (section !== 'future') return [];
     const groups = new Map<string, Todo[]>();
-    for (const item of items) {
+    for (const item of futureItems) {
       const key = item.due_date || 'no-date';
       const arr = groups.get(key) ?? [];
       arr.push(item);
       groups.set(key, arr);
     }
     return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [items, section]);
-
-  // For weekly view: find all weeklies from tasks
-  const weeklyWithChildren = useMemo(() => {
-    if (section !== 'week') return null;
-    const allTodos: Todo[] = [];
-    tasks.forEach((t) => allTodos.push(...t.todos));
-    // Show weeklies (recurrence='weekly') with their children OR any item from agenda
-    const weeklies = items.filter((t) => t.recurrence === 'weekly');
-    const others = items.filter((t) => t.recurrence !== 'weekly');
-    return { weeklies, others, allTodos };
-  }, [items, section, tasks]);
+  }, [futureItems]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayIso = today.toISOString().split('T')[0];
+  const todayIsoStr = today.toISOString().split('T')[0];
   const todayLabel = today.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-  const completedToday = items.filter((t) => (t.entries.find((e) => e.date === todayIso)?.value ?? 0) > 0).length;
+  const completedToday = todayItems.filter((t) => (t.entries.find((e) => e.date === todayIsoStr)?.value ?? 0) > 0).length;
+
+  const allTodosForWeekly = useMemo(() => {
+    const out: Todo[] = [];
+    tasks.forEach((t) => out.push(...t.todos));
+    return out;
+  }, [tasks]);
 
   return (
     <div className="space-y-4">
-      {/* Section tabs */}
+      {/* Mode tabs: Daily | Weekly */}
       <div className="flex gap-1 p-1 bg-muted rounded-md w-fit">
-        {(['today', 'week', 'future', 'past'] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => setSection(s)}
-            className={`px-3 h-8 rounded text-sm capitalize ${section === s ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
-          >
-            {s === 'today' ? 'Today' : s === 'week' ? 'Weekly' : s === 'future' ? 'Future' : 'Past'}
-          </button>
-        ))}
+        <button
+          onClick={() => setMode('daily')}
+          className={`px-3 h-8 rounded text-sm ${mode === 'daily' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
+        >
+          Daily
+        </button>
+        <button
+          onClick={() => setMode('weekly')}
+          className={`px-3 h-8 rounded text-sm ${mode === 'weekly' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}
+        >
+          Week
+        </button>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 size={18} className="animate-spin text-muted-foreground" />
         </div>
-      ) : (
-        <div className="space-y-3">
-          {/* Section header */}
-          {section === 'today' && (
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-base font-semibold">{todayLabel}</h2>
-              <span className="text-xs text-muted-foreground">{completedToday} of {items.length} done</span>
+      ) : mode === 'daily' ? (
+        <div className="space-y-4">
+          {/* Past (collapsible) */}
+          <div className="border-b border-border pb-3">
+            <button
+              onClick={() => setPastOpen(!pastOpen)}
+              className="w-full flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              {pastOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <span>Past</span>
+              <span className="ml-auto text-xs">{pastItems.length} items</span>
+            </button>
+            {pastOpen && (
+              <div className="mt-3 space-y-1.5">
+                {pastItems.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">Nothing in the past {pastDays} days.</div>
+                ) : (
+                  pastItems.map((t) => (
+                    <TodoRow
+                      key={t.id}
+                      todo={t}
+                      allTodosForTask={t.task_id ? todosByTask.get(t.task_id) : undefined}
+                      onReload={reload}
+                      showMeta
+                    />
+                  ))
+                )}
+                <button
+                  onClick={() => setPastDays(pastDays + 30)}
+                  className="w-full h-8 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors"
+                >
+                  Show older ({pastDays}+ days)
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Today */}
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <h2 className="text-base font-semibold">Today · {todayLabel}</h2>
+              <span className="text-xs text-muted-foreground">{completedToday} of {todayItems.length} done</span>
+            </div>
+            {todayItems.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">Nothing for today.</div>
+            ) : (
+              <div className="space-y-1.5">
+                {todayItems.map((t) => (
+                  <TodoRow
+                    key={t.id}
+                    todo={t}
+                    allTodosForTask={t.task_id ? todosByTask.get(t.task_id) : undefined}
+                    onReload={reload}
+                    showMeta
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Future */}
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <h2 className="text-base font-semibold">Future</h2>
+              <span className="text-xs text-muted-foreground">{futureItems.length} upcoming</span>
+            </div>
+            {futureGroups.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">No future items.</div>
+            ) : (
+              <div className="space-y-3">
+                {futureGroups.map(([date, list]) => (
+                  <div key={date}>
+                    <div className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider">
+                      {date === 'no-date' ? 'No date' :
+                        new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </div>
+                    <div className="space-y-1.5">
+                      {list.map((t) => (
+                        <TodoRow
+                          key={t.id}
+                          todo={t}
+                          allTodosForTask={t.task_id ? todosByTask.get(t.task_id) : undefined}
+                          onReload={reload}
+                          showMeta
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add todo */}
+          {!adding ? (
+            <button
+              onClick={() => setAdding(true)}
+              className="w-full h-10 md:h-9 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors"
+            >
+              <Plus size={14} /> Add todo
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <select
+                value={addTaskId}
+                onChange={(e) => setAddTaskId(e.target.value)}
+                className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+              >
+                <option value="">— Standalone (no task) —</option>
+                {tasks.map((t) => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+              <CreateTodoForm
+                weeklies={addTaskId ? tasks.find((t) => t.id === addTaskId)?.todos.filter((t) => t.recurrence === 'weekly') : []}
+                onCancel={() => { setAdding(false); setAddTaskId(''); }}
+                onCreate={addTodo}
+              />
             </div>
           )}
-
-          {/* Today: flat list */}
-          {section === 'today' && items.length === 0 && (
-            <div className="py-10 text-center text-sm text-muted-foreground">Nothing for today.</div>
-          )}
-          {section === 'today' && items.map((t) => (
-            <TodoRow key={t.id} todo={t} onReload={async () => { await loadSection(); await onReload(); }} showMeta />
-          ))}
-
-          {/* Weekly: show weeklies with children + other non-weekly one-off items due this week */}
-          {section === 'week' && weeklyWithChildren && (
-            <>
-              {weeklyWithChildren.weeklies.length === 0 && weeklyWithChildren.others.length === 0 && (
-                <div className="py-10 text-center text-sm text-muted-foreground">Nothing for this week.</div>
-              )}
-              {weeklyWithChildren.weeklies.map((w) => (
-                <WeeklyTodoBlock
-                  key={w.id}
-                  weekly={w}
-                  allTodos={weeklyWithChildren.allTodos}
-                  onReload={async () => { await loadSection(); await onReload(); }}
-                />
-              ))}
-              {weeklyWithChildren.others.length > 0 && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wider">Other this week</div>
-                  {weeklyWithChildren.others.map((t) => (
-                    <div key={t.id} className="mb-1.5">
-                      <TodoRow todo={t} onReload={async () => { await loadSection(); await onReload(); }} showMeta />
+        </div>
+      ) : (
+        // Weekly view
+        <div className="space-y-3">
+          {(() => {
+            const weeklies = weekItems.filter((t) => t.recurrence === 'weekly');
+            const others = weekItems.filter((t) => t.recurrence !== 'weekly');
+            if (weeklies.length === 0 && others.length === 0) {
+              return <div className="py-10 text-center text-sm text-muted-foreground">Nothing for this week.</div>;
+            }
+            return (
+              <>
+                {weeklies.map((w) => (
+                  <WeeklyTodoBlock
+                    key={w.id}
+                    weekly={w}
+                    allTodos={allTodosForWeekly}
+                    onReload={reload}
+                  />
+                ))}
+                {others.length > 0 && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wider mt-4">Other this week</div>
+                    <div className="space-y-1.5">
+                      {others.map((t) => (
+                        <TodoRow
+                          key={t.id}
+                          todo={t}
+                          allTodosForTask={t.task_id ? todosByTask.get(t.task_id) : undefined}
+                          onReload={reload}
+                          showMeta
+                        />
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
-          {/* Future: grouped by date */}
-          {section === 'future' && (
-            futureGroups.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">No future items.</div>
-            ) : futureGroups.map(([date, list]) => (
-              <div key={date}>
-                <div className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wider">
-                  {date === 'no-date' ? 'No date' :
-                    new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                </div>
-                <div className="space-y-1.5">
-                  {list.map((t) => (
-                    <TodoRow key={t.id} todo={t} onReload={async () => { await loadSection(); await onReload(); }} showMeta />
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-
-          {/* Past: list + "Show older" button */}
-          {section === 'past' && (
-            <>
-              {items.length === 0 ? (
-                <div className="py-10 text-center text-sm text-muted-foreground">Nothing in the past {pastDays} days.</div>
-              ) : (
-                items.map((t) => (
-                  <TodoRow key={t.id} todo={t} onReload={async () => { await loadSection(); await onReload(); }} showMeta />
-                ))
-              )}
-              <button
-                onClick={() => setPastDays(pastDays + 30)}
-                className="w-full h-9 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors"
+          {/* Add weekly todo */}
+          {!adding ? (
+            <button
+              onClick={() => setAdding(true)}
+              className="w-full h-10 md:h-9 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors"
+            >
+              <Plus size={14} /> Add todo
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <select
+                value={addTaskId}
+                onChange={(e) => setAddTaskId(e.target.value)}
+                className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
               >
-                Show older ({pastDays}+ days)
-              </button>
-            </>
-          )}
-
-          {/* Add todo (only in today/week/future) */}
-          {section !== 'past' && (
-            !adding ? (
-              <button
-                onClick={() => setAdding(true)}
-                className="w-full h-10 md:h-9 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md hover:border-border-strong transition-colors mt-3"
-              >
-                <Plus size={14} /> Add todo
-              </button>
-            ) : (
-              <div className="mt-3 space-y-2">
-                <select
-                  value={addTaskId}
-                  onChange={(e) => setAddTaskId(e.target.value)}
-                  className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
-                >
-                  <option value="">— Standalone (no task) —</option>
-                  {tasks.map((t) => (
-                    <option key={t.id} value={t.id}>{t.title}</option>
-                  ))}
-                </select>
-                <CreateTodoForm
-                  weeklies={addTaskId ? tasks.find((t) => t.id === addTaskId)?.todos.filter((t) => t.recurrence === 'weekly') : []}
-                  onCancel={() => { setAdding(false); setAddTaskId(''); }}
-                  onCreate={addTodo}
-                />
-              </div>
-            )
+                <option value="">— Standalone (no task) —</option>
+                {tasks.map((t) => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+              <CreateTodoForm
+                weeklies={addTaskId ? tasks.find((t) => t.id === addTaskId)?.todos.filter((t) => t.recurrence === 'weekly') : []}
+                onCancel={() => { setAdding(false); setAddTaskId(''); }}
+                onCreate={addTodo}
+              />
+            </div>
           )}
         </div>
       )}
