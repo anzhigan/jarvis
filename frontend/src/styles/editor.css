@@ -266,3 +266,29 @@
     max-width: none !important;
   }
 }
+
+/* Mobile: toolbar at bottom (above keyboard), dropdowns open upward */
+@media (max-width: 767px) {
+  .editor-mobile-toolbar {
+    /* Use safe-area for iOS notch/home indicator */
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+  }
+  .editor-mobile-toolbar .editor-toolbar-scroll {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .editor-mobile-toolbar .editor-toolbar-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  /* Dropdowns from bottom toolbar should open upward */
+  .editor-mobile-toolbar .editor-dropdown {
+    position: fixed !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    bottom: 60px !important;
+    top: auto !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+}

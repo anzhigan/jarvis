@@ -373,30 +373,25 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
 // DailyStreak — shows last N days as colored squares (green=done, red=missed)
 // ═══════════════════════════════════════════════════════════════════════════
 function DailyStreak({ go }: { go: Go }) {
-  const [expanded, setExpanded] = useState(false);
-  const baseDays = 10;
-  const allDaysMax = 60;
+  const days = 14;
 
-  // Build map: date -> value
   const entryMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of go.entries) m.set(e.date, e.value);
     return m;
   }, [go.entries]);
 
-  // Don't show days before go.created_at
   const createdDate = useMemo(() => {
     const d = new Date(go.created_at);
     d.setHours(0, 0, 0, 0);
     return d;
   }, [go.created_at]);
 
-  const daysToShow = expanded ? allDaysMax : baseDays;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const squares: { date: string; value: number; isFuture: boolean; beforeCreation: boolean }[] = [];
-  for (let i = daysToShow - 1; i >= 0; i--) {
+  const squares: { date: string; value: number; isToday: boolean; beforeCreation: boolean; weekdayIdx: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const y = d.getFullYear();
@@ -406,45 +401,55 @@ function DailyStreak({ go }: { go: Go }) {
     squares.push({
       date: key,
       value: entryMap.get(key) ?? 0,
-      isFuture: d > today,
+      isToday: i === 0,
       beforeCreation: d < createdDate,
+      weekdayIdx: d.getDay(),
     });
   }
 
   const doneCount = squares.filter((s) => !s.beforeCreation && s.value > 0).length;
   const eligible = squares.filter((s) => !s.beforeCreation).length;
 
+  // Mon=1, Sun=0 — show first letter
+  const wkLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
   return (
     <div className="mt-2">
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-        <span>Streak · {doneCount}/{eligible}</span>
-        <button
-          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-          className="text-[10px] hover:text-foreground underline"
-        >
-          {expanded ? 'collapse' : 'more'}
-        </button>
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
+        <span>14d · <span className="font-medium text-foreground">{doneCount}</span>/{eligible}</span>
+        <span className="text-[9px] opacity-60">today →</span>
       </div>
-      <div className="flex flex-wrap gap-[3px]">
+      <div className="flex gap-1 items-end">
         {squares.map((s) => {
-          let bg = 'bg-muted';  // before creation / unknown
+          let cls = 'bg-muted/60';   // before creation / not done
+          let inner: React.ReactNode = null;
           let title = s.date;
           if (s.beforeCreation) {
-            bg = 'bg-muted/40';
+            cls = 'bg-muted/30';
             title = `${s.date} — before start`;
           } else if (s.value > 0) {
-            bg = 'bg-emerald-500';
+            cls = 'bg-emerald-500';
+            inner = <span className="text-white text-[8px]">✓</span>;
             title = `${s.date} — done`;
+          } else if (s.isToday) {
+            cls = 'bg-card border-2 border-primary';
+            title = `${s.date} — today (not yet)`;
           } else {
-            bg = 'bg-rose-400/60 dark:bg-rose-600/50';
+            cls = 'bg-rose-400/40 dark:bg-rose-600/30 border border-rose-400/30';
             title = `${s.date} — missed`;
           }
           return (
-            <div
-              key={s.date}
-              title={title}
-              className={`w-3 h-3 rounded-sm ${bg}`}
-            />
+            <div key={s.date} className="flex flex-col items-center gap-0.5">
+              <div
+                title={title}
+                className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${cls} ${s.isToday ? 'scale-110' : ''}`}
+              >
+                {inner}
+              </div>
+              <span className={`text-[8px] ${s.isToday ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                {wkLabels[s.weekdayIdx]}
+              </span>
+            </div>
           );
         })}
       </div>
@@ -1500,6 +1505,8 @@ export default function Tasks() {
   const [newPriority, setNewPriority] = useState<TaskPriority>('medium');
   const [newStart, setNewStart] = useState('');
   const [newDue, setNewDue] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
@@ -1544,8 +1551,10 @@ export default function Tasks() {
       await tasksApi.create({
         title: newTitle.trim(), priority: newPriority,
         start_date: newStart || null, due_date: newDue || null,
-      });
-      setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue('');
+        description: newDescription || '',
+      } as any);
+      setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription('');
+      setShowCreateForm(false);
       await load();
     } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
   };
@@ -1640,34 +1649,61 @@ export default function Tasks() {
             <SprintPanel tasks={tasks} onReload={load} />
           ) : (
             <>
-              <div className="p-3 bg-card border border-border rounded-xl mb-5 space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <input type="text" placeholder={t("tasks.new")} value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && createTask()}
-                    className="flex-1 min-w-0 h-10 px-3 rounded-md border border-border bg-input-background" />
-                  <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)}
-                    className="h-10 px-3 rounded-md border border-border bg-input-background text-sm">
-                    <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
-                  </select>
-                  <button onClick={createTask} disabled={!newTitle.trim()}
-                    className="h-10 px-4 bg-primary text-primary-foreground rounded-md font-medium disabled:opacity-50 flex items-center gap-1.5">
-                    <Plus size={15} /> {t('common.create')}
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="min-w-0">
-                    <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
-                    <input type="date" value={newStart} onChange={(e) => setNewStart(e.target.value)}
-                      className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
+              {!showCreateForm ? (
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="w-full h-11 mb-5 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-1.5 font-medium text-sm"
+                >
+                  <Plus size={16} /> {t('tasks.addTask')}
+                </button>
+              ) : (
+                <div className="p-3 bg-card border border-border rounded-xl mb-5 space-y-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-muted-foreground">{t('tasks.addTask')}</span>
+                    <button
+                      onClick={() => { setShowCreateForm(false); setNewTitle(''); setNewDescription(''); setNewStart(''); setNewDue(''); }}
+                      className="text-muted-foreground hover:text-foreground"
+                      title={t('common.cancel')}
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
-                  <div className="min-w-0">
-                    <label className="text-[11px] text-muted-foreground">{t("tasks.due")}</label>
-                    <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)}
-                      className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
+                  <div className="flex flex-wrap gap-2">
+                    <input type="text" placeholder={t("tasks.new")} value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && createTask()}
+                      autoFocus
+                      className="flex-1 min-w-0 h-10 px-3 rounded-md border border-border bg-input-background" />
+                    <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)}
+                      className="h-10 px-3 rounded-md border border-border bg-input-background text-sm">
+                      <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                    </select>
+                    <button onClick={createTask} disabled={!newTitle.trim()}
+                      className="h-10 px-4 bg-primary text-primary-foreground rounded-md font-medium disabled:opacity-50 flex items-center gap-1.5">
+                      <Plus size={15} /> {t('common.create')}
+                    </button>
+                  </div>
+                  <textarea
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    placeholder={t('tasks.descriptionPh')}
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-md border border-border bg-input-background text-sm resize-none"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="min-w-0">
+                      <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
+                      <input type="date" value={newStart} onChange={(e) => setNewStart(e.target.value)}
+                        className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="text-[11px] text-muted-foreground">{t("tasks.due")}</label>
+                      <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)}
+                        className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 {STATUSES.map(({ key, labelKey }) => {
@@ -1690,11 +1726,11 @@ export default function Tasks() {
                       }`}>
                       <button
                         onClick={() => toggleCollapsed(key)}
-                        className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+                        className="w-full px-2.5 md:px-3 py-2 md:py-2.5 flex items-center justify-between hover:bg-secondary/50 transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold">{label}</h3>
-                          <span className="text-xs text-muted-foreground">{list.length}</span>
+                          <h3 className="text-xs md:text-sm font-semibold">{label}</h3>
+                          <span className="text-[10px] md:text-xs text-muted-foreground">{list.length}</span>
                         </div>
                         {collapsed.has(key)
                           ? <ChevronRight size={14} className="text-muted-foreground" />

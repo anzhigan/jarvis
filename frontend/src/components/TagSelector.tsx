@@ -28,6 +28,30 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
   const [newColor, setNewColor] = useState(PALETTE[0]);
   const [creating, setCreating] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Position desktop popup right under button using fixed coords
+  useEffect(() => {
+    if (!open || isMobile) { setPopupPos(null); return; }
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const popupWidth = 288;
+      const viewportWidth = window.innerWidth;
+      let left = rect.left;
+      // Keep popup within viewport horizontally
+      if (left + popupWidth > viewportWidth - 8) left = viewportWidth - popupWidth - 8;
+      if (left < 8) left = 8;
+      setPopupPos({ top: rect.bottom + 4, left });
+    }
+  }, [open, isMobile]);
 
   const attachApi = targetKind === 'task' ? tasksApi.attachTag : notesApi.attachTag;
   const detachApi = targetKind === 'task' ? tasksApi.detachTag : notesApi.detachTag;
@@ -121,6 +145,7 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
 
       <div className="relative">
         <button
+          ref={buttonRef}
           onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
           className={`inline-flex items-center gap-1 ${chipHeight} px-2 rounded-full ${chipText} font-medium border border-dashed border-border hover:border-border-strong hover:bg-secondary/40 text-muted-foreground transition-colors`}
           title={t("tags.addTag")}
@@ -131,15 +156,19 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
 
         {open && (
           <>
-            {/* Mobile backdrop */}
+            {/* Backdrop on mobile */}
             <div
-              className="fixed inset-0 z-40 bg-black/40 md:hidden"
+              className="fixed inset-0 z-[100] bg-black/40 md:hidden"
               onClick={() => setOpen(false)}
             />
             <div
               ref={panelRef}
               onClick={(e) => e.stopPropagation()}
-              className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-50 max-h-[80vh] overflow-y-auto md:absolute md:inset-auto md:left-0 md:top-9 md:translate-y-0 md:w-72 md:max-h-none md:overflow-visible bg-popover border border-border rounded-lg shadow-lg p-3"
+              style={!isMobile && popupPos ? { top: popupPos.top, left: popupPos.left } : undefined}
+              className={isMobile
+                ? "fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] max-h-[80vh] overflow-y-auto bg-popover border border-border rounded-lg shadow-2xl p-3"
+                : "fixed z-[101] w-72 bg-popover border border-border rounded-lg shadow-2xl p-3"
+              }
             >
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               {t('tags.yourTags')}

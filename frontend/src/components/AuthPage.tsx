@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Brain, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
 import { useT, useLangStore } from '../store/i18n';
+import NoemaLogo from './NoemaLogo';
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -48,12 +49,15 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 mb-8 justify-center">
-          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-            <Brain size={18} className="text-primary-foreground" />
+        <div className="flex items-center gap-3 mb-8 justify-center">
+          <div className="w-11 h-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center">
+            <NoemaLogo size={26} />
           </div>
-          <span className="text-xl font-semibold tracking-tight">Jarvnote</span>
+          <div className="text-2xl font-semibold tracking-tight">Noema</div>
         </div>
+        <p className="text-center text-sm text-muted-foreground mb-8 italic">
+          {lang === 'ru' ? 'Ты не знаешь это, пока не сможешь ответить' : "You don't know it until you can answer it"}
+        </p>
 
         <div className="bg-card border border-border rounded-xl p-7 shadow-sm">
           <h1 className="text-2xl font-semibold tracking-tight mb-1.5">

@@ -454,20 +454,20 @@ export default function Notes() {
           />
         <div className="size-full flex flex-col">
           <div className="flex-1 overflow-y-auto relative">
-            {/* Floating back button top-left */}
+            {/* Floating back button — fixed so it stays visible while scrolling */}
             <button
               onClick={async () => {
                 await saveCurrentEditor();
                 await loadWays();
                 setSelection(null);
               }}
-              className="absolute top-3 left-2 z-10 h-10 w-10 flex items-center justify-center rounded-md bg-background/70 backdrop-blur-sm hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className="fixed top-3 left-2 z-30 h-11 w-11 flex items-center justify-center rounded-full bg-background/85 backdrop-blur-md shadow-md border border-border hover:bg-secondary text-foreground transition-colors"
               title="Back"
             >
               <ChevronLeft size={22} />
             </button>
-            {/* Floating save status top-right */}
-            <div className="absolute top-4 right-4 z-10 text-xs text-muted-foreground flex items-center gap-1">
+            {/* Floating save status — fixed so it stays visible too */}
+            <div className="fixed top-5 right-4 z-30 text-xs text-muted-foreground flex items-center gap-1 bg-background/85 backdrop-blur-md px-2 py-1 rounded-md border border-border">
               {saving ? <><Loader2 size={12} className="animate-spin" /> Saving</> : editorState.dirty ? 'Unsaved' : 'Saved'}
             </div>
 

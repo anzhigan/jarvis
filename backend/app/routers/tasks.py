@@ -95,62 +95,80 @@ def _is_go_done_today(go: Go) -> bool:
         return target > 0 and today_val >= target
 
 
+def _go_completion_ratio(g: Go, period_start: date_cls | None = None, period_end: date_cls | None = None) -> float:
+    """Returns 0.0..1.0 — how complete this Go is.
+
+    For daily-recurring boolean Go:
+        ratio = entries_with_value>0 / possible_days
+        possible_days = days from max(g.created_at, period_start) to min(today, period_end or due_date)
+    For other Go (one-off or numeric):
+        boolean → 1.0 if any positive entry else 0.0
+        numeric → min(1.0, sum(values) / target_value) or 1.0 if no target & has entries
+    """
+    today = date_cls.today()
+
+    # Daily-recurring boolean is the special case
+    if g.kind == "boolean" and g.recurrence == "daily":
+        # Establish window
+        start = g.created_at.date() if g.created_at else today
+        if period_start and period_start > start:
+            start = period_start
+        end = today
+        # Cap by due_date or period_end
+        if g.due_date and g.due_date < end:
+            end = g.due_date
+        if period_end and period_end < end:
+            end = period_end
+        if end < start:
+            return 0.0
+        possible_days = (end - start).days + 1
+        if possible_days <= 0:
+            return 0.0
+        # Count days within window with value > 0
+        done_days = sum(
+            1 for e in g.entries
+            if e.value > 0 and start <= e.date <= end
+        )
+        return min(1.0, done_days / possible_days)
+
+    # Non-daily logic
+    if g.kind == "boolean":
+        return 1.0 if any(e.value > 0 for e in g.entries) else 0.0
+
+    # numeric
+    total = sum(e.value for e in g.entries)
+    target = g.target_value or 0
+    if target > 0:
+        return min(1.0, total / target)
+    return 1.0 if total > 0 else 0.0
+
+
 def _go_total_value(go: Go) -> float:
     return sum(e.value for e in go.entries)
 
 
 def _sprint_progress(sprint: Sprint) -> int:
-    """Progress % = completed Go / total Go * 100.
-    A Go is "completed" if:
-    - boolean: any entry with value > 0 (for recurring: any day done)
-    - numeric: cumulative value >= target"""
+    """Progress % = average of completion ratios across all Gos."""
     if not sprint.gos:
         return 0
-    completed = 0
-    for g in sprint.gos:
-        if g.kind == "boolean":
-            if any(e.value > 0 for e in g.entries):
-                completed += 1
-        else:
-            total = sum(e.value for e in g.entries)
-            target = g.target_value or 0
-            if target > 0 and total >= target:
-                completed += 1
-            elif target == 0 and total > 0:
-                completed += 1
-    return int(round(100 * completed / len(sprint.gos)))
+    period_start = sprint.start_date
+    period_end = sprint.end_date
+    ratios = [_go_completion_ratio(g, period_start, period_end) for g in sprint.gos]
+    return int(round(100 * sum(ratios) / len(ratios)))
 
 
 def _task_progress(task: Task) -> int:
-    """If task has sprints — average of sprint progresses.
-    Otherwise compute from directly-attached gos (same completion logic)."""
-    if task.sprints:
-        progresses = [_sprint_progress(s) for s in task.sprints]
-        if not progresses:
-            return 0
-        return int(round(sum(progresses) / len(progresses)))
-
-    # Fallback: task has direct gos (no sprint)
-    if not task.gos:
-        return 0
-    completed = 0
-    for g in task.gos:
-        if g.sprint_id:
-            continue  # counted via sprint
-        if g.kind == "boolean":
-            if any(e.value > 0 for e in g.entries):
-                completed += 1
-        else:
-            total = sum(e.value for e in g.entries)
-            target = g.target_value or 0
-            if target > 0 and total >= target:
-                completed += 1
-            elif target == 0 and total > 0:
-                completed += 1
+    """Average of completion ratios across sprints + direct gos."""
     direct_gos = [g for g in task.gos if not g.sprint_id]
-    if not direct_gos:
+    sprint_progresses = [_sprint_progress(s) for s in task.sprints]
+    direct_ratios = [
+        _go_completion_ratio(g, task.start_date, task.due_date) * 100
+        for g in direct_gos
+    ]
+    all_values = sprint_progresses + direct_ratios
+    if not all_values:
         return 0
-    return int(round(100 * completed / len(direct_gos)))
+    return int(round(sum(all_values) / len(all_values)))
 
 
 # ─── Serializers ─────────────────────────────────────────────────────────────

@@ -574,9 +574,9 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
         className="hidden"
       />
 
-      {/* Toolbar */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm mb-6 pb-2 -mx-4 md:-mx-10 px-4 md:px-10 border-b border-border">
-        <div className="flex items-center gap-0.5 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible pt-2 editor-toolbar-scroll -mx-1 px-1">
+      {/* Toolbar — sticky on desktop, fixed at bottom (above keyboard) on mobile */}
+      <div className="md:sticky md:top-0 md:relative fixed bottom-0 left-0 right-0 z-30 md:z-10 bg-background/95 backdrop-blur-sm mb-0 md:mb-6 py-2 md:pb-2 px-3 md:-mx-10 md:px-10 border-t md:border-t-0 md:border-b border-border editor-mobile-toolbar">
+        <div className="flex items-center gap-0.5 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible md:pt-2 editor-toolbar-scroll">
           <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnCls(editor.isActive('bold'))} title="Bold">
             <Bold size={15} />
           </button>
@@ -761,7 +761,9 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
         </div>
       </div>
 
-      <EditorContent editor={editor} />
+      <div className="pb-20 md:pb-0">
+        <EditorContent editor={editor} />
+      </div>
     </div>
     </>
   );
