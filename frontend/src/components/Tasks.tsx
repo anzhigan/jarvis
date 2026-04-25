@@ -35,12 +35,27 @@ const PRIORITY_CLS: Record<TaskPriority, string> = {
   low:    'text-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-slate-400 border-slate-200 dark:border-slate-800',
 };
 
-const GO_COLORS = ['#4f46e5', '#e11d48', '#ea580c', '#d97706', '#65a30d', '#059669', '#0891b2', '#7c3aed'];
+// Unified palette — same colors for tasks, sprints, gos, tags
+export const ENTITY_COLORS = [
+  '#4f46e5', // indigo
+  '#7c3aed', // violet
+  '#ec4899', // pink
+  '#e11d48', // rose
+  '#ea580c', // orange
+  '#d97706', // amber
+  '#65a30d', // lime
+  '#059669', // emerald
+  '#0891b2', // cyan
+  '#3b82f6', // blue
+  '#64748b', // slate
+];
+
+const GO_COLORS = ENTITY_COLORS;
 
 const STRIPE_COLOR: Record<GoRecurrence, string> = {
-  weekly: '#3b82f6',
-  daily:  '#10b981',
-  none:   '#8b5cf6',
+  weekly: ENTITY_COLORS[9],   // blue
+  daily:  ENTITY_COLORS[7],   // emerald
+  none:   ENTITY_COLORS[1],   // violet
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -94,6 +109,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(go.title);
+  const [editDescription, setEditDescription] = useState(go.description ?? '');
   const [editSprintId, setEditSprintId] = useState<string>(go.sprint_id ?? '');
   const [editDue, setEditDue] = useState(go.due_date ?? '');
   const [editColor, setEditColor] = useState(go.color);
@@ -175,10 +191,11 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
     try {
       await gosApi.update(go.id, {
         title: editTitle.trim() || go.title,
+        description: editDescription,
         sprint_id: editSprintId || null,
         due_date: editDue || null,
         color: editColor,
-      });
+      } as any);
       setEditing(false);
       await onReload();
     } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
@@ -225,6 +242,9 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
               <div className={`text-sm font-medium truncate ${isDone ? 'line-through text-muted-foreground' : ''}`}>
                 {go.title}
               </div>
+              {!editing && go.description && go.description.trim() && (
+                <p className="text-[11px] text-muted-foreground mt-0.5 mb-1 whitespace-pre-wrap">{go.description}</p>
+              )}
               <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
                 {go.recurrence !== 'none' && recurrenceLabel && (
                   <span className="inline-flex items-center gap-0.5"><Repeat size={10} /> {recurrenceLabel}</span>
@@ -249,7 +269,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
             {!editing && availableSprints !== undefined && (
               <button
                 onClick={() => setEditing(true)}
-                className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all flex-shrink-0"
                 title="Edit"
               >
                 <Pencil size={13} />
@@ -257,7 +277,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
             )}
             <button
               onClick={() => setConfirmDelete(true)}
-              className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+              className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all flex-shrink-0"
             >
               <Trash2 size={13} />
             </button>
@@ -270,6 +290,13 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+              />
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder={t('tasks.descriptionPh')}
+                rows={2}
+                className="w-full px-2 py-1.5 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-none"
               />
               {availableSprints && availableSprints.length > 0 && (
                 <div>
@@ -313,7 +340,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
               </div>
               <div className="flex justify-end gap-1.5">
                 <button
-                  onClick={() => { setEditing(false); setEditTitle(go.title); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }}
+                  onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }}
                   className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
                 >Cancel</button>
                 <button
@@ -410,17 +437,19 @@ function DailyStreak({ go }: { go: Go }) {
   const doneCount = squares.filter((s) => !s.beforeCreation && s.value > 0).length;
   const eligible = squares.filter((s) => !s.beforeCreation).length;
 
+  // Reverse so today appears on the LEFT (latest first), past on the right
+  const ordered = [...squares].reverse();
+
   // Mon=1, Sun=0 — show first letter
   const wkLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
     <div className="mt-2">
       <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
-        <span>14d · <span className="font-medium text-foreground">{doneCount}</span>/{eligible}</span>
-        <span className="text-[9px] opacity-60">today →</span>
+        <span>← today &nbsp;·&nbsp; <span className="font-medium text-foreground">{doneCount}</span>/{eligible}</span>
       </div>
       <div className="flex gap-1 items-end">
-        {squares.map((s) => {
+        {ordered.map((s) => {
           let cls = 'bg-muted/60';   // before creation / not done
           let inner: React.ReactNode = null;
           let title = s.date;
@@ -558,7 +587,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                   <div>
                     <label className="text-[10px] text-muted-foreground block mb-1">Color</label>
                     <div className="flex gap-1">
-                      {['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0891b2'].map((c) => (
+                      {ENTITY_COLORS.map((c) => (
                         <button
                           key={c}
                           type="button"
@@ -587,7 +616,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                       <span className="font-medium text-sm truncate">{sprint.title}</span>
                     </button>
                     <span className="text-xs font-semibold text-muted-foreground flex-shrink-0">{sprint.progress}%</span>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                    <div className="hidden md:flex items-center gap-0.5 transition-all">
                       <button onClick={() => setEditing(true)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground">
                         <Pencil size={12} />
                       </button>
@@ -668,13 +697,15 @@ function CreateGoForm({
   defaultSprintId?: string | null;
   availableSprints?: Sprint[];
   onCreate: (data: {
-    title: string; kind: GoKind; unit: string; target_value: number | null;
+    title: string; description: string; kind: GoKind; unit: string; target_value: number | null;
     recurrence: GoRecurrence; due_date: string | null; color: string;
     task_id: string | null; sprint_id: string | null;
   }) => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [kind, setKind] = useState<GoKind>('boolean');
   const [unit, setUnit] = useState('');
   const [target, setTarget] = useState('');
@@ -689,7 +720,7 @@ function CreateGoForm({
     setSaving(true);
     try {
       await onCreate({
-        title: title.trim(), kind, unit: unit.trim(),
+        title: title.trim(), description: description.trim(), kind, unit: unit.trim(),
         target_value: target ? parseFloat(target) : null,
         recurrence, due_date: due || null, color,
         task_id: defaultTaskId ?? null,
@@ -705,6 +736,13 @@ function CreateGoForm({
         value={title} onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && submit()} autoFocus
         className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+      />
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder={t('tasks.descriptionPh')}
+        rows={2}
+        className="w-full px-2.5 py-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-none"
       />
       <div className="flex flex-wrap gap-1.5">
         <select value={kind} onChange={(e) => setKind(e.target.value as GoKind)}
@@ -778,7 +816,7 @@ function CreateSprintForm({
   const [description, setDescription] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
-  const [color, setColor] = useState('#8b5cf6');
+  const [color, setColor] = useState(ENTITY_COLORS[1]);
   const [toAttach, setToAttach] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
@@ -845,7 +883,7 @@ function CreateSprintForm({
       )}
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1">
-          {['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0891b2'].map((c) => (
+          {ENTITY_COLORS.map((c) => (
             <button
               key={c}
               type="button"
@@ -1060,7 +1098,7 @@ function TaskCard({
               />
               <h4 className="flex-1 min-w-0 text-base md:text-sm font-medium leading-snug">{task.title}</h4>
               {!isMobile && (
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                <div className="flex items-center gap-0.5 transition-all">
                   <button onClick={(e) => { e.stopPropagation(); startEdit(); }}
                     className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground">
                     <Pencil size={13} />
@@ -1374,18 +1412,43 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
     const updSprint = (s: Sprint): Sprint => {
       if (!s.gos.some((g) => g.id === patched.id)) return s;
       const newGos = s.gos.map((g) => g.id === patched.id ? patched : g);
-      // Recompute sprint progress locally
-      let completed = 0;
+      // Recompute sprint progress locally (mirrors backend _go_completion_ratio)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const sStart = new Date(s.start_date); sStart.setHours(0, 0, 0, 0);
+      const sEnd = new Date(s.end_date); sEnd.setHours(0, 0, 0, 0);
+      let totalRatio = 0;
       for (const g of newGos) {
-        if (g.kind === 'boolean') {
-          if (g.entries.some((e) => e.value > 0)) completed += 1;
+        if (g.kind === 'boolean' && g.recurrence === 'daily') {
+          let start = new Date(g.created_at); start.setHours(0, 0, 0, 0);
+          if (sStart > start) start = sStart;
+          let end = today;
+          if (g.due_date) {
+            const d = new Date(g.due_date); d.setHours(0, 0, 0, 0);
+            if (d < end) end = d;
+          }
+          if (sEnd < end) end = sEnd;
+          if (end < start) { totalRatio += 0; continue; }
+          const possibleDays = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+          const startMs = start.getTime();
+          const endMs = end.getTime();
+          const doneDays = g.entries.filter((e) => {
+            if (e.value <= 0) return false;
+            const d = new Date(e.date); d.setHours(0, 0, 0, 0);
+            const ms = d.getTime();
+            return ms >= startMs && ms <= endMs;
+          }).length;
+          totalRatio += possibleDays > 0 ? Math.min(1, doneDays / possibleDays) : 0;
+        } else if (g.kind === 'boolean') {
+          totalRatio += g.entries.some((e) => e.value > 0) ? 1 : 0;
         } else {
           const total = g.entries.reduce((sum, e) => sum + e.value, 0);
           const target = g.target_value || 0;
-          if ((target > 0 && total >= target) || (target === 0 && total > 0)) completed += 1;
+          if (target > 0) totalRatio += Math.min(1, total / target);
+          else totalRatio += total > 0 ? 1 : 0;
         }
       }
-      const progress = newGos.length > 0 ? Math.round(100 * completed / newGos.length) : 0;
+      const progress = newGos.length > 0 ? Math.round(100 * totalRatio / newGos.length) : 0;
       return { ...s, gos: newGos, progress };
     };
     const upd = (list: Sprint[]) => list.map(updSprint);

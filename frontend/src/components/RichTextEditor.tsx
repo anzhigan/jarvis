@@ -383,6 +383,40 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
   const [dialogExtra, setDialogExtra] = useState<{ prevUrl?: string }>({});
 
+  // Mobile keyboard detection — toolbar shows ONLY when keyboard is open
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);  // px from bottom
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const update = () => {
+      // Heuristic: if visualViewport height is noticeably smaller than window.innerHeight
+      // → keyboard is likely open
+      const diff = window.innerHeight - vv.height;
+      const isOpen = diff > 150;  // typical keyboard >150px
+      setKeyboardOpen(isOpen);
+      // Offset from bottom — how much keyboard takes
+      // visualViewport.offsetTop is amount scrolled, height is visible area
+      const bottomGap = window.innerHeight - vv.height - vv.offsetTop;
+      setKeyboardOffset(isOpen ? Math.max(0, bottomGap) : 0);
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, [isMobile]);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -574,8 +608,13 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
         className="hidden"
       />
 
-      {/* Toolbar — sticky on desktop, fixed at bottom (above keyboard) on mobile */}
-      <div className="md:sticky md:top-0 md:relative fixed bottom-0 left-0 right-0 z-30 md:z-10 bg-background/95 backdrop-blur-sm mb-0 md:mb-6 py-2 md:pb-2 px-3 md:-mx-10 md:px-10 border-t md:border-t-0 md:border-b border-border editor-mobile-toolbar">
+      {/* Toolbar — sticky on desktop, floats above keyboard on mobile (only when keyboard is open) */}
+      <div
+        className={`md:sticky md:top-0 md:relative md:!translate-y-0 md:block z-30 md:z-10 bg-background/95 backdrop-blur-sm mb-0 md:mb-6 py-2 md:pb-2 px-3 md:-mx-10 md:px-10 border-t md:border-t-0 md:border-b border-border editor-mobile-toolbar ${
+          isMobile ? (keyboardOpen ? 'fixed left-0 right-0' : 'hidden') : ''
+        }`}
+        style={isMobile && keyboardOpen ? { bottom: `${keyboardOffset}px` } : undefined}
+      >
         <div className="flex items-center gap-0.5 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible md:pt-2 editor-toolbar-scroll">
           <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnCls(editor.isActive('bold'))} title="Bold">
             <Bold size={15} />
@@ -761,7 +800,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
         </div>
       </div>
 
-      <div className="pb-20 md:pb-0">
+      <div>
         <EditorContent editor={editor} />
       </div>
     </div>

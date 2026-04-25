@@ -74,6 +74,7 @@ export interface Go {
   task_id: string | null;
   sprint_id: string | null;
   title: string;
+  description: string;
   kind: GoKind;
   unit: string;
   target_value: number | null;

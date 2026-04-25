@@ -107,8 +107,8 @@ def _go_completion_ratio(g: Go, period_start: date_cls | None = None, period_end
     """
     today = date_cls.today()
 
-    # Daily-recurring boolean is the special case
-    if g.kind == "boolean" and g.recurrence == "daily":
+    # Recurring boolean (daily or weekly) is the special case
+    if g.kind == "boolean" and g.recurrence in ("daily", "weekly"):
         # Establish window
         start = g.created_at.date() if g.created_at else today
         if period_start and period_start > start:
@@ -124,14 +124,23 @@ def _go_completion_ratio(g: Go, period_start: date_cls | None = None, period_end
         possible_days = (end - start).days + 1
         if possible_days <= 0:
             return 0.0
-        # Count days within window with value > 0
+        # For weekly — convert to weeks, count weeks with ≥1 entry
+        if g.recurrence == "weekly":
+            possible_weeks = max(1, (possible_days + 6) // 7)
+            seen_weeks = set()
+            for e in g.entries:
+                if e.value > 0 and start <= e.date <= end:
+                    # Week index from start
+                    seen_weeks.add((e.date - start).days // 7)
+            return min(1.0, len(seen_weeks) / possible_weeks)
+        # Daily: count days with value > 0
         done_days = sum(
             1 for e in g.entries
             if e.value > 0 and start <= e.date <= end
         )
         return min(1.0, done_days / possible_days)
 
-    # Non-daily logic
+    # Non-recurring boolean
     if g.kind == "boolean":
         return 1.0 if any(e.value > 0 for e in g.entries) else 0.0
 
@@ -180,6 +189,7 @@ def _go_dict(g: Go, task_title: str | None = None, sprint_title: str | None = No
         "task_id": g.task_id,
         "sprint_id": g.sprint_id,
         "title": g.title,
+        "description": g.description or "",
         "kind": g.kind,
         "unit": g.unit,
         "target_value": g.target_value,

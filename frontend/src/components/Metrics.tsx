@@ -670,8 +670,9 @@ function ProductivityTrend({ gos }: { gos: Go[] }) {
           <h3 className="text-sm font-semibold flex items-center gap-1.5">
             <Activity size={14} className="text-primary" />
             Productivity trend
+            <InfoTooltip text="For each day in the last 30 days: % = (number of Go items completed that day) ÷ (number of Go items active on that day, i.e. created on or before that day). Averages and trend are calculated over the last 30 / 7 days." />
           </h3>
-          <p className="text-xs text-muted-foreground">Overall completion rate + individual daily Go lines</p>
+          <p className="text-xs text-muted-foreground">Overall completion rate across all Go</p>
         </div>
         <div className="flex items-end gap-4 text-right">
           <div>
@@ -704,52 +705,137 @@ function ProductivityTrend({ gos }: { gos: Go[] }) {
             <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} domain={[0, 100]} stroke="var(--border)" tickFormatter={(v) => `${v}%`} />
             <Tooltip
               contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '12px' }}
-              formatter={(v: number, name: string) => {
-                if (name === 'score') return [`${v}%`, 'Overall'];
-                const id = name.replace('go_', '');
-                const g = dailyGos.find((dg) => dg.id === id);
-                return [v > 0 ? '✓ done' : '✗ missed', g?.title || 'Go'];
-              }}
+              formatter={(v: number) => [`${v}%`, 'Overall']}
             />
-            {/* Background per-daily-go lines (thin, step, grey tones) */}
-            {dailyGos.map((g, i) => (
-              <Area
-                key={g.id}
-                type="stepAfter"
-                dataKey={`go_${g.id}`}
-                stroke={bgColors[i % bgColors.length]}
-                strokeWidth={1}
-                strokeDasharray="2 2"
-                fill="transparent"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-              />
-            ))}
             {/* Main overall line + area */}
             <Area type="monotone" dataKey="score" stroke="#4f46e5" strokeWidth={2.5} fill="url(#prodFill)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
+    </div>
+  );
+}
 
-      {/* Legend */}
-      {dailyGos.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 pt-3 border-t border-border text-[10px]">
-          <div className="inline-flex items-center gap-1.5">
-            <div className="w-3 h-0.5 bg-primary rounded-full" />
-            <span className="font-medium">Overall</span>
-          </div>
-          {dailyGos.map((g, i) => (
-            <div key={g.id} className="inline-flex items-center gap-1.5 text-muted-foreground">
-              <div className="w-3 h-0.5 border-t border-dashed" style={{ borderColor: bgColors[i % bgColors.length] }} />
-              <span className="truncate max-w-[140px]">{g.title}</span>
-            </div>
-          ))}
-          {gos.filter((g) => g.recurrence === 'daily' && g.kind === 'boolean').length > MAX_BG_LINES && (
-            <span className="text-muted-foreground italic">+ {gos.filter((g) => g.recurrence === 'daily' && g.kind === 'boolean').length - MAX_BG_LINES} more (hidden)</span>
-          )}
-        </div>
+// ═══════════════════════════════════════════════════════════════════════════
+// InfoTooltip — small ⓘ icon, tooltip on hover
+// ═══════════════════════════════════════════════════════════════════════════
+function InfoTooltip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-muted text-muted-foreground hover:bg-secondary text-[10px] font-semibold"
+        aria-label="Info"
+      >
+        ?
+      </button>
+      {open && (
+        <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-50 px-2.5 py-1.5 rounded-md bg-popover border border-border shadow-lg text-[11px] text-foreground whitespace-normal w-56 text-left leading-tight">
+          {text}
+        </span>
       )}
+    </span>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PerGoCharts — small chart per individual daily Go (last 30 days)
+// ═══════════════════════════════════════════════════════════════════════════
+function PerGoCharts({ gos }: { gos: Go[] }) {
+  const dailyGos = useMemo(
+    () => gos.filter((g) => g.recurrence === 'daily' && g.kind === 'boolean'),
+    [gos]
+  );
+
+  if (dailyGos.length === 0) return null;
+
+  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  const DAYS = 30;
+
+  return (
+    <div className="p-5 bg-card border border-border rounded-xl">
+      <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <h3 className="text-sm font-semibold flex items-center gap-1.5">
+            <TargetIcon size={14} className="text-primary" />
+            Daily habits — last {DAYS} days
+          </h3>
+          <p className="text-xs text-muted-foreground">One row per recurring Go</p>
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        {dailyGos.map((g) => {
+          const created = new Date(g.created_at);
+          created.setHours(0, 0, 0, 0);
+          const entryMap = new Map<string, number>();
+          for (const e of g.entries) entryMap.set(e.date, e.value);
+
+          // Build cells (LEFT = today, RIGHT = past — matching DailyStreak)
+          const cells: { date: string; value: number; isToday: boolean; before: boolean }[] = [];
+          for (let i = 0; i < DAYS; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const key = `${y}-${m}-${day}`;
+            cells.push({
+              date: key,
+              value: entryMap.get(key) ?? 0,
+              isToday: i === 0,
+              before: d < created,
+            });
+          }
+          const eligible = cells.filter((c) => !c.before).length;
+          const done = cells.filter((c) => !c.before && c.value > 0).length;
+          const pct = eligible > 0 ? Math.round(100 * done / eligible) : 0;
+
+          return (
+            <div key={g.id} className="flex items-center gap-3">
+              {/* Title + count */}
+              <div className="w-32 md:w-40 flex-shrink-0 min-w-0">
+                <div className="text-xs font-medium truncate flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: g.color || '#10b981' }} />
+                  <span className="truncate">{g.title}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {done}/{eligible} <span className="opacity-60">· {pct}%</span>
+                </div>
+              </div>
+              {/* Cells */}
+              <div className="flex gap-[3px] items-center flex-1 min-w-0 overflow-hidden">
+                {cells.map((c) => {
+                  let cls = 'bg-muted/60';
+                  if (c.before) cls = 'bg-muted/20';
+                  else if (c.value > 0) cls = '';
+                  else if (c.isToday) cls = 'bg-card border border-primary';
+                  else cls = 'bg-rose-400/40 dark:bg-rose-600/30';
+                  const style = (!c.before && c.value > 0)
+                    ? { backgroundColor: g.color || '#10b981' }
+                    : undefined;
+                  return (
+                    <div
+                      key={c.date}
+                      title={`${c.date}${c.before ? ' (before start)' : (c.value > 0 ? ' — done' : c.isToday ? ' — today' : ' — missed')}`}
+                      className={`flex-1 h-5 rounded-sm ${cls} ${c.isToday ? 'ring-1 ring-primary' : ''}`}
+                      style={style}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="text-[10px] text-muted-foreground mt-3 pt-3 border-t border-border flex items-center gap-1">
+        <span>Left = today, right = {DAYS} days ago</span>
+      </div>
     </div>
   );
 }
@@ -1022,6 +1108,9 @@ export default function Metrics() {
                 )}
               </div>
             </div>
+
+            {/* Per-Go daily charts */}
+            <PerGoCharts gos={allGos} />
 
             {/* Gantt full width */}
             <CompactGantt tasks={tasks} />

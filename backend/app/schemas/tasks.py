@@ -10,6 +10,7 @@ from app.schemas.notes import TagOut
 
 class GoCreate(BaseModel):
     title: str = Field(min_length=1, max_length=300)
+    description: str = ""
     kind: str = Field(default="boolean")
     unit: str = Field(default="", max_length=50)
     target_value: float | None = None
@@ -22,6 +23,7 @@ class GoCreate(BaseModel):
 
 class GoUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=300)
+    description: str | None = None
     kind: str | None = None
     unit: str | None = None
     target_value: float | None = None
@@ -52,6 +54,7 @@ class GoOut(BaseModel):
     task_id: uuid.UUID | None
     sprint_id: uuid.UUID | None
     title: str
+    description: str = ""
     kind: str
     unit: str
     target_value: float | None

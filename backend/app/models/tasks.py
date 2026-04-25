@@ -96,6 +96,7 @@ class Go(Base):
         ForeignKey("sprints.id", ondelete="SET NULL"), nullable=True, index=True
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
     kind: Mapped[str] = mapped_column(String(20), default="boolean")  # boolean | numeric
     unit: Mapped[str] = mapped_column(String(50), default="")
     target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
