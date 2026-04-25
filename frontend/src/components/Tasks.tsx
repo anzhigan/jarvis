@@ -462,6 +462,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
   onGoLocalUpdate?: (go: Go) => void;
   showMeta?: boolean;
 }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(sprint.title);
@@ -767,6 +768,7 @@ function CreateSprintForm({
   onCreate: () => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [start, setStart] = useState('');
@@ -864,6 +866,7 @@ function CreateSprintForm({
 // Task expanded content: sprints + direct gos
 // ═══════════════════════════════════════════════════════════════════════════
 function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<void> }) {
+  const t = useT();
   const [addingSprint, setAddingSprint] = useState(false);
   const [addingGo, setAddingGo] = useState(false);
   const directGos = task.gos;
