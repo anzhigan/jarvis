@@ -7,7 +7,6 @@ import Dashboard from '../components/Metrics';
 import Profile from '../components/Profile';
 import AuthPage from '../components/AuthPage';
 import AITutorPage from '../components/AITutorPage';
-import NoemaLogo from '../components/NoemaLogo';
 import { useAuthStore } from '../store/auth';
 import { useT } from '../store/i18n';
 
@@ -26,7 +25,7 @@ export default function App() {
   const { user, isReady, init } = useAuthStore();
   const t = useT();
   const [tab, setTab] = useState<Tab>(() => {
-    const saved = localStorage.getItem('noema:tab');
+    const saved = localStorage.getItem('jarvnote:tab');
     if (saved === 'notes' || saved === 'tasks' || saved === 'tutor' || saved === 'analysis' || saved === 'profile') return saved;
     return 'notes';
   });
@@ -35,7 +34,7 @@ export default function App() {
   useEffect(() => { init(); }, []);
 
   useEffect(() => {
-    localStorage.setItem('noema:tab', tab);
+    localStorage.setItem('jarvnote:tab', tab);
   }, [tab]);
 
   useEffect(() => {
@@ -74,12 +73,8 @@ export default function App() {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
       <header className="flex items-center px-3 md:px-4 h-14 border-b border-border flex-shrink-0 gap-2">
-        {/* Left: Noema logo + profile pill */}
-        <div className="flex-1 min-w-0 flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 text-foreground">
-            <NoemaLogo size={20} className="text-primary" />
-            <span className="text-sm font-semibold tracking-tight">Noema</span>
-          </div>
+        {/* Left: profile pill */}
+        <div className="flex-1 min-w-0 flex items-center">
           <button
             onClick={() => setTab('profile')}
             className={`h-9 flex items-center gap-2 pr-3 pl-1 rounded-full transition-colors ${
