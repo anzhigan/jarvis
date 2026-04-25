@@ -9,6 +9,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     // nav
     'nav.notes': 'Notes',
     'nav.tasks': 'Go',
+    'nav.tutor': 'Tutor',
     'nav.analysis': 'Analysis',
     'nav.profile': 'Profile',
 
@@ -204,6 +205,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     // nav
     'nav.notes': 'Заметки',
     'nav.tasks': 'Go',
+    'nav.tutor': 'Репетитор',
     'nav.analysis': 'Анализ',
     'nav.profile': 'Профиль',
 
