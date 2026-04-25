@@ -1239,11 +1239,11 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
           <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
             className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
             <option value="">{t('go.standalone')}</option>
-            {tasks.map((t) => (<option key={t.id} value={t.id}>{t.title}</option>))}
+            {tasks.map((task) => (<option key={task.id} value={task.id}>{task.title}</option>))}
           </select>
           <CreateGoForm
             defaultTaskId={addTaskId || null}
-            availableSprints={addTaskId ? tasks.find((t) => t.id === addTaskId)?.sprints : []}
+            availableSprints={addTaskId ? tasks.find((tk) => tk.id === addTaskId)?.sprints : []}
             onCancel={() => { setAdding(false); setAddTaskId(''); }}
             onCreate={async (data) => {
               await gosApi.create(data);
@@ -1408,12 +1408,12 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
           <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
             className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
             <option value="">{t('sprint.pickTask')}</option>
-            {tasks.map((t) => (<option key={t.id} value={t.id}>{t.title}</option>))}
+            {tasks.map((task) => (<option key={task.id} value={task.id}>{task.title}</option>))}
           </select>
           {addTaskId && (
             <CreateSprintForm
               taskId={addTaskId}
-              availableGos={(tasks.find((t) => t.id === addTaskId)?.gos ?? []).filter((g) => !g.sprint_id)}
+              availableGos={(tasks.find((tk) => tk.id === addTaskId)?.gos ?? []).filter((g) => !g.sprint_id)}
               onCancel={() => { setAdding(false); setAddTaskId(''); }}
               onCreate={async () => { setAdding(false); setAddTaskId(''); await reload(); }}
             />
@@ -1434,7 +1434,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
             {past.length === 0 ? (
               <div className="py-4 text-center text-xs text-muted-foreground">{t('sprint.none_past', { days: pastDays })}</div>
             ) : past.map((s) => {
-              const taskSprints = tasks.find((t) => t.id === s.task_id)?.sprints ?? [];
+              const taskSprints = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
               return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
             })}
             <button onClick={() => setPastDays(pastDays + 90)}
@@ -1456,7 +1456,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
         ) : (
           <div className="space-y-2">
             {current.map((s) => {
-              const taskSprints = tasks.find((t) => t.id === s.task_id)?.sprints ?? [];
+              const taskSprints = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
               return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
             })}
           </div>
@@ -1474,7 +1474,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
         ) : (
           <div className="space-y-2">
             {future.map((s) => {
-              const taskSprints = tasks.find((t) => t.id === s.task_id)?.sprints ?? [];
+              const taskSprints = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
               return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
             })}
           </div>

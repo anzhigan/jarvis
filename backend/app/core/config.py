@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
+    # LLM (OpenAI-compatible endpoint: OpenAI, Groq, Together, Ollama, etc.)
+    LLM_BASE_URL: str = "https://api.groq.com/openai/v1"
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = "llama-3.3-70b-versatile"
+    LLM_MAX_TOKENS: int = 2000
+    LLM_TIMEOUT: int = 60
+
     @property
     def origins(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]

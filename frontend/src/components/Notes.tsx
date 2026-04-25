@@ -16,12 +16,14 @@ import {
   Loader2,
   BookOpen,
   PanelLeft,
+  Brain,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
 import SwipeRow from './SwipeRow';
 import LongPressRow from './LongPressRow';
 import TagSelector from './TagSelector';
+import AITutor from './AITutor';
 import ConfirmDialog from './ConfirmDialog';
 import NoteTitle from './NoteTitle';
 import { useT } from '../store/i18n';
@@ -78,6 +80,7 @@ export default function Notes() {
   const [renameValue, setRenameValue] = useState('');
 
   const [search, setSearch] = useState('');
+  const [showAITutor, setShowAITutor] = useState(false);
 
   // Detect mobile (<768px)
   const [isMobile, setIsMobile] = useState(() =>
@@ -593,6 +596,13 @@ export default function Notes() {
               />
             </div>
             <button
+              onClick={() => setShowAITutor(true)}
+              title="AI Tutor"
+              className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
+            >
+              <Brain size={15} />
+            </button>
+            <button
               onClick={() => { setAdding({ kind: 'way' }); setAddName(''); }}
               title="Add way"
               className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
@@ -1023,15 +1033,24 @@ function MobileHierarchy({
       {/* Search (only at root) */}
       {view.kind === 'root' && (
         <div className="px-3 py-2 border-b border-border flex-shrink-0">
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-10 pl-10 pr-3 text-base bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full h-10 pl-10 pr-3 text-base bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+              />
+            </div>
+            <button
+              onClick={() => setShowAITutor(true)}
+              title="AI Tutor"
+              className="h-10 w-10 flex items-center justify-center rounded-md bg-card border border-border hover:bg-secondary flex-shrink-0"
+            >
+              <Brain size={18} />
+            </button>
           </div>
         </div>
       )}
@@ -1238,6 +1257,14 @@ function MobileHierarchy({
           </>
         )}
       </div>
+      <AITutor
+        open={showAITutor}
+        onClose={() => setShowAITutor(false)}
+        notes={ways.flatMap((w) => [
+          ...w.notes.map((n) => ({ id: n.id, title: n.name, way: w.name })),
+          ...w.topics.flatMap((t) => t.notes.map((n) => ({ id: n.id, title: n.name, way: w.name, topic: t.name }))),
+        ])}
+      />
     </div>
   );
 }

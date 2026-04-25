@@ -241,3 +241,54 @@ export const sprintsApi = {
   agenda: (section: 'current' | 'future' | 'past', daysBack = 90) =>
     request<Sprint[]>(`/sprints/agenda?section=${section}&days_back=${daysBack}`),
 };
+
+// ── AI ─────────────────────────────────────────────────────────────────────
+export interface AIQuizQuestion {
+  id: string;
+  type: 'multiple_choice' | 'open';
+  question: string;
+  options?: string[];
+  correct_index?: number;
+  correct_answer?: string;
+  explanation: string;
+}
+
+export interface AIQuiz {
+  quiz_id: string;
+  questions: AIQuizQuestion[];
+  note_titles: string[];
+}
+
+export interface AIStatus {
+  configured: boolean;
+  model: string;
+  provider: string;
+}
+
+export const aiApi = {
+  status: () => request<AIStatus>('/ai/status'),
+
+  quiz: (data: {
+    note_ids: string[];
+    num_questions?: number;
+    difficulty?: 'easy' | 'medium' | 'hard';
+    language?: 'en' | 'ru';
+  }) => request<AIQuiz>('/ai/quiz', { method: 'POST', body: JSON.stringify(data) }),
+
+  chat: (data: {
+    note_ids: string[];
+    history: { role: 'user' | 'assistant' | 'system'; content: string }[];
+    message: string;
+    language?: 'en' | 'ru';
+  }) => request<{ reply: string }>('/ai/chat', { method: 'POST', body: JSON.stringify(data) }),
+
+  grade: (data: {
+    question: string;
+    expected_answer: string;
+    user_answer: string;
+    language?: 'en' | 'ru';
+  }) => request<{ correct: boolean; score: number; feedback: string }>('/ai/grade', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+};
