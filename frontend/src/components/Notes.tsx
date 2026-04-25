@@ -557,6 +557,14 @@ export default function Notes() {
         }}
         onCancelMobileDrag={() => setMobileDragNoteId(null)}
       />
+      <AITutor
+        open={showAITutor}
+        onClose={() => setShowAITutor(false)}
+        notes={ways.flatMap((w) => [
+          ...w.notes.map((n) => ({ id: n.id, title: n.name, way: w.name })),
+          ...w.topics.flatMap((tp) => tp.notes.map((n) => ({ id: n.id, title: n.name, way: w.name, topic: tp.name }))),
+        ])}
+      />
       </>
     );
   }
