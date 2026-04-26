@@ -121,8 +121,12 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
   const stripeColor = go.color || STRIPE_COLOR[go.recurrence];
   // Compute is_done locally instead of trusting server field (avoids timezone
   // edge cases where server UTC "today" differs from user's local "today")
+  // For one-off boolean: any positive entry counts (could be past)
+  // For daily/weekly recurring boolean: check today
+  // For numeric: check based on recurrence
+  const hasAnyPositive = go.entries.some((e) => e.value > 0);
   const isDone = go.kind === 'boolean'
-    ? todayVal > 0
+    ? (go.recurrence === 'none' ? hasAnyPositive : todayVal > 0)
     : (() => {
         if (go.recurrence === 'none') {
           return go.target_value !== null && go.total_value >= (go.target_value ?? 0);
@@ -222,7 +226,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
       />
       {(() => {
         const cardBody = (
-    <div className="group relative flex items-stretch rounded-md bg-card border border-border overflow-hidden">
+    <div className={`group relative flex items-stretch rounded-md bg-card border border-border ${editing ? '' : 'overflow-hidden'}`}>
         <div className="w-1 flex-shrink-0" style={{ backgroundColor: stripeColor }} />
         <div className="flex-1 p-2.5 min-w-0">
           <div className="flex items-center gap-2">
@@ -851,18 +855,25 @@ function CreateSprintForm({
   return (
     <div className="p-3 bg-card border border-border rounded-md space-y-2">
       <input
-        type="text" placeholder="{t('sprint.titlePh')}"
+        type="text" placeholder={t('sprint.titlePh')}
         value={title} onChange={(e) => setTitle(e.target.value)} autoFocus
         className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md"
       />
-      <div className="flex gap-2">
-        <div className="flex-1">
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder={t('sprint.notesPh')}
+        rows={2}
+        className="w-full px-2.5 py-2 text-sm bg-input-background border border-border rounded-md resize-none"
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="min-w-0">
           <label className="text-[10px] text-muted-foreground">{t("tasks.start")}</label>
           <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
             className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
         </div>
-        <div className="flex-1">
-          <label className="text-[10px] text-muted-foreground">End</label>
+        <div className="min-w-0">
+          <label className="text-[10px] text-muted-foreground">{t('sprint.end')}</label>
           <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
             className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
         </div>

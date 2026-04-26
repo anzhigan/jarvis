@@ -3,104 +3,104 @@
 :root {
   --font-size: 15px;
 
-  /* Surfaces */
-  --background: #fafaf9;
-  --foreground: #1c1917;
-  --card: #ffffff;
-  --card-foreground: #1c1917;
-  --popover: #ffffff;
-  --popover-foreground: #1c1917;
+  /* Surfaces — Notion-inspired warm whites */
+  --background: #FFFFFF;
+  --foreground: #191918;
+  --card: #FFFFFF;
+  --card-foreground: #191918;
+  --popover: #FFFFFF;
+  --popover-foreground: #191918;
 
-  /* Brand — deep indigo */
-  --primary: #4f46e5;
-  --primary-foreground: #ffffff;
+  /* Brand — refined indigo */
+  --primary: #2E2E2C;
+  --primary-foreground: #FFFFFF;
 
-  /* Secondary / muted */
-  --secondary: #f5f5f4;
-  --secondary-foreground: #1c1917;
-  --muted: #f5f5f4;
-  --muted-foreground: #78716c;
-  --accent: #eef2ff;
-  --accent-foreground: #3730a3;
+  /* Secondary / muted — Notion grays */
+  --secondary: #F1F1EF;
+  --secondary-foreground: #191918;
+  --muted: #F7F7F5;
+  --muted-foreground: #787774;
+  --accent: #F1F1EF;
+  --accent-foreground: #191918;
 
   /* Feedback */
-  --destructive: #e11d48;
-  --destructive-foreground: #ffffff;
-  --success: #059669;
-  --warning: #d97706;
+  --destructive: #E03E3E;
+  --destructive-foreground: #FFFFFF;
+  --success: #0F7B6C;
+  --warning: #D9730D;
 
-  /* Borders, inputs */
-  --border: rgba(28, 25, 23, 0.08);
-  --border-strong: rgba(28, 25, 23, 0.16);
+  /* Borders — soft separators */
+  --border: rgba(55, 53, 47, 0.09);
+  --border-strong: rgba(55, 53, 47, 0.16);
   --input: transparent;
-  --input-background: #ffffff;
-  --ring: #4f46e5;
+  --input-background: #FFFFFF;
+  --ring: #2E2E2C;
 
-  /* Sidebar — subtle contrast */
-  --sidebar: #f7f7f6;
-  --sidebar-foreground: #1c1917;
-  --sidebar-primary: #4f46e5;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #edecea;
-  --sidebar-accent-foreground: #1c1917;
-  --sidebar-border: rgba(28, 25, 23, 0.06);
-  --sidebar-ring: #4f46e5;
+  /* Sidebar — Notion's faint warm gray */
+  --sidebar: #FBFBFA;
+  --sidebar-foreground: #37352F;
+  --sidebar-primary: #2E2E2C;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EFEFEE;
+  --sidebar-accent-foreground: #37352F;
+  --sidebar-border: rgba(55, 53, 47, 0.06);
+  --sidebar-ring: #2E2E2C;
 
-  /* Chart palette */
-  --chart-1: #4f46e5;
-  --chart-2: #06b6d4;
-  --chart-3: #f59e0b;
-  --chart-4: #ec4899;
-  --chart-5: #10b981;
+  /* Chart palette — Notion-inspired vibrant accents */
+  --chart-1: #4F46E5;
+  --chart-2: #0F7B6C;
+  --chart-3: #D9730D;
+  --chart-4: #AD1A72;
+  --chart-5: #0B6E99;
 
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
 }
 
 .dark {
-  --background: #0c0a09;
-  --foreground: #fafaf9;
-  --card: #1c1917;
-  --card-foreground: #fafaf9;
-  --popover: #1c1917;
-  --popover-foreground: #fafaf9;
+  --background: #191919;
+  --foreground: #E2E2DF;
+  --card: #1F1F1F;
+  --card-foreground: #E2E2DF;
+  --popover: #2A2A2A;
+  --popover-foreground: #E2E2DF;
 
-  --primary: #818cf8;
-  --primary-foreground: #0c0a09;
+  --primary: #E2E2DF;
+  --primary-foreground: #191919;
 
-  --secondary: #292524;
-  --secondary-foreground: #fafaf9;
-  --muted: #292524;
-  --muted-foreground: #a8a29e;
-  --accent: #312e81;
-  --accent-foreground: #e0e7ff;
+  --secondary: #2C2C2C;
+  --secondary-foreground: #E2E2DF;
+  --muted: #252525;
+  --muted-foreground: #9B9B9B;
+  --accent: #373737;
+  --accent-foreground: #E2E2DF;
 
-  --destructive: #f43f5e;
-  --destructive-foreground: #ffffff;
-  --success: #10b981;
-  --warning: #fbbf24;
+  --destructive: #E03E3E;
+  --destructive-foreground: #FFFFFF;
+  --success: #4CB78F;
+  --warning: #FFA344;
 
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2);
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
   --input: transparent;
-  --input-background: #1c1917;
-  --ring: #818cf8;
+  --input-background: #2A2A2A;
+  --ring: #6B6B6B;
 
-  --sidebar: #131110;
-  --sidebar-foreground: #fafaf9;
-  --sidebar-primary: #818cf8;
-  --sidebar-primary-foreground: #0c0a09;
-  --sidebar-accent: #1c1917;
-  --sidebar-accent-foreground: #fafaf9;
-  --sidebar-border: rgba(255, 255, 255, 0.06);
-  --sidebar-ring: #818cf8;
+  --sidebar: #202020;
+  --sidebar-foreground: #E2E2DF;
+  --sidebar-primary: #E2E2DF;
+  --sidebar-primary-foreground: #191919;
+  --sidebar-accent: #2C2C2C;
+  --sidebar-accent-foreground: #E2E2DF;
+  --sidebar-border: rgba(255, 255, 255, 0.05);
+  --sidebar-ring: #6B6B6B;
 
-  --chart-1: #818cf8;
-  --chart-2: #22d3ee;
-  --chart-3: #fbbf24;
-  --chart-4: #f472b6;
-  --chart-5: #34d399;
+  --chart-1: #818CF8;
+  --chart-2: #4CB78F;
+  --chart-3: #FFA344;
+  --chart-4: #E255A1;
+  --chart-5: #529CCA;
 }
 
 @theme inline {

@@ -383,9 +383,9 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
   const [dialogExtra, setDialogExtra] = useState<{ prevUrl?: string }>({});
 
-  // Mobile keyboard detection — toolbar shows ONLY when keyboard is open
+  // Mobile keyboard detection — toolbar shows ONLY when editor is focused (=keyboard open)
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [editorFocused, setEditorFocused] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);  // px from bottom
 
   useEffect(() => {
@@ -398,15 +398,9 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
     if (!isMobile || typeof window === 'undefined' || !window.visualViewport) return;
     const vv = window.visualViewport;
     const update = () => {
-      // Heuristic: if visualViewport height is noticeably smaller than window.innerHeight
-      // → keyboard is likely open
-      const diff = window.innerHeight - vv.height;
-      const isOpen = diff > 150;  // typical keyboard >150px
-      setKeyboardOpen(isOpen);
-      // Offset from bottom — how much keyboard takes
-      // visualViewport.offsetTop is amount scrolled, height is visible area
+      // Bottom gap = how much keyboard takes
       const bottomGap = window.innerHeight - vv.height - vv.offsetTop;
-      setKeyboardOffset(isOpen ? Math.max(0, bottomGap) : 0);
+      setKeyboardOffset(Math.max(0, bottomGap));
     };
     update();
     vv.addEventListener('resize', update);
@@ -416,6 +410,10 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
       vv.removeEventListener('scroll', update);
     };
   }, [isMobile]);
+
+  // Keyboard is "open" when (a) editor focused AND (b) viewport is shrunken
+  // OR just (a) on platforms without visualViewport
+  const keyboardOpen = isMobile && editorFocused && (keyboardOffset > 50 || !window.visualViewport);
 
   const editor = useEditor({
     extensions: [
@@ -447,6 +445,8 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
     ],
     content,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onFocus: () => setEditorFocused(true),
+    onBlur: () => setEditorFocused(false),
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[400px]',
@@ -610,6 +610,10 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
 
       {/* Toolbar — sticky on desktop, floats above keyboard on mobile (only when keyboard is open) */}
       <div
+        onMouseDown={(e) => {
+          // Don't steal focus from editor when tapping toolbar
+          if (isMobile) e.preventDefault();
+        }}
         className={`md:sticky md:top-0 md:relative md:!translate-y-0 md:block z-30 md:z-10 bg-background/95 backdrop-blur-sm mb-0 md:mb-6 py-2 md:pb-2 px-3 md:-mx-10 md:px-10 border-t md:border-t-0 md:border-b border-border editor-mobile-toolbar ${
           isMobile ? (keyboardOpen ? 'fixed left-0 right-0' : 'hidden') : ''
         }`}
