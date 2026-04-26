@@ -177,16 +177,7 @@ def _task_progress(task: Task) -> int:
     all_values = sprint_progresses + direct_ratios
     if not all_values:
         return 0
-    result = int(round(sum(all_values) / len(all_values)))
-    # Debug — log what we're seeing
-    import logging
-    log = logging.getLogger("task_progress")
-    log.warning(
-        f"TASK[{task.title}] progress={result}% | sprints={sprint_progresses} direct_ratios={direct_ratios} | "
-        f"direct_gos={[(g.title, g.recurrence, len(g.entries)) for g in direct_gos]} | "
-        f"all_gos={[(g.title, g.sprint_id, g.recurrence, len(g.entries)) for g in task.gos]}"
-    )
-    return result
+    return int(round(sum(all_values) / len(all_values)))
 
 
 # ─── Serializers ─────────────────────────────────────────────────────────────

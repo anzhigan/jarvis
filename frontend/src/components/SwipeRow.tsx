@@ -47,6 +47,13 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
   };
   const close = () => setOffset(0);
 
+  // When swipe is disabled (e.g. while editing), reset offset and pass children through
+  // without the actions overlay or transform — this avoids layout glitches.
+  if (!enabled) {
+    if (offset !== 0) setOffset(0);
+    return <>{children}</>;
+  }
+
   return (
     <div className="relative overflow-hidden rounded-lg">
       {/* Actions behind */}

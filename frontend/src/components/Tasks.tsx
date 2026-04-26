@@ -392,8 +392,8 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
         </div>
       </div>
         );
-        return isMobile && !editing
-          ? <SwipeRow enabled onEdit={() => setEditing(true)} onDelete={() => setConfirmDelete(true)}>{cardBody}</SwipeRow>
+        return isMobile
+          ? <SwipeRow enabled={!editing} onEdit={() => setEditing(true)} onDelete={() => setConfirmDelete(true)}>{cardBody}</SwipeRow>
           : cardBody;
       })()}
     </>
@@ -683,8 +683,8 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
         </div>
       </div>
         );
-        return isMobile && !editing
-          ? <SwipeRow enabled onEdit={() => setEditing(true)} onDelete={() => setConfirmDelete(true)}>{sprintCard}</SwipeRow>
+        return isMobile
+          ? <SwipeRow enabled={!editing} onEdit={() => setEditing(true)} onDelete={() => setConfirmDelete(true)}>{sprintCard}</SwipeRow>
           : sprintCard;
       })()}
     </>

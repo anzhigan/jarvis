@@ -387,6 +387,24 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   const [editorFocused, setEditorFocused] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);  // px from bottom
+  const blurTimerRef = useRef<number | null>(null);
+
+  // Refocus editor on toolbar tap; blur is debounced so toolbar doesn't flicker
+  const handleEditorFocus = () => {
+    if (blurTimerRef.current !== null) {
+      clearTimeout(blurTimerRef.current);
+      blurTimerRef.current = null;
+    }
+    setEditorFocused(true);
+  };
+  const handleEditorBlur = () => {
+    // Delay — give time for tap on toolbar to refocus editor
+    if (blurTimerRef.current !== null) clearTimeout(blurTimerRef.current);
+    blurTimerRef.current = window.setTimeout(() => {
+      setEditorFocused(false);
+      blurTimerRef.current = null;
+    }, 200);
+  };
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -411,9 +429,9 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
     };
   }, [isMobile]);
 
-  // Keyboard is "open" when (a) editor focused AND (b) viewport is shrunken
-  // OR just (a) on platforms without visualViewport
-  const keyboardOpen = isMobile && editorFocused && (keyboardOffset > 50 || !window.visualViewport);
+  // Keyboard is "open" when editor is focused on mobile
+  // (Most reliable signal — visualViewport is unreliable across browsers)
+  const keyboardOpen = isMobile && editorFocused;
 
   const editor = useEditor({
     extensions: [
@@ -445,8 +463,8 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
     ],
     content,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
-    onFocus: () => setEditorFocused(true),
-    onBlur: () => setEditorFocused(false),
+    onFocus: handleEditorFocus,
+    onBlur: handleEditorBlur,
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[400px]',
@@ -613,6 +631,16 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
         onMouseDown={(e) => {
           // Don't steal focus from editor when tapping toolbar
           if (isMobile) e.preventDefault();
+        }}
+        onTouchStart={(e) => {
+          // iOS Safari: touchstart can blur editor before onMouseDown fires
+          if (isMobile) {
+            const tag = (e.target as HTMLElement).tagName.toLowerCase();
+            // Don't preventDefault on inputs/selects/textareas inside toolbar (color picker, etc.)
+            if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') {
+              e.preventDefault();
+            }
+          }
         }}
         className={`md:sticky md:top-0 md:relative md:!translate-y-0 md:block z-30 md:z-10 bg-background/95 backdrop-blur-sm mb-0 md:mb-6 py-2 md:pb-2 px-3 md:-mx-10 md:px-10 border-t md:border-t-0 md:border-b border-border editor-mobile-toolbar ${
           isMobile ? (keyboardOpen ? 'fixed left-0 right-0' : 'hidden') : ''
