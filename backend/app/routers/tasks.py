@@ -130,7 +130,6 @@ def _go_completion_ratio(g: Go, period_start: date_cls | None = None, period_end
             seen_weeks = set()
             for e in g.entries:
                 if e.value > 0 and start <= e.date <= end:
-                    # Week index from start
                     seen_weeks.add((e.date - start).days // 7)
             return min(1.0, len(seen_weeks) / possible_weeks)
         # Daily: count days with value > 0
@@ -138,7 +137,17 @@ def _go_completion_ratio(g: Go, period_start: date_cls | None = None, period_end
             1 for e in g.entries
             if e.value > 0 and start <= e.date <= end
         )
-        return min(1.0, done_days / possible_days)
+        ratio = min(1.0, done_days / possible_days)
+        # Debug log
+        import logging
+        log = logging.getLogger("go_ratio")
+        entries_summary = [(str(e.date), e.value) for e in g.entries]
+        log.warning(
+            f"GO[{g.title}] ratio={ratio:.3f} | created={g.created_at} | "
+            f"window=[{start} → {end}] possible={possible_days} done={done_days} | "
+            f"entries={entries_summary}"
+        )
+        return ratio
 
     # Non-recurring boolean
     if g.kind == "boolean":
