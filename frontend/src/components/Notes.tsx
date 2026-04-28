@@ -461,18 +461,18 @@ export default function Notes() {
                 await loadWays();
                 setSelection(null);
               }}
-              className="fixed top-2 left-2 z-50 h-12 w-12 flex items-center justify-center text-foreground/85 hover:text-foreground active:scale-90 transition-transform"
+              className="md:absolute md:top-3 md:left-2 fixed top-16 left-3 z-30 h-10 w-10 flex items-center justify-center rounded-full bg-background/90 backdrop-blur-sm border border-border text-foreground hover:bg-secondary active:scale-90 transition-all"
               title="Back"
               style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
             >
-              <ChevronLeft size={28} strokeWidth={2.2} />
+              <ChevronLeft size={22} strokeWidth={2} />
             </button>
-            {/* Floating save status — fixed so it stays visible too */}
-            <div className="fixed top-5 right-4 z-30 text-xs text-muted-foreground flex items-center gap-1 bg-background/85 backdrop-blur-md px-2 py-1 rounded-md border border-border">
+            {/* Floating save status */}
+            <div className="md:fixed md:top-5 md:right-4 fixed top-16 right-4 z-30 text-xs text-muted-foreground flex items-center gap-1 bg-background/90 backdrop-blur-sm px-2 py-1 rounded-full border border-border">
               {saving ? <><Loader2 size={12} className="animate-spin" /> Saving</> : editorState.dirty ? 'Unsaved' : 'Saved'}
             </div>
 
-            <div className="pl-14 pr-4 pt-4 pb-2">
+            <div className="pl-4 pr-4 pt-16 md:pt-4 md:pl-14 pb-2">
               <NoteTitle
                 key={currentNote.id + '-title'}
                 initial={currentNote.name}

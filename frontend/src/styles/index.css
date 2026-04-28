@@ -4,7 +4,7 @@
 @import './editor.css';
 
 :root {
-  --note-font-size: 18px;
+  --note-font-size: 16px;
 }
 
 .ProseMirror {
@@ -20,45 +20,114 @@
   }
 }
 
-/* Remove tap highlight on mobile */
-* {
-  -webkit-tap-highlight-color: transparent;
+/* === Global polish === */
+
+html, body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* iOS Safari: align date input content left (default centers it) */
-input[type="date"],
-input[type="datetime-local"],
-input[type="time"] {
-  -webkit-appearance: none;
-  appearance: none;
-  text-align: left;
-  font-family: inherit;
+body {
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.005em;
 }
 
-input[type="date"]::-webkit-date-and-time-value {
-  text-align: left;
-}
-
-/* Make the date picker indicator visible without weird padding on small screens */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 0.5;
-  cursor: pointer;
-}
-
-/* Smoother UI motion */
-button, a, .transition-all, .transition-colors, .transition-transform {
+/* Smooth defaults for interactive elements */
+button, a {
+  transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+  transition-duration: 150ms;
   transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Default transition speed slightly slower for elegance */
-button {
-  transition-duration: 200ms;
+/* Refined scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(24, 24, 27, 0.1);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(24, 24, 27, 0.2);
+  background-clip: padding-box;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  background-clip: padding-box;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+  background-clip: padding-box;
 }
 
 /* Card hover lift */
-.task-card-lift {
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+.card-lift {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.task-card-lift:hover {
+.card-lift:hover {
   transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Press feedback */
+.press {
+  transition: transform 80ms ease-out;
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+/* Focus ring — refined */
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline-offset: 1px;
+}
+
+/* Refined heading rhythm */
+h1 { letter-spacing: -0.02em; font-weight: 600; }
+h2 { letter-spacing: -0.015em; font-weight: 600; }
+h3 { letter-spacing: -0.01em; font-weight: 600; }
+
+/* Selection color */
+::selection {
+  background: rgba(91, 91, 214, 0.2);
+}
+
+/* Fade-in for content */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Subtle pulse for "today" indicators */
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.animate-pulse-subtle {
+  animation: subtlePulse 2s ease-in-out infinite;
+}
+
+/* Primary button hover */
+.bg-primary {
+  transition: background-color 150ms ease-out;
+}
+button.bg-primary:hover:not(:disabled) {
+  background-color: var(--primary-hover);
 }

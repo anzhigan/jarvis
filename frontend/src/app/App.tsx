@@ -76,7 +76,7 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="flex items-center px-3 md:px-4 h-14 border-b border-border flex-shrink-0 gap-2">
+      <header className="flex items-center px-3 md:px-5 h-13 border-b border-border flex-shrink-0 gap-2 bg-background/80 backdrop-blur-md sticky top-0 z-20" style={{ height: 52 }}>
         {/* Left: profile pill */}
         <div className="flex-1 min-w-0 flex items-center">
           <button
@@ -106,7 +106,7 @@ export default function App() {
         </div>
 
         {/* Center: main tabs */}
-        <nav className="flex items-center gap-0.5 flex-shrink-0">
+        <nav className="flex items-center gap-0 flex-shrink-0">
           {TABS.map((tabDef) => {
             const active = tab === tabDef.key;
             const Icon = tabDef.icon;
@@ -115,14 +115,14 @@ export default function App() {
               <button
                 key={tabDef.key}
                 onClick={() => setTab(tabDef.key)}
-                className={`flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium transition-all ${
+                className={`relative flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-medium ${
                   active
-                    ? 'bg-secondary text-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 title={label}
               >
-                <Icon size={16} />
+                <Icon size={15} strokeWidth={active ? 2.4 : 2} />
                 <span className="hidden sm:inline">{label}</span>
               </button>
             );

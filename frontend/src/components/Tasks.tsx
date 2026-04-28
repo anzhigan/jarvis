@@ -230,7 +230,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
       />
       {(() => {
         const cardBody = (
-    <div className={`group relative flex items-stretch rounded-md bg-card border border-border ${editing ? '' : 'overflow-hidden'}`}>
+    <div className={`group relative flex items-stretch rounded-md bg-card border border-border ${editing ? 'min-h-fit' : 'overflow-hidden'}`}>
         <div className="w-1 flex-shrink-0" style={{ backgroundColor: stripeColor }} />
         <div className="flex-1 p-2.5 min-w-0">
           <div className="flex items-center gap-2">
@@ -274,7 +274,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
                 )}
               </div>
             </div>
-            {!editing && availableSprints !== undefined && (
+            {!editing && (
               <button
                 onClick={() => setEditing(true)}
                 className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all flex-shrink-0"
@@ -1129,9 +1129,6 @@ function TaskCard({
         <>
           <div className="p-4 md:p-3.5">
             <div className="flex items-start gap-2 mb-2">
-              <div className="mt-0.5 flex-shrink-0">
-                <PriorityStars priority={task.priority} size={11} />
-              </div>
               <h4 className="flex-1 min-w-0 text-base md:text-sm font-medium leading-snug">{task.title}</h4>
               {!isMobile && (
                 <div className="flex items-center gap-0.5 transition-all">
@@ -1167,8 +1164,9 @@ function TaskCard({
             )}
 
             <div className="flex items-center justify-between">
-              <div className={`flex items-center gap-1 text-sm md:text-xs ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
-                {periodLabel && <><Calendar size={13} />{periodLabel}</>}
+              <div className={`flex items-center gap-2 text-sm md:text-xs ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {periodLabel && <span className="flex items-center gap-1"><Calendar size={13} />{periodLabel}</span>}
+                <PriorityStars priority={task.priority} size={11} />
               </div>
               <select value={task.status}
                 onChange={(e) => onUpdate({ status: e.target.value as TaskStatus })}
@@ -1206,8 +1204,8 @@ function TaskCard({
     </>
   );
 
-  const cls = `group bg-card border border-border rounded-lg hover:border-border-strong hover:shadow-sm transition-all overflow-hidden ${
-    isDragging ? 'opacity-40' : ''
+  const cls = `group bg-card border border-border rounded-xl card-lift overflow-hidden ${
+    isDragging ? 'opacity-40 scale-[0.98]' : ''
   } ${isMobile ? '' : 'cursor-grab active:cursor-grabbing'}`;
 
   if (isMobile) {
@@ -1945,16 +1943,16 @@ export default function Tasks() {
                         setDragOverStatus(null); setDraggingId(null);
                         if (id) updateTask(id, { status: key });
                       }}
-                      className={`rounded-xl border transition-all ${
-                        isDropTarget ? 'border-primary bg-primary/5' : 'border-border bg-secondary/20'
+                      className={`rounded-xl transition-all ${
+                        isDropTarget ? 'bg-accent ring-1 ring-primary/30' : 'bg-transparent'
                       }`}>
                       <button
                         onClick={() => isMobile && toggleCollapsed(key)}
-                        className={`w-full px-2.5 md:px-3 py-2 md:py-2.5 flex items-center justify-between transition-colors ${isMobile ? 'hover:bg-secondary/50' : 'cursor-default'}`}
+                        className={`w-full px-3 py-2.5 flex items-center justify-between ${isMobile ? 'hover:bg-secondary/50 rounded-t-xl' : 'cursor-default'}`}
                       >
                         <div className="flex items-center gap-2">
-                          <h3 className="text-xs md:text-sm font-semibold">{label}</h3>
-                          <span className="text-[10px] md:text-xs text-muted-foreground">{list.length}</span>
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</h3>
+                          <span className="text-[10px] text-muted-foreground/70 font-medium">{list.length}</span>
                         </div>
                         {isMobile && (collapsed.has(key)
                           ? <ChevronRight size={14} className="text-muted-foreground" />

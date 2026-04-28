@@ -429,9 +429,8 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
     };
   }, [isMobile]);
 
-  // Keyboard is "open" when editor is focused on mobile
-  // (Most reliable signal — visualViewport is unreliable across browsers)
-  const keyboardOpen = isMobile && editorFocused;
+  // editorFocused/onFocus/onBlur kept for future use; toolbar is always visible now
+
 
   const editor = useEditor({
     extensions: [
@@ -634,26 +633,23 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
         className="hidden"
       />
 
-      {/* Toolbar — sticky on desktop, floats above keyboard on mobile (only when keyboard is open) */}
+      {/* Toolbar — sticky on desktop top, fixed at bottom on mobile (always visible) */}
       <div
         onMouseDown={(e) => {
-          // Don't steal focus from editor when tapping toolbar
           if (isMobile) e.preventDefault();
         }}
         onTouchStart={(e) => {
-          // iOS Safari: touchstart can blur editor before onMouseDown fires
           if (isMobile) {
             const tag = (e.target as HTMLElement).tagName.toLowerCase();
-            // Don't preventDefault on inputs/selects/textareas inside toolbar (color picker, etc.)
             if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') {
               e.preventDefault();
             }
           }
         }}
-        className={`md:sticky md:top-0 md:relative md:!translate-y-0 md:block z-30 md:z-10 bg-background/95 backdrop-blur-sm mb-0 md:mb-6 py-2 md:pb-2 px-3 md:-mx-10 md:px-10 border-t md:border-t-0 md:border-b border-border editor-mobile-toolbar ${
-          isMobile ? (keyboardOpen ? 'fixed left-0 right-0' : 'hidden') : ''
+        className={`md:sticky md:top-0 md:relative md:!translate-y-0 z-30 md:z-10 bg-background/95 backdrop-blur-md py-2 md:pb-2 px-3 md:-mx-10 md:px-10 border-t md:border-t-0 md:border-b border-border editor-mobile-toolbar ${
+          isMobile ? 'fixed left-0 right-0' : ''
         }`}
-        style={isMobile && keyboardOpen ? { bottom: `${keyboardOffset}px` } : undefined}
+        style={isMobile ? { bottom: `${keyboardOffset}px` } : undefined}
       >
         <div className="flex items-center gap-0.5 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible md:pt-2 editor-toolbar-scroll">
           <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnCls(editor.isActive('bold'))} title="Bold">
@@ -840,7 +836,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
         </div>
       </div>
 
-      <div>
+      <div className="pb-24 md:pb-0">
         <EditorContent editor={editor} />
       </div>
     </div>
