@@ -1,830 +1,204 @@
+/**
+ * Analysis page — adapted for the new model (Goals / Routines / Sprints).
+ *
+ * Sections:
+ *  - KPI row (Active Goals, Done Goals, Routines today, Active Sprints)
+ *  - Productivity trend (overall routine completion % by day)
+ *  - Goal status distribution (donut)
+ *  - Per-Routine 30-day execution circles
+ *  - Active sprints with progress
+ *  - Year heatmap of routine entries
+ */
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
+  PieChart, Pie, Cell,
 } from 'recharts';
 import {
-  CheckCircle2,
-  Clock,
-  Loader2,
-  Target as TargetIcon,
-  Activity,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Flame,
-  Calendar,
-  Zap,
+  Loader2, Target as TargetIcon, CheckCircle2, Repeat as RepeatIcon, Zap,
+  TrendingUp, TrendingDown, Minus, Calendar,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+import { tasksApi, routinesApi, focusSprintsApi } from '../api/client';
+import type { Task, Routine, FocusSprint, RoutineScheduleType } from '../api/types';
 import { useT } from '../store/i18n';
-import { tasksApi } from '../api/client';
-import type { Task, Go, Sprint } from '../api/types';
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-function isoDay(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-function parseDate(s: string): Date { return new Date(s + 'T00:00:00'); }
-function daysBetween(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function todayDate(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  todo: '#94a3b8',
-  background: '#a78bfa',
-  in_progress: '#f59e0b',
-  done: '#10b981',
-};
-const STATUS_LABEL: Record<string, string> = {
-  todo: 'Backlog',
-  background: 'Background',
-  in_progress: 'In Progress',
-  done: 'Done',
-};
-const PRIORITY_COLORS: Record<string, string> = { low: '#94a3b8', medium: '#f59e0b', high: '#dc2626' };
-const PRIORITY_LABEL: Record<string, string> = { low: 'Low', medium: 'Medium', high: 'High' };
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ─── 4 Specialized KPI cards — each visually different ─────────────────────
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Card 1: Active tasks — dominated by a stacked bar of task statuses
-function ActiveTasksCard({ stats }: {
-  stats: { totalTasks: number; done: number; inProgress: number; backlog: number; background: number; activeSprints: number; totalSprints: number };
-}) {
-  const active = stats.inProgress + stats.backlog + stats.background;
-  const total = stats.totalTasks || 1;
-  const segs = [
-    { key: 'in_progress', value: stats.inProgress, color: '#f59e0b', label: 'In progress' },
-    { key: 'todo',        value: stats.backlog,    color: '#94a3b8', label: 'Backlog' },
-    { key: 'background',  value: stats.background, color: '#a78bfa', label: 'Background' },
-    { key: 'done',        value: stats.done,       color: '#10b981', label: 'Done' },
-  ].filter((s) => s.value > 0);
-
-  return (
-    <div className="relative p-4 rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-blue-400/5 to-transparent overflow-hidden">
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-muted-foreground font-medium">Active tasks</span>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400 bg-blue-500/15">
-          <TargetIcon size={17} />
-        </div>
-      </div>
-      <div className="flex items-baseline gap-1.5 mb-2">
-        <span className="text-4xl font-semibold tracking-tight">{active}</span>
-        <span className="text-xs text-muted-foreground">/ {stats.totalTasks} total</span>
-      </div>
-      {/* Stacked bar */}
-      <div className="h-2 bg-muted rounded-full overflow-hidden flex mb-2">
-        {segs.map((s) => (
-          <div
-            key={s.key}
-            className="h-full transition-all"
-            style={{ width: `${(s.value / total) * 100}%`, backgroundColor: s.color }}
-            title={`${s.label}: ${s.value}`}
-          />
-        ))}
-      </div>
-      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
-        {stats.activeSprints > 0 && (
-          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-600 dark:text-violet-400 font-medium">
-            <Zap size={9} /> {stats.activeSprints} sprint{stats.activeSprints !== 1 ? 's' : ''} active
-          </span>
-        )}
-        {stats.totalSprints > stats.activeSprints && (
-          <span>· {stats.totalSprints - stats.activeSprints} queued</span>
-        )}
-        {stats.totalSprints === 0 && <span>no sprints yet</span>}
-      </div>
-    </div>
-  );
+function dateIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// Card 2: Completed — big semi-circular progress arc
-function CompletedCard({ stats }: {
-  stats: { done: number; totalTasks: number; completionRate: number };
-}) {
-  // Semi-circular arc: svg path from left to right across top
-  // r=48, stroke-dasharray based on completion
-  const r = 48;
-  const circumference = Math.PI * r;
-  const offset = circumference * (1 - stats.completionRate / 100);
-
-  return (
-    <div className="relative p-4 rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-400/5 to-transparent overflow-hidden">
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-muted-foreground font-medium">Completed</span>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/15">
-          <CheckCircle2 size={17} />
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        {/* Circular gauge */}
-        <div className="relative w-[72px] h-[72px] flex-shrink-0">
-          <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-            <circle cx="60" cy="60" r={r} fill="none" stroke="var(--muted)" strokeWidth="9" />
-            <circle
-              cx="60" cy="60" r={r}
-              fill="none"
-              stroke="#10b981"
-              strokeWidth="9"
-              strokeLinecap="round"
-              strokeDasharray={`${circumference} ${circumference}`}
-              strokeDashoffset={offset}
-              style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center flex-col">
-            <div className="text-xl font-semibold leading-none">{stats.completionRate}%</div>
-            <div className="text-[9px] text-muted-foreground mt-0.5">done</div>
-          </div>
-        </div>
-        <div>
-          <div className="text-3xl font-semibold leading-none">{stats.done}</div>
-          <div className="text-[11px] text-muted-foreground mt-1">tasks completed</div>
-          <div className="text-[10px] text-muted-foreground mt-0.5">of {stats.totalTasks} total</div>
-        </div>
-      </div>
-    </div>
-  );
+function fmtDay(d: Date): string {
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-// Card 3: Avg progress — radial-ish gauge with milestones
-function AvgProgressCard({ stats }: {
-  stats: { avgProgress: number; totalTasks: number };
-}) {
-  const milestones = [25, 50, 75, 100];
-  return (
-    <div className="relative p-4 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent overflow-hidden">
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-muted-foreground font-medium">Avg progress</span>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-primary bg-primary/15">
-          <Clock size={17} />
-        </div>
-      </div>
-      <div className="flex items-baseline gap-2 mb-3">
-        <span className="text-4xl font-semibold tracking-tight">{stats.avgProgress}</span>
-        <span className="text-lg text-muted-foreground">%</span>
-      </div>
-      {/* Thick bar with milestone markers */}
-      <div className="relative h-3 bg-muted rounded-full overflow-visible mb-1">
-        <div
-          className="h-full bg-gradient-to-r from-primary/70 to-primary rounded-full transition-all"
-          style={{ width: `${stats.avgProgress}%` }}
-        />
-        {milestones.map((m) => (
-          <div
-            key={m}
-            className="absolute top-1/2 -translate-y-1/2 w-[2px] h-4 bg-background"
-            style={{ left: `${m}%` }}
-          />
-        ))}
-      </div>
-      <div className="flex justify-between text-[9px] text-muted-foreground px-0.5">
-        <span>0%</span>
-        <span>25</span>
-        <span>50</span>
-        <span>75</span>
-        <span>100%</span>
-      </div>
-      <div className="text-[10px] text-muted-foreground mt-1.5">
-        across {stats.totalTasks} {stats.totalTasks === 1 ? 'task' : 'tasks'}
-      </div>
-    </div>
-  );
-}
-
-// Card 4: Done this week — mini sparkline of last 7 days
-function WeekCompletionsCard({ last7Counts, weekTrend, total }: {
-  last7Counts: number[];
-  weekTrend: number;
-  total: number;
-}) {
-  const max = Math.max(1, ...last7Counts);
-  const W = 120;
-  const H = 38;
-  const step = W / (last7Counts.length - 1 || 1);
-
-  // Build path
-  const pts = last7Counts.map((v, i) => ({ x: i * step, y: H - (v / max) * H }));
-  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const areaD = `${pathD} L${W},${H} L0,${H} Z`;
-
-  return (
-    <div className="relative p-4 rounded-xl border border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-violet-400/5 to-transparent overflow-hidden">
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-muted-foreground font-medium">Done this week</span>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-violet-600 dark:text-violet-400 bg-violet-500/15">
-          <Flame size={17} />
-        </div>
-      </div>
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <div>
-          <div className="text-4xl font-semibold tracking-tight leading-none">{total}</div>
-          <div className="text-[10px] text-muted-foreground mt-1">Go completions</div>
-        </div>
-        {/* Sparkline */}
-        <svg width={W} height={H} className="flex-shrink-0">
-          <defs>
-            <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
-          <path d={areaD} fill="url(#sparkGrad)" />
-          <path d={pathD} fill="none" stroke="#8b5cf6" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-          {pts.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r={1.5} fill="#8b5cf6" />
-          ))}
-        </svg>
-      </div>
-      <div className="flex items-center gap-1 text-[11px] mt-2">
-        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium ${
-          weekTrend > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' :
-          weekTrend < 0 ? 'bg-red-500/15 text-red-600 dark:text-red-400' :
-          'bg-muted text-muted-foreground'
-        }`}>
-          {weekTrend > 0 ? <TrendingUp size={10} /> :
-           weekTrend < 0 ? <TrendingDown size={10} /> : <Minus size={10} />}
-          {weekTrend > 0 ? '+' : ''}{weekTrend}%
-        </span>
-        <span className="text-muted-foreground text-[10px]">vs last week</span>
-      </div>
-    </div>
-  );
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// GitHub-style year heatmap
-// ═══════════════════════════════════════════════════════════════════════════
-function YearHeatmap({ gos }: { gos: Go[] }) {
-  const days = 365;
-  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-
-  // Build value map per day: count of completed gos on that day (boolean=1, numeric=1 if value>0)
-  const dayValues = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const g of gos) {
-      for (const e of g.entries) {
-        if (e.value > 0) {
-          map.set(e.date, (map.get(e.date) ?? 0) + 1);
-        }
-      }
+/** Same logic as backend _routine_due_on. */
+function isRoutineDueOn(r: Routine, target: Date): boolean {
+  if (r.is_paused) return false;
+  if (r.start_date) {
+    const s = new Date(r.start_date); s.setHours(0, 0, 0, 0);
+    if (target < s) return false;
+  }
+  if (r.end_date) {
+    const e = new Date(r.end_date); e.setHours(0, 0, 0, 0);
+    if (target > e) return false;
+  }
+  switch (r.schedule_type) {
+    case 'daily': return true;
+    case 'weekly_on_days': {
+      const dow = target.getDay();
+      const allowed = (r.schedule_days || '').split(',').filter(Boolean).map((s) => parseInt(s, 10));
+      return allowed.includes(dow);
     }
-    return map;
-  }, [gos]);
-
-  // Build 7×53 grid, starting from (today - 364 days) adjusted to Monday
-  const cells = useMemo(() => {
-    const start = new Date(today);
-    start.setDate(start.getDate() - days + 1);
-    // Align start to previous Monday
-    const startDayOfWeek = (start.getDay() + 6) % 7; // 0=Mon, 6=Sun
-    start.setDate(start.getDate() - startDayOfWeek);
-
-    const weeks: { date: Date; value: number; inRange: boolean }[][] = [];
-    const cur = new Date(start);
-    while (cur <= today) {
-      const week: { date: Date; value: number; inRange: boolean }[] = [];
-      for (let i = 0; i < 7; i++) {
-        const inRange = cur >= new Date(today.getTime() - days * 86_400_000) && cur <= today;
-        const v = inRange ? (dayValues.get(isoDay(cur)) ?? 0) : 0;
-        week.push({ date: new Date(cur), value: v, inRange });
-        cur.setDate(cur.getDate() + 1);
-      }
-      weeks.push(week);
+    case 'every_n_days': {
+      const created = new Date(r.created_at); created.setHours(0, 0, 0, 0);
+      const diff = Math.floor((target.getTime() - created.getTime()) / 86400000);
+      return diff >= 0 && diff % Math.max(1, r.schedule_n_days) === 0;
     }
-    return weeks;
-  }, [today, dayValues]);
-
-  // Intensity scale
-  const maxValue = useMemo(() => {
-    let m = 0;
-    for (const v of dayValues.values()) if (v > m) m = v;
-    return m;
-  }, [dayValues]);
-
-  const colorFor = (v: number, inRange: boolean) => {
-    if (!inRange) return 'transparent';
-    if (v === 0) return 'var(--muted)';
-    if (maxValue <= 1) return '#34d399';
-    const ratio = v / maxValue;
-    if (ratio > 0.75) return '#059669';
-    if (ratio > 0.5) return '#10b981';
-    if (ratio > 0.25) return '#34d399';
-    return '#6ee7b7';
-  };
-
-  const totalDone = Array.from(dayValues.values()).reduce((s, v) => s + v, 0);
-  const activeDays = Array.from(dayValues.values()).filter((v) => v > 0).length;
-
-  // Current streak
-  const streak = useMemo(() => {
-    let s = 0;
-    const d = new Date(today);
-    while (dayValues.has(isoDay(d)) && (dayValues.get(isoDay(d)) ?? 0) > 0) {
-      s += 1;
-      d.setDate(d.getDate() - 1);
-    }
-    return s;
-  }, [today, dayValues]);
-
-  // Month labels
-  const monthLabels: { label: string; col: number }[] = [];
-  let prevMonth = -1;
-  cells.forEach((week, wi) => {
-    const month = week[0].date.getMonth();
-    if (month !== prevMonth && week[0].inRange) {
-      monthLabels.push({ label: new Date(2000, month, 1).toLocaleString(undefined, { month: 'short' }), col: wi });
-      prevMonth = month;
-    }
-  });
-
-  return (
-    <div className="p-5 bg-card border border-border rounded-xl">
-      <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
-        <div>
-          <h3 className="text-sm font-semibold flex items-center gap-1.5">
-            <Flame size={14} className="text-amber-500" />
-            Activity heatmap
-          </h3>
-          <p className="text-xs text-muted-foreground">Last 365 days of your productivity</p>
-        </div>
-        <div className="flex gap-4 text-xs">
-          <div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Current streak</div>
-            <div className="font-semibold text-base">{streak} <span className="text-xs font-normal text-muted-foreground">days</span></div>
-          </div>
-          <div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Active days</div>
-            <div className="font-semibold text-base">{activeDays}</div>
-          </div>
-          <div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Total completions</div>
-            <div className="font-semibold text-base">{totalDone}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <div className="inline-block min-w-full">
-          {/* Month labels */}
-          <div className="flex gap-[3px] mb-1 pl-6 relative h-3">
-            {cells.map((_, wi) => {
-              const label = monthLabels.find((m) => m.col === wi);
-              return (
-                <div key={wi} className="w-[11px] text-[9px] text-muted-foreground">
-                  {label?.label}
-                </div>
-              );
-            })}
-          </div>
-          {/* Grid */}
-          <div className="flex gap-[3px]">
-            {/* Day labels column */}
-            <div className="flex flex-col gap-[3px] mr-1 text-[9px] text-muted-foreground pt-[1px]">
-              {['Mon', '', 'Wed', '', 'Fri', '', ''].map((d, i) => (
-                <div key={i} className="h-[11px] leading-[11px]">{d}</div>
-              ))}
-            </div>
-            {cells.map((week, wi) => (
-              <div key={wi} className="flex flex-col gap-[3px]">
-                {week.map((day, di) => (
-                  <div
-                    key={di}
-                    className="w-[11px] h-[11px] rounded-[2px]"
-                    style={{ backgroundColor: colorFor(day.value, day.inRange), border: day.inRange ? undefined : 'none' }}
-                    title={day.inRange ? `${isoDay(day.date)} — ${day.value} completion${day.value !== 1 ? 's' : ''}` : ''}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-          {/* Legend */}
-          <div className="flex items-center gap-1.5 mt-3 text-[10px] text-muted-foreground">
-            <span>Less</span>
-            <div className="w-[10px] h-[10px] rounded-[2px] bg-muted" />
-            <div className="w-[10px] h-[10px] rounded-[2px]" style={{ backgroundColor: '#6ee7b7' }} />
-            <div className="w-[10px] h-[10px] rounded-[2px]" style={{ backgroundColor: '#34d399' }} />
-            <div className="w-[10px] h-[10px] rounded-[2px]" style={{ backgroundColor: '#10b981' }} />
-            <div className="w-[10px] h-[10px] rounded-[2px]" style={{ backgroundColor: '#059669' }} />
-            <span>More</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Active sprints list with time remaining
-// ═══════════════════════════════════════════════════════════════════════════
-function ActiveSprints({ tasks }: { tasks: Task[] }) {
-  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-  const activeSprints: (Sprint & { taskTitle: string })[] = [];
-  for (const t of tasks) {
-    for (const s of t.sprints) {
-      const start = parseDate(s.start_date);
-      const end = parseDate(s.end_date);
-      if (start <= today && today <= end) {
-        activeSprints.push({ ...s, taskTitle: t.title });
-      }
+    case 'times_per_week': {
+      const start = new Date(target);
+      start.setDate(start.getDate() - target.getDay());
+      const startMs = start.getTime();
+      const targetMs = target.getTime();
+      const done = r.entries.filter((e) => {
+        if (e.value <= 0) return false;
+        const d = new Date(e.date); d.setHours(0, 0, 0, 0);
+        const ms = d.getTime();
+        return ms >= startMs && ms <= targetMs;
+      }).length;
+      return done < r.schedule_count_per_period;
     }
   }
-  activeSprints.sort((a, b) => +parseDate(a.end_date) - +parseDate(b.end_date));
+  return false;
+}
 
-  if (activeSprints.length === 0) return null;
+function scheduleLabel(t: RoutineScheduleType): string {
+  return { daily: 'daily', weekly_on_days: 'weekdays', every_n_days: 'every N days', times_per_week: 'X×/week' }[t];
+}
 
+// ─── KPI Card ────────────────────────────────────────────────────────────────
+
+function KpiCard({
+  label, value, sub, icon, color = 'text-primary',
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  icon: React.ReactNode;
+  color?: string;
+}) {
   return (
-    <div className="p-5 bg-card border border-border rounded-xl">
-      <h3 className="text-sm font-semibold flex items-center gap-1.5 mb-1">
-        <Zap size={14} className="text-violet-500" />
-        Active sprints
-      </h3>
-      <p className="text-xs text-muted-foreground mb-4">{activeSprints.length} sprint{activeSprints.length !== 1 ? 's' : ''} currently running</p>
-
-      <div className="space-y-3">
-        {activeSprints.map((s) => {
-          const daysLeft = daysBetween(today, parseDate(s.end_date));
-          const totalDays = daysBetween(parseDate(s.start_date), parseDate(s.end_date)) + 1;
-          const elapsed = totalDays - daysLeft;
-          const timePct = Math.min(100, Math.max(0, (elapsed / totalDays) * 100));
-          const behind = timePct > s.progress + 10;
-
-          return (
-            <div key={s.id} className="p-3 rounded-lg bg-background border border-border">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-1 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{s.title}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">{s.taskTitle}</div>
-                </div>
-                <div className="flex-shrink-0 text-right">
-                  <div className="text-xs font-semibold">{s.progress}%</div>
-                  <div className={`text-[10px] ${daysLeft < 3 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {daysLeft === 0 ? 'ends today' : `${daysLeft}d left`}
-                  </div>
-                </div>
-              </div>
-              {/* Dual-bar: progress vs time elapsed */}
-              <div className="relative h-2 bg-muted rounded-full overflow-hidden">
-                <div className="absolute inset-y-0 left-0 transition-all" style={{ width: `${timePct}%`, backgroundColor: behind ? 'rgba(239, 68, 68, 0.2)' : 'rgba(148, 163, 184, 0.2)' }} />
-                <div className="absolute inset-y-0 left-0 transition-all rounded-full" style={{ width: `${s.progress}%`, backgroundColor: s.color }} />
-              </div>
-              {behind && (
-                <div className="text-[10px] text-destructive mt-1">⚠ behind schedule</div>
-              )}
-            </div>
-          );
-        })}
+    <div className="p-4 bg-card border border-border rounded-xl">
+      <div className="flex items-start justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className={color}>{icon}</span>
       </div>
+      <div className="text-2xl font-semibold">{value}</div>
+      {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Distribution — pie chart with tab switcher
-// ═══════════════════════════════════════════════════════════════════════════
-function DistributionCard({ tasks }: { tasks: Task[] }) {
-  const [mode, setMode] = useState<'status' | 'priority' | 'tag'>('status');
+// ─── Per-Routine 30-day grid (now circles!) ──────────────────────────────────
 
-  const data = useMemo(() => {
-    if (mode === 'status') {
-      const counts: Record<string, number> = { todo: 0, background: 0, in_progress: 0, done: 0 };
-      tasks.forEach((t) => { counts[t.status] = (counts[t.status] ?? 0) + 1; });
-      return Object.entries(counts)
-        .filter(([, v]) => v > 0)
-        .map(([k, v]) => ({ name: STATUS_LABEL[k], value: v, color: STATUS_COLORS[k] }));
-    }
-    if (mode === 'priority') {
-      const result: { name: string; value: number; color: string }[] = [];
-      for (const p of ['high', 'medium', 'low'] as const) {
-        const c = tasks.filter((t) => t.priority === p).length;
-        if (c > 0) result.push({ name: PRIORITY_LABEL[p], value: c, color: PRIORITY_COLORS[p] });
-      }
-      return result;
-    }
-    // tag
-    const byTag = new Map<string, { name: string; color: string; count: number }>();
-    for (const t of tasks) {
-      for (const tag of t.tags ?? []) {
-        const ex = byTag.get(tag.id);
-        if (ex) ex.count += 1;
-        else byTag.set(tag.id, { name: tag.name, color: tag.color, count: 1 });
-      }
-    }
-    return [...byTag.values()].sort((a, b) => b.count - a.count)
-      .map((t) => ({ name: t.name, value: t.count, color: t.color }));
-  }, [tasks, mode]);
-
-  const total = data.reduce((s, d) => s + d.value, 0);
-
-  return (
-    <div className="p-5 bg-card border border-border rounded-xl">
-      <div className="flex items-start justify-between mb-4 gap-2 flex-wrap">
-        <div>
-          <h3 className="text-sm font-semibold">Breakdown</h3>
-          <p className="text-xs text-muted-foreground">Tasks distribution</p>
-        </div>
-        <div className="flex text-[11px] bg-muted rounded-md p-0.5">
-          <button onClick={() => setMode('status')}
-            className={`px-2.5 h-6 rounded ${mode === 'status' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
-            Status
-          </button>
-          <button onClick={() => setMode('priority')}
-            className={`px-2.5 h-6 rounded ${mode === 'priority' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
-            Priority
-          </button>
-          <button onClick={() => setMode('tag')}
-            className={`px-2.5 h-6 rounded ${mode === 'tag' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
-            Tags
-          </button>
-        </div>
+function PerRoutineGrid({ routines }: { routines: Routine[] }) {
+  if (routines.length === 0) {
+    return (
+      <div className="p-6 bg-card border border-border rounded-xl text-center text-muted-foreground">
+        <RepeatIcon size={28} className="mx-auto mb-2 opacity-40" />
+        <p className="text-sm">No routines yet. Create some on the Routines page.</p>
       </div>
+    );
+  }
 
-      {total === 0 ? (
-        <div className="h-48 flex items-center justify-center text-xs text-muted-foreground">No data</div>
-      ) : (
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="w-40 h-40 flex-shrink-0 relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={data} innerRadius={50} outerRadius={72} paddingAngle={2} dataKey="value">
-                  {data.map((d, i) => <Cell key={i} fill={d.color} />)}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '12px' }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center">
-                <div className="text-2xl font-semibold">{total}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</div>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 min-w-[180px] space-y-1.5">
-            {data.map((d) => {
-              const pct = total > 0 ? (d.value / total) * 100 : 0;
-              return (
-                <div key={d.name} className="flex items-center gap-2 text-xs">
-                  <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: d.color }} />
-                  <span className="flex-1 truncate">{d.name}</span>
-                  <span className="text-muted-foreground text-[11px]">{pct.toFixed(0)}%</span>
-                  <span className="font-medium w-6 text-right">{d.value}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Productivity area chart (30 days)
-// ═══════════════════════════════════════════════════════════════════════════
-function ProductivityTrend({ gos }: { gos: Go[] }) {
-  const DAYS = 30;
-  const now = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-
-  // Pick up to N daily Gos — each becomes a background line
-  const MAX_BG_LINES = 6;
-  const dailyGos = useMemo(() => {
-    const ds = gos.filter((g) => g.recurrence === 'daily' && g.kind === 'boolean');
-    // If too many, take first MAX_BG_LINES (by created_at ascending already)
-    return ds.slice(0, MAX_BG_LINES);
-  }, [gos]);
-
-  // Each row in `rows`: { label, score, go_<id>: 0|100, ... }
-  // overall "score" = avg across all gos that day (0 | 100)
-  // Each daily go: 100 if done on this day else 0 (step-like line, visually it rises/falls)
-  const rows = useMemo(() => {
-    const result: Record<string, any>[] = [];
-    for (let i = DAYS - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const key = isoDay(d);
-
-      // Overall
-      let completed = 0;
-      let tracked = 0;
-      for (const g of gos) {
-        const created = new Date(g.created_at);
-        created.setHours(0, 0, 0, 0);
-        if (created > d) continue;
-        tracked += 1;
-        const entry = g.entries.find((e) => e.date === key);
-        if (entry && entry.value > 0) completed += 1;
-      }
-      const score = tracked > 0 ? Math.round((completed / tracked) * 100) : 0;
-
-      const row: Record<string, any> = {
-        date: key,
-        label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-        score,
-      };
-
-      // Per-daily-go value — 100 if done on this day, otherwise undefined (recharts skips)
-      for (const g of dailyGos) {
-        const created = new Date(g.created_at);
-        created.setHours(0, 0, 0, 0);
-        if (created > d) continue;
-        const entry = g.entries.find((e) => e.date === key);
-        const v = entry && entry.value > 0 ? 100 : 0;
-        row[`go_${g.id}`] = v;
-      }
-
-      result.push(row);
-    }
-    return result;
-  }, [now, gos, dailyGos]);
-
-  const scores = rows.map((r) => r.score as number).filter((v) => v > 0);
-  const avg = scores.length > 0 ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : 0;
-  const last7 = rows.slice(-7).map((r) => r.score as number);
-  const last7Avg = last7.length > 0 ? Math.round(last7.reduce((s, v) => s + v, 0) / last7.length) : 0;
-  const prev7 = rows.slice(-14, -7).map((r) => r.score as number);
-  const prev7Avg = prev7.length > 0 ? Math.round(prev7.reduce((s, v) => s + v, 0) / prev7.length) : 0;
-  const trend = last7Avg - prev7Avg;
-
-  // Distinct muted colors for bg lines
-  const bgColors = ['#94a3b8', '#cbd5e1', '#a8a29e', '#d4d4d8', '#a3a3a3', '#bfbfbf'];
-
-  return (
-    <div className="p-5 bg-card border border-border rounded-xl">
-      <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
-        <div>
-          <h3 className="text-sm font-semibold flex items-center gap-1.5">
-            <Activity size={14} className="text-primary" />
-            Productivity trend
-            <InfoTooltip text="For each day in the last 30 days: % = (number of Go items completed that day) ÷ (number of Go items active on that day, i.e. created on or before that day). Averages and trend are calculated over the last 30 / 7 days." />
-          </h3>
-          <p className="text-xs text-muted-foreground">Overall completion rate across all Go</p>
-        </div>
-        <div className="flex items-end gap-4 text-right">
-          <div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">30-day avg</div>
-            <div className="text-lg font-semibold">{avg}%</div>
-          </div>
-          <div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Last 7 days</div>
-            <div className="text-lg font-semibold">
-              {last7Avg}%{' '}
-              <span className={`text-xs font-medium ${trend > 0 ? 'text-emerald-500' : trend < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                {trend > 0 ? '+' : ''}{trend}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="h-56">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={rows} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
-            <defs>
-              <linearGradient id="prodFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#4f46e5" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.35} vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} interval={Math.max(1, Math.floor(DAYS / 8))} stroke="var(--border)" />
-            <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} domain={[0, 100]} stroke="var(--border)" tickFormatter={(v) => `${v}%`} />
-            <Tooltip
-              contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '12px' }}
-              formatter={(v: number) => [`${v}%`, 'Overall']}
-            />
-            {/* Main overall line + area */}
-            <Area type="monotone" dataKey="score" stroke="#4f46e5" strokeWidth={2.5} fill="url(#prodFill)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// InfoTooltip — small ⓘ icon, tooltip on hover
-// ═══════════════════════════════════════════════════════════════════════════
-function InfoTooltip({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <span className="relative inline-flex">
-      <button
-        type="button"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-muted text-muted-foreground hover:bg-secondary text-[10px] font-semibold"
-        aria-label="Info"
-      >
-        ?
-      </button>
-      {open && (
-        <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-50 px-2.5 py-1.5 rounded-md bg-popover border border-border shadow-lg text-[11px] text-foreground whitespace-normal w-56 text-left leading-tight">
-          {text}
-        </span>
-      )}
-    </span>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PerGoCharts — small chart per individual daily Go (last 30 days)
-// ═══════════════════════════════════════════════════════════════════════════
-function PerGoCharts({ gos }: { gos: Go[] }) {
-  const dailyGos = useMemo(
-    () => gos.filter((g) => g.recurrence === 'daily' && g.kind === 'boolean'),
-    [gos]
-  );
-
-  if (dailyGos.length === 0) return null;
-
-  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  const today = todayDate();
   const DAYS = 30;
 
   return (
     <div className="p-5 bg-card border border-border rounded-xl">
-      <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div>
           <h3 className="text-sm font-semibold flex items-center gap-1.5">
-            <TargetIcon size={14} className="text-primary" />
+            <RepeatIcon size={14} className="text-primary" />
             Daily habits — last {DAYS} days
           </h3>
-          <p className="text-xs text-muted-foreground">One row per recurring Go</p>
+          <p className="text-xs text-muted-foreground">Each row is a routine. Today on the left.</p>
         </div>
       </div>
 
-      <div className="space-y-2.5">
-        {dailyGos.map((g) => {
-          const created = new Date(g.created_at);
+      <div className="space-y-3 overflow-x-auto">
+        {routines.map((r) => {
+          const created = new Date(r.created_at);
           created.setHours(0, 0, 0, 0);
           const entryMap = new Map<string, number>();
-          for (const e of g.entries) entryMap.set(e.date, e.value);
+          for (const e of r.entries) entryMap.set(e.date, e.value);
 
-          // Build cells (LEFT = today, RIGHT = past — matching DailyStreak)
-          const cells: { date: string; value: number; isToday: boolean; before: boolean }[] = [];
+          // LEFT = today, RIGHT = past — same as Routines streak
+          const cells: { date: string; value: number; isToday: boolean; before: boolean; due: boolean }[] = [];
           for (let i = 0; i < DAYS; i++) {
             const d = new Date(today);
             d.setDate(d.getDate() - i);
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const key = `${y}-${m}-${day}`;
+            const key = dateIso(d);
             cells.push({
               date: key,
               value: entryMap.get(key) ?? 0,
               isToday: i === 0,
               before: d < created,
+              due: isRoutineDueOn(r, d),
             });
           }
-          const eligible = cells.filter((c) => !c.before).length;
+          const eligible = cells.filter((c) => !c.before && c.due).length;
           const done = cells.filter((c) => !c.before && c.value > 0).length;
-          const pct = eligible > 0 ? Math.round(100 * done / eligible) : 0;
 
           return (
-            <div key={g.id} className="flex items-center gap-3">
-              {/* Title + count */}
+            <div key={r.id} className="flex items-center gap-3">
               <div className="w-32 md:w-40 flex-shrink-0 min-w-0">
                 <div className="text-xs font-medium truncate flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: g.color || '#10b981' }} />
-                  <span className="truncate">{g.title}</span>
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
+                  <span className="truncate">{r.title}</span>
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {done}/{eligible} <span className="opacity-60">· {pct}%</span>
+                <div className="text-[10px] text-muted-foreground flex items-center gap-1 flex-wrap">
+                  <span>{scheduleLabel(r.schedule_type)}</span>
+                  {!r.is_paused && eligible > 0 && (
+                    <>
+                      <span>·</span>
+                      <span className="font-medium text-foreground">{done}/{eligible}</span>
+                    </>
+                  )}
+                  {r.is_paused && <span className="text-amber-600 dark:text-amber-400">paused</span>}
                 </div>
               </div>
-              {/* Cells */}
-              <div className="flex gap-[3px] items-center flex-1 min-w-0 overflow-hidden">
+              {/* Circles (matches Go DailyStreak style) */}
+              <div className="flex gap-1 items-center min-w-0">
                 {cells.map((c) => {
-                  let cls = 'bg-muted/60';
+                  let cls = 'bg-muted/40';
+                  let inner: React.ReactNode = null;
+                  let style: React.CSSProperties | undefined;
                   if (c.before) cls = 'bg-muted/20';
-                  else if (c.value > 0) cls = '';
-                  else if (c.isToday) cls = 'bg-card border border-primary';
-                  else cls = 'bg-rose-400/40 dark:bg-rose-600/30';
-                  const style = (!c.before && c.value > 0)
-                    ? { backgroundColor: g.color || '#10b981' }
-                    : undefined;
+                  else if (c.value > 0) {
+                    cls = '';
+                    inner = <span className="text-white text-[8px]">✓</span>;
+                    style = { backgroundColor: r.color };
+                  } else if (c.isToday) cls = 'bg-card border-2 border-primary';
+                  else if (c.due) cls = 'bg-rose-400/40 dark:bg-rose-600/30';
+                  else cls = 'bg-muted/30';
                   return (
                     <div
                       key={c.date}
-                      title={`${c.date}${c.before ? ' (before start)' : (c.value > 0 ? ' — done' : c.isToday ? ' — today' : ' — missed')}`}
-                      className={`flex-1 h-5 rounded-sm ${cls} ${c.isToday ? 'ring-1 ring-primary' : ''}`}
+                      title={`${c.date}${c.before ? ' — before start' : (c.value > 0 ? ' — done' : c.due ? ' — missed' : ' — not due')}`}
+                      className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center transition-all ${cls} ${c.isToday ? 'scale-110' : ''}`}
                       style={style}
-                    />
+                    >
+                      {inner}
+                    </div>
                   );
                 })}
               </div>
@@ -833,292 +207,497 @@ function PerGoCharts({ gos }: { gos: Go[] }) {
         })}
       </div>
 
-      <div className="text-[10px] text-muted-foreground mt-3 pt-3 border-t border-border flex items-center gap-1">
-        <span>Left = today, right = {DAYS} days ago</span>
+      <div className="text-[10px] text-muted-foreground mt-3 pt-3 border-t border-border flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center gap-1">
+          <span className="w-3 h-3 rounded-full bg-emerald-500" /> done
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="w-3 h-3 rounded-full bg-rose-400/40 dark:bg-rose-600/30" /> missed
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="w-3 h-3 rounded-full bg-muted/30" /> not due
+        </span>
       </div>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Compact Gantt — only active tasks, cleaner design
-// ═══════════════════════════════════════════════════════════════════════════
-function CompactGantt({ tasks }: { tasks: Task[] }) {
-  const now = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-  const activeTasks = useMemo(() =>
-    tasks.filter((t) => t.status !== 'done' && (t.due_date || t.start_date))
-  , [tasks]);
+// ─── Productivity Trend ──────────────────────────────────────────────────────
 
-  const range = useMemo(() => {
-    if (activeTasks.length === 0) return null;
-    let min = new Date(now); min.setDate(min.getDate() - 3);
-    let max = new Date(now); max.setDate(max.getDate() + 14);
-    for (const t of activeTasks) {
-      if (t.start_date) {
-        const s = parseDate(t.start_date);
-        if (s < min) min = s;
+function ProductivityTrend({ routines }: { routines: Routine[] }) {
+  const data = useMemo(() => {
+    const today = todayDate();
+    const points: { date: string; pct: number; done: number; total: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dKey = dateIso(d);
+      let dueCount = 0;
+      let doneCount = 0;
+      for (const r of routines) {
+        const created = new Date(r.created_at);
+        created.setHours(0, 0, 0, 0);
+        if (d < created) continue;
+        if (!isRoutineDueOn(r, d)) continue;
+        dueCount += 1;
+        const entry = r.entries.find((e) => e.date === dKey);
+        if (entry && entry.value > 0) doneCount += 1;
       }
-      if (t.due_date) {
-        const d = parseDate(t.due_date);
-        if (d > max) max = d;
-      }
+      points.push({
+        date: `${d.getMonth() + 1}/${d.getDate()}`,
+        pct: dueCount > 0 ? Math.round(100 * doneCount / dueCount) : 0,
+        done: doneCount,
+        total: dueCount,
+      });
     }
-    min.setHours(0, 0, 0, 0); max.setHours(0, 0, 0, 0);
-    const days = Math.max(daysBetween(min, max), 7);
-    return { start: min, end: new Date(min.getTime() + days * 86_400_000), days };
-  }, [activeTasks, now]);
+    return points;
+  }, [routines]);
 
-  if (!range || activeTasks.length === 0) return null;
-
-  const sorted = [...activeTasks].sort((a, b) => {
-    const ad = a.due_date ? +parseDate(a.due_date) : Infinity;
-    const bd = b.due_date ? +parseDate(b.due_date) : Infinity;
-    return ad - bd;
-  });
-  const nowPct = (daysBetween(range.start, now) / range.days) * 100;
+  const recentAvg = data.slice(-7).reduce((s, d) => s + d.pct, 0) / 7;
+  const olderAvg = data.slice(0, 7).reduce((s, d) => s + d.pct, 0) / 7;
+  const trend = recentAvg > olderAvg + 5 ? 'up' : recentAvg < olderAvg - 5 ? 'down' : 'flat';
 
   return (
     <div className="p-5 bg-card border border-border rounded-xl">
-      <h3 className="text-sm font-semibold flex items-center gap-1.5 mb-1">
-        <Calendar size={14} className="text-blue-500" />
-        Active timeline
-      </h3>
-      <p className="text-xs text-muted-foreground mb-4">{sorted.length} task{sorted.length !== 1 ? 's' : ''} in progress</p>
+      <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">Productivity trend</h3>
+          <p className="text-xs text-muted-foreground">% of routines completed when due (30 days)</p>
+        </div>
+        <div className="flex items-center gap-1 text-xs">
+          {trend === 'up' && <><TrendingUp size={14} className="text-emerald-500" /><span className="text-emerald-500 font-medium">{Math.round(recentAvg)}%</span></>}
+          {trend === 'down' && <><TrendingDown size={14} className="text-rose-500" /><span className="text-rose-500 font-medium">{Math.round(recentAvg)}%</span></>}
+          {trend === 'flat' && <><Minus size={14} className="text-muted-foreground" /><span className="text-muted-foreground font-medium">{Math.round(recentAvg)}%</span></>}
+          <span className="text-muted-foreground">last 7d avg</span>
+        </div>
+      </div>
+      <div className="h-48">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+            <defs>
+              <linearGradient id="prodFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} interval={4} />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+            <Tooltip
+              contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '12px' }}
+              formatter={(v: number, _: string, ctx: any) => [`${v}% (${ctx.payload.done}/${ctx.payload.total})`, 'Done']}
+            />
+            <Area type="monotone" dataKey="pct" stroke="var(--primary)" strokeWidth={2.5} fill="url(#prodFill)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
 
-      <div className="overflow-x-auto">
-        <div className="min-w-[500px]">
-          {/* Today line + position label */}
-          <div className="relative h-5 mb-1">
-            {nowPct >= 0 && nowPct <= 100 && (
-              <div className="absolute top-0 text-[10px] text-primary font-medium" style={{ left: `calc(${nowPct}% + 128px)`, transform: 'translateX(-50%)' }}>
-                Today
+// ─── Goal status distribution ────────────────────────────────────────────────
+
+function GoalDistribution({ goals }: { goals: Task[] }) {
+  const data = useMemo(() => {
+    const counts = { backlog: 0, active: 0, paused: 0, done: 0 };
+    for (const g of goals) {
+      const k = g.status as keyof typeof counts;
+      if (k in counts) counts[k] += 1;
+      else counts.backlog += 1;
+    }
+    return [
+      { name: 'Backlog', value: counts.backlog, color: '#94a3b8' },
+      { name: 'Active', value: counts.active, color: '#4f46e5' },
+      { name: 'Paused', value: counts.paused, color: '#f59e0b' },
+      { name: 'Done', value: counts.done, color: '#10b981' },
+    ].filter((d) => d.value > 0);
+  }, [goals]);
+
+  if (data.length === 0) {
+    return (
+      <div className="p-5 bg-card border border-border rounded-xl text-center text-muted-foreground">
+        <TargetIcon size={28} className="mx-auto mb-2 opacity-40" />
+        <p className="text-sm">No goals yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-5 bg-card border border-border rounded-xl">
+      <h3 className="text-sm font-semibold mb-3">Goals by status</h3>
+      <div className="flex items-center gap-4">
+        <div className="w-32 h-32 flex-shrink-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={data} dataKey="value" innerRadius={35} outerRadius={55} paddingAngle={2}>
+                {data.map((d, i) => <Cell key={i} fill={d.color} />)}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex-1 space-y-1.5">
+          {data.map((d) => (
+            <div key={d.name} className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                <span>{d.name}</span>
               </div>
-            )}
-          </div>
-
-          <div className="space-y-2 relative">
-            {/* Vertical today-line across all rows */}
-            {nowPct >= 0 && nowPct <= 100 && (
-              <div className="absolute top-0 bottom-0 w-[2px] bg-primary/40 z-10 pointer-events-none rounded-full" style={{ left: `calc(${nowPct}% + 128px)` }} />
-            )}
-            {sorted.map((task) => {
-              const startDate = task.start_date ? parseDate(task.start_date) : new Date(task.created_at);
-              startDate.setHours(0, 0, 0, 0);
-              const dueDate = task.due_date ? parseDate(task.due_date) : now;
-              const startPct = Math.max(0, (daysBetween(range.start, startDate) / range.days) * 100);
-              const endPct = Math.min(100, (daysBetween(range.start, dueDate) / range.days) * 100);
-              const widthPct = Math.max(1, endPct - startPct);
-              const isOverdue = dueDate < now;
-              const statusColor = STATUS_COLORS[task.status] ?? '#94a3b8';
-
-              return (
-                <div key={task.id} className="flex items-center gap-3 text-xs">
-                  <div className="w-32 flex-shrink-0 flex items-center gap-1.5 truncate">
-                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusColor }} />
-                    <span className="truncate">{task.title}</span>
-                  </div>
-                  <div className="flex-1 relative h-7">
-                    <div
-                      className="absolute top-1 bottom-1 rounded-md flex items-center px-2 text-[10px] font-medium transition-all"
-                      style={{
-                        left: `${startPct}%`,
-                        width: `${widthPct}%`,
-                        backgroundColor: isOverdue ? 'rgb(239, 68, 68)' : statusColor,
-                        color: 'white',
-                        minWidth: '20px',
-                      }}
-                      title={`${task.title} — ${startDate.toLocaleDateString()} → ${dueDate.toLocaleDateString()}`}
-                    >
-                      {task.progress > 0 && widthPct > 10 && (
-                        <span className="text-[9px] opacity-90">{task.progress}%</span>
-                      )}
-                    </div>
-                    {/* Progress overlay inside bar */}
-                    {task.progress > 0 && (
-                      <div
-                        className="absolute top-1 bottom-1 rounded-md bg-white/25"
-                        style={{
-                          left: `${startPct}%`,
-                          width: `${(widthPct * task.progress) / 100}%`,
-                          minWidth: task.progress > 0 ? '2px' : 0,
-                        }}
-                      />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+              <span className="font-medium">{d.value}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Main
-// ═══════════════════════════════════════════════════════════════════════════
-export default function Metrics() {
-  const t = useT();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+// ─── Active timeline (timeline of active goals + sprints with dates) ─────────
 
-  const load = async () => {
-    try {
-      const t = await tasksApi.list();
-      setTasks(t);
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to load');
-    } finally {
-      setLoading(false);
-    }
-  };
+function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprint[] }) {
+  const today = todayDate();
+  const activeGoals = goals.filter((g) => g.status === 'active' && (g.start_date || g.due_date));
+  const activeSprints = sprints.filter((s) => {
+    const e = new Date(s.end_date); e.setHours(0, 0, 0, 0);
+    return e >= today;
+  });
 
-  useEffect(() => { load(); }, []);
-
-  const { allGos, last7Counts, stats, trend } = useMemo(() => {
-    const allGos: Go[] = [];
-    tasks.forEach((t) => {
-      t.gos.forEach((g) => allGos.push(g));
-      t.sprints.forEach((s) => s.gos.forEach((g) => allGos.push(g)));
-    });
-
-    const statusCounts = { todo: 0, background: 0, in_progress: 0, done: 0 };
-    tasks.forEach((t) => { statusCounts[t.status] = (statusCounts[t.status] ?? 0) + 1; });
-
-    // Trend: week-over-week completion
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const week1End = today;
-    const week1Start = new Date(today); week1Start.setDate(week1Start.getDate() - 6);
-    const week2End = new Date(week1Start); week2End.setDate(week2End.getDate() - 1);
-    const week2Start = new Date(week2End); week2Start.setDate(week2Start.getDate() - 6);
-
-    let week1Done = 0; let week2Done = 0;
-    // Also count per-day completions for last-7 sparkline
-    const last7Counts: number[] = Array(7).fill(0);
-    for (const g of allGos) {
-      for (const e of g.entries) {
-        if (e.value <= 0) continue;
-        const ed = parseDate(e.date);
-        if (ed >= week1Start && ed <= week1End) {
-          week1Done += 1;
-          const diff = Math.floor((ed.getTime() - week1Start.getTime()) / 86_400_000);
-          if (diff >= 0 && diff < 7) last7Counts[diff] += 1;
-        }
-        else if (ed >= week2Start && ed <= week2End) week2Done += 1;
-      }
-    }
-    const weekTrend = week2Done > 0
-      ? Math.round(((week1Done - week2Done) / week2Done) * 100)
-      : (week1Done > 0 ? 100 : 0);
-
-    const avgProgress = tasks.length > 0
-      ? Math.round(tasks.reduce((s, t) => s + (t.progress ?? 0), 0) / tasks.length)
-      : 0;
-
-    const completionRate = tasks.length > 0
-      ? Math.round((statusCounts.done / tasks.length) * 100)
-      : 0;
-
-    // Sprint stats
-    let activeSprints = 0;
-    let totalSprints = 0;
-    tasks.forEach((t) => {
-      t.sprints.forEach((s) => {
-        totalSprints += 1;
-        const start = parseDate(s.start_date);
-        const end = parseDate(s.end_date);
-        if (start <= today && today <= end) activeSprints += 1;
-      });
-    });
-
-    return {
-      allGos,
-      last7Counts,
-      stats: {
-        totalTasks: tasks.length,
-        done: statusCounts.done,
-        inProgress: statusCounts.in_progress,
-        backlog: statusCounts.todo,
-        background: statusCounts.background,
-        totalGos: allGos.length,
-        avgProgress,
-        completionRate,
-        week1Done,
-        activeSprints,
-        totalSprints,
-      },
-      trend: { weekTrend },
-    };
-  }, [tasks]);
-
-  if (loading) {
-    return <div className="size-full flex items-center justify-center"><Loader2 size={24} className="animate-spin text-muted-foreground" /></div>;
+  if (activeGoals.length === 0 && activeSprints.length === 0) {
+    return null;
   }
 
-  const hasData = stats.totalTasks > 0 || stats.totalGos > 0;
+  // Compute a visual range — 30 days back, 60 days forward
+  const rangeStart = new Date(today); rangeStart.setDate(rangeStart.getDate() - 7);
+  const rangeEnd = new Date(today); rangeEnd.setDate(rangeEnd.getDate() + 60);
+  const totalMs = rangeEnd.getTime() - rangeStart.getTime();
+
+  type Item = { id: string; title: string; color: string; start: Date; end: Date; type: 'goal' | 'sprint' };
+  const items: Item[] = [];
+  for (const g of activeGoals) {
+    const start = g.start_date ? new Date(g.start_date) : today;
+    const end = g.due_date ? new Date(g.due_date) : new Date(today.getTime() + 7 * 86400000);
+    items.push({ id: g.id, title: g.title, color: '#4f46e5', start, end, type: 'goal' });
+  }
+  for (const s of activeSprints) {
+    items.push({ id: s.id, title: s.title, color: s.color, start: new Date(s.start_date), end: new Date(s.end_date), type: 'sprint' });
+  }
+
+  // Sort by start date
+  items.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  // Build day labels for header (every 7 days)
+  const dayLabels: { offset: number; label: string }[] = [];
+  for (let d = 0; d <= 60; d += 7) {
+    const dt = new Date(today); dt.setDate(dt.getDate() + d);
+    const offset = ((dt.getTime() - rangeStart.getTime()) / totalMs) * 100;
+    dayLabels.push({ offset, label: fmtDay(dt) });
+  }
+
+  const todayPct = ((today.getTime() - rangeStart.getTime()) / totalMs) * 100;
+
+  return (
+    <div className="p-5 bg-card border border-border rounded-xl">
+      <h3 className="text-sm font-semibold mb-3">Active timeline</h3>
+
+      {/* Header with date labels */}
+      <div className="relative h-5 mb-2 text-[10px] text-muted-foreground">
+        {dayLabels.map((dl, i) => (
+          <span
+            key={i}
+            className="absolute -translate-x-1/2 whitespace-nowrap"
+            style={{ left: `${dl.offset}%` }}
+          >
+            {dl.label}
+          </span>
+        ))}
+      </div>
+
+      <div className="relative space-y-1.5">
+        {/* Today indicator */}
+        <div
+          className="absolute top-0 bottom-0 w-px bg-primary z-10"
+          style={{ left: `${todayPct}%` }}
+        >
+          <span className="absolute -top-4 -translate-x-1/2 text-[9px] font-semibold text-primary">today</span>
+        </div>
+
+        {items.map((it) => {
+          const startMs = Math.max(it.start.getTime(), rangeStart.getTime());
+          const endMs = Math.min(it.end.getTime(), rangeEnd.getTime());
+          if (endMs < startMs) return null;
+          const left = ((startMs - rangeStart.getTime()) / totalMs) * 100;
+          const width = ((endMs - startMs) / totalMs) * 100;
+          return (
+            <div key={`${it.type}-${it.id}`} className="relative h-7">
+              <div
+                className="absolute h-7 rounded-md flex items-center px-2 text-[11px] font-medium text-white truncate"
+                style={{
+                  left: `${left}%`,
+                  width: `${Math.max(width, 3)}%`,
+                  backgroundColor: it.color,
+                  opacity: 0.9,
+                }}
+                title={`${it.type === 'sprint' ? '⚡ ' : '🎯 '}${it.title} (${dateIso(it.start)} → ${dateIso(it.end)})`}
+              >
+                <span className="truncate">{it.title}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Active sprints list ─────────────────────────────────────────────────────
+
+function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
+  const today = dateIso(todayDate());
+  const active = useMemo(
+    () => sprints.filter((s) => s.start_date <= today && s.end_date >= today),
+    [sprints, today]
+  );
+
+  if (active.length === 0) {
+    return (
+      <div className="p-5 bg-card border border-border rounded-xl text-center text-muted-foreground">
+        <Zap size={28} className="mx-auto mb-2 opacity-40" />
+        <p className="text-sm">No active sprints.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-5 bg-card border border-border rounded-xl">
+      <h3 className="text-sm font-semibold mb-3">Active sprints</h3>
+      <div className="space-y-2.5">
+        {active.map((s) => {
+          const start = new Date(s.start_date);
+          const end = new Date(s.end_date);
+          const total = (end.getTime() - start.getTime()) / 86400000 + 1;
+          const elapsed = (todayDate().getTime() - start.getTime()) / 86400000 + 1;
+          const pct = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 0;
+          const counts = { goal: 0, step: 0, go: 0, routine: 0 };
+          for (const it of s.items) counts[it.item_type] = (counts[it.item_type] || 0) + 1;
+
+          return (
+            <div key={s.id} className="border border-border rounded-md p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="w-1 h-4 rounded-full" style={{ backgroundColor: s.color }} />
+                <span className="text-sm font-medium flex-1 truncate">{s.title}</span>
+                <span className="text-[10px] text-muted-foreground">{Math.round(pct)}%</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-2">
+                <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: s.color }} />
+              </div>
+              <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                {counts.goal > 0 && <span>🎯 {counts.goal}</span>}
+                {counts.step > 0 && <span>✓ {counts.step}</span>}
+                {counts.go > 0 && <span>⊚ {counts.go}</span>}
+                {counts.routine > 0 && <span>🔄 {counts.routine}</span>}
+                {s.items.length === 0 && <span className="italic">empty</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Year heatmap of routine entries ─────────────────────────────────────────
+
+function YearHeatmap({ routines }: { routines: Routine[] }) {
+  const today = todayDate();
+  const start = new Date(today);
+  start.setDate(start.getDate() - 364);
+
+  const entriesByDate = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of routines) {
+      for (const e of r.entries) {
+        if (e.value > 0) m.set(e.date, (m.get(e.date) || 0) + 1);
+      }
+    }
+    return m;
+  }, [routines]);
+
+  const cells = useMemo(() => {
+    const list: { date: string; count: number; weekday: number; weekIdx: number }[] = [];
+    let weekIdx = 0;
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const key = dateIso(d);
+      const wd = d.getDay();
+      if (i > 0 && wd === 0) weekIdx += 1;
+      list.push({ date: key, count: entriesByDate.get(key) || 0, weekday: wd, weekIdx });
+    }
+    return list;
+  }, [start, entriesByDate]);
+
+  const maxCount = Math.max(1, ...cells.map((c) => c.count));
+  const totalDone = cells.reduce((s, c) => s + (c.count > 0 ? 1 : 0), 0);
+
+  const weeks: Record<number, typeof cells> = {};
+  for (const c of cells) {
+    if (!weeks[c.weekIdx]) weeks[c.weekIdx] = [];
+    weeks[c.weekIdx].push(c);
+  }
+
+  function shade(count: number): string {
+    if (count === 0) return 'bg-muted/40';
+    const ratio = count / maxCount;
+    if (ratio > 0.66) return 'bg-emerald-500';
+    if (ratio > 0.33) return 'bg-emerald-500/70';
+    return 'bg-emerald-500/40';
+  }
+
+  return (
+    <div className="p-5 bg-card border border-border rounded-xl">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 className="text-sm font-semibold">Year activity</h3>
+        <span className="text-xs text-muted-foreground">{totalDone} active days</span>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="flex gap-[2px]" style={{ minWidth: '720px' }}>
+          {Object.entries(weeks).map(([wkIdx, week]) => (
+            <div key={wkIdx} className="flex flex-col gap-[2px]">
+              {Array.from({ length: 7 }).map((_, day) => {
+                const cell = week.find((c) => c.weekday === day);
+                if (!cell) return <div key={day} className="w-2.5 h-2.5" />;
+                return (
+                  <div
+                    key={day}
+                    title={`${cell.date}: ${cell.count} routine${cell.count !== 1 ? 's' : ''} done`}
+                    className={`w-2.5 h-2.5 rounded-sm ${shade(cell.count)}`}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ───────────────────────────────────────────────────────────────
+
+export default function Analysis() {
+  useT();
+  const [goals, setGoals] = useState<Task[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [sprints, setSprints] = useState<FocusSprint[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const [g, r, s] = await Promise.all([
+          tasksApi.list(),
+          routinesApi.list(),
+          focusSprintsApi.list(),
+        ]);
+        setGoals(g);
+        setRoutines(r);
+        setSprints(s);
+      } catch (e: any) {
+        toast.error(e?.detail ?? 'Failed to load analytics');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const today = dateIso(todayDate());
+
+  const kpis = useMemo(() => {
+    const activeGoals = goals.filter((g) => g.status === 'active').length;
+    const doneGoals = goals.filter((g) => g.status === 'done').length;
+    const dueToday = routines.filter((r) => isRoutineDueOn(r, todayDate())).length;
+    const doneTodayCount = routines.filter((r) => {
+      if (r.is_paused) return false;
+      const e = r.entries.find((x) => x.date === today);
+      return e && e.value > 0;
+    }).length;
+    const activeSprints = sprints.filter((s) => s.start_date <= today && s.end_date >= today).length;
+    return { activeGoals, doneGoals, dueToday, doneTodayCount, activeSprints };
+  }, [goals, routines, sprints, today]);
+
+  const activeRoutines = useMemo(() => routines.filter((r) => !r.is_paused), [routines]);
+
+  if (loading) {
+    return (
+      <div className="size-full flex items-center justify-center">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="size-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6 space-y-5">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t('analysis.title')}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{t('analysis.subtitle')}</p>
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold">Analysis</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Goals, routines & sprints overview</p>
         </div>
 
-        {!hasData ? (
-          <div className="border border-dashed border-border rounded-xl py-20 text-center">
-            <Activity size={32} className="mx-auto mb-3 text-muted-foreground opacity-60" />
-            <p className="text-base font-medium mb-1">{t('analysis.empty')}</p>
-            <p className="text-sm text-muted-foreground">{t('analysis.emptySub')}</p>
-          </div>
-        ) : (
-          <>
-            {/* KPI row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <ActiveTasksCard stats={stats} />
-              <CompletedCard stats={stats} />
-              <AvgProgressCard stats={stats} />
-              <WeekCompletionsCard
-                last7Counts={last7Counts}
-                weekTrend={trend.weekTrend}
-                total={stats.week1Done}
-              />
-            </div>
+        {/* KPI row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <KpiCard
+            label="Active goals"
+            value={kpis.activeGoals}
+            sub={`${kpis.doneGoals} done`}
+            icon={<TargetIcon size={16} />}
+          />
+          <KpiCard
+            label="Done goals"
+            value={kpis.doneGoals}
+            sub={`out of ${goals.length}`}
+            icon={<CheckCircle2 size={16} />}
+            color="text-emerald-500"
+          />
+          <KpiCard
+            label="Routines today"
+            value={`${kpis.doneTodayCount}/${kpis.dueToday}`}
+            sub="completed"
+            icon={<RepeatIcon size={16} />}
+            color="text-violet-500"
+          />
+          <KpiCard
+            label="Active sprints"
+            value={kpis.activeSprints}
+            sub={`${sprints.length} total`}
+            icon={<Zap size={16} />}
+            color="text-amber-500"
+          />
+        </div>
 
-            {/* Heatmap full width */}
-            <YearHeatmap gos={allGos} />
+        {/* Two-column layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          <ProductivityTrend routines={activeRoutines} />
+          <GoalDistribution goals={goals} />
+        </div>
 
-            {/* Two-column: trends + active sprints */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2">
-                <ProductivityTrend gos={allGos} />
-              </div>
-              <div>
-                <ActiveSprints tasks={tasks} />
-                {/* fallback when no active sprints */}
-                {tasks.every((t) => t.sprints.every((s) => {
-                  const tod = new Date(); tod.setHours(0,0,0,0);
-                  return parseDate(s.end_date) < tod || parseDate(s.start_date) > tod;
-                })) && (
-                  <div className="p-5 bg-card border border-border rounded-xl text-center">
-                    <Zap size={20} className="mx-auto mb-2 text-muted-foreground opacity-60" />
-                    <p className="text-sm text-muted-foreground">No active sprints</p>
-                  </div>
-                )}
-              </div>
-            </div>
+        {/* Active timeline */}
+        <div className="mb-3">
+          <ActiveTimeline goals={goals} sprints={sprints} />
+        </div>
 
-            {/* Per-Go daily charts */}
-            <PerGoCharts gos={allGos} />
+        {/* Per-routine grid full width */}
+        <div className="mb-3">
+          <PerRoutineGrid routines={activeRoutines} />
+        </div>
 
-            {/* Gantt full width */}
-            <CompactGantt tasks={tasks} />
+        {/* Active sprints */}
+        <div className="mb-3">
+          <ActiveSprintsCard sprints={sprints} />
+        </div>
 
-            {/* Distribution */}
-            <DistributionCard tasks={tasks} />
-          </>
-        )}
+        {/* Year heatmap */}
+        <div className="mb-3">
+          <YearHeatmap routines={routines} />
+        </div>
       </div>
     </div>
   );

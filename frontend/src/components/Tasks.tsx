@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import SwipeRow from './SwipeRow';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
-import { tasksApi, gosApi, sprintsApi, routinesApi } from '../api/client';
+import { tasksApi, gosApi, sprintsApi, routinesApi, tagsApi } from '../api/client';
 import type { Task, TaskPriority, TaskStatus, Go, GoKind, GoRecurrence, Sprint, Routine } from '../api/types';
 import { useT } from '../store/i18n';
 
@@ -1597,6 +1597,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
 export default function Tasks() {
   const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'tasks' | 'go' | 'sprint'>('tasks');
 
@@ -1605,6 +1606,7 @@ export default function Tasks() {
   const [newStart, setNewStart] = useState('');
   const [newDue, setNewDue] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [newTagIds, setNewTagIds] = useState<string[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -1631,8 +1633,12 @@ export default function Tasks() {
 
   const load = async () => {
     try {
-      const data = await tasksApi.list();
+      const [data, tagsList] = await Promise.all([
+        tasksApi.list(),
+        tagsApi.list().catch(() => []),
+      ]);
       setTasks(data);
+      setAllTags(tagsList);
     } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
     finally { setLoading(false); }
   };
@@ -1661,12 +1667,17 @@ export default function Tasks() {
   const createTask = async () => {
     if (!newTitle.trim()) return;
     try {
-      await tasksApi.create({
+      const created = await tasksApi.create({
         title: newTitle.trim(), priority: newPriority,
         start_date: newStart || null, due_date: newDue || null,
         description: newDescription || '',
       } as any);
-      setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription('');
+      // Attach selected tags
+      for (const tagId of newTagIds) {
+        try { await tagsApi.attachTag(created.id, tagId); }
+        catch { /* ignore individual */ }
+      }
+      setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription(''); setNewTagIds([]);
       setShowCreateForm(false);
       await load();
     } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
@@ -1877,6 +1888,32 @@ export default function Tasks() {
                     rows={2}
                     className="w-full px-3 py-2 rounded-md border border-border bg-input-background text-sm resize-none"
                   />
+                  {allTags.length > 0 && (
+                    <div>
+                      <label className="text-[11px] text-muted-foreground block mb-1">Tags</label>
+                      <div className="flex flex-wrap gap-1">
+                        {allTags.map((tag) => {
+                          const sel = newTagIds.includes(tag.id);
+                          return (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() => setNewTagIds((s) => sel ? s.filter((id) => id !== tag.id) : [...s, tag.id])}
+                              className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-medium border transition-colors ${
+                                sel
+                                  ? 'text-white border-transparent'
+                                  : 'border-border bg-card text-foreground hover:bg-secondary'
+                              }`}
+                              style={sel ? { backgroundColor: tag.color } : undefined}
+                            >
+                              {!sel && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />}
+                              {tag.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="min-w-0">
                       <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
