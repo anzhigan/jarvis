@@ -125,3 +125,40 @@ export interface Task {
   created_at: string;
   updated_at: string;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Routine — recurring activity (replaces old daily/weekly Go)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type RoutineScheduleType = 'daily' | 'weekly_on_days' | 'every_n_days' | 'times_per_week';
+
+export interface RoutineEntry {
+  id: string;
+  routine_id: string;
+  date: string;
+  value: number;
+}
+
+export interface Routine {
+  id: string;
+  user_id: string;
+  goal_id: string | null;
+  step_id: string | null;
+  title: string;
+  description: string;
+  color: string;
+  schedule_type: RoutineScheduleType;
+  schedule_days: string;        // CSV "0,2,4" for Mon/Wed/Fri (0=Sun..6=Sat)
+  schedule_n_days: number;
+  schedule_count_per_period: number;
+  schedule_period: 'week' | 'month';
+  start_date: string | null;
+  end_date: string | null;
+  is_paused: boolean;
+  kind: 'boolean' | 'numeric';
+  unit: string;
+  target_value: number | null;
+  entries: RoutineEntry[];
+  created_at: string;
+  updated_at: string;
+}

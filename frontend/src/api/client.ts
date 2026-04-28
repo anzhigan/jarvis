@@ -292,3 +292,45 @@ export const aiApi = {
     body: JSON.stringify(data),
   }),
 };
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Routines API
+// ═══════════════════════════════════════════════════════════════════════════
+import type { Routine, RoutineEntry } from './types';
+
+export const routinesApi = {
+  list: () => request<Routine[]>('/routines'),
+
+  create: (data: {
+    title: string;
+    description?: string;
+    color?: string;
+    goal_id?: string | null;
+    step_id?: string | null;
+    schedule_type?: 'daily' | 'weekly_on_days' | 'every_n_days' | 'times_per_week';
+    schedule_days?: string;
+    schedule_n_days?: number;
+    schedule_count_per_period?: number;
+    schedule_period?: 'week' | 'month';
+    start_date?: string | null;
+    end_date?: string | null;
+    kind?: 'boolean' | 'numeric';
+    unit?: string;
+    target_value?: number | null;
+  }) => request<Routine>('/routines', { method: 'POST', body: JSON.stringify(data) }),
+
+  update: (id: string, data: Partial<Routine>) =>
+    request<Routine>(`/routines/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  delete: (id: string) => request<void>(`/routines/${id}`, { method: 'DELETE' }),
+
+  upsertEntry: (id: string, date: string, value: number) =>
+    request<RoutineEntry>(`/routines/${id}/entries`, {
+      method: 'POST',
+      body: JSON.stringify({ date, value }),
+    }),
+
+  deleteEntry: (id: string, date: string) =>
+    request<void>(`/routines/${id}/entries/${date}`, { method: 'DELETE' }),
+};

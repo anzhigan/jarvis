@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
-import { Loader2, Moon, Sun, BookOpen, CheckSquare, BarChart3, User, PanelLeft, Brain } from 'lucide-react';
+import { Loader2, Moon, Sun, BookOpen, CheckSquare, BarChart3, User, PanelLeft, Brain, Repeat } from 'lucide-react';
 import Notes from '../components/Notes';
 import Tasks from '../components/Tasks';
+import Routines from '../components/Routines';
 import Dashboard from '../components/Metrics';
 import Profile from '../components/Profile';
 import AuthPage from '../components/AuthPage';
@@ -10,11 +11,12 @@ import AITutorPage from '../components/AITutorPage';
 import { useAuthStore } from '../store/auth';
 import { useT } from '../store/i18n';
 
-type Tab = 'notes' | 'tasks' | 'tutor' | 'analysis' | 'profile';
+type Tab = 'notes' | 'tasks' | 'routines' | 'tutor' | 'analysis' | 'profile';
 
 const TABS: { key: Tab; labelKey: string; icon: React.ElementType }[] = [
   { key: 'notes',    labelKey: 'nav.notes',    icon: BookOpen },
   { key: 'tasks',    labelKey: 'nav.tasks',    icon: CheckSquare },
+  { key: 'routines', labelKey: 'nav.routines', icon: Repeat },
   // { key: 'tutor',    labelKey: 'nav.tutor',    icon: Brain },  // hidden temporarily
   { key: 'analysis', labelKey: 'nav.analysis', icon: BarChart3 },
 ];
@@ -141,6 +143,7 @@ export default function App() {
       <main className="flex-1 overflow-hidden relative">
         <div className={`absolute inset-0 ${tab === 'notes' ? '' : 'hidden'}`}><Notes /></div>
         <div className={`absolute inset-0 ${tab === 'tasks' ? '' : 'hidden'}`}><Tasks /></div>
+        <div className={`absolute inset-0 ${tab === 'routines' ? '' : 'hidden'}`}><Routines /></div>
         <div className={`absolute inset-0 ${tab === 'tutor' ? '' : 'hidden'}`}><AITutorPage /></div>
         <div className={`absolute inset-0 ${tab === 'analysis' ? '' : 'hidden'}`}><Dashboard /></div>
         <div className={`absolute inset-0 ${tab === 'profile' ? '' : 'hidden'}`}><Profile /></div>
