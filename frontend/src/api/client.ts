@@ -175,6 +175,8 @@ export const tasksApi = {
 
 // ── Todos ─────────────────────────────────────────────────────────────────────
 export const gosApi = {
+  list: () => request<Go[]>('/gos'),
+
   create: (data: {
     title: string;
     kind?: GoKind;
@@ -333,4 +335,41 @@ export const routinesApi = {
 
   deleteEntry: (id: string, date: string) =>
     request<void>(`/routines/${id}/entries/${date}`, { method: 'DELETE' }),
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FocusSprints API — new Sprint (temporal focus, NOT a step inside Goal)
+// ═══════════════════════════════════════════════════════════════════════════
+import type { FocusSprint, FocusSprintItemType } from './types';
+
+export const focusSprintsApi = {
+  list: () => request<FocusSprint[]>('/focus-sprints'),
+
+  create: (data: {
+    title: string;
+    description?: string;
+    start_date: string;
+    end_date: string;
+    color?: string;
+  }) => request<FocusSprint>('/focus-sprints', { method: 'POST', body: JSON.stringify(data) }),
+
+  update: (id: string, data: Partial<FocusSprint>) =>
+    request<FocusSprint>(`/focus-sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  delete: (id: string) => request<void>(`/focus-sprints/${id}`, { method: 'DELETE' }),
+
+  addItem: (id: string, item: {
+    item_type: FocusSprintItemType;
+    goal_id?: string | null;
+    step_id?: string | null;
+    go_id?: string | null;
+    routine_id?: string | null;
+  }) => request<FocusSprint>(`/focus-sprints/${id}/items`, {
+    method: 'POST',
+    body: JSON.stringify(item),
+  }),
+
+  removeItem: (id: string, itemId: string) =>
+    request<void>(`/focus-sprints/${id}/items/${itemId}`, { method: 'DELETE' }),
 };

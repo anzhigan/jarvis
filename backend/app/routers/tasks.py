@@ -479,6 +479,22 @@ async def upsert_go_entry(go_id: uuid.UUID, body: GoEntryUpsert, user: User = De
     return GoEntryOut(id=e.id, go_id=g.id, date=body.date, value=e.value)
 
 
+@router.get("/gos", response_model=list[GoOut])
+async def list_all_gos(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all (non-routine-legacy) Gos for the user — used by sprint pickers."""
+    q = await db.execute(
+        select(Go).where(Go.user_id == user.id, Go.item_kind != 'routine_legacy')
+        .options(selectinload(Go.entries), selectinload(Go.task), selectinload(Go.sprint))
+        .order_by(Go.created_at.desc())
+    )
+    return [_go_dict(g, task_title=g.task.title if g.task else None,
+                     sprint_title=g.sprint.title if g.sprint else None)
+            for g in q.scalars().all()]
+
+
 @router.get("/gos/agenda")
 async def gos_agenda(
     section: str = "today",  # today | future | past

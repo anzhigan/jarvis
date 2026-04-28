@@ -162,3 +162,35 @@ export interface Routine {
   created_at: string;
   updated_at: string;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FocusSprint — temporal focus collection (NEW Sprint, separate from Step)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type FocusSprintItemType = 'goal' | 'step' | 'go' | 'routine';
+
+export interface FocusSprintItem {
+  id: string;
+  item_type: FocusSprintItemType;
+  goal_id: string | null;
+  step_id: string | null;
+  go_id: string | null;
+  routine_id: string | null;
+  // Hydrated by backend
+  title: string | null;
+  color: string | null;
+}
+
+export interface FocusSprint {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  color: string;
+  is_archived: boolean;
+  items: FocusSprintItem[];
+  created_at: string;
+  updated_at: string;
+}
