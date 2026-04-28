@@ -198,3 +198,71 @@ async def delete_entry(
     if entry:
         await db.delete(entry)
         await db.commit()
+
+
+# ─── Agenda — what is due today / future / past for routines ───────────────────
+
+def _routine_due_on(r: Routine, target: date_cls) -> bool:
+    """Same logic as the frontend isRoutineDueToday but for any date."""
+    if r.is_paused:
+        return False
+    if r.start_date and target < r.start_date:
+        return False
+    if r.end_date and target > r.end_date:
+        return False
+    if r.schedule_type == "daily":
+        return True
+    if r.schedule_type == "weekly_on_days":
+        # 0=Sun..6=Sat (matches JS Date.getDay())
+        # Python date.weekday() is 0=Mon..6=Sun, so map
+        py_dow = target.weekday()  # Mon=0..Sun=6
+        js_dow = (py_dow + 1) % 7  # Sun=0..Sat=6
+        days = [int(x) for x in (r.schedule_days or "").split(",") if x.strip()]
+        return js_dow in days
+    if r.schedule_type == "every_n_days":
+        if not r.created_at:
+            return False
+        diff = (target - r.created_at.date()).days
+        return diff >= 0 and diff % max(1, r.schedule_n_days) == 0
+    if r.schedule_type == "times_per_week":
+        # Show until weekly quota is met for the target's week
+        # Week starts on Sunday (matching JS getDay())
+        py_dow = target.weekday()
+        js_dow = (py_dow + 1) % 7
+        from datetime import timedelta
+        week_start = target - timedelta(days=js_dow)
+        done = sum(
+            1 for e in r.entries
+            if e.value > 0 and week_start <= e.date <= target
+        )
+        return done < r.schedule_count_per_period
+    return False
+
+
+@router.get("/agenda/today", response_model=list[RoutineOut])
+async def routines_due_today(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    today = date_cls.today()
+    res = await db.execute(
+        select(Routine)
+        .where(Routine.user_id == user.id)
+        .options(selectinload(Routine.entries))
+    )
+    routines = list(res.scalars().all())
+    return [_routine_dict(r) for r in routines if _routine_due_on(r, today)]
+
+
+@router.get("/by-goal/{goal_id}", response_model=list[RoutineOut])
+async def routines_by_goal(
+    goal_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    res = await db.execute(
+        select(Routine)
+        .where(Routine.user_id == user.id, Routine.goal_id == goal_id)
+        .options(selectinload(Routine.entries))
+    )
+    return [_routine_dict(r) for r in res.scalars().all()]

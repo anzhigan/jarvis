@@ -9,8 +9,8 @@ import { toast } from 'sonner';
 import SwipeRow from './SwipeRow';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
-import { tasksApi, gosApi, sprintsApi } from '../api/client';
-import type { Task, TaskPriority, TaskStatus, Go, GoKind, GoRecurrence, Sprint } from '../api/types';
+import { tasksApi, gosApi, sprintsApi, routinesApi } from '../api/client';
+import type { Task, TaskPriority, TaskStatus, Go, GoKind, GoRecurrence, Sprint, Routine } from '../api/types';
 import { useT } from '../store/i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -915,10 +915,34 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
   const t = useT();
   const [addingSprint, setAddingSprint] = useState(false);
   const [addingGo, setAddingGo] = useState(false);
+  const [linkedRoutines, setLinkedRoutines] = useState<Routine[]>([]);
   const directGos = task.gos;
+
+  useEffect(() => {
+    routinesApi.byGoal(task.id).then(setLinkedRoutines).catch(() => {});
+  }, [task.id, task.updated_at]);
 
   return (
     <div className="p-3 bg-secondary/20 space-y-3">
+      {linkedRoutines.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-1.5 text-xs font-medium text-muted-foreground">
+            <Repeat size={11} /> Linked routines
+            <span className="opacity-60 font-normal">({linkedRoutines.length})</span>
+          </div>
+          <div className="space-y-1">
+            {linkedRoutines.map((r) => (
+              <div key={r.id}
+                className={`flex items-center gap-2 p-2 bg-card border border-border rounded-md ${r.is_paused ? 'opacity-60' : ''}`}>
+                <span className="w-1 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
+                <span className="text-sm flex-1 truncate">{r.title}</span>
+                <span className="text-[10px] text-muted-foreground capitalize">{r.schedule_type.replace('_', ' ')}</span>
+                {r.is_paused && <span className="text-[10px] text-amber-600 dark:text-amber-400">paused</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {task.sprints.length > 0 && (
         <div>
           <div className="flex items-center justify-between text-xs mb-1">
@@ -1594,6 +1618,7 @@ export default function Tasks() {
   }, []);
 
   const [confirmState, setConfirmState] = useState<{ title: string; message?: string; onConfirm: () => void } | null>(null);
+  const [goalCompletion, setGoalCompletion] = useState<{ taskId: string; routines: any[] } | null>(null);
 
   const load = async () => {
     try {
@@ -1639,8 +1664,42 @@ export default function Tasks() {
   };
 
   const updateTask = async (id: string, data: Partial<Task>) => {
+    // If marking as done, check for linked routines first
+    if (data.status === 'done') {
+      try {
+        const linked: Routine[] = await routinesApi.byGoal(id);
+        const activeLinked = linked.filter((r) => !r.is_paused);
+        if (activeLinked.length > 0) {
+          // Show dialog
+          setGoalCompletion({ taskId: id, routines: activeLinked });
+          return;
+        }
+      } catch { /* ignore — proceed without dialog */ }
+    }
     try { await tasksApi.update(id, data as any); await load(); }
     catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+  };
+
+  const completeGoalWithChoice = async (taskId: string, choice: 'finish_all' | 'keep_active' | 'unlink') => {
+    try {
+      // First update the task to done
+      await tasksApi.update(taskId, { status: 'done' } as any);
+      // Then handle routines
+      if (goalCompletion) {
+        for (const r of goalCompletion.routines) {
+          if (choice === 'finish_all') {
+            await routinesApi.update(r.id, { is_paused: true } as any);
+          } else if (choice === 'unlink') {
+            await routinesApi.update(r.id, { goal_id: null } as any);
+          }
+          // 'keep_active' — do nothing
+        }
+      }
+      setGoalCompletion(null);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed');
+    }
   };
 
   const deleteTask = async (id: string) => {
@@ -1663,6 +1722,46 @@ export default function Tasks() {
       <ConfirmDialog open={confirmState !== null} title={confirmState?.title ?? ''} message={confirmState?.message}
         onCancel={() => setConfirmState(null)}
         onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }} />
+
+      {goalCompletion && (
+        <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4" onClick={() => setGoalCompletion(null)}>
+          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-1">Goal completed 🎉</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              This goal has {goalCompletion.routines.length} active routine{goalCompletion.routines.length > 1 ? 's' : ''} linked to it. What would you like to do?
+            </p>
+            <div className="space-y-2 mb-4 max-h-32 overflow-y-auto">
+              {goalCompletion.routines.map((r: Routine) => (
+                <div key={r.id} className="flex items-center gap-2 text-sm p-2 bg-muted/40 rounded-md">
+                  <span className="w-1 h-4 rounded-full" style={{ backgroundColor: r.color }} />
+                  <span className="truncate">{r.title}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <button onClick={() => completeGoalWithChoice(goalCompletion.taskId, 'keep_active')}
+                className="w-full text-left p-3 rounded-md border border-border hover:bg-secondary transition-colors">
+                <div className="text-sm font-medium">Keep routines active</div>
+                <div className="text-xs text-muted-foreground">They continue independently</div>
+              </button>
+              <button onClick={() => completeGoalWithChoice(goalCompletion.taskId, 'unlink')}
+                className="w-full text-left p-3 rounded-md border border-border hover:bg-secondary transition-colors">
+                <div className="text-sm font-medium">Unlink from goal</div>
+                <div className="text-xs text-muted-foreground">Routines stay active but no longer tied to this goal</div>
+              </button>
+              <button onClick={() => completeGoalWithChoice(goalCompletion.taskId, 'finish_all')}
+                className="w-full text-left p-3 rounded-md border border-border hover:bg-secondary transition-colors">
+                <div className="text-sm font-medium">Pause routines</div>
+                <div className="text-xs text-muted-foreground">Mark routines as paused along with the goal</div>
+              </button>
+            </div>
+            <button onClick={() => setGoalCompletion(null)}
+              className="w-full mt-3 h-9 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="size-full overflow-y-auto">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">

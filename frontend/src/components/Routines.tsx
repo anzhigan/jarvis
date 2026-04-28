@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, Pencil, Trash2, Repeat, Pause, Play, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { routinesApi } from '../api/client';
+import { routinesApi, tasksApi } from '../api/client';
 import type { Routine, RoutineScheduleType } from '../api/types';
 import { useT } from '../store/i18n';
 
@@ -439,7 +439,7 @@ function RoutineEditForm({
 // ═══════════════════════════════════════════════════════════════════════════
 // Create Form
 // ═══════════════════════════════════════════════════════════════════════════
-function CreateRoutineForm({ onCreated, onCancel }: { onCreated: () => Promise<void>; onCancel: () => void }) {
+function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Promise<void>; onCancel: () => void; goals: { id: string; title: string }[] }) {
   const t = useT();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -448,6 +448,7 @@ function CreateRoutineForm({ onCreated, onCancel }: { onCreated: () => Promise<v
   const [scheduleDays, setScheduleDays] = useState<string[]>([]);
   const [scheduleNDays, setScheduleNDays] = useState(2);
   const [scheduleCount, setScheduleCount] = useState(2);
+  const [goalId, setGoalId] = useState('');
   const [saving, setSaving] = useState(false);
 
   const toggleDay = (idx: number) => {
@@ -467,6 +468,7 @@ function CreateRoutineForm({ onCreated, onCancel }: { onCreated: () => Promise<v
         schedule_days: scheduleDays.join(','),
         schedule_n_days: scheduleNDays,
         schedule_count_per_period: scheduleCount,
+        goal_id: goalId || null,
       });
       onCancel();
       await onCreated();
@@ -554,6 +556,19 @@ function CreateRoutineForm({ onCreated, onCancel }: { onCreated: () => Promise<v
         />
       )}
 
+      {goals.length > 0 && (
+        <select
+          value={goalId}
+          onChange={(e) => setGoalId(e.target.value)}
+          className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+        >
+          <option value="">No goal (standalone)</option>
+          {goals.map((g) => (
+            <option key={g.id} value={g.id}>↳ {g.title}</option>
+          ))}
+        </select>
+      )}
+
       <div className="flex justify-between items-center flex-wrap gap-2">
         <div className="flex gap-1.5">
           {ROUTINE_COLORS.map((c) => (
@@ -582,6 +597,7 @@ function CreateRoutineForm({ onCreated, onCancel }: { onCreated: () => Promise<v
 export default function Routines() {
   const t = useT();
   const [routines, setRoutines] = useState<Routine[]>([]);
+  const [goals, setGoals] = useState<{ id: string; title: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState<'today' | 'all' | 'paused'>('today');
@@ -589,8 +605,12 @@ export default function Routines() {
   const load = async () => {
     setLoading(true);
     try {
-      const list = await routinesApi.list();
+      const [list, ts] = await Promise.all([
+        routinesApi.list(),
+        tasksApi.list(),
+      ]);
       setRoutines(list);
+      setGoals(ts.filter((t) => t.status !== 'done').map((t) => ({ id: t.id, title: t.title })));
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to load routines');
     } finally {
@@ -648,7 +668,7 @@ export default function Routines() {
               <Plus size={16} /> New routine
             </button>
           ) : (
-            <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} />
+            <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} goals={goals} />
           )}
 
           {loading ? (

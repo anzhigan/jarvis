@@ -304,6 +304,10 @@ import type { Routine, RoutineEntry } from './types';
 export const routinesApi = {
   list: () => request<Routine[]>('/routines'),
 
+  byGoal: (goalId: string) => request<Routine[]>(`/routines/by-goal/${goalId}`),
+
+  dueToday: () => request<Routine[]>('/routines/agenda/today'),
+
   create: (data: {
     title: string;
     description?: string;
