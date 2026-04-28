@@ -23,39 +23,43 @@ const STATUSES: { key: TaskStatus; labelKey: string }[] = [
   { key: 'done', labelKey: 'tasks.status.done' },
 ];
 
-const PRIORITY_DOT: Record<TaskPriority, string> = {
-  high:   'bg-red-500',
-  medium: 'bg-amber-500',
-  low:    'bg-slate-400',
+const PRIORITY_STARS: Record<TaskPriority, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
 };
+
+function PriorityStars({ priority, size = 12 }: { priority: TaskPriority; size?: number }) {
+  const n = PRIORITY_STARS[priority];
+  return (
+    <span title={`${priority} priority`} className="inline-flex items-center gap-px text-muted-foreground/70" style={{ fontSize: size }}>
+      {'★'.repeat(n)}
+    </span>
+  );
+}
 
 const PRIORITY_CLS: Record<TaskPriority, string> = {
-  high:   'text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900',
-  medium: 'text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900',
-  low:    'text-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-slate-400 border-slate-200 dark:border-slate-800',
+  high:   'text-foreground bg-secondary border-border',
+  medium: 'text-foreground bg-secondary border-border',
+  low:    'text-foreground bg-secondary border-border',
 };
 
-// Unified palette — same colors for tasks, sprints, gos, tags
+// Unified palette — 6 carefully picked colors for tasks/goals/steps/gos/routines/tags/sprints
 export const ENTITY_COLORS = [
   '#4f46e5', // indigo
-  '#7c3aed', // violet
+  '#10b981', // emerald
+  '#f59e0b', // amber
   '#ec4899', // pink
-  '#e11d48', // rose
-  '#ea580c', // orange
-  '#d97706', // amber
-  '#65a30d', // lime
-  '#059669', // emerald
   '#0891b2', // cyan
-  '#3b82f6', // blue
   '#64748b', // slate
 ];
 
 const GO_COLORS = ENTITY_COLORS;
 
 const STRIPE_COLOR: Record<GoRecurrence, string> = {
-  weekly: ENTITY_COLORS[9],   // blue
-  daily:  ENTITY_COLORS[7],   // emerald
-  none:   ENTITY_COLORS[1],   // violet
+  weekly: ENTITY_COLORS[4],   // cyan
+  daily:  ENTITY_COLORS[1],   // emerald
+  none:   ENTITY_COLORS[0],   // indigo
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -336,7 +340,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
                       key={c}
                       type="button"
                       onClick={(e) => { e.preventDefault(); setEditColor(c); }}
-                      className={`w-6 h-6 rounded transition-all ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+                      className={`w-7 h-7 rounded-full transition-all ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
                       style={{ backgroundColor: c }}
                     />
                   ))}
@@ -596,7 +600,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                           key={c}
                           type="button"
                           onClick={() => setEditColor(c)}
-                          className={`w-6 h-6 rounded ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+                          className={`w-7 h-7 rounded-full ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
                           style={{ backgroundColor: c }}
                         />
                       ))}
@@ -779,7 +783,7 @@ function CreateGoForm({
               key={c}
               type="button"
               onClick={(e) => { e.preventDefault(); setColor(c); }}
-              className={`w-6 h-6 rounded transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+              className={`w-7 h-7 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
               style={{ backgroundColor: c }}
             />
           ))}
@@ -810,8 +814,14 @@ function CreateSprintForm({
   const t = useT();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
+  const [start, setStart] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [end, setEnd] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 14);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [color, setColor] = useState(ENTITY_COLORS[1]);
   const [toAttach, setToAttach] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
@@ -891,7 +901,7 @@ function CreateSprintForm({
               key={c}
               type="button"
               onClick={(e) => { e.preventDefault(); setColor(c); }}
-              className={`w-6 h-6 rounded ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+              className={`w-7 h-7 rounded-full ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
               style={{ backgroundColor: c }}
             />
           ))}
@@ -946,7 +956,7 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
       {task.sprints.length > 0 && (
         <div>
           <div className="flex items-center justify-between text-xs mb-1">
-            <span className="font-medium text-muted-foreground">Progress</span>
+            <span className="font-medium text-muted-foreground"></span>
             <span className="font-semibold">{task.progress}%</span>
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -1119,10 +1129,9 @@ function TaskCard({
         <>
           <div className="p-4 md:p-3.5">
             <div className="flex items-start gap-2 mb-2">
-              <div
-                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${PRIORITY_DOT[task.priority]}`}
-                title={`${task.priority} priority`}
-              />
+              <div className="mt-0.5 flex-shrink-0">
+                <PriorityStars priority={task.priority} size={11} />
+              </div>
               <h4 className="flex-1 min-w-0 text-base md:text-sm font-medium leading-snug">{task.title}</h4>
               {!isMobile && (
                 <div className="flex items-center gap-0.5 transition-all">
@@ -1148,7 +1157,7 @@ function TaskCard({
             {hasContent && (
               <div className="mb-2">
                 <div className="flex items-center justify-between text-[11px] mb-0.5 text-muted-foreground">
-                  <span>Progress</span>
+                  <span></span>
                   <span className="font-semibold text-foreground">{task.progress}%</span>
                 </div>
                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -1763,7 +1772,7 @@ export default function Tasks() {
         </div>
       )}
 
-      <div className="size-full overflow-y-auto">
+      <div className="size-full overflow-y-auto text-[13px]">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
           {/* Desktop segmented + mobile pill nav with Go in center */}
           <div className="mb-5">
@@ -1903,18 +1912,18 @@ export default function Tasks() {
                         isDropTarget ? 'border-primary bg-primary/5' : 'border-border bg-secondary/20'
                       }`}>
                       <button
-                        onClick={() => toggleCollapsed(key)}
-                        className="w-full px-2.5 md:px-3 py-2 md:py-2.5 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+                        onClick={() => isMobile && toggleCollapsed(key)}
+                        className={`w-full px-2.5 md:px-3 py-2 md:py-2.5 flex items-center justify-between transition-colors ${isMobile ? 'hover:bg-secondary/50' : 'cursor-default'}`}
                       >
                         <div className="flex items-center gap-2">
                           <h3 className="text-xs md:text-sm font-semibold">{label}</h3>
                           <span className="text-[10px] md:text-xs text-muted-foreground">{list.length}</span>
                         </div>
-                        {collapsed.has(key)
+                        {isMobile && (collapsed.has(key)
                           ? <ChevronRight size={14} className="text-muted-foreground" />
-                          : <ChevronDown size={14} className="text-muted-foreground" />}
+                          : <ChevronDown size={14} className="text-muted-foreground" />)}
                       </button>
-                      {!collapsed.has(key) && (
+                      {(!isMobile || !collapsed.has(key)) && (
                         <div className="p-2 space-y-2 min-h-[80px]">
                           <AnimatePresence>
                             {list.map((task) => (

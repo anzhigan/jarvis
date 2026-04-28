@@ -44,3 +44,21 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0.5;
   cursor: pointer;
 }
+
+/* Smoother UI motion */
+button, a, .transition-all, .transition-colors, .transition-transform {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Default transition speed slightly slower for elegance */
+button {
+  transition-duration: 200ms;
+}
+
+/* Card hover lift */
+.task-card-lift {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.task-card-lift:hover {
+  transform: translateY(-1px);
+}

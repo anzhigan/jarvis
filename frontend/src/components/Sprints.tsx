@@ -436,7 +436,7 @@ function SprintDetail({
               <div className="flex gap-1.5 flex-wrap">
                 {SPRINT_COLORS.map((c) => (
                   <button key={c} type="button" onClick={() => setEditColor(c)}
-                    className={`w-6 h-6 rounded transition-all ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+                    className={`w-7 h-7 rounded-full transition-all ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
                     style={{ backgroundColor: c }} />
                 ))}
               </div>
@@ -569,7 +569,7 @@ function CreateSprintForm({ onCreated, onCancel }: { onCreated: () => Promise<vo
         <div className="flex gap-1.5">
           {SPRINT_COLORS.map((c) => (
             <button key={c} type="button" onClick={() => setColor(c)}
-              className={`w-6 h-6 rounded transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+              className={`w-7 h-7 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
               style={{ backgroundColor: c }} />
           ))}
         </div>

@@ -469,6 +469,14 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[400px]',
       },
+      handleKeyDown: (view, event) => {
+        if (event.key === 'Tab' && !event.shiftKey) {
+          event.preventDefault();
+          view.dispatch(view.state.tr.insertText('    '));
+          return true;
+        }
+        return false;
+      },
       // Handle clicks on links; external open in new tab, internal (#note:<id>) scroll/navigate
       handleClickOn: (_view, _pos, _node, _nodePos, event) => {
         const target = event.target as HTMLElement | null;

@@ -359,7 +359,6 @@ function RoutineEditForm({
         >
           <option value="daily">Every day</option>
           <option value="weekly_on_days">On specific weekdays</option>
-          <option value="every_n_days">Every N days</option>
           <option value="times_per_week">X times per week</option>
         </select>
       </div>
@@ -379,19 +378,6 @@ function RoutineEditForm({
               {lbl}
             </button>
           ))}
-        </div>
-      )}
-
-      {scheduleType === 'every_n_days' && (
-        <div>
-          <label className="text-[11px] text-muted-foreground">Every (days)</label>
-          <input
-            type="number"
-            min={1}
-            value={scheduleNDays}
-            onChange={(e) => setScheduleNDays(parseInt(e.target.value || '1', 10))}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
-          />
         </div>
       )}
 
@@ -416,7 +402,7 @@ function RoutineEditForm({
             key={c}
             type="button"
             onClick={() => setColor(c)}
-            className={`w-6 h-6 rounded transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+            className={`w-7 h-7 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
             style={{ backgroundColor: c }}
           />
         ))}
@@ -511,7 +497,6 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
       >
         <option value="daily">Every day</option>
         <option value="weekly_on_days">On specific weekdays</option>
-        <option value="every_n_days">Every N days</option>
         <option value="times_per_week">X times per week</option>
       </select>
 
@@ -531,17 +516,6 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
             </button>
           ))}
         </div>
-      )}
-
-      {scheduleType === 'every_n_days' && (
-        <input
-          type="number"
-          min={1}
-          value={scheduleNDays}
-          onChange={(e) => setScheduleNDays(parseInt(e.target.value || '1', 10))}
-          placeholder="Every N days"
-          className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
-        />
       )}
 
       {scheduleType === 'times_per_week' && (
@@ -576,7 +550,7 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
               key={c}
               type="button"
               onClick={() => setColor(c)}
-              className={`w-6 h-6 rounded transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+              className={`w-7 h-7 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
               style={{ backgroundColor: c }}
             />
           ))}

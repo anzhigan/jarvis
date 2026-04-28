@@ -461,10 +461,11 @@ export default function Notes() {
                 await loadWays();
                 setSelection(null);
               }}
-              className="fixed top-3 left-2 z-30 h-11 w-11 flex items-center justify-center rounded-full bg-background/85 backdrop-blur-md shadow-md border border-border hover:bg-secondary text-foreground transition-colors"
+              className="fixed top-2 left-2 z-50 h-12 w-12 flex items-center justify-center text-foreground/85 hover:text-foreground active:scale-90 transition-transform"
               title="Back"
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
             >
-              <ChevronLeft size={22} />
+              <ChevronLeft size={28} strokeWidth={2.2} />
             </button>
             {/* Floating save status — fixed so it stays visible too */}
             <div className="fixed top-5 right-4 z-30 text-xs text-muted-foreground flex items-center gap-1 bg-background/85 backdrop-blur-md px-2 py-1 rounded-md border border-border">

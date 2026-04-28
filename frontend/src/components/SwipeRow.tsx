@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 
 interface Props {
@@ -47,10 +47,12 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
   };
   const close = () => setOffset(0);
 
-  // When swipe is disabled (e.g. while editing), reset offset and pass children through
-  // without the actions overlay or transform — this avoids layout glitches.
+  // When swipe is disabled (e.g. while editing), reset offset on disable
+  useEffect(() => {
+    if (!enabled && offset !== 0) setOffset(0);
+  }, [enabled]);
+
   if (!enabled) {
-    if (offset !== 0) setOffset(0);
     return <>{children}</>;
   }
 
