@@ -25,7 +25,7 @@ class Task(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
-    status: Mapped[str] = mapped_column(String(50), default="todo")  # todo | background | in_progress | done
+    status: Mapped[str] = mapped_column(String(50), default="backlog")  # backlog | active | paused | done
     priority: Mapped[str] = mapped_column(String(20), default="medium")  # low | medium | high
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)

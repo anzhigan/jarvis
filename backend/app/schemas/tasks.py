@@ -115,7 +115,7 @@ class SprintOut(BaseModel):
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     description: str = ""
-    status: str = "todo"
+    status: str = "backlog"
     priority: str = "medium"
     start_date: date | None = None
     due_date: date | None = None

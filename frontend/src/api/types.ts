@@ -55,7 +55,9 @@ export interface Way {
   updated_at: string;
 }
 
-export type TaskStatus = 'todo' | 'background' | 'in_progress' | 'done';
+// Goal statuses (legacy names todo/in_progress/background still accepted by backend
+// but normalized; on the frontend we always use the new names).
+export type TaskStatus = 'backlog' | 'active' | 'paused' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
 export type GoKind = 'boolean' | 'numeric';

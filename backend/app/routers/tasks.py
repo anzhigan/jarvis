@@ -26,7 +26,18 @@ from app.schemas.tasks import (
 
 router = APIRouter(tags=["tasks"])
 
-VALID_STATUSES = {"todo", "background", "in_progress", "done"}
+# New canonical statuses: backlog / active / paused / done
+# Old names are accepted and translated for backwards compat with any existing client code.
+VALID_STATUSES = {"backlog", "active", "paused", "done", "todo", "in_progress", "background"}
+
+
+def _normalize_status(s: str) -> str:
+    """Map old status names → new ones. background → active by default."""
+    return {
+        "todo": "backlog",
+        "in_progress": "active",
+        "background": "active",
+    }.get(s, s)
 VALID_PRIORITIES = {"low", "medium", "high"}
 VALID_GO_KINDS = {"boolean", "numeric"}
 VALID_RECURRENCE = {"none", "daily", "weekly"}
@@ -167,17 +178,18 @@ def _go_total_value(go: Go) -> float:
 
 def _sprint_progress(sprint: Sprint) -> int:
     """Progress % = average of completion ratios across all Gos."""
-    if not sprint.gos:
+    gos = [g for g in sprint.gos if g.item_kind != 'routine_legacy']
+    if not gos:
         return 0
     period_start = sprint.start_date
     period_end = sprint.end_date
-    ratios = [_go_completion_ratio(g, period_start, period_end) for g in sprint.gos]
+    ratios = [_go_completion_ratio(g, period_start, period_end) for g in gos]
     return int(round(100 * sum(ratios) / len(ratios)))
 
 
 def _task_progress(task: Task) -> int:
     """Average of completion ratios across sprints + direct gos."""
-    direct_gos = [g for g in task.gos if not g.sprint_id]
+    direct_gos = [g for g in task.gos if not g.sprint_id and g.item_kind != 'routine_legacy']
     sprint_progresses = [_sprint_progress(s) for s in task.sprints]
     direct_ratios = [
         _go_completion_ratio(g, task.start_date, task.due_date) * 100
@@ -220,6 +232,8 @@ def _go_dict(g: Go, task_title: str | None = None, sprint_title: str | None = No
 def _sprint_dict(s: Sprint, task_title: str | None = None) -> dict:
     gos_out = []
     for g in s.gos:
+        if g.item_kind == 'routine_legacy':
+            continue
         gos_out.append(_go_dict(g, task_title=s.task.title if s.task else task_title, sprint_title=s.title))
     return {
         "id": s.id,
@@ -241,8 +255,8 @@ def _sprint_dict(s: Sprint, task_title: str | None = None) -> dict:
 
 def _task_dict(t: Task) -> dict:
     sprints_out = [_sprint_dict(s, task_title=t.title) for s in t.sprints]
-    # Only include top-level gos (no sprint) — those are "direct" task gos
-    direct_gos = [g for g in t.gos if not g.sprint_id]
+    # Only include top-level gos (no sprint) AND only one-off (routine_legacy → Routines)
+    direct_gos = [g for g in t.gos if not g.sprint_id and g.item_kind != 'routine_legacy']
     gos_out = [_go_dict(g, task_title=t.title) for g in direct_gos]
     return {
         "id": t.id,
@@ -285,10 +299,11 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user), 
         raise HTTPException(400, f"Invalid status: {body.status}")
     if body.priority not in VALID_PRIORITIES:
         raise HTTPException(400, f"Invalid priority: {body.priority}")
+    norm_status = _normalize_status(body.status)
     t = Task(
-        user_id=user.id, title=body.title, description=body.description, status=body.status,
+        user_id=user.id, title=body.title, description=body.description, status=norm_status,
         priority=body.priority, start_date=body.start_date, due_date=body.due_date,
-        order=body.order, is_completed=body.status == "done",
+        order=body.order, is_completed=norm_status == "done",
     )
     db.add(t)
     await db.flush()
@@ -303,6 +318,7 @@ async def update_task(task_id: uuid.UUID, body: TaskUpdate, user: User = Depends
     if "status" in data:
         if data["status"] not in VALID_STATUSES:
             raise HTTPException(400, f"Invalid status: {data['status']}")
+        data["status"] = _normalize_status(data["status"])
         data["is_completed"] = data["status"] == "done"
     if "priority" in data and data["priority"] not in VALID_PRIORITIES:
         raise HTTPException(400, f"Invalid priority: {data['priority']}")
@@ -472,7 +488,7 @@ async def gos_agenda(
 ):
     today = date_cls.today()
     q = await db.execute(
-        select(Go).where(Go.user_id == user.id)
+        select(Go).where(Go.user_id == user.id, Go.item_kind != 'routine_legacy')
         .options(selectinload(Go.entries), selectinload(Go.task), selectinload(Go.sprint))
     )
     all_gos = list(q.scalars().all())

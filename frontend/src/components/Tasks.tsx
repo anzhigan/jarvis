@@ -17,9 +17,9 @@ import { useT } from '../store/i18n';
 // Constants
 // ═══════════════════════════════════════════════════════════════════════════
 const STATUSES: { key: TaskStatus; labelKey: string }[] = [
-  { key: 'todo', labelKey: 'tasks.status.todo' },
-  { key: 'background', labelKey: 'tasks.status.background' },
-  { key: 'in_progress', labelKey: 'tasks.status.in_progress' },
+  { key: 'backlog', labelKey: 'tasks.status.backlog' },
+  { key: 'active', labelKey: 'tasks.status.active' },
+  { key: 'paused', labelKey: 'tasks.status.paused' },
   { key: 'done', labelKey: 'tasks.status.done' },
 ];
 
@@ -754,22 +754,14 @@ function CreateGoForm({
           <option value="boolean">Done / Not done</option>
           <option value="numeric">Numeric</option>
         </select>
-        <select value={recurrence} onChange={(e) => setRecurrence(e.target.value as GoRecurrence)}
-          className="h-9 px-2 text-sm bg-input-background border border-border rounded-md">
-          <option value="none">One-off</option>
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-        </select>
         {kind === 'numeric' && <>
           <input type="text" placeholder="Unit (pages)" value={unit} onChange={(e) => setUnit(e.target.value)}
             className="w-24 h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
           <input type="number" placeholder="Target" value={target} onChange={(e) => setTarget(e.target.value)}
             className="w-20 h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
         </>}
-        {recurrence === 'none' && (
-          <input type="date" value={due} onChange={(e) => setDue(e.target.value)}
-            className="h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
-        )}
+        <input type="date" value={due} onChange={(e) => setDue(e.target.value)}
+          className="h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
         {availableSprints && availableSprints.length > 0 && !defaultSprintId && (
           <select value={sprintId} onChange={(e) => setSprintId(e.target.value)}
             className="h-9 px-2 text-sm bg-input-background border border-border rounded-md max-w-[200px]">
@@ -1614,8 +1606,21 @@ export default function Tasks() {
   useEffect(() => { load(); }, []);
 
   const tasksByStatus = useMemo(() => {
-    const out: Record<TaskStatus, Task[]> = { todo: [], background: [], in_progress: [], done: [] };
-    for (const t of tasks) out[t.status]?.push(t);
+    const out: Record<TaskStatus, Task[]> = { backlog: [], active: [], paused: [], done: [] };
+    // Map any legacy backend statuses → new ones (defensive; backend normalizes too)
+    const remap: Record<string, TaskStatus> = {
+      todo: 'backlog',
+      in_progress: 'active',
+      background: 'active',
+      backlog: 'backlog',
+      active: 'active',
+      paused: 'paused',
+      done: 'done',
+    };
+    for (const t of tasks) {
+      const k = remap[t.status as string] ?? 'backlog';
+      out[k].push(t);
+    }
     return out;
   }, [tasks]);
 
