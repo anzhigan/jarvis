@@ -178,6 +178,9 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
     setBusy(true);
     try {
       const newValue = isDoneToday ? 0 : 1;
+      // Tactile feedback
+      const { hapticSuccess, hapticTap } = await import('../native/bridge');
+      if (newValue === 1) hapticSuccess(); else hapticTap();
       if (newValue === 0) {
         await routinesApi.deleteEntry(routine.id, today);
       } else {
@@ -456,6 +459,7 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
         schedule_count_per_period: scheduleCount,
         goal_id: goalId || null,
       });
+      import('../native/bridge').then(({ hapticSuccess }) => hapticSuccess());
       onCancel();
       await onCreated();
     } catch (e: any) {

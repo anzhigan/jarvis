@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Loader2, Save, LogOut, Trash2, AlertCircle, User as UserIcon, Lock, Camera, Type, Minus, Plus, Languages } from 'lucide-react';
 import { toast } from 'sonner';
-import { authApi } from '../api/client';
+import { authApi, resolveUrl } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import { useT, useLangStore } from '../store/i18n';
 import AvatarCropper from './AvatarCropper';
@@ -16,7 +16,7 @@ function getSavedFontSize(): number {
 }
 
 export default function Profile() {
-  const { user, logout, setUser } = useAuthStore();
+  const { user, logout, setUser, biometryAvailable, biometryType, biometryEnabled, enableBiometry, disableBiometry } = useAuthStore();
   const t = useT();
   const { lang, setLang } = useLangStore();
 
@@ -161,7 +161,7 @@ export default function Profile() {
           <div className="flex items-center gap-4">
             <div className="relative">
               {user.avatar_url ? (
-                <img src={user.avatar_url} alt="" className="w-20 h-20 rounded-full object-cover" />
+                <img src={resolveUrl(user.avatar_url)} alt="" className="w-20 h-20 rounded-full object-cover" />
               ) : (
                 <div className="w-20 h-20 rounded-full bg-primary/15 text-primary flex items-center justify-center">
                   <UserIcon size={32} />
@@ -405,6 +405,42 @@ export default function Profile() {
             </button>
           </div>
         </section>
+
+        {/* Biometry — only on native iOS/Android with available biometry */}
+        {biometryAvailable && (
+          <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
+            <div className="flex flex-col md:flex-row md:items-center gap-4 md:justify-between">
+              <div className="flex-1">
+                <h2 className="text-base font-semibold mb-1 flex items-center gap-2">
+                  {biometryType === 'faceId' ? 'Face ID' : biometryType === 'touchId' ? 'Touch ID' : 'Biometry'}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {biometryEnabled
+                    ? 'Required to open Jarvnote.'
+                    : 'Use biometry instead of password to open the app.'}
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  if (biometryEnabled) {
+                    await disableBiometry();
+                    toast.success('Biometry disabled');
+                  } else {
+                    const ok = await enableBiometry();
+                    if (ok) toast.success('Biometry enabled');
+                    else toast.error('Failed to enable biometry');
+                  }
+                }}
+                className={`relative h-7 w-12 rounded-full transition-colors ${biometryEnabled ? 'bg-primary' : 'bg-muted'}`}
+                aria-label="Toggle biometry"
+              >
+                <span
+                  className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${biometryEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}
+                />
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* Logout */}
         <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">

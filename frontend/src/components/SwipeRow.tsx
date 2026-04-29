@@ -42,8 +42,13 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
   const onTouchEnd = () => {
     dragging.current = false;
     setIsDragging(false);
-    if (offset < -ACTIONS_WIDTH / 2) setOffset(-ACTIONS_WIDTH);
-    else setOffset(0);
+    if (offset < -ACTIONS_WIDTH / 2) {
+      setOffset(-ACTIONS_WIDTH);
+      // Haptic when swipe snaps open
+      import('../native/bridge').then(({ hapticTap }) => hapticTap());
+    } else {
+      setOffset(0);
+    }
   };
   const close = () => setOffset(0);
 
@@ -70,7 +75,12 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
           </button>
         )}
         <button
-          onClick={(e) => { e.stopPropagation(); close(); onDelete(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            close();
+            import('../native/bridge').then(({ hapticWarning }) => hapticWarning());
+            onDelete();
+          }}
           className="w-[70px] bg-destructive text-white flex items-center justify-center active:opacity-80"
           aria-label="Delete"
         >

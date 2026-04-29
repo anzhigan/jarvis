@@ -6,9 +6,11 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "cap:sync": "vite build && cap sync ios",
+    "build:ios": "VITE_API_URL=https://jarvnote.ru/api vite build",
+    "icons": "capacitor-assets generate --ios",
+    "cap:sync": "VITE_API_URL=https://jarvnote.ru/api vite build && cap sync ios",
     "cap:open": "cap open ios",
-    "ios": "vite build && cap sync ios && cap open ios"
+    "ios": "VITE_API_URL=https://jarvnote.ru/api vite build && cap sync ios && cap open ios"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.0",
@@ -47,6 +49,7 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^6.1.2",
     "@capacitor/ios": "^6.1.2",
     "@tailwindcss/vite": "4.1.12",

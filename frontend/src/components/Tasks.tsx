@@ -142,6 +142,11 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
     if (go.kind !== 'boolean') return;
     const newValue = todayVal > 0 ? 0 : 1;
 
+    // Tactile feedback
+    import('../native/bridge').then(({ hapticSuccess, hapticTap }) => {
+      if (newValue === 1) hapticSuccess(); else hapticTap();
+    });
+
     // Optimistic local update — immediately reflect in UI
     if (onLocalUpdate) {
       const otherEntries = go.entries.filter((e) => e.date !== today);
@@ -1670,6 +1675,7 @@ export default function Tasks() {
         start_date: newStart || null, due_date: newDue || null,
         description: newDescription || '',
       } as any);
+      import('../native/bridge').then(({ hapticSuccess }) => hapticSuccess());
       // Attach selected tags
       for (const tagId of newTagIds) {
         try { await tagsApi.attachTag(created.id, tagId); }
@@ -1678,7 +1684,10 @@ export default function Tasks() {
       setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription(''); setNewTagIds([]);
       setShowCreateForm(false);
       await load();
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+    } catch (e: any) {
+      import('../native/bridge').then(({ hapticWarning }) => hapticWarning());
+      toast.error(e?.detail ?? 'Failed');
+    }
   };
 
   const updateTask = async (id: string, data: Partial<Task>) => {
@@ -1941,7 +1950,10 @@ export default function Tasks() {
                         e.preventDefault();
                         const id = e.dataTransfer.getData('text/plain');
                         setDragOverStatus(null); setDraggingId(null);
-                        if (id) updateTask(id, { status: key });
+                        if (id) {
+                          import('../native/bridge').then(({ hapticHeavy }) => hapticHeavy());
+                          updateTask(id, { status: key });
+                        }
                       }}
                       className={`rounded-xl transition-all ${
                         isDropTarget ? 'bg-accent ring-1 ring-primary/30' : 'bg-transparent'

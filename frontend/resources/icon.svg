@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#5B5BD6"/>
+  <!-- Three notes lines -->
+  <path d="M 286 388 H 738 M 286 510 H 634 M 286 632 H 510" stroke="#FFFFFF" stroke-width="68" stroke-linecap="round"/>
+  <!-- Arrow tail (action symbol) -->
+  <path d="M 572 632 L 738 720 L 696 818" stroke="#FFFFFF" stroke-width="68" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

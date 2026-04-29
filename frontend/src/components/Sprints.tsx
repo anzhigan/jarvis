@@ -529,6 +529,7 @@ function CreateSprintForm({ onCreated, onCancel }: { onCreated: () => Promise<vo
         end_date: end,
         color,
       });
+      import('../native/bridge').then(({ hapticSuccess }) => hapticSuccess());
       onCancel();
       await onCreated();
     } catch (e: any) {
