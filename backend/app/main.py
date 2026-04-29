@@ -30,6 +30,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins,
+    # Native apps run from capacitor://localhost or http://localhost (WKWebView)
+    allow_origin_regex=r"^(capacitor|ionic)://localhost$|^http://localhost(:[0-9]+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
