@@ -37,6 +37,20 @@ export default function App() {
 
   useEffect(() => { init(); }, []);
 
+  // Hide native splash + sync status bar with theme
+  useEffect(() => {
+    import('../native/bridge').then(({ hideSplash, isNative, isIOS }) => {
+      if (isNative && isReady) hideSplash();
+      if (isIOS) document.documentElement.classList.add('native-ios');
+    });
+  }, [isReady]);
+
+  useEffect(() => {
+    import('../native/bridge').then(({ setStatusBarDark, setStatusBarLight }) => {
+      if (dark) setStatusBarLight(); else setStatusBarDark();
+    });
+  }, [dark]);
+
   useEffect(() => {
     localStorage.setItem('jarvnote:tab', tab);
   }, [tab]);
