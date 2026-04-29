@@ -14,26 +14,12 @@ import type {
   Way,
 } from './types';
 
-// Detect runtime: in browser → use relative /api (proxied by nginx).
-// In native iOS/Android → use absolute URL (no domain context).
-function detectBaseUrl(): string {
-  // Allow override via build env var
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-
-  // Native Capacitor app — must use absolute URL
-  if (typeof window !== 'undefined') {
-    const proto = window.location.protocol;
-    // Capacitor uses 'capacitor:' or 'ionic:' or 'http://localhost' schemes
-    if (proto === 'capacitor:' || proto === 'ionic:' || window.location.hostname === 'localhost') {
-      return 'https://jarvnote.ru/api';
-    }
-  }
-
-  // Web (jarvnote.ru) — relative path proxied by nginx
-  return '/api';
-}
-
-const BASE_URL = detectBaseUrl();
+// Capacitor serves the app from capacitor://localhost — relative /api won't work.
+// In that case we must use the absolute prod URL.
+const _proto = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+const _isNativeApp = _proto === 'capacitor:' || _proto === 'ionic:';
+const BASE_URL = import.meta.env.VITE_API_URL
+  ?? (_isNativeApp ? 'https://jarvnote.ru/api' : '/api');
 
 export class ApiError extends Error {
   constructor(public status: number, public detail: string) {
