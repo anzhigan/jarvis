@@ -6,13 +6,11 @@ Create Date: 2026-04-30
 
 Introduces a join table between Goals (tasks) and Routines so that a Routine
 can be associated with a Goal for a bounded period, with optional target.
-
-A single Routine can be linked to multiple Goals (e.g. "Don't smoke daily"
-might support both "Quit smoking" and "Be healthy" goals).
 """
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import UUID
 
 
 revision: str = '011_goal_routine_links'
@@ -24,9 +22,9 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         'goal_routine_links',
-        sa.Column('id', sa.String(length=36), primary_key=True),
-        sa.Column('goal_id', sa.String(length=36), sa.ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('routine_id', sa.String(length=36), sa.ForeignKey('routines.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('id', UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
+        sa.Column('goal_id', UUID(as_uuid=True), sa.ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('routine_id', UUID(as_uuid=True), sa.ForeignKey('routines.id', ondelete='CASCADE'), nullable=False),
         sa.Column('start_date', sa.Date(), nullable=False),
         sa.Column('end_date', sa.Date(), nullable=True),
         sa.Column('target_count', sa.Integer(), nullable=True),
