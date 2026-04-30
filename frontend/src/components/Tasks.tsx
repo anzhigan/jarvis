@@ -300,7 +300,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
             </button>
           </div>
 
-          {editing && (
+          {editing && !isMobile && (
             <div className="mt-2 p-2 bg-secondary/30 border border-border rounded-md space-y-2 relative z-10 animate-fadeIn">
               <input
                 type="text"
@@ -343,13 +343,13 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
               )}
               <div>
                 <label className="text-[11px] text-muted-foreground block mb-1">Color</label>
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-wrap">
                   {GO_COLORS.map((c) => (
                     <button
                       key={c}
                       type="button"
                       onClick={(e) => { e.preventDefault(); setEditColor(c); }}
-                      className={`w-7 h-7 rounded-full transition-all ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+                      className={`w-7 h-7 rounded-full transition-all active:scale-90 ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
                       style={{ backgroundColor: c }}
                     />
                   ))}
@@ -366,6 +366,88 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
                 >
                   {busy && <Loader2 size={11} className="animate-spin" />}Save
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile: Edit as bottom sheet modal */}
+          {editing && isMobile && (
+            <div className="fixed inset-0 z-[200] modal-overlay flex items-end" onClick={() => setEditing(false)}>
+              <div
+                className="w-full bg-card rounded-t-2xl p-4 pb-8 max-h-[85vh] overflow-y-auto shadow-2xl ios-bottom-sheet"
+                onClick={(e) => e.stopPropagation()}
+                style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+              >
+                <div className="w-10 h-1 bg-muted rounded-full mx-auto mb-4" />
+                <h3 className="text-base font-semibold mb-3">Edit Go</h3>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="Title"
+                    className="w-full h-10 px-3 text-sm bg-input-background border border-border rounded-lg"
+                  />
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder={t('tasks.descriptionPh')}
+                    rows={3}
+                    className="w-full px-3 py-2 text-sm bg-input-background border border-border rounded-lg resize-none"
+                  />
+                  {availableSprints && availableSprints.length > 0 && (
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Attach to step</label>
+                      <select
+                        value={editSprintId}
+                        onChange={(e) => setEditSprintId(e.target.value)}
+                        className="w-full h-10 px-3 text-sm bg-input-background border border-border rounded-lg"
+                      >
+                        <option value="">— No step —</option>
+                        {availableSprints.map((s) => (
+                          <option key={s.id} value={s.id}>↳ {s.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {go.recurrence === 'none' && (
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Due date</label>
+                      <input
+                        type="date"
+                        value={editDue}
+                        onChange={(e) => setEditDue(e.target.value)}
+                        className="w-full h-10 px-3 text-sm bg-input-background border border-border rounded-lg"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1.5">Color</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {GO_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); setEditColor(c); }}
+                          className={`w-9 h-9 rounded-full transition-all active:scale-90 ${editColor === c ? 'ring-2 ring-offset-2 ring-ring' : ''}`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }}
+                      className="flex-1 h-11 rounded-lg bg-secondary text-foreground font-medium active:scale-95 transition-transform"
+                    >Cancel</button>
+                    <button
+                      onClick={saveEdit} disabled={busy || !editTitle.trim()}
+                      className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+                    >
+                      {busy && <Loader2 size={14} className="animate-spin" />}Save
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -877,7 +959,7 @@ function CreateSprintForm({
         rows={2}
         className="w-full px-2.5 py-2 text-sm bg-input-background border border-border rounded-md resize-none"
       />
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="min-w-0">
           <label className="text-[10px] text-muted-foreground">{t("tasks.start")}</label>
           <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
@@ -903,25 +985,23 @@ function CreateSprintForm({
           </div>
         </div>
       )}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-1">
-          {ENTITY_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={(e) => { e.preventDefault(); setColor(c); }}
-              className={`w-7 h-7 rounded-full ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-              style={{ backgroundColor: c }}
-            />
-          ))}
-        </div>
-        <div className="flex gap-1.5">
-          <button onClick={onCancel} type="button" className="btn-pill" data-active="false">Cancel</button>
-          <button onClick={submit} disabled={saving || !title.trim() || !start || !end} type="button"
-            className="h-8 px-4 bg-primary text-primary-foreground rounded-full text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 hover:bg-primary-hover transition-colors active:scale-95">
-            {saving && <Loader2 size={11} className="animate-spin" />}<Plus size={12} /> Create
-          </button>
-        </div>
+      <div className="flex gap-1 flex-wrap">
+        {ENTITY_COLORS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={(e) => { e.preventDefault(); setColor(c); }}
+            className={`w-7 h-7 rounded-full transition-all active:scale-90 ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
+            style={{ backgroundColor: c }}
+          />
+        ))}
+      </div>
+      <div className="flex gap-1.5 justify-end">
+        <button onClick={onCancel} type="button" className="btn-pill" data-active="false">Cancel</button>
+        <button onClick={submit} disabled={saving || !title.trim() || !start || !end} type="button"
+          className="h-8 px-4 bg-primary text-primary-foreground rounded-full text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 hover:bg-primary-hover transition-all active:scale-95">
+          {saving && <Loader2 size={11} className="animate-spin" />}<Plus size={12} /> Create
+        </button>
       </div>
     </div>
   );
@@ -1187,7 +1267,7 @@ function TaskCard({
             className="w-full px-4 md:px-3.5 py-2.5 md:py-2 border-t border-border flex items-center gap-1.5 text-sm md:text-xs text-muted-foreground hover:bg-secondary/50">
             {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             <Zap size={13} />
-            <span>Sprints & Gos</span>
+            <span>{t('tasks.sprintsAndGos')}</span>
             <span className="ml-auto px-1.5 py-0.5 rounded-full bg-muted text-[11px] md:text-[10px] font-medium">
               {task.sprints.length + task.gos.length}
             </span>
@@ -1941,7 +2021,7 @@ export default function Tasks() {
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="min-w-0">
                       <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
                       <input type="date" value={newStart} onChange={(e) => setNewStart(e.target.value)}

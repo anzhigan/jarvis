@@ -35,6 +35,13 @@ export default function App() {
     return 'notes';
   });
   const [dark, setDark] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('jarvnote:sidebarOpen');
+    return saved === null ? true : saved === '1';
+  });
+  useEffect(() => {
+    localStorage.setItem('jarvnote:sidebarOpen', sidebarOpen ? '1' : '0');
+  }, [sidebarOpen]);
 
   useEffect(() => { init(); }, []);
 
@@ -56,8 +63,8 @@ export default function App() {
   }, [isReady]);
 
   useEffect(() => {
-    import('../native/bridge').then(({ setStatusBarDark, setStatusBarLight }) => {
-      if (dark) setStatusBarLight(); else setStatusBarDark();
+    import('../native/bridge').then(({ setStatusBarTheme }) => {
+      setStatusBarTheme(dark);
     });
   }, [dark]);
 
@@ -127,42 +134,29 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* === Top header — desktop only on native iOS, full on web === */}
-      <header
-        className="flex items-center px-3 md:px-5 border-b border-border flex-shrink-0 gap-2 bg-background/80 backdrop-blur-md sticky top-0 z-20 native-ios-header"
-        style={{ height: 52 }}
+    <div className="h-screen flex bg-background overflow-hidden">
+      {/* === LEFT SIDEBAR (desktop only) === */}
+      <aside
+        className={`hidden md:flex flex-col flex-shrink-0 border-r border-border bg-background/95 transition-all duration-300 ${
+          sidebarOpen ? 'w-56' : 'w-14'
+        }`}
       >
-        {/* Left: profile pill */}
-        <div className="flex-1 min-w-0 flex items-center">
+        {/* Top: collapse toggle */}
+        <div className="flex items-center justify-between px-3 h-13 border-b border-border" style={{ height: 52 }}>
+          {sidebarOpen && (
+            <span className="text-sm font-semibold tracking-tight text-foreground">Jarvnote</span>
+          )}
           <button
-            onClick={() => setTab('profile')}
-            className={`h-9 flex items-center gap-2 pr-3 pl-1 rounded-full transition-colors ${
-              tab === 'profile'
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-            }`}
-            title="Account"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="btn-icon"
+            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
           >
-            {user.avatar_url ? (
-              <img
-                src={resolveUrl(user.avatar_url)}
-                alt=""
-                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
-                <User size={14} />
-              </div>
-            )}
-            <span className="hidden sm:inline text-sm font-medium truncate max-w-[100px] md:max-w-[140px]">
-              {user.username}
-            </span>
+            <PanelLeft size={16} />
           </button>
         </div>
 
-        {/* Center: main tabs (DESKTOP only) */}
-        <nav className="hidden md:flex items-center gap-0 flex-shrink-0">
+        {/* Tabs */}
+        <nav className="flex flex-col gap-0.5 p-2 flex-1">
           {TABS.map((tabDef) => {
             const active = tab === tabDef.key;
             const Icon = tabDef.icon;
@@ -171,73 +165,123 @@ export default function App() {
               <button
                 key={tabDef.key}
                 onClick={() => setTab(tabDef.key)}
-                className={`relative flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-medium ${
-                  active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                className={`flex items-center gap-2.5 h-9 px-2.5 rounded-md text-[13px] font-medium transition-all active:scale-95 ${
+                  active
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                 }`}
-                title={label}
+                title={!sidebarOpen ? label : undefined}
               >
-                <Icon size={15} strokeWidth={active ? 2.4 : 2} />
-                <span className="hidden sm:inline">{label}</span>
+                <Icon size={16} strokeWidth={active ? 2.4 : 2} className="flex-shrink-0" />
+                {sidebarOpen && <span className="truncate">{label}</span>}
               </button>
             );
           })}
         </nav>
 
-        {/* Right: theme */}
-        <div className="flex-1 min-w-0 flex items-center justify-end">
+        {/* Bottom: profile + theme */}
+        <div className="flex flex-col gap-0.5 p-2 border-t border-border">
+          <button
+            onClick={() => setTab('profile')}
+            className={`flex items-center gap-2.5 h-9 px-2.5 rounded-md text-[13px] font-medium transition-all active:scale-95 ${
+              tab === 'profile'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+            }`}
+            title={!sidebarOpen ? user.username : undefined}
+          >
+            {user.avatar_url ? (
+              <img src={resolveUrl(user.avatar_url)} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <User size={16} className="flex-shrink-0" />
+            )}
+            {sidebarOpen && <span className="truncate">{user.username}</span>}
+          </button>
           <button
             onClick={toggleTheme}
-            className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-            title="Toggle theme"
+            className="flex items-center gap-2.5 h-9 px-2.5 rounded-md text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all active:scale-95"
+            title={!sidebarOpen ? 'Toggle theme' : undefined}
+          >
+            {dark ? <Sun size={16} className="flex-shrink-0" /> : <Moon size={16} className="flex-shrink-0" />}
+            {sidebarOpen && <span>{dark ? 'Light' : 'Dark'} mode</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* === MOBILE: simplified top header === */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <header
+          className="md:hidden flex items-center px-3 border-b border-border flex-shrink-0 gap-2 bg-background/95 backdrop-blur-md sticky top-0 z-20 native-ios-header"
+          style={{ height: 52 }}
+        >
+          <button
+            onClick={() => setTab('profile')}
+            className={`h-9 flex items-center gap-2 pr-3 pl-1 rounded-full transition-colors flex-1 min-w-0 ${
+              tab === 'profile'
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+            }`}
+          >
+            {user.avatar_url ? (
+              <img src={resolveUrl(user.avatar_url)} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
+                <User size={14} />
+              </div>
+            )}
+            <span className="text-sm font-medium truncate">{user.username}</span>
+          </button>
+          <button
+            onClick={toggleTheme}
+            className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors flex-shrink-0"
           >
             {dark ? <Sun size={17} /> : <Moon size={17} />}
           </button>
-        </div>
-      </header>
+        </header>
 
-      {/* === Main content === */}
-      <main className="flex-1 overflow-hidden relative">
-        <div className={`absolute inset-0 ${tab === 'notes' ? '' : 'hidden'}`}><Notes /></div>
-        <div className={`absolute inset-0 ${tab === 'tasks' ? '' : 'hidden'}`}><Tasks /></div>
-        <div className={`absolute inset-0 ${tab === 'routines' ? '' : 'hidden'}`}><Routines /></div>
-        <div className={`absolute inset-0 ${tab === 'sprints' ? '' : 'hidden'}`}><Sprints /></div>
-        <div className={`absolute inset-0 ${tab === 'tutor' ? '' : 'hidden'}`}><AITutorPage /></div>
-        <div className={`absolute inset-0 ${tab === 'analysis' ? '' : 'hidden'}`}><Dashboard /></div>
-        <div className={`absolute inset-0 ${tab === 'profile' ? '' : 'hidden'}`}><Profile /></div>
-      </main>
+        {/* === Main content === */}
+        <main className="flex-1 overflow-hidden relative">
+          <div className={`absolute inset-0 ${tab === 'notes' ? '' : 'hidden'}`}><Notes /></div>
+          <div className={`absolute inset-0 ${tab === 'tasks' ? '' : 'hidden'}`}><Tasks /></div>
+          <div className={`absolute inset-0 ${tab === 'routines' ? '' : 'hidden'}`}><Routines /></div>
+          <div className={`absolute inset-0 ${tab === 'sprints' ? '' : 'hidden'}`}><Sprints /></div>
+          <div className={`absolute inset-0 ${tab === 'tutor' ? '' : 'hidden'}`}><AITutorPage /></div>
+          <div className={`absolute inset-0 ${tab === 'analysis' ? '' : 'hidden'}`}><Dashboard /></div>
+          <div className={`absolute inset-0 ${tab === 'profile' ? '' : 'hidden'}`}><Profile /></div>
+        </main>
 
-      {/* === Bottom tab bar (MOBILE) — iOS-native style === */}
-      <nav
-        className="md:hidden flex items-stretch justify-around border-t border-border bg-background/95 backdrop-blur-xl flex-shrink-0 native-ios-tabbar"
-        style={{
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          height: 'calc(56px + env(safe-area-inset-bottom, 0px))',
-        }}
-      >
-        {TABS.map((tabDef) => {
-          const active = tab === tabDef.key;
-          const Icon = tabDef.icon;
-          const label = t(tabDef.labelKey);
-          return (
-            <button
-              key={tabDef.key}
-              onClick={async () => {
-                setTab(tabDef.key);
-                // Tactile feedback on tab switch
-                const { hapticTap } = await import('../native/bridge');
-                hapticTap();
-              }}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors active:bg-secondary/50 ${
-                active ? 'text-primary' : 'text-muted-foreground'
-              }`}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
-            >
-              <Icon size={22} strokeWidth={active ? 2.4 : 1.8} />
-              <span className="text-[10px] font-medium tracking-tight">{label}</span>
-            </button>
-          );
-        })}
-      </nav>
+        {/* === Bottom tab bar (MOBILE) === */}
+        <nav
+          className="md:hidden flex items-stretch justify-around border-t border-border bg-background/95 backdrop-blur-xl flex-shrink-0 native-ios-tabbar"
+          style={{
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            height: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          {TABS.map((tabDef) => {
+            const active = tab === tabDef.key;
+            const Icon = tabDef.icon;
+            const label = t(tabDef.labelKey);
+            return (
+              <button
+                key={tabDef.key}
+                onClick={async () => {
+                  setTab(tabDef.key);
+                  const { hapticTap } = await import('../native/bridge');
+                  hapticTap();
+                }}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors active:bg-secondary/50 ${
+                  active ? 'text-primary' : 'text-muted-foreground'
+                }`}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <Icon size={22} strokeWidth={active ? 2.4 : 1.8} />
+                <span className="text-[10px] font-medium tracking-tight">{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
       <Toaster richColors position="top-center" />
     </div>

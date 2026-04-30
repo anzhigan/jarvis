@@ -632,12 +632,6 @@ export default function Sprints() {
 
   return (
     <div className="size-full flex flex-col">
-      <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border flex-shrink-0">
-        <div>
-          <h1 className="text-xl font-semibold">Sprints</h1>
-        </div>
-      </div>
-
       <div className="flex-1 overflow-hidden">
         <PullToRefresh onRefresh={load}>
           <div className="px-4 md:px-6 py-4">

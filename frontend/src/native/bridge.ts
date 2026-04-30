@@ -56,20 +56,26 @@ export async function hapticSelection(): Promise<void> {
 
 // ─── Status bar ──────────────────────────────────────────────────────────────
 
-export async function setStatusBarLight(): Promise<void> {
+/**
+ * Set status bar style and background color to match the app theme.
+ * @param dark — true for dark theme (light text on dark bg), false for light theme.
+ */
+export async function setStatusBarTheme(dark: boolean): Promise<void> {
   if (!isNative) return;
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar');
-    await StatusBar.setStyle({ style: Style.Light });   // light text on dark bg
+    await StatusBar.setStyle({ style: dark ? Style.Light : Style.Dark });
+    await StatusBar.setBackgroundColor({ color: dark ? '#0E0E10' : '#FAFAF9' });
   } catch { /* ignore */ }
 }
 
+// Legacy aliases (kept for backward compatibility)
+export async function setStatusBarLight(): Promise<void> {
+  return setStatusBarTheme(true);
+}
+
 export async function setStatusBarDark(): Promise<void> {
-  if (!isNative) return;
-  try {
-    const { StatusBar, Style } = await import('@capacitor/status-bar');
-    await StatusBar.setStyle({ style: Style.Dark });    // dark text on light bg
-  } catch { /* ignore */ }
+  return setStatusBarTheme(false);
 }
 
 // ─── Splash screen ───────────────────────────────────────────────────────────

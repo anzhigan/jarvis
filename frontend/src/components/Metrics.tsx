@@ -500,43 +500,55 @@ function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
   );
 
   if (active.length === 0) {
-    return (
-      <div className="p-5 bg-card border border-border rounded-xl text-center text-muted-foreground">
-        <Zap size={28} className="mx-auto mb-2 opacity-40" />
-        <p className="text-sm">No active sprints.</p>
-      </div>
-    );
+    return null;  // Don't show empty card — let Analysis breathe
   }
 
   return (
     <div className="p-5 bg-card border border-border rounded-xl">
-      <h3 className="text-sm font-semibold mb-3">Active sprints</h3>
-      <div className="space-y-2.5">
+      <h3 className="text-sm font-semibold mb-4">Active sprints</h3>
+      <div className="space-y-4">
         {active.map((s) => {
           const start = new Date(s.start_date);
           const end = new Date(s.end_date);
           const total = (end.getTime() - start.getTime()) / 86400000 + 1;
           const elapsed = (todayDate().getTime() - start.getTime()) / 86400000 + 1;
+          const remaining = Math.max(0, total - elapsed);
           const pct = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 0;
           const counts = { goal: 0, step: 0, go: 0, routine: 0 };
           for (const it of s.items) counts[it.item_type] = (counts[it.item_type] || 0) + 1;
 
           return (
-            <div key={s.id} className="border border-border rounded-md p-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="w-1 h-4 rounded-full" style={{ backgroundColor: s.color }} />
-                <span className="text-sm font-medium flex-1 truncate">{s.title}</span>
-                <span className="text-[10px] text-muted-foreground">{Math.round(pct)}%</span>
+            <div key={s.id} className="space-y-2">
+              {/* Sprint header */}
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                <span className="text-sm font-semibold flex-1 truncate">{s.title}</span>
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  {Math.round(remaining)} day{Math.round(remaining) !== 1 ? 's' : ''} left
+                </span>
               </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-2">
-                <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: s.color }} />
+              {/* Apple-style timeline track */}
+              <div className="relative h-2 bg-muted/60 rounded-full overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+                  style={{ width: `${pct}%`, backgroundColor: s.color }}
+                />
+                {/* Today marker */}
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-card transition-all"
+                  style={{ left: `calc(${pct}% - 6px)`, backgroundColor: s.color, boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}
+                />
               </div>
-              <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                {counts.goal > 0 && <span>🎯 {counts.goal}</span>}
-                {counts.step > 0 && <span>✓ {counts.step}</span>}
-                {counts.go > 0 && <span>⊚ {counts.go}</span>}
-                {counts.routine > 0 && <span>🔄 {counts.routine}</span>}
-                {s.items.length === 0 && <span className="italic">empty</span>}
+              {/* Date labels + items */}
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+                <span>{formatShortDate(s.start_date)}</span>
+                <div className="flex gap-2.5">
+                  {counts.goal > 0 && <span>{counts.goal} goal{counts.goal !== 1 ? 's' : ''}</span>}
+                  {counts.step > 0 && <span>{counts.step} step{counts.step !== 1 ? 's' : ''}</span>}
+                  {counts.go > 0 && <span>{counts.go} go{counts.go !== 1 ? 's' : ''}</span>}
+                  {counts.routine > 0 && <span>{counts.routine} routine{counts.routine !== 1 ? 's' : ''}</span>}
+                </div>
+                <span>{formatShortDate(s.end_date)}</span>
               </div>
             </div>
           );
@@ -544,6 +556,11 @@ function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
       </div>
     </div>
   );
+}
+
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 // ─── Year heatmap of routine entries ─────────────────────────────────────────
@@ -683,10 +700,6 @@ export default function Analysis() {
     <PullToRefresh onRefresh={load}>
       <div className="size-full">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
-          <div className="mb-5">
-            <h1 className="text-xl font-semibold">Analysis</h1>
-          </div>
-
         {/* KPI row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <KpiCard

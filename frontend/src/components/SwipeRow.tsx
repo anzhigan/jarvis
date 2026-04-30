@@ -1,3 +1,11 @@
+/**
+ * SwipeRow — iOS-style swipe-to-reveal actions.
+ *
+ * Apple Notes / Mail aesthetic:
+ *  - Rounded action buttons with breathing room
+ *  - Smooth spring animation on release
+ *  - Edit (orange) + Delete (red), both visible on left swipe
+ */
 import { useEffect, useRef, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 
@@ -5,27 +13,17 @@ interface Props {
   children: React.ReactNode;
   onEdit?: () => void;
   onDelete: () => void;
-  /** Pass false to disable swipe on desktop (default: auto-detects viewport) */
-  enabled?: boolean;
+  enabled: boolean;
 }
 
-/**
- * iOS-style swipe-to-reveal row. Drag left to show Edit/Delete buttons behind.
- * On desktop (>= 768px) by default swipe is disabled and children are shown as-is.
- */
 export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props) {
   const [offset, setOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const startX = useRef(0);
   const startOffset = useRef(0);
   const dragging = useRef(false);
-  const [isDragging, setIsDragging] = useState(false);
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const active = enabled ?? isMobile;
-
-  const ACTIONS_WIDTH = onEdit ? 140 : 70;
-
-  if (!active) return <>{children}</>;
+  const ACTIONS_WIDTH = onEdit ? 144 : 76;
 
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
@@ -33,26 +31,32 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
     dragging.current = true;
     setIsDragging(true);
   };
+
   const onTouchMove = (e: React.TouchEvent) => {
     if (!dragging.current) return;
     const dx = e.touches[0].clientX - startX.current;
-    const next = Math.max(-ACTIONS_WIDTH, Math.min(0, startOffset.current + dx));
+    let next = startOffset.current + dx;
+    if (next > 0) next = next * 0.3;
+    if (next < -ACTIONS_WIDTH) {
+      const overshoot = next + ACTIONS_WIDTH;
+      next = -ACTIONS_WIDTH + overshoot * 0.3;
+    }
     setOffset(next);
   };
+
   const onTouchEnd = () => {
     dragging.current = false;
     setIsDragging(false);
     if (offset < -ACTIONS_WIDTH / 2) {
       setOffset(-ACTIONS_WIDTH);
-      // Haptic when swipe snaps open
-      import('../native/bridge').then(({ hapticTap }) => hapticTap());
+      import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
     } else {
       setOffset(0);
     }
   };
+
   const close = () => setOffset(0);
 
-  // When swipe is disabled (e.g. while editing), reset offset on disable
   useEffect(() => {
     if (!enabled && offset !== 0) setOffset(0);
   }, [enabled]);
@@ -62,29 +66,40 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
   }
 
   return (
-    <div className="relative overflow-hidden rounded-lg">
-      {/* Actions behind */}
-      <div className="absolute right-0 top-0 bottom-0 flex">
+    <div className="relative">
+      <div
+        className="absolute right-0 top-0 bottom-0 flex items-center gap-1.5 pr-1.5"
+        style={{ pointerEvents: offset < -10 ? 'auto' : 'none' }}
+      >
         {onEdit && (
           <button
-            onClick={(e) => { e.stopPropagation(); close(); onEdit(); }}
-            className="w-[70px] bg-chart-3 text-white flex items-center justify-center active:opacity-80"
+            onClick={(e) => {
+              e.stopPropagation();
+              close();
+              import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
+              onEdit();
+            }}
+            className="w-[60px] h-[calc(100%-12px)] my-1.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform shadow-sm"
+            style={{ backgroundColor: '#F59E0B' }}
             aria-label="Edit"
           >
-            <Pencil size={18} />
+            <Pencil size={18} strokeWidth={2.4} />
+            Edit
           </button>
         )}
         <button
           onClick={(e) => {
             e.stopPropagation();
             close();
-            import('../native/bridge').then(({ hapticWarning }) => hapticWarning());
+            import('../native/bridge').then(({ hapticWarning }) => hapticWarning()).catch(() => {});
             onDelete();
           }}
-          className="w-[70px] bg-destructive text-white flex items-center justify-center active:opacity-80"
+          className="w-[60px] h-[calc(100%-12px)] my-1.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform shadow-sm"
+          style={{ backgroundColor: '#EF4444' }}
           aria-label="Delete"
         >
-          <Trash2 size={18} />
+          <Trash2 size={18} strokeWidth={2.4} />
+          Delete
         </button>
       </div>
 
@@ -92,18 +107,12 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        onClickCapture={(e) => {
-          if (offset !== 0) {
-            e.stopPropagation();
-            e.preventDefault();
-            close();
-          }
-        }}
         style={{
           transform: `translateX(${offset}px)`,
-          transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+          transition: isDragging ? 'none' : 'transform 320ms cubic-bezier(0.16, 1, 0.3, 1)',
+          willChange: 'transform',
+          touchAction: offset === 0 ? 'pan-y' : 'none',
         }}
-        className="relative bg-background"
       >
         {children}
       </div>

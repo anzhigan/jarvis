@@ -470,3 +470,48 @@ button, a, [role="button"] {
   transition-duration: 80ms;
   opacity: 0.85;
 }
+
+/* === Dark mode failsafe — direct CSS overrides === */
+/* Tailwind v4 dark variant can be flaky with custom-variant; this ensures coverage */
+
+.dark body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* All form controls inherit theme colors */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: var(--input-background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--muted-foreground);
+}
+
+/* Modal overlays */
+.dark .modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* === Mobile viewport sizing === */
+/* h-screen on iOS includes the address bar height which can shift; use dvh instead */
+.native-ios .h-screen {
+  height: 100dvh;
+}
+
+/* Header in native iOS doesn't need extra safe-area since overlaysWebView: false */
+.native-ios .native-ios-header {
+  padding-top: 0 !important;
+  height: 52px !important;
+}
+
+/* But bottom tab bar still needs safe-area for home indicator on iPhone X+ */
+.native-ios .native-ios-tabbar {
+  padding-bottom: max(env(safe-area-inset-bottom, 8px), 8px);
+  height: calc(56px + max(env(safe-area-inset-bottom, 8px), 8px)) !important;
+}

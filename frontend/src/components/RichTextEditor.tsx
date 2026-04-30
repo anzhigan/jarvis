@@ -352,18 +352,13 @@ interface RichTextEditorProps {
 }
 
 const COLORS: { color: string; name: string }[] = [
-  { color: '#1c1917', name: 'Default' },
-  { color: '#78716c', name: 'Gray' },
-  { color: '#e11d48', name: 'Red' },
-  { color: '#ea580c', name: 'Orange' },
-  { color: '#d97706', name: 'Amber' },
-  { color: '#65a30d', name: 'Lime' },
-  { color: '#059669', name: 'Green' },
-  { color: '#0891b2', name: 'Cyan' },
-  { color: '#0ea5e9', name: 'Sky' },
-  { color: '#4f46e5', name: 'Indigo' },
-  { color: '#7c3aed', name: 'Violet' },
-  { color: '#db2777', name: 'Pink' },
+  { color: '#5B5BD6', name: 'Indigo' },
+  { color: '#10B981', name: 'Emerald' },
+  { color: '#F59E0B', name: 'Amber' },
+  { color: '#EC4899', name: 'Pink' },
+  { color: '#06B6D4', name: 'Cyan' },
+  { color: '#EF4444', name: 'Red' },
+  { color: '#71717A', name: 'Slate' },
 ];
 
 const FONT_SIZES = [
@@ -745,34 +740,6 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
 
           <div className="w-px h-5 bg-border mx-1" />
 
-          {/* Font size */}
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => {
-                setShowSizePicker(!showSizePicker);
-                setShowColorPicker(false);
-              }}
-              className={btnCls(false)}
-              title="Font size"
-            >
-              <Type size={15} />
-            </button>
-            {showSizePicker && (
-              <div className="editor-dropdown absolute top-9 left-0 bg-card border border-border rounded-lg shadow-lg p-1 min-w-[140px] z-50">
-                {FONT_SIZES.map((size) => (
-                  <button
-                    key={size.value}
-                    onClick={() => setFontSize(size.value)}
-                    className="w-full text-left px-3 py-1.5 rounded-md hover:bg-secondary transition-colors text-sm"
-                    style={{ fontSize: size.value }}
-                  >
-                    {size.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Color */}
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button
@@ -789,11 +756,11 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
               />
             </button>
             {showColorPicker && (
-              <div className="editor-dropdown absolute top-9 left-0 bg-card border border-border rounded-lg shadow-lg p-3 z-50 w-[220px]">
+              <div className="editor-dropdown absolute top-9 left-0 bg-card border border-border rounded-lg shadow-lg p-3 z-50">
                 <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 px-0.5">Text color</div>
-                <div className="grid grid-cols-6 gap-2">
+                <div className="flex gap-1.5">
                   {COLORS.map(({ color, name }) => {
-                    const active = (editor.getAttributes('textStyle').color || '#1c1917') === color;
+                    const active = (editor.getAttributes('textStyle').color || '') === color;
                     return (
                       <button
                         key={color}
@@ -801,8 +768,8 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
                           editor.chain().focus().setColor(color).run();
                           setShowColorPicker(false);
                         }}
-                        className={`relative w-8 h-8 rounded-md transition-all hover:scale-110 ${
-                          active ? 'ring-2 ring-offset-2 ring-ring ring-offset-popover' : 'ring-1 ring-border'
+                        className={`w-7 h-7 rounded-full transition-all hover:scale-110 active:scale-95 ${
+                          active ? 'ring-2 ring-offset-1 ring-ring' : ''
                         }`}
                         style={{ backgroundColor: color }}
                         title={name}

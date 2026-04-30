@@ -294,22 +294,13 @@
 }
 
 /* === Notion-style block rendering === */
-/* Each top-level block gets subtle padding and hover background */
+/* Each top-level block gets subtle padding for breathing room */
 .ProseMirror > * {
   position: relative;
   padding: 3px 4px;
   border-radius: 4px;
   margin-left: -4px;
   margin-right: -4px;
-  transition: background-color 150ms var(--ease-out-expo);
-}
-
-.ProseMirror > *:hover {
-  background-color: rgba(0, 0, 0, 0.03);
-}
-
-.dark .ProseMirror > *:hover {
-  background-color: rgba(255, 255, 255, 0.03);
 }
 
 /* Larger spacing between paragraphs (Notion-feel) */

@@ -231,20 +231,47 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
       <div className="flex-1 p-3 min-w-0">
         <div className="flex items-center gap-2">
           {routine.kind === 'boolean' && (
-            <button
-              onClick={toggleToday}
-              disabled={busy || routine.is_paused}
-              className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                isDoneToday
-                  ? 'bg-emerald-500 border-emerald-500 text-white'
-                  : dueToday
-                    ? 'border-primary hover:bg-primary/10'
-                    : 'border-border'
-              } ${routine.is_paused ? 'opacity-40' : ''}`}
-              title={dueToday ? (isDoneToday ? 'Mark not done' : 'Mark done today') : 'Not due today'}
-            >
-              {busy ? <Loader2 size={11} className="animate-spin" /> : isDoneToday ? '✓' : ''}
-            </button>
+            <div className="flex flex-shrink-0 gap-1">
+              <button
+                onClick={toggleToday}
+                disabled={busy || routine.is_paused}
+                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all active:scale-90 ${
+                  isDoneToday
+                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                    : 'border-border hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                } ${routine.is_paused ? 'opacity-40' : ''}`}
+                title={isDoneToday ? 'Mark not done' : 'Mark done today'}
+              >
+                {busy ? <Loader2 size={11} className="animate-spin" /> : isDoneToday ? '✓' : ''}
+              </button>
+              <button
+                onClick={async () => {
+                  if (routine.kind !== 'boolean' || busy) return;
+                  setBusy(true);
+                  try {
+                    import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
+                    if (todayEntry && todayEntry.value === 0) {
+                      // Already marked as not done — clear
+                      await routinesApi.deleteEntry(routine.id, today);
+                    } else {
+                      await routinesApi.upsertEntry(routine.id, today, 0);
+                    }
+                    await onReload();
+                  } catch (e: any) {
+                    toast.error(e?.detail ?? 'Failed');
+                  } finally { setBusy(false); }
+                }}
+                disabled={busy || routine.is_paused}
+                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all active:scale-90 ${
+                  todayEntry && todayEntry.value === 0
+                    ? 'bg-rose-500 border-rose-500 text-white shadow-sm'
+                    : 'border-border hover:border-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                } ${routine.is_paused ? 'opacity-40' : ''}`}
+                title={todayEntry && todayEntry.value === 0 ? 'Clear' : 'Mark not done'}
+              >
+                {todayEntry && todayEntry.value === 0 ? '✕' : ''}
+              </button>
+            </div>
           )}
           <div className="flex-1 min-w-0">
             <div className={`text-sm font-medium truncate ${routine.is_paused ? 'text-muted-foreground' : ''}`}>
@@ -613,12 +640,6 @@ export default function Routines() {
 
   return (
     <div className="size-full flex flex-col">
-      <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border flex-shrink-0">
-        <div>
-          <h1 className="text-xl font-semibold">Routines</h1>
-        </div>
-      </div>
-
       <div className="flex-1 overflow-hidden">
         <PullToRefresh onRefresh={load}>
           <div className="px-4 md:px-6 py-4">
