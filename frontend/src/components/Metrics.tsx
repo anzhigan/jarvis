@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { tasksApi, routinesApi, focusSprintsApi } from '../api/client';
 import type { Task, Routine, FocusSprint, RoutineScheduleType } from '../api/types';
 import { useT } from '../store/i18n';
+import PullToRefresh from './PullToRefresh';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
                     <div
                       key={c.date}
                       title={`${c.date}${c.before ? ' — before start' : (c.value > 0 ? ' — done' : c.due ? ' — missed' : ' — not due')}`}
-                      className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center transition-all ${cls} ${c.isToday ? 'scale-110' : ''}`}
+                      className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center transition-all ${cls} ${c.isToday ? 'scale-110' : ''}`}
                       style={style}
                     >
                       {inner}
@@ -225,30 +226,40 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
 // ─── Productivity Trend ──────────────────────────────────────────────────────
 
 function ProductivityTrend({ routines }: { routines: Routine[] }) {
+  // For each day, compute overall % AND per-routine done (1=done, 0=not, -1=not due)
   const data = useMemo(() => {
     const today = todayDate();
-    const points: { date: string; pct: number; done: number; total: number }[] = [];
+    const points: any[] = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const dKey = dateIso(d);
       let dueCount = 0;
       let doneCount = 0;
+      const point: any = { date: `${d.getMonth() + 1}/${d.getDate()}` };
       for (const r of routines) {
         const created = new Date(r.created_at);
         created.setHours(0, 0, 0, 0);
-        if (d < created) continue;
-        if (!isRoutineDueOn(r, d)) continue;
+        if (d < created) {
+          point[`r_${r.id}`] = null;
+          continue;
+        }
+        if (!isRoutineDueOn(r, d)) {
+          point[`r_${r.id}`] = null;
+          continue;
+        }
         dueCount += 1;
         const entry = r.entries.find((e) => e.date === dKey);
-        if (entry && entry.value > 0) doneCount += 1;
+        const isDone = entry && entry.value > 0;
+        if (isDone) doneCount += 1;
+        // For per-routine line: cumulative completion rate (last 7 days)
+        // Or just done = 100, not done = 0
+        point[`r_${r.id}`] = isDone ? 100 : 0;
       }
-      points.push({
-        date: `${d.getMonth() + 1}/${d.getDate()}`,
-        pct: dueCount > 0 ? Math.round(100 * doneCount / dueCount) : 0,
-        done: doneCount,
-        total: dueCount,
-      });
+      point.pct = dueCount > 0 ? Math.round(100 * doneCount / dueCount) : 0;
+      point.done = doneCount;
+      point.total = dueCount;
+      points.push(point);
     }
     return points;
   }, [routines]);
@@ -257,12 +268,15 @@ function ProductivityTrend({ routines }: { routines: Routine[] }) {
   const olderAvg = data.slice(0, 7).reduce((s, d) => s + d.pct, 0) / 7;
   const trend = recentAvg > olderAvg + 5 ? 'up' : recentAvg < olderAvg - 5 ? 'down' : 'flat';
 
+  // Top routines to show as separate lines (limit to 4 to avoid clutter)
+  const topRoutines = useMemo(() => routines.filter((r) => !r.is_paused).slice(0, 4), [routines]);
+
   return (
     <div className="p-5 bg-card border border-border rounded-xl">
       <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
         <div>
           <h3 className="text-sm font-semibold">Productivity trend</h3>
-          <p className="text-xs text-muted-foreground">% of routines completed when due (30 days)</p>
+          <p className="text-xs text-muted-foreground">Overall % + individual habits (30 days)</p>
         </div>
         <div className="flex items-center gap-1 text-xs">
           {trend === 'up' && <><TrendingUp size={14} className="text-emerald-500" /><span className="text-emerald-500 font-medium">{Math.round(recentAvg)}%</span></>}
@@ -286,10 +300,39 @@ function ProductivityTrend({ routines }: { routines: Routine[] }) {
               contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '12px' }}
               formatter={(v: number, _: string, ctx: any) => [`${v}% (${ctx.payload.done}/${ctx.payload.total})`, 'Done']}
             />
+            {/* Per-routine subtle lines */}
+            {topRoutines.map((r) => (
+              <Area
+                key={r.id}
+                type="monotone"
+                dataKey={`r_${r.id}`}
+                stroke={r.color}
+                strokeWidth={1}
+                strokeOpacity={0.5}
+                fill="none"
+                connectNulls={false}
+                dot={false}
+              />
+            ))}
+            {/* Main overall line */}
             <Area type="monotone" dataKey="pct" stroke="var(--primary)" strokeWidth={2.5} fill="url(#prodFill)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
+      {topRoutines.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[10px]">
+          <span className="inline-flex items-center gap-1">
+            <span className="w-3 h-0.5 bg-primary rounded" />
+            <span className="text-muted-foreground font-medium">Overall</span>
+          </span>
+          {topRoutines.map((r) => (
+            <span key={r.id} className="inline-flex items-center gap-1">
+              <span className="w-3 h-0.5 rounded" style={{ backgroundColor: r.color, opacity: 0.6 }} />
+              <span className="text-muted-foreground truncate max-w-[80px]">{r.title}</span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -589,24 +632,26 @@ export default function Analysis() {
   const [sprints, setSprints] = useState<FocusSprint[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const load = async () => {
+    try {
+      const [g, r, s] = await Promise.all([
+        tasksApi.list(),
+        routinesApi.list(),
+        focusSprintsApi.list(),
+      ]);
+      setGoals(g);
+      setRoutines(r);
+      setSprints(s);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to load analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [g, r, s] = await Promise.all([
-          tasksApi.list(),
-          routinesApi.list(),
-          focusSprintsApi.list(),
-        ]);
-        setGoals(g);
-        setRoutines(r);
-        setSprints(s);
-      } catch (e: any) {
-        toast.error(e?.detail ?? 'Failed to load analytics');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    setLoading(true);
+    load();
   }, []);
 
   const today = dateIso(todayDate());
@@ -635,12 +680,12 @@ export default function Analysis() {
   }
 
   return (
-    <div className="size-full overflow-y-auto">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
-        <div className="mb-5">
-          <h1 className="text-xl font-semibold">Analysis</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Goals, routines & sprints overview</p>
-        </div>
+    <PullToRefresh onRefresh={load}>
+      <div className="size-full">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
+          <div className="mb-5">
+            <h1 className="text-xl font-semibold">Analysis</h1>
+          </div>
 
         {/* KPI row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
@@ -698,7 +743,8 @@ export default function Analysis() {
         <div className="mb-3">
           <YearHeatmap routines={routines} />
         </div>
+        </div>
       </div>
-    </div>
+    </PullToRefresh>
   );
 }

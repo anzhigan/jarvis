@@ -3,6 +3,7 @@ import { Loader2, Plus, Pencil, Trash2, Repeat, Pause, Play, X } from 'lucide-re
 import { toast } from 'sonner';
 import { routinesApi, tasksApi } from '../api/client';
 import type { Routine, RoutineScheduleType } from '../api/types';
+import PullToRefresh from './PullToRefresh';
 import { useT } from '../store/i18n';
 
 const ROUTINE_COLORS = [
@@ -615,24 +616,24 @@ export default function Routines() {
       <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border flex-shrink-0">
         <div>
           <h1 className="text-xl font-semibold">Routines</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Recurring activities with schedule</p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
-        <div className="max-w-3xl mx-auto">
-          {/* Filter pills */}
+      <div className="flex-1 overflow-hidden">
+        <PullToRefresh onRefresh={load}>
+          <div className="px-4 md:px-6 py-4">
+            <div className="max-w-3xl mx-auto">
+          {/* Filter pills — standardized with btn-pill class */}
           <div className="flex gap-1.5 mb-4 flex-wrap">
             {(['today', 'all', 'paused'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`h-8 px-3 rounded-full text-xs font-medium transition-colors ${
-                  filter === f ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground hover:bg-secondary/80'
-                }`}
+                className="btn-pill"
+                data-active={filter === f}
               >
                 {f === 'today' ? 'Today' : f === 'all' ? 'All active' : 'Paused'}
-                <span className="ml-1.5 opacity-70">{counts[f]}</span>
+                <span className="opacity-70">{counts[f]}</span>
               </button>
             ))}
           </div>
@@ -669,7 +670,9 @@ export default function Routines() {
               ))}
             </div>
           )}
-        </div>
+            </div>
+          </div>
+        </PullToRefresh>
       </div>
     </div>
   );

@@ -282,3 +282,191 @@ html, body {
   box-shadow: 0 0 0 3px rgba(91, 91, 214, 0.25);
   border-radius: 6px;
 }
+
+/* === Standard interactive button states === */
+/* All buttons in the app should follow these patterns for consistency. */
+
+/* Pill / chip — like filter buttons (Today / All / Paused) */
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2rem;
+  padding: 0 0.875rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  border: 1px solid transparent;
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-pill:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.btn-pill[data-active="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 1px 2px 0 rgba(91, 91, 214, 0.25);
+}
+.btn-pill[data-active="true"]:hover {
+  background: var(--primary-hover);
+  color: var(--primary-foreground);
+}
+.btn-pill:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* Toolbar button — like in editor toolbar (Bold, Italic, etc) */
+.btn-toolbar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1px solid transparent;
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-toolbar:hover:not(:disabled) {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.btn-toolbar[data-active="true"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  box-shadow: inset 0 0 0 1px var(--accent-foreground);
+}
+.btn-toolbar:active:not(:disabled) {
+  transform: scale(0.92);
+}
+.btn-toolbar:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Icon button — small action like Edit/Delete */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-icon:hover:not(:disabled) {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.btn-icon:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+/* Apple-style spring transitions everywhere */
+* {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button, a {
+  transition-duration: 200ms;
+}
+
+/* Smooth tab content fade-in */
+.fade-enter {
+  animation: fadeSlideIn 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal/dialog overlay — solid bg with slight blur, NOT transparent */
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.dark .modal-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* Popover content — solid background */
+.popover-content {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: none;
+}
+
+/* === Apple-style spring physics for natural motion === */
+:root {
+  /* Apple's iOS spring curves */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);    /* spring out — smooth */
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1); /* slight overshoot */
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1); /* swoosh */
+  --ease-in-out-circ: cubic-bezier(0.85, 0, 0.15, 1);  /* sharp */
+
+  --duration-fast: 180ms;
+  --duration-base: 280ms;
+  --duration-slow: 420ms;
+}
+
+/* Default to spring out */
+* {
+  transition-timing-function: var(--ease-out-expo);
+}
+
+/* Hover transitions are quick */
+button, a, [role="button"] {
+  transition-duration: 180ms;
+}
+
+/* Card lifts and scale animations use back-ease for life */
+.card-lift,
+[class*="hover:scale"],
+[class*="active:scale"] {
+  transition-timing-function: var(--ease-out-back);
+}
+
+/* Layout shifts (expand, collapse) use longer duration */
+[class*="grid-cols"],
+[class*="flex-col"] {
+  transition-property: padding, margin, gap;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out-expo);
+}
+
+/* Progress bars feel smoother with longer transition */
+[class*="bg-primary"] [style*="width"],
+.progress-fill {
+  transition: width 600ms var(--ease-out-expo);
+}
+
+/* Tab content fade with slight scale (Apple iOS) */
+@keyframes appleFadeIn {
+  from { opacity: 0; transform: scale(0.98) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-fadeIn {
+  animation: appleFadeIn 280ms var(--ease-out-expo);
+}
+
+/* Native iOS active feedback */
+.native-ios button:active:not(:disabled) {
+  transform: scale(0.96);
+  transition-duration: 80ms;
+  opacity: 0.85;
+}

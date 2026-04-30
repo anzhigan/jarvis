@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SwipeRow from './SwipeRow';
+import PullToRefresh from './PullToRefresh';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
 import { tasksApi, gosApi, sprintsApi, routinesApi, tagsApi } from '../api/client';
@@ -45,15 +46,18 @@ const PRIORITY_CLS: Record<TaskPriority, string> = {
 };
 
 // Unified palette — 6 carefully picked colors for tasks/goals/steps/gos/routines/tags/sprints
+// Standard 7-color palette — used everywhere across the app for visual consistency.
 export const ENTITY_COLORS = [
-  '#4f46e5', // indigo
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#ec4899', // pink
-  '#0891b2', // cyan
-  '#64748b', // slate
+  '#5B5BD6', // indigo (brand)
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#EC4899', // pink
+  '#06B6D4', // cyan
+  '#EF4444', // red
+  '#71717A', // slate
 ];
 
+export const STANDARD_COLORS = ENTITY_COLORS;
 const GO_COLORS = ENTITY_COLORS;
 
 const STRIPE_COLOR: Record<GoRecurrence, string> = {
@@ -297,7 +301,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
           </div>
 
           {editing && (
-            <div className="mt-2 p-2 bg-secondary/30 border border-border rounded-md space-y-2">
+            <div className="mt-2 p-2 bg-secondary/30 border border-border rounded-md space-y-2 relative z-10 animate-fadeIn">
               <input
                 type="text"
                 value={editTitle}
@@ -912,10 +916,10 @@ function CreateSprintForm({
           ))}
         </div>
         <div className="flex gap-1.5">
-          <button onClick={onCancel} className="h-8 px-2 text-sm text-muted-foreground">Cancel</button>
-          <button onClick={submit} disabled={saving || !title.trim() || !start || !end}
-            className="h-8 px-3 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50 flex items-center gap-1">
-            {saving && <Loader2 size={11} className="animate-spin" />}Create
+          <button onClick={onCancel} type="button" className="btn-pill" data-active="false">Cancel</button>
+          <button onClick={submit} disabled={saving || !title.trim() || !start || !end} type="button"
+            className="h-8 px-4 bg-primary text-primary-foreground rounded-full text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 hover:bg-primary-hover transition-colors active:scale-95">
+            {saving && <Loader2 size={11} className="animate-spin" />}<Plus size={12} /> Create
           </button>
         </div>
       </div>
@@ -1157,14 +1161,11 @@ function TaskCard({
             </div>
 
             {hasContent && (
-              <div className="mb-2">
-                <div className="flex items-center justify-between text-[11px] mb-0.5 text-muted-foreground">
-                  <span></span>
-                  <span className="font-semibold text-foreground">{task.progress}%</span>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary transition-all duration-500" style={{ width: `${task.progress}%` }} />
                 </div>
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
-                </div>
+                <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">{task.progress}%</span>
               </div>
             )}
 
@@ -1599,10 +1600,22 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Tasks() {
   const t = useT();
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'tasks' | 'go' | 'sprint'>('tasks');
+  const [view, setView] = useState<'tasks' | 'go' | 'sprint'>(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('tasks:view') : null;
+    return (saved === 'tasks' || saved === 'go' || saved === 'sprint') ? saved : 'tasks';
+  });
+  useEffect(() => {
+    localStorage.setItem('tasks:view', view);
+  }, [view]);
 
   const [newTitle, setNewTitle] = useState('');
   const [newPriority, setNewPriority] = useState<TaskPriority>('medium');
@@ -1790,8 +1803,9 @@ export default function Tasks() {
         </div>
       )}
 
-      <div className="size-full overflow-y-auto text-[13px]">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
+      <PullToRefresh onRefresh={load} disabled={!isMobile}>
+        <div className="size-full text-[13px]">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
           {/* Desktop segmented + mobile pill nav with Go in center */}
           <div className="mb-5">
             {/* Desktop */}
@@ -1895,32 +1909,45 @@ export default function Tasks() {
                     rows={2}
                     className="w-full px-3 py-2 rounded-md border border-border bg-input-background text-sm resize-none"
                   />
-                  {allTags.length > 0 && (
-                    <div>
-                      <label className="text-[11px] text-muted-foreground block mb-1">Tags</label>
-                      <div className="flex flex-wrap gap-1">
-                        {allTags.map((tag) => {
-                          const sel = newTagIds.includes(tag.id);
-                          return (
-                            <button
-                              key={tag.id}
-                              type="button"
-                              onClick={() => setNewTagIds((s) => sel ? s.filter((id) => id !== tag.id) : [...s, tag.id])}
-                              className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-medium border transition-colors ${
-                                sel
-                                  ? 'text-white border-transparent'
-                                  : 'border-border bg-card text-foreground hover:bg-secondary'
-                              }`}
-                              style={sel ? { backgroundColor: tag.color } : undefined}
-                            >
-                              {!sel && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />}
-                              {tag.name}
-                            </button>
-                          );
-                        })}
-                      </div>
+                  <div>
+                    <label className="text-[11px] text-muted-foreground block mb-1">Tags</label>
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {allTags.map((tag) => {
+                        const sel = newTagIds.includes(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => setNewTagIds((s) => sel ? s.filter((id) => id !== tag.id) : [...s, tag.id])}
+                            className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-medium border transition-all active:scale-95 ${
+                              sel
+                                ? 'text-white border-transparent shadow-sm'
+                                : 'border-border bg-card text-foreground hover:bg-secondary'
+                            }`}
+                            style={sel ? { backgroundColor: tag.color } : undefined}
+                          >
+                            {!sel && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />}
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const name = prompt('Tag name?');
+                          if (!name?.trim()) return;
+                          try {
+                            const created = await tagsApi.create(name.trim(), STANDARD_COLORS[allTags.length % STANDARD_COLORS.length]);
+                            setAllTags([...allTags, created]);
+                            setNewTagIds([...newTagIds, created.id]);
+                          } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+                        }}
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-all active:scale-95"
+                      >
+                        <Plus size={11} /> {allTags.length === 0 ? 'Add first tag' : 'New tag'}
+                      </button>
                     </div>
-                  )}
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="min-w-0">
                       <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
@@ -1998,7 +2025,7 @@ export default function Tasks() {
             </>
           )}
         </div>
-      </div>
+      </PullToRefresh>
     </>
   );
 }

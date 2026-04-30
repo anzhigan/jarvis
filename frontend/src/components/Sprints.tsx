@@ -5,6 +5,8 @@ import {
 import { toast } from 'sonner';
 import { focusSprintsApi, tasksApi, routinesApi, gosApi } from '../api/client';
 import type { FocusSprint, FocusSprintItem, FocusSprintItemType, Task, Routine, Go } from '../api/types';
+import PullToRefresh from './PullToRefresh';
+import { useSwipeBack } from '../native/useSwipeBack';
 import { useT } from '../store/i18n';
 
 const SPRINT_COLORS = [
@@ -310,6 +312,11 @@ function SprintDetail({
 }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
+
+  // Native iOS swipe-back gesture
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  useSwipeBack({ onBack, enabled: isMobile && !editing });
+
   const [adding, setAdding] = useState(false);
   const [editTitle, setEditTitle] = useState(sprint.title);
   const [editDesc, setEditDesc] = useState(sprint.description);
@@ -628,23 +635,23 @@ export default function Sprints() {
       <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-3 border-b border-border flex-shrink-0">
         <div>
           <h1 className="text-xl font-semibold">Sprints</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Temporal focus periods</p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
-        <div className="max-w-3xl mx-auto">
+      <div className="flex-1 overflow-hidden">
+        <PullToRefresh onRefresh={load}>
+          <div className="px-4 md:px-6 py-4">
+            <div className="max-w-3xl mx-auto">
           <div className="flex gap-1.5 mb-4 flex-wrap">
             {(['current', 'future', 'past'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`h-8 px-3 rounded-full text-xs font-medium transition-colors ${
-                  filter === f ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'
-                }`}
+                className="btn-pill"
+                data-active={filter === f}
               >
                 {f === 'current' ? 'Current' : f === 'future' ? 'Future' : 'Past'}
-                <span className="ml-1.5 opacity-70">{grouped[f].length}</span>
+                <span className="opacity-70">{grouped[f].length}</span>
               </button>
             ))}
           </div>
@@ -680,7 +687,9 @@ export default function Sprints() {
               ))}
             </div>
           )}
-        </div>
+            </div>
+          </div>
+        </PullToRefresh>
       </div>
     </div>
   );

@@ -166,8 +166,8 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
               onClick={(e) => e.stopPropagation()}
               style={!isMobile && popupPos ? { top: popupPos.top, left: popupPos.left } : undefined}
               className={isMobile
-                ? "fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] max-h-[80vh] overflow-y-auto bg-popover border border-border rounded-lg shadow-2xl p-3"
-                : "fixed z-[101] w-72 bg-popover border border-border rounded-lg shadow-2xl p-3"
+                ? "fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] max-h-[80vh] overflow-y-auto bg-card border border-border rounded-lg shadow-2xl p-3"
+                : "fixed z-[101] w-72 bg-card border border-border rounded-lg shadow-2xl p-3"
               }
             >
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">

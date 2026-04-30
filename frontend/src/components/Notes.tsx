@@ -24,6 +24,7 @@ import LongPressRow from './LongPressRow';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
 import NoteTitle from './NoteTitle';
+import { useSwipeBack } from '../native/useSwipeBack';
 import { useT } from '../store/i18n';
 import { notesApi, topicsApi, waysApi } from '../api/client';
 import type { Note, Topic, Way } from '../api/types';
@@ -130,6 +131,21 @@ export default function Notes() {
   };
 
   useEffect(() => { loadWays(); }, []);
+
+  // iOS swipe-back gesture: from-left-edge swipe closes the note view
+  useSwipeBack({
+    onBack: async () => {
+      if (selection) {
+        // Save and exit
+        const st = editorStateRef.current;
+        if (st?.dirty) {
+          try { await notesApi.update(st.noteId, { content: st.content }); } catch {}
+        }
+        setSelection(null);
+      }
+    },
+    enabled: isMobile && !!selection,
+  });
 
   // ── Find currently selected note ──────────────────────────────────────────
   const currentNote: Note | null = useMemo(() => {

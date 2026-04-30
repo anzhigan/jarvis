@@ -557,10 +557,10 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
   if (!editor) return null;
 
   const btnCls = (active: boolean) =>
-    `h-8 w-8 rounded-md flex items-center justify-center transition-all active:scale-95 ${
+    `h-9 min-w-9 px-1.5 rounded-md flex items-center justify-center transition-all active:scale-92 border ${
       active
-        ? 'bg-primary text-primary-foreground shadow-sm'
-        : 'hover:bg-secondary text-muted-foreground hover:text-foreground'
+        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+        : 'border-transparent bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground hover:border-border'
     }`;
 
   return (
@@ -758,7 +758,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
               <Type size={15} />
             </button>
             {showSizePicker && (
-              <div className="editor-dropdown absolute top-9 left-0 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[140px] z-50">
+              <div className="editor-dropdown absolute top-9 left-0 bg-card border border-border rounded-lg shadow-lg p-1 min-w-[140px] z-50">
                 {FONT_SIZES.map((size) => (
                   <button
                     key={size.value}
@@ -789,7 +789,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
               />
             </button>
             {showColorPicker && (
-              <div className="editor-dropdown absolute top-9 left-0 bg-popover border border-border rounded-lg shadow-lg p-3 z-50 w-[220px]">
+              <div className="editor-dropdown absolute top-9 left-0 bg-card border border-border rounded-lg shadow-lg p-3 z-50 w-[220px]">
                 <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 px-0.5">Text color</div>
                 <div className="grid grid-cols-6 gap-2">
                   {COLORS.map(({ color, name }) => {

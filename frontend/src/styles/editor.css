@@ -292,3 +292,91 @@
     max-width: none !important;
   }
 }
+
+/* === Notion-style block rendering === */
+/* Each top-level block gets subtle padding and hover background */
+.ProseMirror > * {
+  position: relative;
+  padding: 3px 4px;
+  border-radius: 4px;
+  margin-left: -4px;
+  margin-right: -4px;
+  transition: background-color 150ms var(--ease-out-expo);
+}
+
+.ProseMirror > *:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.dark .ProseMirror > *:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Larger spacing between paragraphs (Notion-feel) */
+.ProseMirror > p {
+  margin: 0.4em 0;
+  padding: 6px 4px;
+  min-height: 1.5em;
+}
+
+/* Headings have more breathing room */
+.ProseMirror > h1,
+.ProseMirror > h2,
+.ProseMirror > h3 {
+  padding: 8px 4px;
+}
+
+/* Lists feel like blocks */
+.ProseMirror > ul,
+.ProseMirror > ol,
+.ProseMirror > .task-list {
+  padding: 4px 4px 4px 1.5em;
+}
+
+/* Code blocks fully contained */
+.ProseMirror > pre {
+  background: var(--secondary);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 0.5em -4px;
+  font-size: 0.875em;
+  overflow-x: auto;
+}
+
+/* Blockquote with left border (Notion style) */
+.ProseMirror > blockquote {
+  border-left: 3px solid var(--border);
+  padding: 4px 12px;
+  margin: 0.5em 0;
+  color: var(--muted-foreground);
+}
+
+/* Tables with subtle borders */
+.ProseMirror table {
+  margin: 0.5em 0;
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+}
+
+.ProseMirror table th {
+  background: var(--secondary);
+  font-weight: 600;
+}
+
+/* Selection highlight in Notion style */
+.ProseMirror ::selection {
+  background: rgba(91, 91, 214, 0.15);
+}
+
+.dark .ProseMirror ::selection {
+  background: rgba(129, 140, 248, 0.25);
+}
