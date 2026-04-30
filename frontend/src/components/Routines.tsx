@@ -332,95 +332,119 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
   }
 
   return (
-    <div className="flex items-stretch rounded-md bg-card border border-border overflow-hidden">
-      <div className="w-1 flex-shrink-0" style={{ backgroundColor: routine.color }} />
-      <div className="flex-1 p-3 min-w-0">
-        <div className="flex items-center gap-2">
-          {routine.kind === 'boolean' && (
-            <div className="flex flex-shrink-0 gap-1.5">
-              {/* Done — green ✓ */}
-              <button
-                onClick={toggleToday}
-                disabled={busy || routine.is_paused}
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 border-2 ${
-                  isDoneToday
-                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-md'
-                    : 'border-emerald-400 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                } ${routine.is_paused ? 'opacity-40' : ''}`}
-                title={isDoneToday ? 'Mark not done' : 'Mark done today'}
-              >
-                {busy && isDoneToday ? <Loader2 size={13} className="animate-spin" /> : <Check size={15} strokeWidth={3} />}
-              </button>
-              {/* Not done — red ✕ */}
-              <button
-                onClick={async () => {
-                  if (routine.kind !== 'boolean' || busy) return;
-                  setBusy(true);
-                  try {
-                    import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
-                    if (todayEntry && todayEntry.value === 0) {
-                      await routinesApi.deleteEntry(routine.id, today);
-                    } else {
-                      await routinesApi.upsertEntry(routine.id, today, 0);
-                    }
-                    await onReload();
-                  } catch (e: any) {
-                    toast.error(e?.detail ?? 'Failed');
-                  } finally { setBusy(false); }
-                }}
-                disabled={busy || routine.is_paused}
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 border-2 ${
-                  todayEntry && todayEntry.value === 0
-                    ? 'bg-rose-500 border-rose-500 text-white shadow-md'
-                    : 'border-rose-400 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30'
-                } ${routine.is_paused ? 'opacity-40' : ''}`}
-                title={todayEntry && todayEntry.value === 0 ? 'Clear' : 'Mark not done'}
-              >
-                {busy && todayEntry?.value === 0 ? <Loader2 size={13} className="animate-spin" /> : <X size={15} strokeWidth={3} />}
-              </button>
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className={`text-sm font-medium truncate ${routine.is_paused ? 'text-muted-foreground' : ''}`}>
-              {routine.title}
-            </div>
-            {routine.description && (
-              <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-pre-wrap">{routine.description}</p>
+    <div
+      className="rounded-lg overflow-hidden transition-shadow"
+      style={{
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-xs)',
+      }}
+    >
+      <div className="flex items-stretch">
+        {/* Color stripe */}
+        <div className="w-1 flex-shrink-0" style={{ backgroundColor: routine.color }} />
+
+        <div className="flex-1 p-3 min-w-0">
+          <div className="flex items-center gap-3">
+            {/* Done / not-done buttons */}
+            {routine.kind === 'boolean' && (
+              <div className="flex flex-shrink-0 gap-1.5">
+                <button
+                  onClick={toggleToday}
+                  disabled={busy || routine.is_paused}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+                  style={{
+                    border: '1.5px solid',
+                    borderColor: isDoneToday ? 'var(--success)' : 'oklch(0.65 0.16 145 / 0.5)',
+                    background: isDoneToday ? 'var(--success)' : 'transparent',
+                    color: isDoneToday ? 'white' : 'var(--success)',
+                    boxShadow: isDoneToday ? 'var(--shadow-sm)' : 'none',
+                    opacity: routine.is_paused ? 0.4 : 1,
+                  }}
+                  title={isDoneToday ? 'Mark not done' : 'Mark done today'}
+                >
+                  {busy && isDoneToday ? <Loader2 size={13} className="animate-spin" /> : <Check size={15} strokeWidth={3} />}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (routine.kind !== 'boolean' || busy) return;
+                    setBusy(true);
+                    try {
+                      import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
+                      if (todayEntry && todayEntry.value === 0) {
+                        await routinesApi.deleteEntry(routine.id, today);
+                      } else {
+                        await routinesApi.upsertEntry(routine.id, today, 0);
+                      }
+                      await onReload();
+                    } catch (e: any) {
+                      toast.error(e?.detail ?? 'Failed');
+                    } finally { setBusy(false); }
+                  }}
+                  disabled={busy || routine.is_paused}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+                  style={{
+                    border: '1.5px solid',
+                    borderColor: todayEntry?.value === 0 ? 'var(--destructive)' : 'oklch(0.62 0.20 25 / 0.5)',
+                    background: todayEntry?.value === 0 ? 'var(--destructive)' : 'transparent',
+                    color: todayEntry?.value === 0 ? 'white' : 'var(--destructive)',
+                    boxShadow: todayEntry?.value === 0 ? 'var(--shadow-sm)' : 'none',
+                    opacity: routine.is_paused ? 0.4 : 1,
+                  }}
+                  title={todayEntry?.value === 0 ? 'Clear' : 'Mark not done'}
+                >
+                  {busy && todayEntry?.value === 0 ? <Loader2 size={13} className="animate-spin" /> : <X size={15} strokeWidth={3} />}
+                </button>
+              </div>
             )}
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap mt-0.5">
-              <span className="inline-flex items-center gap-0.5">
-                <Repeat size={10} /> {scheduleLabel(routine, 'en')}
-              </span>
-              {routine.is_paused && (
-                <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
-                  <Pause size={10} /> paused
-                </span>
+            <div className="flex-1 min-w-0">
+              <div
+                className={`text-sm truncate ${routine.is_paused ? 'opacity-60' : ''}`}
+                style={{ fontWeight: 'var(--weight-semibold)' }}
+              >
+                {routine.title}
+              </div>
+              {routine.description && (
+                <p className="text-meta mt-0.5 whitespace-pre-wrap line-clamp-2">{routine.description}</p>
               )}
+              <div className="flex items-center gap-2 text-meta mt-1">
+                <span className="inline-flex items-center gap-1">
+                  <Repeat size={10} /> {scheduleLabel(routine, 'en')}
+                </span>
+                {routine.is_paused && (
+                  <span className="inline-flex items-center gap-1" style={{ color: 'var(--warning)' }}>
+                    <Pause size={10} /> paused
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="hidden md:flex items-center gap-0.5 flex-shrink-0">
+              <button
+                onClick={togglePause}
+                className="btn-icon btn-icon-sm"
+                title={routine.is_paused ? 'Resume' : 'Pause'}
+              >
+                {routine.is_paused ? <Play size={13} /> : <Pause size={13} />}
+              </button>
+              <button
+                onClick={() => setEditing(true)}
+                className="btn-icon btn-icon-sm"
+                title="Edit"
+              >
+                <Pencil size={13} />
+              </button>
+              <button
+                onClick={remove}
+                className="btn-icon btn-icon-sm"
+                title="Delete"
+                style={{ color: 'var(--destructive)' }}
+              >
+                <Trash2 size={13} />
+              </button>
             </div>
           </div>
-          <button
-            onClick={togglePause}
-            className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
-            title={routine.is_paused ? 'Resume' : 'Pause'}
-          >
-            {routine.is_paused ? <Play size={13} /> : <Pause size={13} />}
-          </button>
-          <button
-            onClick={() => setEditing(true)}
-            className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
-            title="Edit"
-          >
-            <Pencil size={13} />
-          </button>
-          <button
-            onClick={remove}
-            className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-            title="Delete"
-          >
-            <Trash2 size={13} />
-          </button>
+          <RoutineStreak routine={routine} onSetEntry={setEntry} />
         </div>
-        <RoutineStreak routine={routine} onSetEntry={setEntry} />
       </div>
     </div>
   );
@@ -757,7 +781,7 @@ export default function Routines() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className="btn-pill"
+                className="pill"
                 data-active={filter === f}
               >
                 {f === 'today' ? 'Today' : f === 'all' ? 'All active' : 'Paused'}

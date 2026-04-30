@@ -942,7 +942,7 @@ function CreateSprintForm({
         ))}
       </div>
       <div className="flex gap-1.5 justify-end">
-        <button onClick={onCancel} type="button" className="btn-pill" data-active="false">Cancel</button>
+        <button onClick={onCancel} type="button" className="pill" data-active="false">Cancel</button>
         <button onClick={submit} disabled={saving || !title.trim() || !start || !end} type="button"
           className="h-8 px-4 bg-primary text-primary-foreground rounded-full text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 hover:bg-primary-hover transition-all active:scale-95">
           {saving && <Loader2 size={11} className="animate-spin" />}<Plus size={12} /> Create

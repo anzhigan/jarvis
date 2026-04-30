@@ -641,7 +641,7 @@ export default function Sprints() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className="btn-pill"
+                className="pill"
                 data-active={filter === f}
               >
                 {f === 'current' ? 'Current' : f === 'future' ? 'Future' : 'Past'}

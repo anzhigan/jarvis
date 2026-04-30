@@ -10,10 +10,6 @@ interface Props {
   onConfirm: () => void;
 }
 
-/**
- * Cross-platform confirmation modal. Replaces `confirm()` which doesn't
- * behave reliably on mobile browsers, inside swipe actions, etc.
- */
 export default function ConfirmDialog({
   open, title, message, confirmLabel = 'Delete', danger = true, onCancel, onConfirm,
 }: Props) {
@@ -21,42 +17,46 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className="modal-backdrop flex items-center justify-center p-4"
+      style={{ zIndex: 200 }}
       onClick={onCancel}
     >
       <div
-        className="bg-card border border-border rounded-2xl p-5 max-w-sm w-full shadow-2xl"
+        className="modal-panel max-w-sm w-full"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start gap-3 mb-4">
+        <div className="px-5 pt-5 pb-3 flex items-start gap-3">
           {danger && (
-            <div className="w-10 h-10 rounded-full bg-destructive/10 text-destructive flex items-center justify-center flex-shrink-0">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{
+                background: 'var(--destructive-soft)',
+                color: 'var(--destructive)',
+              }}
+            >
               <AlertTriangle size={18} />
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold mb-1">{title}</h3>
-            {message && <p className="text-sm text-muted-foreground">{message}</p>}
+            <h3 className="text-base font-semibold mb-1 tracking-tight">{title}</h3>
+            {message && (
+              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{message}</p>
+            )}
           </div>
           <button
             onClick={onCancel}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-secondary flex-shrink-0"
+            className="btn-icon btn-icon-sm flex-shrink-0"
           >
             <X size={15} />
           </button>
         </div>
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={onCancel}
-            className="h-10 px-4 text-sm rounded-md hover:bg-secondary"
-          >
+        <div className="px-5 pb-5 pt-2 flex gap-2 justify-end">
+          <button onClick={onCancel} className="btn btn-md btn-secondary">
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className={`h-10 px-5 rounded-md text-sm font-medium text-white transition-opacity hover:opacity-90 ${
-              danger ? 'bg-destructive' : 'bg-primary'
-            }`}
+            className={`btn btn-md ${danger ? 'btn-destructive' : 'btn-primary'}`}
           >
             {confirmLabel}
           </button>

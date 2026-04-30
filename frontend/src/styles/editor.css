@@ -1,385 +1,282 @@
-/* Tiptap editor styles */
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROSEMIRROR / TIPTAP — refined Notion-style editor
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .ProseMirror {
-  outline: none;
-  min-height: 400px;
+  outline: 0;
+  min-height: 60vh;
   color: var(--foreground);
-  line-height: 1.7;
-  font-size: var(--editor-font-size, 16px) !important;
+  line-height: var(--leading-relaxed);
+  font-size: var(--editor-font-size, var(--text-base));
+  caret-color: var(--primary);
 }
 
-.ProseMirror p {
-  margin: 0.75em 0;
-  font-size: inherit;
+.ProseMirror:focus,
+.ProseMirror-focused {
+  outline: 0 !important;
+  box-shadow: none !important;
 }
 
-.ProseMirror > *:first-child {
-  margin-top: 0;
-}
+/* ─── Block elements ──────────────────────────────────────────────────────── */
 
-.ProseMirror h1 {
-  font-size: 2em;
-  font-weight: 700;
-  margin: 1.5em 0 0.5em;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
-}
-
-.ProseMirror h2 {
-  font-size: 1.5em;
-  font-weight: 600;
-  margin: 1.3em 0 0.5em;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-}
-
-.ProseMirror h3 {
-  font-size: 1.25em;
-  font-weight: 600;
-  margin: 1.2em 0 0.4em;
-  line-height: 1.4;
-}
-
-.ProseMirror ul,
-.ProseMirror ol {
-  padding-left: 1.5em;
-  margin: 0.75em 0;
-}
-
-.ProseMirror ul li,
-.ProseMirror ol li {
-  margin: 0.2em 0;
-}
-
-.ProseMirror ul {
-  list-style-type: disc;
-}
-
-.ProseMirror ol {
-  list-style-type: decimal;
-}
-
-.ProseMirror blockquote {
-  border-left: 3px solid var(--primary);
-  padding-left: 1em;
-  margin: 1em 0;
-  color: var(--muted-foreground);
-  font-style: italic;
-}
-
-.ProseMirror code {
-  background: var(--muted);
-  padding: 0.15em 0.35em;
-  border-radius: 0.25rem;
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 0.85em;
-}
-
-.ProseMirror pre {
-  background: var(--muted);
-  padding: 0.85em 1em;
-  border-radius: 0.5rem;
-  margin: 1em 0;
-  overflow-x: auto;
-}
-
-.ProseMirror pre code {
-  background: none;
-  padding: 0;
-  font-size: 0.85em;
-}
-
-.ProseMirror a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.ProseMirror strong {
-  font-weight: 600;
-}
-
-.ProseMirror hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 1.5em 0;
-}
-
-/* Placeholder */
-.ProseMirror p.is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  color: var(--muted-foreground);
-  float: left;
-  height: 0;
-  pointer-events: none;
-}
-
-/* Image wrapper */
-.ProseMirror img {
-  max-width: 100%;
-  height: auto;
-}
-
-/* ─── Link ──────────────────────────────────────────────────────────────── */
-.ProseMirror .editor-link,
-.ProseMirror a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-.ProseMirror .editor-link:hover {
-  opacity: 0.8;
-}
-
-/* ─── Table ─────────────────────────────────────────────────────────────── */
-.ProseMirror .editor-table {
-  border-collapse: collapse;
-  margin: 1em 0;
-  overflow: hidden;
-  table-layout: fixed;
-  width: 100%;
-}
-.ProseMirror .editor-table td,
-.ProseMirror .editor-table th {
-  border: 1px solid var(--border);
-  box-sizing: border-box;
-  padding: 6px 10px;
-  position: relative;
-  vertical-align: top;
-  min-width: 100px;
-}
-.ProseMirror .editor-table th {
-  background: var(--muted);
-  font-weight: 600;
-  text-align: left;
-}
-.ProseMirror .editor-table .selectedCell::after {
-  background: rgba(79, 70, 229, 0.1);
-  content: '';
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  z-index: 2;
-}
-.ProseMirror .editor-table .column-resize-handle {
-  background-color: var(--primary);
-  bottom: -2px;
-  pointer-events: none;
-  position: absolute;
-  right: -2px;
-  top: 0;
-  width: 4px;
-}
-.ProseMirror .tableWrapper {
-  overflow-x: auto;
-}
-
-/* ─── Task list ─────────────────────────────────────────────────────────── */
-.ProseMirror ul.editor-task-list {
-  list-style: none;
-  padding: 0;
-  margin: 0.5em 0;
-}
-.ProseMirror .editor-task-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5em;
-  margin: 0.25em 0;
-}
-.ProseMirror .editor-task-item > label {
-  flex-shrink: 0;
-  margin-top: 0.35em;
-}
-.ProseMirror .editor-task-item > label > input[type='checkbox'] {
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-  accent-color: var(--primary);
-}
-.ProseMirror .editor-task-item > div {
-  flex: 1;
-  min-width: 0;
-}
-.ProseMirror .editor-task-item[data-checked='true'] > div {
-  text-decoration: line-through;
-  color: var(--muted-foreground);
-}
-.ProseMirror .editor-task-item > div > p {
-  margin: 0;
-}
-
-/* ─── Code block with syntax highlighting (github-dark theme loaded separately) ─ */
-.ProseMirror pre.editor-code-block,
-.ProseMirror pre {
-  background: #0d1117;
-  color: #c9d1d9;
-  border-radius: 8px;
-  padding: 14px 18px;
-  margin: 0.9em 0;
-  overflow-x: auto;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
-  font-size: 0.9em;
-  line-height: 1.5;
-}
-.ProseMirror pre code {
-  background: transparent;
-  color: inherit;
-  font-size: inherit;
-  padding: 0;
-}
-.ProseMirror code {
-  background: var(--muted);
-  color: var(--foreground);
-  border-radius: 4px;
-  padding: 2px 5px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 0.9em;
-}
-
-/* ─── Inline math ──────────────────────────────────────────────────────── */
-.ProseMirror .katex {
-  font-size: 1.05em;
-}
-
-
-/* Horizontal-scroll toolbar on mobile: hide scrollbar, allow swipe */
-.editor-toolbar-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.editor-toolbar-scroll::-webkit-scrollbar {
-  display: none;
-}
-.editor-toolbar-scroll > * {
-  flex-shrink: 0;
-}
-
-/* Mobile: toolbar dropdowns escape container via fixed positioning */
-@media (max-width: 767px) {
-  .editor-toolbar-scroll .editor-dropdown {
-    position: fixed !important;
-    left: 1rem !important;
-    right: 1rem !important;
-    top: auto !important;
-    bottom: auto !important;
-    width: auto !important;
-    max-width: none !important;
-  }
-}
-
-/* Mobile: toolbar at bottom (above keyboard), dropdowns open upward */
-@media (max-width: 767px) {
-  .editor-mobile-toolbar {
-    /* Use safe-area for iOS notch/home indicator */
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
-  }
-  .editor-mobile-toolbar .editor-toolbar-scroll {
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .editor-mobile-toolbar .editor-toolbar-scroll::-webkit-scrollbar {
-    display: none;
-  }
-  /* Dropdowns from bottom toolbar should open upward */
-  .editor-mobile-toolbar .editor-dropdown {
-    position: fixed !important;
-    left: 1rem !important;
-    right: 1rem !important;
-    bottom: 60px !important;
-    top: auto !important;
-    width: auto !important;
-    max-width: none !important;
-  }
-}
-
-/* === Notion-style block rendering === */
-/* Each top-level block gets subtle padding for breathing room */
 .ProseMirror > * {
-  position: relative;
-  padding: 3px 4px;
-  border-radius: 4px;
-  margin-left: -4px;
-  margin-right: -4px;
+  margin: 6px 0;
+  padding: 2px 0;
 }
 
-/* Larger spacing between paragraphs (Notion-feel) */
-.ProseMirror > p {
-  margin: 0.4em 0;
-  padding: 6px 4px;
+.ProseMirror > *:first-child { margin-top: 0; }
+.ProseMirror > *:last-child { margin-bottom: 0; }
+
+/* Paragraphs */
+.ProseMirror p {
+  font-size: inherit;
   min-height: 1.5em;
 }
 
-/* Headings have more breathing room */
-.ProseMirror > h1,
-.ProseMirror > h2,
-.ProseMirror > h3 {
-  padding: 8px 4px;
+.ProseMirror p.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
 }
 
-/* Lists feel like blocks */
-.ProseMirror > ul,
-.ProseMirror > ol,
-.ProseMirror > .task-list {
-  padding: 4px 4px 4px 1.5em;
+/* Headings — Notion-like sizes, tight tracking */
+.ProseMirror h1 {
+  font-size: 1.875em;
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  margin: 1.4em 0 0.4em;
+}
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.022em;
+  line-height: 1.25;
+  margin: 1.2em 0 0.3em;
+}
+.ProseMirror h3 {
+  font-size: 1.2em;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.018em;
+  line-height: 1.3;
+  margin: 1em 0 0.25em;
+}
+.ProseMirror h4, .ProseMirror h5, .ProseMirror h6 {
+  font-size: 1em;
+  font-weight: var(--weight-semibold);
+  margin: 0.8em 0 0.2em;
 }
 
-/* Code blocks fully contained */
-.ProseMirror > pre {
-  background: var(--secondary);
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin: 0.5em -4px;
-  font-size: 0.875em;
-  overflow-x: auto;
+/* Lists */
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5em;
+  margin: 0.4em 0;
 }
-
-/* Blockquote with left border (Notion style) */
-.ProseMirror > blockquote {
-  border-left: 3px solid var(--border);
-  padding: 4px 12px;
-  margin: 0.5em 0;
+.ProseMirror li {
+  padding-left: 4px;
+  margin: 4px 0;
+}
+.ProseMirror li > p { margin: 0; }
+.ProseMirror ul > li::marker {
   color: var(--muted-foreground);
 }
+.ProseMirror ol > li::marker {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
 
-/* Tables with subtle borders */
-.ProseMirror table {
+/* Task list (checkboxes) */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 6px 0;
+  padding-left: 0;
+}
+.ProseMirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  user-select: none;
+  margin-top: 4px;
+}
+.ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div > p {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+/* Blockquote — Notion vertical bar style */
+.ProseMirror blockquote {
+  border-left: 3px solid var(--border-strong);
+  padding: 4px 0 4px 16px;
   margin: 0.5em 0;
+  color: var(--foreground);
+}
+
+/* Code */
+.ProseMirror code {
+  background: var(--secondary);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: var(--primary);
+}
+
+.ProseMirror pre {
+  background: var(--secondary);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin: 0.5em 0;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+.ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Tables */
+.ProseMirror table {
   width: 100%;
   border-collapse: collapse;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  margin: 0.6em 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
-
 .ProseMirror table td,
 .ProseMirror table th {
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   padding: 8px 12px;
+  vertical-align: top;
+  position: relative;
 }
-
 .ProseMirror table th {
   background: var(--secondary);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
+  text-align: left;
+}
+.ProseMirror table .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--primary);
+  opacity: 0.1;
+  pointer-events: none;
 }
 
-/* Use system default selection color (no purple tint) */
-/* Removed custom ::selection styles — was causing whole-text purple tint */
-
-/* Ensure no focus ring or outline appears on the editor itself */
-.ProseMirror,
-.ProseMirror:focus,
-.ProseMirror:focus-visible,
-.ProseMirror-focused {
-  outline: none !important;
-  box-shadow: none !important;
-  border: none !important;
+/* Horizontal rule */
+.ProseMirror hr {
+  border: 0;
+  height: 1px;
+  background: var(--border);
+  margin: 1.5em 0;
 }
 
-/* Editor wrapper should not show focus-within highlight */
+/* Links */
+.ProseMirror a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: oklch(from var(--primary) l c h / 0.4);
+  text-underline-offset: 2px;
+  transition: text-decoration-color var(--dur-fast);
+}
+.ProseMirror a:hover {
+  text-decoration-color: var(--primary);
+}
+
+/* Images */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  margin: 0.5em 0;
+}
+
+/* Math (KaTeX) */
+.ProseMirror .math-display {
+  margin: 0.5em 0;
+  text-align: center;
+}
+
+/* ─── Editor wrap (toolbar + content) ─────────────────────────────────────── */
+.editor-wrap,
+.editor-content {
+  outline: 0;
+}
 .editor-wrap:focus-within,
 .editor-content:focus-within {
-  outline: none;
+  outline: 0;
   box-shadow: none;
-  ring: none;
+}
+
+/* Toolbar container */
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+}
+
+.editor-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* Dropdown panels */
+.editor-dropdown {
+  position: absolute;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: 50;
+  animation: scaleIn var(--dur-base) var(--ease-spring);
+  transform-origin: top left;
 }

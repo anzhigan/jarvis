@@ -1,10 +1,6 @@
 /**
- * SwipeRow — iOS-style swipe-to-reveal actions.
- *
- * Apple Notes / Mail aesthetic:
- *  - Rounded action buttons with breathing room
- *  - Smooth spring animation on release
- *  - Edit (orange) + Delete (red), both visible on left swipe
+ * SwipeRow — iOS-native swipe-to-reveal actions.
+ * Apple Mail / Notes aesthetic: rounded action buttons, spring animation.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
@@ -20,21 +16,37 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const startX = useRef(0);
+  const startY = useRef(0);
   const startOffset = useRef(0);
   const dragging = useRef(false);
+  const horizontal = useRef<boolean | null>(null);
 
   const ACTIONS_WIDTH = onEdit ? 144 : 76;
 
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
     startOffset.current = offset;
     dragging.current = true;
+    horizontal.current = null;
     setIsDragging(true);
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     if (!dragging.current) return;
     const dx = e.touches[0].clientX - startX.current;
+    const dy = e.touches[0].clientY - startY.current;
+
+    // Lock direction on first significant move
+    if (horizontal.current === null) {
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+        horizontal.current = Math.abs(dx) > Math.abs(dy);
+      } else {
+        return;
+      }
+    }
+    if (!horizontal.current) return;
+
     let next = startOffset.current + dx;
     if (next > 0) next = next * 0.3;
     if (next < -ACTIONS_WIDTH) {
@@ -67,6 +79,7 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
 
   return (
     <div className="relative">
+      {/* Action buttons */}
       <div
         className="absolute right-0 top-0 bottom-0 flex items-center gap-1.5 pr-1.5"
         style={{ pointerEvents: offset < -10 ? 'auto' : 'none' }}
@@ -79,8 +92,13 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
               import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
               onEdit();
             }}
-            className="w-[60px] h-[calc(100%-12px)] my-1.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform shadow-sm"
-            style={{ backgroundColor: '#F59E0B' }}
+            className="w-[60px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform"
+            style={{
+              backgroundColor: 'var(--amber-500, #F59E0B)',
+              height: 'calc(100% - 12px)',
+              marginTop: 6, marginBottom: 6,
+              boxShadow: 'var(--shadow-sm)',
+            }}
             aria-label="Edit"
           >
             <Pencil size={18} strokeWidth={2.4} />
@@ -94,8 +112,13 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
             import('../native/bridge').then(({ hapticWarning }) => hapticWarning()).catch(() => {});
             onDelete();
           }}
-          className="w-[60px] h-[calc(100%-12px)] my-1.5 rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform shadow-sm"
-          style={{ backgroundColor: '#EF4444' }}
+          className="w-[60px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform"
+          style={{
+            backgroundColor: 'var(--destructive)',
+            height: 'calc(100% - 12px)',
+            marginTop: 6, marginBottom: 6,
+            boxShadow: 'var(--shadow-sm)',
+          }}
           aria-label="Delete"
         >
           <Trash2 size={18} strokeWidth={2.4} />
