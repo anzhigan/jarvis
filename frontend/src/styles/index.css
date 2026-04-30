@@ -3,6 +3,10 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import 'tailwindcss';
+@source "../**/*.tsx";
+@source "../**/*.ts";
+@source "../**/*.jsx";
+@source "../**/*.js";
 @import './editor.css';
 
 @custom-variant dark (&:is(.dark *));
@@ -428,7 +432,7 @@ input, textarea, select {
   color: var(--destructive-foreground);
 }
 .btn-destructive:hover:not(:disabled) {
-  background: oklch(from var(--destructive) calc(l - 0.06) c h);
+  background: var(--red-600);
 }
 
 /* Icon button */
@@ -697,9 +701,12 @@ input, textarea, select {
 .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
 .native-ios-tabbar {
-  background: oklch(from var(--card) l c h / 0.85);
+  background: rgba(255, 255, 255, 0.85);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
+}
+.dark .native-ios-tabbar {
+  background: rgba(20, 20, 20, 0.85);
 }
 
 .native-ios .native-ios-header {

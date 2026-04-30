@@ -264,7 +264,7 @@ export default function App() {
           className="md:hidden flex items-center px-3 gap-2 flex-shrink-0 native-ios-header"
           style={{
             height: 52,
-            background: 'oklch(from var(--background) l c h / 0.92)',
+            background: 'rgba(250, 250, 249, 0.92)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             borderBottom: '1px solid var(--border)',
