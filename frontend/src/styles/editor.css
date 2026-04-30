@@ -363,11 +363,23 @@
   font-weight: 600;
 }
 
-/* Selection highlight in Notion style */
-.ProseMirror ::selection {
-  background: rgba(91, 91, 214, 0.15);
+/* Use system default selection color (no purple tint) */
+/* Removed custom ::selection styles — was causing whole-text purple tint */
+
+/* Ensure no focus ring or outline appears on the editor itself */
+.ProseMirror,
+.ProseMirror:focus,
+.ProseMirror:focus-visible,
+.ProseMirror-focused {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
-.dark .ProseMirror ::selection {
-  background: rgba(129, 140, 248, 0.25);
+/* Editor wrapper should not show focus-within highlight */
+.editor-wrap:focus-within,
+.editor-content:focus-within {
+  outline: none;
+  box-shadow: none;
+  ring: none;
 }

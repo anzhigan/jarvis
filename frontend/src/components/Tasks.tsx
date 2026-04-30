@@ -300,101 +300,45 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
             </button>
           </div>
 
-          {editing && !isMobile && (
-            <div className="mt-2 p-2 bg-secondary/30 border border-border rounded-md space-y-2 relative z-10 animate-fadeIn">
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-              />
-              <textarea
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                placeholder={t('tasks.descriptionPh')}
-                rows={2}
-                className="w-full px-2 py-1.5 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-none"
-              />
-              {availableSprints && availableSprints.length > 0 && (
-                <div>
-                  <label className="text-[11px] text-muted-foreground">Attach to sprint</label>
-                  <select
-                    value={editSprintId}
-                    onChange={(e) => setEditSprintId(e.target.value)}
-                    className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md"
-                  >
-                    <option value="">— No sprint —</option>
-                    {availableSprints.map((s) => (
-                      <option key={s.id} value={s.id}>↳ {s.title} ({formatDate(s.start_date)}–{formatDate(s.end_date)})</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {go.recurrence === 'none' && (
-                <div>
-                  <label className="text-[11px] text-muted-foreground">Due date</label>
-                  <input
-                    type="date"
-                    value={editDue}
-                    onChange={(e) => setEditDue(e.target.value)}
-                    className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md"
-                  />
-                </div>
-              )}
-              <div>
-                <label className="text-[11px] text-muted-foreground block mb-1">Color</label>
-                <div className="flex gap-1 flex-wrap">
-                  {GO_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); setEditColor(c); }}
-                      className={`w-7 h-7 rounded-full transition-all active:scale-90 ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="flex justify-end gap-1.5">
-                <button
-                  onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }}
-                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                >Cancel</button>
-                <button
-                  onClick={saveEdit} disabled={busy}
-                  className="h-8 px-3 bg-primary text-primary-foreground rounded text-xs font-medium disabled:opacity-50 flex items-center gap-1"
-                >
-                  {busy && <Loader2 size={11} className="animate-spin" />}Save
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Mobile: Edit as bottom sheet modal */}
-          {editing && isMobile && (
-            <div className="fixed inset-0 z-[200] modal-overlay flex items-end" onClick={() => setEditing(false)}>
+          {/* Edit modal — unified for all platforms */}
+          {editing && (
+            <div
+              className="fixed inset-0 z-[200] bg-black/50 flex items-center md:items-center justify-center p-4"
+              onClick={() => setEditing(false)}
+              style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+            >
               <div
-                className="w-full bg-card rounded-t-2xl p-4 pb-8 max-h-[85vh] overflow-y-auto shadow-2xl ios-bottom-sheet"
+                className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-fadeIn"
                 onClick={(e) => e.stopPropagation()}
-                style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
               >
-                <div className="w-10 h-1 bg-muted rounded-full mx-auto mb-4" />
-                <h3 className="text-base font-semibold mb-3">Edit Go</h3>
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    placeholder="Title"
-                    className="w-full h-10 px-3 text-sm bg-input-background border border-border rounded-lg"
-                  />
-                  <textarea
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    placeholder={t('tasks.descriptionPh')}
-                    rows={3}
-                    className="w-full px-3 py-2 text-sm bg-input-background border border-border rounded-lg resize-none"
-                  />
+                <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                  <h3 className="text-base font-semibold">Edit Go</h3>
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-secondary"
+                  >✕</button>
+                </div>
+                <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      autoFocus
+                      className="w-full h-10 px-3 text-sm bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Description</label>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder={t('tasks.descriptionPh')}
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm bg-input-background border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    />
+                  </div>
                   {availableSprints && availableSprints.length > 0 && (
                     <div>
                       <label className="text-xs text-muted-foreground block mb-1">Attach to step</label>
@@ -435,18 +379,19 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
                       ))}
                     </div>
                   </div>
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }}
-                      className="flex-1 h-11 rounded-lg bg-secondary text-foreground font-medium active:scale-95 transition-transform"
-                    >Cancel</button>
-                    <button
-                      onClick={saveEdit} disabled={busy || !editTitle.trim()}
-                      className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
-                    >
-                      {busy && <Loader2 size={14} className="animate-spin" />}Save
-                    </button>
-                  </div>
+                </div>
+                <div className="px-5 py-3 border-t border-border flex gap-2 justify-end">
+                  <button
+                    onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }}
+                    className="h-10 px-4 rounded-lg text-sm font-medium bg-secondary text-foreground hover:bg-secondary/80 active:scale-95 transition-all"
+                  >Cancel</button>
+                  <button
+                    onClick={saveEdit}
+                    disabled={busy || !editTitle.trim()}
+                    className="h-10 px-5 rounded-lg text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50 hover:bg-primary-hover flex items-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    {busy && <Loader2 size={14} className="animate-spin" />}Save
+                  </button>
                 </div>
               </div>
             </div>

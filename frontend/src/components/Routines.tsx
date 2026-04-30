@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Pencil, Trash2, Repeat, Pause, Play, X } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Repeat, Pause, Play, X, Check, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { routinesApi, tasksApi } from '../api/client';
 import type { Routine, RoutineScheduleType } from '../api/types';
@@ -168,11 +168,31 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
   const t = useT();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const today = todayIso();
   const todayEntry = routine.entries.find((e) => e.date === today);
   const isDoneToday = (todayEntry?.value ?? 0) > 0;
   const dueToday = isRoutineDueToday(routine);
+
+  /** Set value for a specific date — for past edits or current */
+  const setEntry = async (date: string, value: number | null) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
+      if (value === null) {
+        await routinesApi.deleteEntry(routine.id, date);
+      } else {
+        await routinesApi.upsertEntry(routine.id, date, value);
+      }
+      await onReload();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const toggleToday = async () => {
     if (routine.kind !== 'boolean' || busy) return;
@@ -231,19 +251,21 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
       <div className="flex-1 p-3 min-w-0">
         <div className="flex items-center gap-2">
           {routine.kind === 'boolean' && (
-            <div className="flex flex-shrink-0 gap-1">
+            <div className="flex flex-shrink-0 gap-1.5">
+              {/* Done — green ✓ */}
               <button
                 onClick={toggleToday}
                 disabled={busy || routine.is_paused}
-                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all active:scale-90 ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 border-2 ${
                   isDoneToday
-                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
-                    : 'border-border hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-md'
+                    : 'border-emerald-400 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
                 } ${routine.is_paused ? 'opacity-40' : ''}`}
                 title={isDoneToday ? 'Mark not done' : 'Mark done today'}
               >
-                {busy ? <Loader2 size={11} className="animate-spin" /> : isDoneToday ? '✓' : ''}
+                {busy && isDoneToday ? <Loader2 size={13} className="animate-spin" /> : <Check size={15} strokeWidth={3} />}
               </button>
+              {/* Not done — red ✕ */}
               <button
                 onClick={async () => {
                   if (routine.kind !== 'boolean' || busy) return;
@@ -251,7 +273,6 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
                   try {
                     import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
                     if (todayEntry && todayEntry.value === 0) {
-                      // Already marked as not done — clear
                       await routinesApi.deleteEntry(routine.id, today);
                     } else {
                       await routinesApi.upsertEntry(routine.id, today, 0);
@@ -262,14 +283,14 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
                   } finally { setBusy(false); }
                 }}
                 disabled={busy || routine.is_paused}
-                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all active:scale-90 ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 border-2 ${
                   todayEntry && todayEntry.value === 0
-                    ? 'bg-rose-500 border-rose-500 text-white shadow-sm'
-                    : 'border-border hover:border-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                    ? 'bg-rose-500 border-rose-500 text-white shadow-md'
+                    : 'border-rose-400 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30'
                 } ${routine.is_paused ? 'opacity-40' : ''}`}
                 title={todayEntry && todayEntry.value === 0 ? 'Clear' : 'Mark not done'}
               >
-                {todayEntry && todayEntry.value === 0 ? '✕' : ''}
+                {busy && todayEntry?.value === 0 ? <Loader2 size={13} className="animate-spin" /> : <X size={15} strokeWidth={3} />}
               </button>
             </div>
           )}
@@ -291,6 +312,13 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
               )}
             </div>
           </div>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+            title={showHistory ? 'Hide history' : 'Edit past days'}
+          >
+            <Calendar size={13} />
+          </button>
           <button
             onClick={togglePause}
             className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
@@ -314,6 +342,54 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
           </button>
         </div>
         <RoutineStreak routine={routine} />
+
+        {showHistory && (
+          <div className="mt-3 p-3 bg-secondary/40 border border-border rounded-lg animate-fadeIn">
+            <div className="text-[11px] text-muted-foreground mb-2 flex items-center justify-between">
+              <span>Edit past 14 days — tap to cycle</span>
+              <span className="text-[9px]">empty → done → not done</span>
+            </div>
+            <div className="grid grid-cols-7 gap-1.5">
+              {Array.from({ length: 14 }).map((_, idx) => {
+                const d = new Date();
+                d.setDate(d.getDate() - (13 - idx));
+                const iso = d.toISOString().slice(0, 10);
+                const entry = routine.entries.find((e) => e.date === iso);
+                const isToday = iso === today;
+                const dayLabel = d.getDate();
+                const monthLabel = d.toLocaleDateString(undefined, { month: 'short' });
+                let bg = 'bg-card border-border text-muted-foreground';
+                let icon: React.ReactNode = null;
+                if (entry?.value && entry.value > 0) {
+                  bg = 'bg-emerald-500 border-emerald-500 text-white';
+                  icon = <Check size={11} strokeWidth={3} />;
+                } else if (entry?.value === 0) {
+                  bg = 'bg-rose-500 border-rose-500 text-white';
+                  icon = <X size={11} strokeWidth={3} />;
+                }
+                return (
+                  <button
+                    key={iso}
+                    disabled={busy || routine.is_paused}
+                    onClick={() => {
+                      // Cycle: empty → done(1) → not-done(0) → empty
+                      let nextValue: number | null;
+                      if (!entry) nextValue = 1;
+                      else if (entry.value > 0) nextValue = 0;
+                      else nextValue = null;
+                      setEntry(iso, nextValue);
+                    }}
+                    className={`relative flex flex-col items-center justify-center h-12 rounded-md border-2 text-[10px] transition-all active:scale-90 ${bg} ${isToday ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+                    title={`${monthLabel} ${dayLabel}`}
+                  >
+                    <span className="font-semibold">{dayLabel}</span>
+                    {icon}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

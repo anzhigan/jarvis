@@ -15,7 +15,7 @@ import {
   Search,
   Loader2,
   BookOpen,
-  PanelLeft,
+  FolderTree,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
@@ -597,7 +597,7 @@ export default function Notes() {
               title="Hide sidebar"
               className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
             >
-              <PanelLeft size={15} />
+              <FolderTree size={15} />
             </button>
             <div className="relative flex-1">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -810,7 +810,7 @@ export default function Notes() {
                   style={{ marginLeft: '1rem', marginTop: '1rem' }}
                   title="Show sidebar"
                 >
-                  <PanelLeft size={16} />
+                  <FolderTree size={16} />
                 </button>
               )}
               {/* Save status top-right — inline, not floating absolute */}
@@ -858,7 +858,7 @@ export default function Notes() {
                 className="absolute top-4 left-4 z-10 h-9 w-9 flex items-center justify-center rounded-md bg-background/80 backdrop-blur-sm border border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shadow-sm"
                 title="Show sidebar"
               >
-                <PanelLeft size={16} />
+                <FolderTree size={16} />
               </button>
             )}
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
