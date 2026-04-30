@@ -1637,13 +1637,6 @@ export default function Tasks() {
     });
   };
 
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
   const [confirmState, setConfirmState] = useState<{ title: string; message?: string; onConfirm: () => void } | null>(null);
   const [goalCompletion, setGoalCompletion] = useState<{ taskId: string; routines: any[] } | null>(null);
 
@@ -2024,6 +2017,7 @@ export default function Tasks() {
               </div>
             </>
           )}
+          </div>
         </div>
       </PullToRefresh>
     </>
