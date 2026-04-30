@@ -363,6 +363,21 @@ export const routinesApi = {
 
   deleteEntry: (id: string, date: string) =>
     request<void>(`/routines/${id}/entries/${date}`, { method: 'DELETE' }),
+
+  // ─── Goal-Routine links ────────────────────────────────────────────────────
+  linksByGoal: (goalId: string) =>
+    request<GoalRoutineLink[]>(`/routines/links/by-goal/${goalId}`),
+
+  createLink: (data: {
+    goal_id: string;
+    routine_id: string;
+    start_date: string;
+    end_date?: string | null;
+    target_count?: number | null;
+  }) => request<GoalRoutineLink>('/routines/links', { method: 'POST', body: JSON.stringify(data) }),
+
+  deleteLink: (linkId: string) =>
+    request<void>(`/routines/links/${linkId}`, { method: 'DELETE' }),
 };
 
 

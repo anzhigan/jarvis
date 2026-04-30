@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Plus, Pencil, Trash2, Repeat, Pause, Play, X, Check, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { routinesApi, tasksApi } from '../api/client';
@@ -95,11 +95,23 @@ function scheduleLabel(r: Routine, lang: 'en' | 'ru'): string {
 // ═══════════════════════════════════════════════════════════════════════════
 // Streak — last 14 days as colored circles (today on the LEFT)
 // ═══════════════════════════════════════════════════════════════════════════
-function RoutineStreak({ routine }: { routine: Routine }) {
+function RoutineStreak({ routine, onSetEntry }: {
+  routine: Routine;
+  onSetEntry?: (date: string, value: number | null) => Promise<void>;
+}) {
   const days = 14;
+  const [activePopover, setActivePopover] = useState<string | null>(null);
+  const longPressTimer = useRef<number | null>(null);
+
   const entryMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of routine.entries) m.set(e.date, e.value);
+    return m;
+  }, [routine.entries]);
+
+  const entryHasMap = useMemo(() => {
+    const m = new Set<string>();
+    for (const e of routine.entries) m.add(e.date);
     return m;
   }, [routine.entries]);
 
@@ -112,7 +124,7 @@ function RoutineStreak({ routine }: { routine: Routine }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const cells: { date: string; value: number; isToday: boolean; before: boolean }[] = [];
+  const cells: { date: string; value: number; isToday: boolean; before: boolean; hasEntry: boolean }[] = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
@@ -122,17 +134,33 @@ function RoutineStreak({ routine }: { routine: Routine }) {
       value: entryMap.get(key) ?? 0,
       isToday: i === 0,
       before: d < created,
+      hasEntry: entryHasMap.has(key),
     });
   }
-  const ordered = [...cells].reverse(); // today first
+  const ordered = [...cells].reverse();
 
   const eligible = cells.filter((c) => !c.before).length;
   const done = cells.filter((c) => !c.before && c.value > 0).length;
 
+  const startLongPress = (date: string) => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = window.setTimeout(() => {
+      import('../native/bridge').then(({ hapticHeavy }) => hapticHeavy()).catch(() => {});
+      setActivePopover(date);
+    }, 450);
+  };
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
   return (
-    <div className="mt-2">
+    <div className="mt-2 relative">
       <div className="text-[10px] text-muted-foreground mb-1.5">
         ← today &nbsp;·&nbsp; <span className="font-medium text-foreground">{done}</span>/{eligible}
+        {onSetEntry && <span className="ml-2 italic opacity-70">long-press to edit</span>}
       </div>
       <div className="flex gap-1 items-end">
         {ordered.map((c) => {
@@ -141,22 +169,81 @@ function RoutineStreak({ routine }: { routine: Routine }) {
           if (c.before) cls = 'bg-muted/30';
           else if (c.value > 0) {
             cls = '';
-            inner = <span className="text-white text-[8px]">✓</span>;
+            inner = <Check size={9} strokeWidth={3} className="text-white" />;
+          } else if (c.hasEntry) {
+            cls = 'bg-rose-500';
+            inner = <X size={9} strokeWidth={3} className="text-white" />;
           } else if (c.isToday) cls = 'bg-card border-2 border-primary';
           else cls = 'bg-rose-400/40 dark:bg-rose-600/30';
           const style = (!c.before && c.value > 0) ? { backgroundColor: routine.color } : undefined;
+          const interactive = onSetEntry && !c.before;
           return (
-            <div
+            <button
               key={c.date}
               title={c.date}
-              className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${cls} ${c.isToday ? 'scale-110' : ''}`}
+              disabled={!interactive}
+              onMouseDown={() => interactive && startLongPress(c.date)}
+              onMouseUp={cancelLongPress}
+              onMouseLeave={cancelLongPress}
+              onTouchStart={() => interactive && startLongPress(c.date)}
+              onTouchEnd={cancelLongPress}
+              onTouchCancel={cancelLongPress}
+              className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${cls} ${c.isToday ? 'scale-110' : ''} ${interactive ? 'active:scale-90' : ''}`}
               style={style}
             >
               {inner}
-            </div>
+            </button>
           );
         })}
       </div>
+
+      {/* Long-press popover */}
+      {activePopover && onSetEntry && (
+        <div
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40"
+          style={{ backdropFilter: 'blur(4px)' }}
+          onClick={() => setActivePopover(null)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl shadow-2xl p-4 animate-fadeIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-xs text-muted-foreground text-center mb-3 tabular-nums">{activePopover}</div>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  await onSetEntry(activePopover, 1);
+                  setActivePopover(null);
+                }}
+                className="w-14 h-14 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-all"
+                title="Mark done"
+              >
+                <Check size={24} strokeWidth={3} />
+              </button>
+              <button
+                onClick={async () => {
+                  await onSetEntry(activePopover, 0);
+                  setActivePopover(null);
+                }}
+                className="w-14 h-14 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-all"
+                title="Mark not done"
+              >
+                <X size={24} strokeWidth={3} />
+              </button>
+              <button
+                onClick={async () => {
+                  await onSetEntry(activePopover, null);
+                  setActivePopover(null);
+                }}
+                className="w-14 h-14 rounded-full bg-secondary text-muted-foreground flex items-center justify-center active:scale-90 transition-all border border-border"
+                title="Clear"
+              >
+                <span className="text-xl">−</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -168,7 +255,6 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
   const t = useT();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
 
   const today = todayIso();
   const todayEntry = routine.entries.find((e) => e.date === today);
@@ -313,13 +399,6 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
             </div>
           </div>
           <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
-            title={showHistory ? 'Hide history' : 'Edit past days'}
-          >
-            <Calendar size={13} />
-          </button>
-          <button
             onClick={togglePause}
             className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
             title={routine.is_paused ? 'Resume' : 'Pause'}
@@ -341,55 +420,7 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
             <Trash2 size={13} />
           </button>
         </div>
-        <RoutineStreak routine={routine} />
-
-        {showHistory && (
-          <div className="mt-3 p-3 bg-secondary/40 border border-border rounded-lg animate-fadeIn">
-            <div className="text-[11px] text-muted-foreground mb-2 flex items-center justify-between">
-              <span>Edit past 14 days — tap to cycle</span>
-              <span className="text-[9px]">empty → done → not done</span>
-            </div>
-            <div className="grid grid-cols-7 gap-1.5">
-              {Array.from({ length: 14 }).map((_, idx) => {
-                const d = new Date();
-                d.setDate(d.getDate() - (13 - idx));
-                const iso = d.toISOString().slice(0, 10);
-                const entry = routine.entries.find((e) => e.date === iso);
-                const isToday = iso === today;
-                const dayLabel = d.getDate();
-                const monthLabel = d.toLocaleDateString(undefined, { month: 'short' });
-                let bg = 'bg-card border-border text-muted-foreground';
-                let icon: React.ReactNode = null;
-                if (entry?.value && entry.value > 0) {
-                  bg = 'bg-emerald-500 border-emerald-500 text-white';
-                  icon = <Check size={11} strokeWidth={3} />;
-                } else if (entry?.value === 0) {
-                  bg = 'bg-rose-500 border-rose-500 text-white';
-                  icon = <X size={11} strokeWidth={3} />;
-                }
-                return (
-                  <button
-                    key={iso}
-                    disabled={busy || routine.is_paused}
-                    onClick={() => {
-                      // Cycle: empty → done(1) → not-done(0) → empty
-                      let nextValue: number | null;
-                      if (!entry) nextValue = 1;
-                      else if (entry.value > 0) nextValue = 0;
-                      else nextValue = null;
-                      setEntry(iso, nextValue);
-                    }}
-                    className={`relative flex flex-col items-center justify-center h-12 rounded-md border-2 text-[10px] transition-all active:scale-90 ${bg} ${isToday ? 'ring-2 ring-primary ring-offset-1' : ''}`}
-                    title={`${monthLabel} ${dayLabel}`}
-                  >
-                    <span className="font-semibold">{dayLabel}</span>
-                    {icon}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <RoutineStreak routine={routine} onSetEntry={setEntry} />
       </div>
     </div>
   );

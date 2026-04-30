@@ -3,6 +3,7 @@ import uuid
 from datetime import date as date_cls
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -260,9 +261,153 @@ async def routines_by_goal(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    res = await db.execute(
+    """Return all routines linked to a goal — either through legacy goal_id
+    or via the new GoalRoutineLink join table."""
+    from app.models.tasks import GoalRoutineLink
+    # Linked via direct goal_id
+    direct = await db.execute(
         select(Routine)
         .where(Routine.user_id == user.id, Routine.goal_id == goal_id)
         .options(selectinload(Routine.entries))
     )
-    return [_routine_dict(r) for r in res.scalars().all()]
+    direct_routines = list(direct.scalars().all())
+    # Linked via join table
+    linked = await db.execute(
+        select(Routine)
+        .join(GoalRoutineLink, GoalRoutineLink.routine_id == Routine.id)
+        .where(Routine.user_id == user.id, GoalRoutineLink.goal_id == goal_id)
+        .options(selectinload(Routine.entries))
+    )
+    linked_routines = list(linked.scalars().all())
+    # Deduplicate by id
+    seen: set[uuid.UUID] = set()
+    result: list[Routine] = []
+    for r in direct_routines + linked_routines:
+        if r.id not in seen:
+            seen.add(r.id)
+            result.append(r)
+    return [_routine_dict(r) for r in result]
+
+
+# ─── GoalRoutineLink endpoints ────────────────────────────────────────────────
+
+class GoalRoutineLinkCreate(BaseModel):
+    goal_id: uuid.UUID
+    routine_id: uuid.UUID
+    start_date: date_cls
+    end_date: date_cls | None = None
+    target_count: int | None = None
+
+
+class GoalRoutineLinkOut(BaseModel):
+    id: uuid.UUID
+    goal_id: uuid.UUID
+    routine_id: uuid.UUID
+    start_date: date_cls
+    end_date: date_cls | None
+    target_count: int | None
+    routine: RoutineOut
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+@router.post("/links", response_model=GoalRoutineLinkOut)
+async def create_link(
+    body: GoalRoutineLinkCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Link an existing Routine to a Goal for a bounded period."""
+    from app.models.tasks import GoalRoutineLink
+    # Validate ownership
+    g_res = await db.execute(select(Task).where(Task.id == body.goal_id, Task.user_id == user.id))
+    if not g_res.scalar_one_or_none():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found")
+    routine = await _get_routine(body.routine_id, user, db)
+    # Check uniqueness
+    existing = await db.execute(
+        select(GoalRoutineLink).where(
+            GoalRoutineLink.goal_id == body.goal_id,
+            GoalRoutineLink.routine_id == body.routine_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status.HTTP_409_CONFLICT, "Routine already linked to this goal")
+    link = GoalRoutineLink(
+        goal_id=body.goal_id,
+        routine_id=body.routine_id,
+        start_date=body.start_date,
+        end_date=body.end_date,
+        target_count=body.target_count,
+    )
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+    return {
+        "id": link.id,
+        "goal_id": link.goal_id,
+        "routine_id": link.routine_id,
+        "start_date": link.start_date,
+        "end_date": link.end_date,
+        "target_count": link.target_count,
+        "routine": _routine_dict(routine),
+    }
+
+
+@router.delete("/links/{link_id}", status_code=204)
+async def delete_link(
+    link_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from app.models.tasks import GoalRoutineLink
+    res = await db.execute(
+        select(GoalRoutineLink)
+        .join(Task, Task.id == GoalRoutineLink.goal_id)
+        .where(GoalRoutineLink.id == link_id, Task.user_id == user.id)
+    )
+    link = res.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Link not found")
+    await db.delete(link)
+    await db.commit()
+
+
+@router.get("/links/by-goal/{goal_id}", response_model=list[GoalRoutineLinkOut])
+async def links_by_goal(
+    goal_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List all routines linked to a goal with their period info + progress data."""
+    from app.models.tasks import GoalRoutineLink
+    g_res = await db.execute(select(Task).where(Task.id == goal_id, Task.user_id == user.id))
+    if not g_res.scalar_one_or_none():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found")
+    res = await db.execute(
+        select(GoalRoutineLink)
+        .where(GoalRoutineLink.goal_id == goal_id)
+        .options(selectinload(GoalRoutineLink.routine_id))  # routine_id is column, this won't work
+    )
+    links = list(res.scalars().all())
+    # Fetch routines manually
+    out = []
+    for link in links:
+        r_res = await db.execute(
+            select(Routine)
+            .where(Routine.id == link.routine_id, Routine.user_id == user.id)
+            .options(selectinload(Routine.entries))
+        )
+        r = r_res.scalar_one_or_none()
+        if r:
+            out.append({
+                "id": link.id,
+                "goal_id": link.goal_id,
+                "routine_id": link.routine_id,
+                "start_date": link.start_date,
+                "end_date": link.end_date,
+                "target_count": link.target_count,
+                "routine": _routine_dict(r),
+            })
+    return out
+

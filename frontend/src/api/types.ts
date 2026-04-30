@@ -164,6 +164,21 @@ export interface Routine {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// GoalRoutineLink — Goal ↔ Routine join with bounded period
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface GoalRoutineLink {
+  id: string;
+  goal_id: string;
+  routine_id: string;
+  start_date: string;       // ISO date
+  end_date: string | null;
+  target_count: number | null;
+  routine: Routine;          // hydrated
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FocusSprint — temporal focus collection (NEW Sprint, separate from Step)
 // ═══════════════════════════════════════════════════════════════════════════
 

@@ -11,7 +11,7 @@ import PullToRefresh from './PullToRefresh';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
 import { tasksApi, gosApi, sprintsApi, routinesApi, tagsApi } from '../api/client';
-import type { Task, TaskPriority, TaskStatus, Go, GoKind, GoRecurrence, Sprint, Routine } from '../api/types';
+import type { Task, TaskPriority, TaskStatus, Go, GoKind, GoRecurrence, Sprint, Routine, GoalRoutineLink } from '../api/types';
 import { useT } from '../store/i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -960,33 +960,163 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
   const [addingSprint, setAddingSprint] = useState(false);
   const [addingGo, setAddingGo] = useState(false);
   const [linkedRoutines, setLinkedRoutines] = useState<Routine[]>([]);
+  const [routineLinks, setRoutineLinks] = useState<GoalRoutineLink[]>([]);
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [allRoutines, setAllRoutines] = useState<Routine[]>([]);
   const directGos = task.gos;
 
-  useEffect(() => {
-    routinesApi.byGoal(task.id).then(setLinkedRoutines).catch(() => {});
-  }, [task.id, task.updated_at]);
+  const loadLinks = async () => {
+    try {
+      const links = await routinesApi.linksByGoal(task.id);
+      setRoutineLinks(links);
+      setLinkedRoutines(links.map((l) => l.routine));
+    } catch { /* legacy fallback */
+      try { const r = await routinesApi.byGoal(task.id); setLinkedRoutines(r); } catch {}
+    }
+  };
+
+  useEffect(() => { loadLinks(); }, [task.id, task.updated_at]);
+
+  /** Compute consistency for routine within a link's window: done days / target_count (or due days). */
+  const computeConsistency = (link: GoalRoutineLink): { done: number; total: number; pct: number } => {
+    const r = link.routine;
+    const start = new Date(link.start_date);
+    const end = link.end_date ? new Date(link.end_date) : new Date();
+    let total = link.target_count ?? 0;
+    let done = 0;
+    // Simple count: how many days within window had value > 0
+    for (const e of r.entries) {
+      const d = new Date(e.date);
+      if (d >= start && d <= end && e.value > 0) done += 1;
+    }
+    if (!link.target_count) {
+      // Without explicit target — count all due days as denominator (approximation)
+      const dayMs = 86400000;
+      total = Math.max(1, Math.floor((end.getTime() - start.getTime()) / dayMs) + 1);
+    }
+    const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+    return { done, total, pct };
+  };
 
   return (
     <div className="p-3 bg-secondary/20 space-y-3">
-      {linkedRoutines.length > 0 && (
-        <div>
-          <div className="flex items-center gap-1.5 mb-1.5 text-xs font-medium text-muted-foreground">
+      {/* Linked routines section */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Repeat size={11} /> Linked routines
-            <span className="opacity-60 font-normal">({linkedRoutines.length})</span>
+            {linkedRoutines.length > 0 && <span className="opacity-60 font-normal">({linkedRoutines.length})</span>}
           </div>
-          <div className="space-y-1">
-            {linkedRoutines.map((r) => (
+          <button
+            onClick={async () => {
+              try { const all = await routinesApi.list(); setAllRoutines(all); } catch {}
+              setShowLinkPicker(true);
+            }}
+            className="text-[11px] text-primary hover:underline flex items-center gap-1"
+          >
+            <Plus size={11} /> Link routine
+          </button>
+        </div>
+        {linkedRoutines.length === 0 ? (
+          <div className="text-[11px] text-muted-foreground italic px-2 py-2">
+            No routines linked. Routines track recurring behavior toward this goal.
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {routineLinks.length > 0 ? routineLinks.map((link) => {
+              const r = link.routine;
+              const { done, total, pct } = computeConsistency(link);
+              return (
+                <div key={link.id}
+                  className={`p-2 bg-card border border-border rounded-md ${r.is_paused ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="w-1 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
+                    <span className="text-sm flex-1 truncate">{r.title}</span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums">{done}/{total}</span>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Unlink "${r.title}" from this goal?`)) return;
+                        try { await routinesApi.deleteLink(link.id); await loadLinks(); }
+                        catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+                      }}
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      title="Unlink"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                  <div className="h-1 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: r.color }} />
+                  </div>
+                </div>
+              );
+            }) : linkedRoutines.map((r) => (
               <div key={r.id}
                 className={`flex items-center gap-2 p-2 bg-card border border-border rounded-md ${r.is_paused ? 'opacity-60' : ''}`}>
                 <span className="w-1 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
                 <span className="text-sm flex-1 truncate">{r.title}</span>
                 <span className="text-[10px] text-muted-foreground capitalize">{r.schedule_type.replace('_', ' ')}</span>
-                {r.is_paused && <span className="text-[10px] text-amber-600 dark:text-amber-400">paused</span>}
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* Picker modal for linking existing routine */}
+      {showLinkPicker && (
+        <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4"
+          style={{ backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowLinkPicker(false)}>
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <h3 className="text-base font-semibold">Link a routine</h3>
+              <button onClick={() => setShowLinkPicker(false)}
+                className="w-8 h-8 rounded-md text-muted-foreground hover:bg-secondary">✕</button>
+            </div>
+            <div className="p-5 max-h-[60vh] overflow-y-auto">
+              {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-6">
+                  No more routines to link. Create one in the Routines section first.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={async () => {
+                        const today = new Date().toISOString().slice(0, 10);
+                        const endIso = task.due_date ?? null;
+                        const target = endIso ? null : null; // user can edit later
+                        try {
+                          await routinesApi.createLink({
+                            goal_id: task.id,
+                            routine_id: r.id,
+                            start_date: task.start_date ?? today,
+                            end_date: endIso,
+                            target_count: target,
+                          });
+                          await loadLinks();
+                          setShowLinkPicker(false);
+                          toast.success(`Linked "${r.title}"`);
+                        } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+                      }}
+                      className="w-full flex items-center gap-2 p-3 bg-card border border-border rounded-lg hover:bg-secondary transition-all active:scale-95"
+                    >
+                      <span className="w-1.5 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="text-sm font-medium truncate">{r.title}</div>
+                        <div className="text-[11px] text-muted-foreground capitalize">{r.schedule_type.replace('_', ' ')}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
+
       {task.sprints.length > 0 && (
         <div>
           <div className="flex items-center justify-between text-xs mb-1">

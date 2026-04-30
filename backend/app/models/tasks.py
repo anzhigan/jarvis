@@ -206,6 +206,33 @@ class RoutineEntry(Base):
     routine: Mapped["Routine"] = relationship(back_populates="entries")
 
 
+# ─── New: GoalRoutineLink — many-to-many between Goals and Routines ────────────
+
+class GoalRoutineLink(Base):
+    """Link a Routine to a Goal for a bounded period.
+
+    A single Routine can be linked to multiple Goals (e.g. "Don't smoke daily"
+    might be tracked toward both "Quit smoking" and "Be healthy" goals at the
+    same time, in different windows).
+    """
+    __tablename__ = "goal_routine_links"
+    __table_args__ = (
+        UniqueConstraint("goal_id", "routine_id", name="uq_goal_routine_link"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    goal_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    routine_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("routines.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    target_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 # ─── New: FocusSprint — temporal focus referencing existing Goals/Steps/Gos/Routines ──
 
 class FocusSprint(Base):
