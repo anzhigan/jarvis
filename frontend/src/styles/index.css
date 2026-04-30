@@ -2,8 +2,7 @@
    JARVNOTE — Global styles
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@import 'tailwindcss' source(none);
-@source '../**/*.{js,ts,jsx,tsx}';
+@import 'tailwindcss';
 @import './editor.css';
 
 @custom-variant dark (&:is(.dark *));
