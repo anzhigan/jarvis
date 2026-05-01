@@ -1,13 +1,11 @@
 /**
- * Analysis page — adapted for the new model (Goals / Routines / Sprints).
+ * Analysis page — layout matches DESIGN_REFERENCE.html "Analysis" screen.
  *
  * Sections:
- *  - KPI row (Active Goals, Done Goals, Routines today, Active Sprints)
- *  - Productivity trend (overall routine completion % by day)
- *  - Goal status distribution (donut)
- *  - Per-Routine 30-day execution circles
- *  - Active sprints with progress
- *  - Year heatmap of routine entries
+ *  - Period selector (Week / Month / Quarter / Year)
+ *  - KPI row (5 cards)
+ *  - section-row: analysis-grid (2×2) + right-panel
+ *  - Below: per-routine habits grid, active timeline, sprints, year heatmap
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -16,7 +14,7 @@ import {
 } from 'recharts';
 import {
   Loader2, Target as TargetIcon, CheckCircle2, Repeat as RepeatIcon, Zap,
-  TrendingUp, TrendingDown, Minus, Calendar,
+  TrendingUp, TrendingDown, Minus, Flame,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -25,7 +23,15 @@ import type { Task, Routine, FocusSprint, RoutineScheduleType } from '../api/typ
 import { useT } from '../store/i18n';
 import PullToRefresh from './PullToRefresh';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Period = 'week' | 'month' | 'quarter' | 'year';
+
+function periodDays(p: Period): number {
+  return { week: 7, month: 30, quarter: 90, year: 365 }[p];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function todayDate(): Date {
   const d = new Date();
@@ -38,6 +44,11 @@ function dateIso(d: Date): string {
 }
 
 function fmtDay(d: Date): string {
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
@@ -85,14 +96,36 @@ function scheduleLabel(t: RoutineScheduleType): string {
   return { daily: 'daily', weekly_on_days: 'weekdays', every_n_days: 'every N days', times_per_week: 'X×/week' }[t];
 }
 
+/** Compute current streak for a routine (consecutive due+done days back from today). */
+function computeStreak(r: Routine): number {
+  const today = todayDate();
+  let streak = 0;
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    if (!isRoutineDueOn(r, d)) continue;
+    const key = dateIso(d);
+    const done = r.entries.some((e) => e.date === key && e.value > 0);
+    if (done) {
+      streak++;
+    } else if (i === 0) {
+      // Today not done yet — don't break streak
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 
 function KpiCard({
-  label, value, sub, icon, color = 'var(--fg-tertiary)',
+  label, value, trend, trendDir = 'neutral', icon, color = 'var(--fg-tertiary)',
 }: {
   label: string;
   value: string | number;
-  sub?: string;
+  trend?: string;
+  trendDir?: 'positive' | 'negative' | 'neutral';
   icon: React.ReactNode;
   color?: string;
 }) {
@@ -103,17 +136,408 @@ function KpiCard({
         <span style={{ opacity: 0.6, color }}>{icon}</span>
       </div>
       <div className="kpi-value">{value}</div>
-      {sub && <div className="kpi-trend" data-trend="neutral">{sub}</div>}
+      {trend && (
+        <div
+          className="kpi-trend"
+          data-trend={trendDir === 'positive' ? undefined : trendDir === 'negative' ? 'negative' : 'neutral'}
+        >
+          {trend}
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Per-Routine 30-day grid (now circles!) ──────────────────────────────────
+// ─── Productivity Trend ──────────────────────────────────────────────────────
+
+function ProductivityTrend({ routines, days }: { routines: Routine[]; days: number }) {
+  const data = useMemo(() => {
+    const today = todayDate();
+    const points: any[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dKey = dateIso(d);
+      let dueCount = 0, doneCount = 0;
+      for (const r of routines) {
+        const created = new Date(r.created_at);
+        created.setHours(0, 0, 0, 0);
+        if (d < created || !isRoutineDueOn(r, d)) continue;
+        dueCount++;
+        const entry = r.entries.find((e) => e.date === dKey);
+        if (entry && entry.value > 0) doneCount++;
+      }
+      points.push({
+        date: days <= 30 ? `${d.getMonth() + 1}/${d.getDate()}` : fmtDay(d),
+        pct: dueCount > 0 ? Math.round(100 * doneCount / dueCount) : 0,
+        done: doneCount,
+        total: dueCount,
+      });
+    }
+    return points;
+  }, [routines, days]);
+
+  const recentAvg = data.slice(-7).reduce((s, d) => s + d.pct, 0) / 7;
+  const olderAvg = data.slice(0, 7).reduce((s, d) => s + d.pct, 0) / 7;
+  const trend = recentAvg > olderAvg + 5 ? 'up' : recentAvg < olderAvg - 5 ? 'down' : 'flat';
+
+  return (
+    <div className="chart-card">
+      <div className="chart-head">
+        <span className="chart-title">Productivity trend</span>
+        <div className="flex items-center gap-1" style={{ fontSize: 10.5 }}>
+          {trend === 'up' && <><TrendingUp size={13} style={{ color: 'var(--success)' }} /><span style={{ color: 'var(--success)', fontWeight: 500 }}>{Math.round(recentAvg)}%</span></>}
+          {trend === 'down' && <><TrendingDown size={13} style={{ color: 'var(--danger)' }} /><span style={{ color: 'var(--danger)', fontWeight: 500 }}>{Math.round(recentAvg)}%</span></>}
+          {trend === 'flat' && <><Minus size={13} style={{ color: 'var(--fg-muted)' }} /><span style={{ color: 'var(--fg-muted)', fontWeight: 500 }}>{Math.round(recentAvg)}%</span></>}
+          <span className="chart-meta">last 7d avg</span>
+        </div>
+      </div>
+      <p className="chart-meta" style={{ marginBottom: 10 }}>Overall completion % ({days} days)</p>
+      <div style={{ height: 90 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+            <defs>
+              <linearGradient id="analysisFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent-analysis)" stopOpacity={0.18} />
+                <stop offset="100%" stopColor="var(--accent-analysis)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--fg-muted)' }} interval={Math.floor(days / 5)} />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--fg-muted)' }} />
+            <Tooltip
+              contentStyle={{ backgroundColor: 'var(--bg-elevated)', boxShadow: 'var(--sh-popover)', borderRadius: 'var(--r-control)', fontSize: '12px', border: 'none' }}
+              formatter={(v: number, _: string, ctx: any) => [`${v}% (${ctx.payload.done}/${ctx.payload.total})`, 'Done']}
+            />
+            <Area type="monotone" dataKey="pct" stroke="var(--accent-analysis)" strokeWidth={2} fill="url(#analysisFill)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+// ─── Routine completion by day of week ───────────────────────────────────────
+
+function RoutineCompletionByDay({ routines }: { routines: Routine[] }) {
+  const data = useMemo(() => {
+    const today = todayDate();
+    return Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - (6 - i));
+      const key = dateIso(d);
+      let due = 0, done = 0;
+      for (const r of routines) {
+        if (!isRoutineDueOn(r, d)) continue;
+        due++;
+        if (r.entries.some((e) => e.date === key && e.value > 0)) done++;
+      }
+      const pct = due > 0 ? Math.round(100 * done / due) : 0;
+      const dow = d.getDay();
+      const isWeekend = dow === 0 || dow === 6;
+      return { label: ['S', 'M', 'T', 'W', 'T', 'F', 'S'][dow], pct, done, due, isToday: i === 6, isWeekend };
+    });
+  }, [routines]);
+
+  return (
+    <div className="chart-card">
+      <div className="chart-head">
+        <span className="chart-title">Routine completion</span>
+        <span className="chart-meta">by day</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'end', height: 70, gap: 8, paddingTop: 12 }}>
+        {data.map((d, i) => (
+          <div
+            key={i}
+            title={`${d.done}/${d.due} (${d.pct}%)`}
+            style={{
+              flex: 1,
+              height: `${Math.max(4, d.pct * 0.9)}%`,
+              borderRadius: 3,
+              background: d.isToday
+                ? 'var(--accent-analysis)'
+                : d.pct === 0 && d.due === 0
+                  ? 'rgba(0,0,0,0.06)'
+                  : d.isWeekend
+                    ? 'rgba(29,158,117,0.5)'
+                    : 'var(--success)',
+              transition: 'height 300ms ease-out',
+            }}
+          />
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--fg-muted)', marginTop: 5 }}>
+        {data.map((d, i) => <span key={i}>{d.label}</span>)}
+      </div>
+    </div>
+  );
+}
+
+// ─── Goal status distribution ─────────────────────────────────────────────────
+
+function GoalDistribution({ goals }: { goals: Task[] }) {
+  const data = useMemo(() => {
+    const counts = { backlog: 0, active: 0, paused: 0, done: 0 };
+    for (const g of goals) {
+      const k = g.status as keyof typeof counts;
+      if (k in counts) counts[k] += 1;
+      else counts.backlog += 1;
+    }
+    return [
+      { name: 'Active', value: counts.active, color: 'var(--accent-notes)' },
+      { name: 'Backlog', value: counts.backlog, color: 'var(--fg-muted)' },
+      { name: 'Paused', value: counts.paused, color: 'var(--accent-goals)' },
+      { name: 'Done', value: counts.done, color: 'var(--success)' },
+    ].filter((d) => d.value > 0);
+  }, [goals]);
+
+  if (data.length === 0) {
+    return (
+      <div className="chart-card" style={{ textAlign: 'center', color: 'var(--fg-muted)' }}>
+        <TargetIcon size={28} className="mx-auto mb-2 opacity-40" />
+        <p className="text-sm">No goals yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="chart-card">
+      <div className="chart-head">
+        <span className="chart-title">Goals by status</span>
+        <span className="chart-meta">distribution</span>
+      </div>
+      <div style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
+        <div style={{ width: 80, height: 80, flexShrink: 0 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={data} dataKey="value" innerRadius={25} outerRadius={38} paddingAngle={2}>
+                {data.map((d, i) => <Cell key={i} fill={d.color} />)}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{ fontSize: 11 }}>
+          {data.map((d) => (
+            <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', width: 120, margin: '3px 0', gap: 8 }}>
+              <span style={{ display: 'flex', gap: 6, alignItems: 'center', color: 'var(--fg-secondary)' }}>
+                <span style={{ width: 8, height: 8, background: d.color, borderRadius: 2, flexShrink: 0 }} />
+                {d.name}
+              </span>
+              <span style={{ color: 'var(--fg-muted)' }}>{d.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Period comparison ────────────────────────────────────────────────────────
+
+function PeriodComparison({ routines, days }: { routines: Routine[]; days: number }) {
+  const { thisP, prevP } = useMemo(() => {
+    const today = todayDate();
+
+    const stats = (startOff: number, endOff: number) => {
+      let due = 0, done = 0;
+      for (let i = startOff; i <= endOff; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const key = dateIso(d);
+        for (const r of routines) {
+          if (!isRoutineDueOn(r, d)) continue;
+          due++;
+          if (r.entries.some((e) => e.date === key && e.value > 0)) done++;
+        }
+      }
+      return { due, done, consistency: due > 0 ? Math.round(100 * done / due) : 0 };
+    };
+
+    return { thisP: stats(0, days - 1), prevP: stats(days, 2 * days - 1) };
+  }, [routines, days]);
+
+  const rows = [
+    {
+      label: 'Routines done',
+      this: thisP.done,
+      prev: prevP.done,
+      fmt: (v: number) => String(v),
+    },
+    {
+      label: 'Consistency',
+      this: thisP.consistency,
+      prev: prevP.consistency,
+      fmt: (v: number) => `${v}%`,
+    },
+    {
+      label: 'Due sessions',
+      this: thisP.due,
+      prev: prevP.due,
+      fmt: (v: number) => String(v),
+    },
+  ];
+
+  const label = { week: 'week', month: 'month', quarter: 'quarter', year: 'year' };
+
+  return (
+    <div className="chart-card">
+      <div className="chart-head">
+        <span className="chart-title">This period vs last</span>
+        <span className="chart-meta">change</span>
+      </div>
+      <div style={{ fontSize: 11.5, lineHeight: 1.7 }}>
+        {rows.map((row, i) => {
+          const change = row.this - row.prev;
+          const isPos = change > 0;
+          const isNeg = change < 0;
+          return (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '5px 0',
+                boxShadow: i < rows.length - 1 ? 'inset 0 -0.5px 0 var(--line-faint)' : undefined,
+              }}
+            >
+              <span style={{ color: 'var(--fg-secondary)' }}>{row.label}</span>
+              <span style={{ color: isPos ? 'var(--success)' : isNeg ? 'var(--danger)' : 'var(--fg-muted)', fontWeight: 500 }}>
+                {isPos ? '+' : ''}{row.fmt(change)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Right panel — Productivity insight ──────────────────────────────────────
+
+function ProductivityInsight({ routines }: { routines: Routine[] }) {
+  const insight = useMemo(() => {
+    const today = todayDate();
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const byDow: { sum: number; count: number }[] = Array.from({ length: 7 }, () => ({ sum: 0, count: 0 }));
+
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = dateIso(d);
+      const dow = d.getDay();
+      let due = 0, done = 0;
+      for (const r of routines) {
+        if (!isRoutineDueOn(r, d)) continue;
+        due++;
+        if (r.entries.some((e) => e.date === key && e.value > 0)) done++;
+      }
+      if (due > 0) {
+        byDow[dow].sum += Math.round(100 * done / due);
+        byDow[dow].count++;
+      }
+    }
+
+    let bestDow = -1, bestAvg = -1;
+    byDow.forEach((b, i) => {
+      if (b.count > 0) {
+        const avg = Math.round(b.sum / b.count);
+        if (avg > bestAvg) { bestAvg = avg; bestDow = i; }
+      }
+    });
+
+    if (bestDow === -1) return 'Keep logging your routines to unlock productivity insights.';
+    return `Best completion on ${dayNames[bestDow]} — ${bestAvg}% average over the past 30 days. Block your key habits on this day.`;
+  }, [routines]);
+
+  return (
+    <div className="panel-card">
+      <div className="panel-head">Productivity insight</div>
+      <p className="panel-prose">{insight}</p>
+    </div>
+  );
+}
+
+// ─── Right panel — Most productive days ──────────────────────────────────────
+
+function MostProductiveDays({ routines }: { routines: Routine[] }) {
+  const days = useMemo(() => {
+    const today = todayDate();
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const byDow: { sum: number; count: number; name: string }[] = Array.from({ length: 7 }, (_, i) => ({
+      sum: 0, count: 0, name: dayNames[i],
+    }));
+
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = dateIso(d);
+      const dow = d.getDay();
+      let due = 0, done = 0;
+      for (const r of routines) {
+        if (!isRoutineDueOn(r, d)) continue;
+        due++;
+        if (r.entries.some((e) => e.date === key && e.value > 0)) done++;
+      }
+      if (due > 0) {
+        byDow[dow].sum += Math.round(100 * done / due);
+        byDow[dow].count++;
+      }
+    }
+
+    return byDow
+      .map((b, i) => ({ name: b.name, avg: b.count > 0 ? Math.round(b.sum / b.count) : 0, count: b.count }))
+      .filter((b) => b.count > 0)
+      .sort((a, b) => b.avg - a.avg)
+      .slice(0, 4);
+  }, [routines]);
+
+  if (days.length === 0) return null;
+
+  return (
+    <div className="panel-card">
+      <div className="panel-head">Most productive days</div>
+      {days.map((d) => (
+        <div key={d.name} className="panel-row">
+          <span className="panel-row-title">{d.name}</span>
+          <span className="panel-row-meta">{d.avg}%</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Right panel — Top streaks ────────────────────────────────────────────────
+
+function TopStreaks({ routines }: { routines: Routine[] }) {
+  const top = useMemo(() => {
+    return routines
+      .map((r) => ({ title: r.title, streak: computeStreak(r), color: r.color }))
+      .filter((r) => r.streak > 0)
+      .sort((a, b) => b.streak - a.streak)
+      .slice(0, 4);
+  }, [routines]);
+
+  if (top.length === 0) return null;
+
+  return (
+    <div className="panel-card">
+      <div className="panel-head">Top streaks</div>
+      {top.map((r) => (
+        <div key={r.title} className="panel-row">
+          <span className="dot" style={{ backgroundColor: r.color }} />
+          <span className="panel-row-title">{r.title}</span>
+          <span className="panel-row-meta">{r.streak}d</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Per-Routine 30-day grid ──────────────────────────────────────────────────
 
 function PerRoutineGrid({ routines }: { routines: Routine[] }) {
   if (routines.length === 0) {
     return (
-      <div className="chart-card" style={{ textAlign: "center", color: "var(--fg-muted)" }}>
+      <div className="chart-card" style={{ textAlign: 'center', color: 'var(--fg-muted)' }}>
         <RepeatIcon size={28} className="mx-auto mb-2 opacity-40" />
         <p className="text-sm">No routines yet. Create some on the Routines page.</p>
       </div>
@@ -140,7 +564,6 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
           const entryMap = new Map<string, number>();
           for (const e of r.entries) entryMap.set(e.date, e.value);
 
-          // LEFT = today, RIGHT = past — same as Routines streak
           const cells: { date: string; value: number; isToday: boolean; before: boolean; due: boolean }[] = [];
           for (let i = 0; i < DAYS; i++) {
             const d = new Date(today);
@@ -175,7 +598,6 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
                   {r.is_paused && <span style={{ color: 'var(--warning)' }}>paused</span>}
                 </div>
               </div>
-              {/* Circles (matches Go DailyStreak style) */}
               <div className="flex gap-1 items-center min-w-0">
                 {cells.map((c) => {
                   let cellStyle: React.CSSProperties;
@@ -228,178 +650,7 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
   );
 }
 
-// ─── Productivity Trend ──────────────────────────────────────────────────────
-
-function ProductivityTrend({ routines }: { routines: Routine[] }) {
-  // For each day, compute overall % AND per-routine done (1=done, 0=not, -1=not due)
-  const data = useMemo(() => {
-    const today = todayDate();
-    const points: any[] = [];
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dKey = dateIso(d);
-      let dueCount = 0;
-      let doneCount = 0;
-      const point: any = { date: `${d.getMonth() + 1}/${d.getDate()}` };
-      for (const r of routines) {
-        const created = new Date(r.created_at);
-        created.setHours(0, 0, 0, 0);
-        if (d < created) {
-          point[`r_${r.id}`] = null;
-          continue;
-        }
-        if (!isRoutineDueOn(r, d)) {
-          point[`r_${r.id}`] = null;
-          continue;
-        }
-        dueCount += 1;
-        const entry = r.entries.find((e) => e.date === dKey);
-        const isDone = entry && entry.value > 0;
-        if (isDone) doneCount += 1;
-        // For per-routine line: cumulative completion rate (last 7 days)
-        // Or just done = 100, not done = 0
-        point[`r_${r.id}`] = isDone ? 100 : 0;
-      }
-      point.pct = dueCount > 0 ? Math.round(100 * doneCount / dueCount) : 0;
-      point.done = doneCount;
-      point.total = dueCount;
-      points.push(point);
-    }
-    return points;
-  }, [routines]);
-
-  const recentAvg = data.slice(-7).reduce((s, d) => s + d.pct, 0) / 7;
-  const olderAvg = data.slice(0, 7).reduce((s, d) => s + d.pct, 0) / 7;
-  const trend = recentAvg > olderAvg + 5 ? 'up' : recentAvg < olderAvg - 5 ? 'down' : 'flat';
-
-  // Top routines to show as separate lines (limit to 4 to avoid clutter)
-  const topRoutines = useMemo(() => routines.filter((r) => !r.is_paused).slice(0, 4), [routines]);
-
-  return (
-    <div className="chart-card">
-      <div className="chart-head">
-        <span className="chart-title">Productivity trend</span>
-        <div className="flex items-center gap-1" style={{ fontSize: 10.5 }}>
-          {trend === 'up' && <><TrendingUp size={13} style={{ color: 'var(--success)' }} /><span style={{ color: 'var(--success)', fontWeight: 500 }}>{Math.round(recentAvg)}%</span></>}
-          {trend === 'down' && <><TrendingDown size={13} style={{ color: 'var(--danger)' }} /><span style={{ color: 'var(--danger)', fontWeight: 500 }}>{Math.round(recentAvg)}%</span></>}
-          {trend === 'flat' && <><Minus size={13} style={{ color: 'var(--fg-muted)' }} /><span style={{ color: 'var(--fg-muted)', fontWeight: 500 }}>{Math.round(recentAvg)}%</span></>}
-          <span className="chart-meta">last 7d avg</span>
-        </div>
-      </div>
-      <p className="chart-meta" style={{ marginBottom: 10 }}>Overall % + individual habits (30 days)</p>
-      <div className="h-48">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-            <defs>
-              <linearGradient id="prodFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} interval={4} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
-            <Tooltip
-              contentStyle={{ backgroundColor: 'var(--bg-elevated)', boxShadow: 'var(--sh-popover)', borderRadius: 'var(--r-control)', fontSize: '12px', border: 'none' }}
-              formatter={(v: number, _: string, ctx: any) => [`${v}% (${ctx.payload.done}/${ctx.payload.total})`, 'Done']}
-            />
-            {/* Per-routine subtle lines */}
-            {topRoutines.map((r) => (
-              <Area
-                key={r.id}
-                type="monotone"
-                dataKey={`r_${r.id}`}
-                stroke={r.color}
-                strokeWidth={1}
-                strokeOpacity={0.5}
-                fill="none"
-                connectNulls={false}
-                dot={false}
-              />
-            ))}
-            {/* Main overall line */}
-            <Area type="monotone" dataKey="pct" stroke="var(--primary)" strokeWidth={2.5} fill="url(#prodFill)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      {topRoutines.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1" style={{ marginTop: 12 }}>
-          <span className="inline-flex items-center gap-1">
-            <span style={{ width: 12, height: 2, background: 'var(--fg-primary)', borderRadius: 1 }} />
-            <span className="chart-meta" style={{ fontWeight: 500 }}>Overall</span>
-          </span>
-          {topRoutines.map((r) => (
-            <span key={r.id} className="inline-flex items-center gap-1">
-              <span style={{ width: 12, height: 2, backgroundColor: r.color, borderRadius: 1, opacity: 0.6 }} />
-              <span className="chart-meta truncate" style={{ maxWidth: 80 }}>{r.title}</span>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Goal status distribution ────────────────────────────────────────────────
-
-function GoalDistribution({ goals }: { goals: Task[] }) {
-  const data = useMemo(() => {
-    const counts = { backlog: 0, active: 0, paused: 0, done: 0 };
-    for (const g of goals) {
-      const k = g.status as keyof typeof counts;
-      if (k in counts) counts[k] += 1;
-      else counts.backlog += 1;
-    }
-    return [
-      { name: 'Backlog', value: counts.backlog, color: 'var(--fg-muted)' },
-      { name: 'Active', value: counts.active, color: 'var(--accent-notes)' },
-      { name: 'Paused', value: counts.paused, color: 'var(--accent-goals)' },
-      { name: 'Done', value: counts.done, color: 'var(--accent-routines)' },
-    ].filter((d) => d.value > 0);
-  }, [goals]);
-
-  if (data.length === 0) {
-    return (
-      <div className="chart-card" style={{ textAlign: "center", color: "var(--fg-muted)" }}>
-        <TargetIcon size={28} className="mx-auto mb-2 opacity-40" />
-        <p className="text-sm">No goals yet.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="chart-card">
-      <div className="chart-head">
-        <span className="chart-title">Goals by status</span>
-        <span className="chart-meta">{data.reduce((s, d) => s + d.value, 0)} total</span>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="w-32 h-32 flex-shrink-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={data} dataKey="value" innerRadius={35} outerRadius={55} paddingAngle={2}>
-                {data.map((d, i) => <Cell key={i} fill={d.color} />)}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="flex-1 space-y-1.5">
-          {data.map((d) => (
-            <div key={d.name} className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                <span>{d.name}</span>
-              </div>
-              <span className="font-medium">{d.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Active timeline (timeline of active goals + sprints with dates) ─────────
+// ─── Active timeline ──────────────────────────────────────────────────────────
 
 function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprint[] }) {
   const today = todayDate();
@@ -409,11 +660,8 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
     return e >= today;
   });
 
-  if (activeGoals.length === 0 && activeSprints.length === 0) {
-    return null;
-  }
+  if (activeGoals.length === 0 && activeSprints.length === 0) return null;
 
-  // Compute a visual range — 30 days back, 60 days forward
   const rangeStart = new Date(today); rangeStart.setDate(rangeStart.getDate() - 7);
   const rangeEnd = new Date(today); rangeEnd.setDate(rangeEnd.getDate() + 60);
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
@@ -428,11 +676,8 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
   for (const s of activeSprints) {
     items.push({ id: s.id, title: s.title, color: s.color, start: new Date(s.start_date), end: new Date(s.end_date), type: 'sprint' });
   }
-
-  // Sort by start date
   items.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-  // Build day labels for header (every 7 days)
   const dayLabels: { offset: number; label: string }[] = [];
   for (let d = 0; d <= 60; d += 7) {
     const dt = new Date(today); dt.setDate(dt.getDate() + d);
@@ -449,28 +694,18 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
         <span className="chart-meta">{activeGoals.length + activeSprints.length} items</span>
       </div>
 
-      {/* Header with date labels */}
       <div className="relative h-5 mb-2" style={{ fontSize: 10, color: 'var(--fg-muted)' }}>
         {dayLabels.map((dl, i) => (
-          <span
-            key={i}
-            className="absolute -translate-x-1/2 whitespace-nowrap"
-            style={{ left: `${dl.offset}%` }}
-          >
+          <span key={i} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${dl.offset}%` }}>
             {dl.label}
           </span>
         ))}
       </div>
 
       <div className="relative space-y-1.5">
-        {/* Today indicator */}
-        <div
-          className="absolute top-0 bottom-0 z-10"
-          style={{ left: `${todayPct}%`, width: 1, background: 'var(--fg-primary)' }}
-        >
+        <div className="absolute top-0 bottom-0 z-10" style={{ left: `${todayPct}%`, width: 1, background: 'var(--fg-primary)' }}>
           <span className="absolute -translate-x-1/2" style={{ top: -18, fontSize: 9, fontWeight: 600, color: 'var(--fg-primary)' }}>today</span>
         </div>
-
         {items.map((it) => {
           const startMs = Math.max(it.start.getTime(), rangeStart.getTime());
           const endMs = Math.min(it.end.getTime(), rangeEnd.getTime());
@@ -481,12 +716,7 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
             <div key={`${it.type}-${it.id}`} className="relative h-7">
               <div
                 className="absolute h-7 rounded-md flex items-center px-2 text-[11px] font-medium text-white truncate"
-                style={{
-                  left: `${left}%`,
-                  width: `${Math.max(width, 3)}%`,
-                  backgroundColor: it.color,
-                  opacity: 0.9,
-                }}
+                style={{ left: `${left}%`, width: `${Math.max(width, 3)}%`, backgroundColor: it.color, opacity: 0.9 }}
                 title={`${it.type === 'sprint' ? '⚡ ' : '🎯 '}${it.title} (${dateIso(it.start)} → ${dateIso(it.end)})`}
               >
                 <span className="truncate">{it.title}</span>
@@ -499,18 +729,16 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
   );
 }
 
-// ─── Active sprints list ─────────────────────────────────────────────────────
+// ─── Active sprints list ──────────────────────────────────────────────────────
 
 function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
   const today = dateIso(todayDate());
   const active = useMemo(
     () => sprints.filter((s) => s.start_date <= today && s.end_date >= today),
-    [sprints, today]
+    [sprints, today],
   );
 
-  if (active.length === 0) {
-    return null;  // Don't show empty card — let Analysis breathe
-  }
+  if (active.length === 0) return null;
 
   return (
     <div className="chart-card">
@@ -531,7 +759,6 @@ function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
 
           return (
             <div key={s.id} className="space-y-2">
-              {/* Sprint header */}
               <div className="flex items-center gap-2">
                 <span className="flex-shrink-0" style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: s.color }} />
                 <span className="flex-1 truncate" style={{ fontSize: 13, fontWeight: 500 }}>{s.title}</span>
@@ -539,24 +766,10 @@ function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
                   {Math.round(remaining)} day{Math.round(remaining) !== 1 ? 's' : ''} left
                 </span>
               </div>
-              {/* Timeline track */}
               <div className="relative overflow-hidden" style={{ height: 6, background: 'rgba(0,0,0,0.07)', borderRadius: 'var(--r-pill)' }}>
-                <div
-                  className="absolute inset-y-0 left-0 transition-all"
-                  style={{ width: `${pct}%`, backgroundColor: s.color, borderRadius: 'var(--r-pill)', transitionDuration: '700ms' }}
-                />
-                {/* Today marker */}
-                <div
-                  className="absolute"
-                  style={{
-                    left: `calc(${pct}% - 6px)`, top: '50%', transform: 'translateY(-50%)',
-                    width: 12, height: 12, borderRadius: 'var(--r-pill)',
-                    backgroundColor: s.color, boxShadow: `0 0 0 2px var(--bg-card)`,
-                    transition: 'all 150ms',
-                  }}
-                />
+                <div className="absolute inset-y-0 left-0 transition-all" style={{ width: `${pct}%`, backgroundColor: s.color, borderRadius: 'var(--r-pill)', transitionDuration: '700ms' }} />
+                <div className="absolute" style={{ left: `calc(${pct}% - 6px)`, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, borderRadius: 'var(--r-pill)', backgroundColor: s.color, boxShadow: `0 0 0 2px var(--bg-card)`, transition: 'all 150ms' }} />
               </div>
-              {/* Date labels + items */}
               <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
                 <span>{formatShortDate(s.start_date)}</span>
                 <div className="flex gap-2.5">
@@ -575,12 +788,7 @@ function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
   );
 }
 
-function formatShortDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-// ─── Year heatmap of routine entries ─────────────────────────────────────────
+// ─── Year heatmap ─────────────────────────────────────────────────────────────
 
 function YearHeatmap({ routines }: { routines: Routine[] }) {
   const today = todayDate();
@@ -605,7 +813,7 @@ function YearHeatmap({ routines }: { routines: Routine[] }) {
       d.setDate(d.getDate() + i);
       const key = dateIso(d);
       const wd = d.getDay();
-      if (i > 0 && wd === 0) weekIdx += 1;
+      if (i > 0 && wd === 0) weekIdx++;
       list.push({ date: key, count: entriesByDate.get(key) || 0, weekday: wd, weekIdx });
     }
     return list;
@@ -657,10 +865,11 @@ function YearHeatmap({ routines }: { routines: Routine[] }) {
   );
 }
 
-// ─── Main page ───────────────────────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Analysis() {
   useT();
+  const [period, setPeriod] = useState<Period>('month');
   const [goals, setGoals] = useState<Task[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [sprints, setSprints] = useState<FocusSprint[]>([]);
@@ -689,21 +898,48 @@ export default function Analysis() {
   }, []);
 
   const today = dateIso(todayDate());
+  const activeRoutines = useMemo(() => routines.filter((r) => !r.is_paused), [routines]);
 
   const kpis = useMemo(() => {
-    const activeGoals = goals.filter((g) => g.status === 'active').length;
-    const doneGoals = goals.filter((g) => g.status === 'done').length;
-    const dueToday = routines.filter((r) => isRoutineDueOn(r, todayDate())).length;
+    const todayD = todayDate();
+    const days = periodDays(period);
+
+    // Consistency over period
+    let dueTotal = 0, doneTotal = 0;
+    for (let i = 0; i < days; i++) {
+      const d = new Date(todayD);
+      d.setDate(d.getDate() - i);
+      const key = dateIso(d);
+      for (const r of activeRoutines) {
+        if (!isRoutineDueOn(r, d)) continue;
+        dueTotal++;
+        if (r.entries.some((e) => e.date === key && e.value > 0)) doneTotal++;
+      }
+    }
+    const consistency = dueTotal > 0 ? Math.round(100 * doneTotal / dueTotal) : 0;
+
+    // Today
+    const dueToday = routines.filter((r) => isRoutineDueOn(r, todayD)).length;
     const doneTodayCount = routines.filter((r) => {
       if (r.is_paused) return false;
-      const e = r.entries.find((x) => x.date === today);
-      return e && e.value > 0;
+      return r.entries.some((x) => x.date === today && x.value > 0);
     }).length;
-    const activeSprints = sprints.filter((s) => s.start_date <= today && s.end_date >= today).length;
-    return { activeGoals, doneGoals, dueToday, doneTodayCount, activeSprints };
-  }, [goals, routines, sprints, today]);
 
-  const activeRoutines = useMemo(() => routines.filter((r) => !r.is_paused), [routines]);
+    // Best streak
+    const bestStreak = activeRoutines.length > 0
+      ? Math.max(...activeRoutines.map(computeStreak))
+      : 0;
+
+    return {
+      activeGoals: goals.filter((g) => g.status === 'active').length,
+      doneGoals: goals.filter((g) => g.status === 'done').length,
+      consistency,
+      dueToday,
+      doneTodayCount,
+      activeSprints: sprints.filter((s) => s.start_date <= today && s.end_date >= today).length,
+      bestStreak,
+    };
+  }, [goals, routines, activeRoutines, sprints, today, period]);
 
   if (loading) {
     return (
@@ -717,69 +953,99 @@ export default function Analysis() {
     <PullToRefresh onRefresh={load}>
       <div className="size-full overflow-y-auto">
         <div className="page-container">
-        <div className="page-head">
-          <div className="page-head-info">
-            <h1 className="page-title">Analysis</h1>
-            <p className="page-subtitle">Reflect on your progress, understand patterns, improve what matters.</p>
+          {/* Header */}
+          <div className="page-head">
+            <div className="page-head-info">
+              <h1 className="page-title">Analysis</h1>
+              <p className="page-subtitle">Reflect on your progress, understand patterns, improve what matters.</p>
+              <div className="segmented" style={{ marginTop: 12 }}>
+                {(['week', 'month', 'quarter', 'year'] as Period[]).map((p) => (
+                  <button
+                    key={p}
+                    className="segmented-item"
+                    data-active={period === p || undefined}
+                    onClick={() => setPeriod(p)}
+                  >
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* KPI row */}
-        <div className="kpi-row">
-          <KpiCard
-            label="Active goals"
-            value={kpis.activeGoals}
-            sub={`${kpis.doneGoals} done`}
-            icon={<TargetIcon size={16} />}
-          />
-          <KpiCard
-            label="Done goals"
-            value={kpis.doneGoals}
-            sub={`out of ${goals.length}`}
-            icon={<CheckCircle2 size={16} />}
-            color="var(--success)"
-          />
-          <KpiCard
-            label="Routines today"
-            value={`${kpis.doneTodayCount}/${kpis.dueToday}`}
-            sub="completed"
-            icon={<RepeatIcon size={16} />}
-            color="var(--accent-analysis)"
-          />
-          <KpiCard
-            label="Active sprints"
-            value={kpis.activeSprints}
-            sub={`${sprints.length} total`}
-            icon={<Zap size={16} />}
-            color="var(--accent-goals)"
-          />
-        </div>
+          {/* 5-card KPI row */}
+          <div className="kpi-row" data-cols="5">
+            <KpiCard
+              label="Active goals"
+              value={kpis.activeGoals}
+              trend={`${kpis.doneGoals} done`}
+              trendDir="neutral"
+              icon={<TargetIcon size={16} />}
+            />
+            <KpiCard
+              label="Consistency"
+              value={`${kpis.consistency}%`}
+              trend={period + ' avg'}
+              trendDir={kpis.consistency >= 70 ? 'positive' : kpis.consistency >= 40 ? 'neutral' : 'negative'}
+              icon={<TrendingUp size={16} />}
+              color="var(--accent-analysis)"
+            />
+            <KpiCard
+              label="Routines today"
+              value={`${kpis.doneTodayCount}/${kpis.dueToday}`}
+              trend="completed"
+              trendDir="neutral"
+              icon={<RepeatIcon size={16} />}
+              color="var(--success)"
+            />
+            <KpiCard
+              label="Active sprints"
+              value={kpis.activeSprints}
+              trend={`${sprints.length} total`}
+              trendDir="neutral"
+              icon={<Zap size={16} />}
+              color="var(--accent-goals)"
+            />
+            <KpiCard
+              label="Best streak"
+              value={kpis.bestStreak > 0 ? `${kpis.bestStreak}d` : '—'}
+              trend={kpis.bestStreak > 0 ? 'current' : 'start logging'}
+              trendDir={kpis.bestStreak > 7 ? 'positive' : 'neutral'}
+              icon={<Flame size={16} />}
+              color="var(--warning)"
+            />
+          </div>
 
-        {/* Two-column layout */}
-        <div className="analysis-grid" style={{ marginBottom: 10 }}>
-          <ProductivityTrend routines={activeRoutines} />
-          <GoalDistribution goals={goals} />
-        </div>
+          {/* Main section: 2×2 chart grid + right panel */}
+          <div className="section-row">
+            <div>
+              <div className="analysis-grid">
+                <ProductivityTrend routines={activeRoutines} days={periodDays(period)} />
+                <RoutineCompletionByDay routines={activeRoutines} />
+                <GoalDistribution goals={goals} />
+                <PeriodComparison routines={activeRoutines} days={periodDays(period)} />
+              </div>
+            </div>
+            <div className="right-panel">
+              <ProductivityInsight routines={activeRoutines} />
+              <MostProductiveDays routines={activeRoutines} />
+              <TopStreaks routines={activeRoutines} />
+            </div>
+          </div>
 
-        {/* Active timeline */}
-        <div style={{ marginBottom: 10 }}>
-          <ActiveTimeline goals={goals} sprints={sprints} />
-        </div>
-
-        {/* Per-routine grid full width */}
-        <div style={{ marginBottom: 10 }}>
-          <PerRoutineGrid routines={activeRoutines} />
-        </div>
-
-        {/* Active sprints */}
-        <div style={{ marginBottom: 10 }}>
-          <ActiveSprintsCard sprints={sprints} />
-        </div>
-
-        {/* Year heatmap */}
-        <div style={{ marginBottom: 10 }}>
-          <YearHeatmap routines={routines} />
-        </div>
+          {/* Below the fold */}
+          <div style={{ marginTop: 10 }}>
+            <PerRoutineGrid routines={activeRoutines} />
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <ActiveTimeline goals={goals} sprints={sprints} />
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <ActiveSprintsCard sprints={sprints} />
+          </div>
+          <div style={{ marginTop: 10, marginBottom: 10 }}>
+            <YearHeatmap routines={routines} />
+          </div>
         </div>
       </div>
     </PullToRefresh>
