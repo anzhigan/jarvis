@@ -121,6 +121,7 @@
   --accent-foreground: var(--fg-primary);
   --destructive: var(--danger);
   --destructive-foreground: #FFFFFF;
+  --destructive-soft: rgba(188, 74, 72, 0.08);
   --border: var(--line);
   --input: var(--line);
   --input-background: var(--bg-input);
@@ -288,7 +289,8 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .nav-item[data-active="true"][data-acc="sprints"] .icon  { color: var(--accent-sprints); }
 .nav-item[data-active="true"][data-acc="analysis"] .icon { color: var(--accent-analysis); }
 
-.sidebar-foot { margin-top: auto; padding-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.sidebar-foot { margin-top: auto; padding-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+.sidebar-foot-row { display: flex; align-items: center; gap: 2px; padding: 0 2px; }
 
 .focus-card {
   background: var(--bg-elevated); border-radius: var(--r-card);
@@ -587,6 +589,9 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   gap: 10px; margin-bottom: 18px;
 }
 .kpi-row[data-cols="5"] { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 1024px) {
+  .kpi-row[data-cols="5"] { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 768px) {
   .kpi-row, .kpi-row[data-cols="5"] { grid-template-columns: repeat(2, 1fr); }
 }
@@ -594,7 +599,9 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .kpi-card {
   background: var(--bg-card); border-radius: var(--r-card);
   padding: 14px 16px; box-shadow: var(--sh-card);
+  transition: box-shadow var(--dur-fast) var(--ease);
 }
+.kpi-card:hover { box-shadow: var(--sh-card-hover); }
 .kpi-label { font-size: 10.5px; color: var(--fg-tertiary); font-weight: 500; }
 .kpi-value { font-size: 22px; font-weight: 500; letter-spacing: -0.025em; margin-top: 3px; line-height: 1; color: var(--fg-primary); }
 .kpi-trend { font-size: 10.5px; margin-top: 4px; font-weight: 500; color: var(--success); }
@@ -690,9 +697,9 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 
 .routine-row {
   display: flex; align-items: center; gap: 14px;
-  padding: 13px 16px; background: var(--bg-card);
+  padding: 12px 16px 12px 20px; background: var(--bg-card);
   border-radius: var(--r-card); margin-bottom: 7px;
-  box-shadow: var(--sh-card);
+  box-shadow: var(--sh-card); overflow: hidden;
   transition: box-shadow var(--dur-fast) var(--ease);
 }
 .routine-row:hover { box-shadow: var(--sh-card-hover); }
@@ -715,20 +722,20 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .routine-title { font-size: 13px; font-weight: 500; color: var(--fg-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .routine-sub { font-size: 11px; color: var(--fg-muted); margin-top: 2px; }
 
-.streak-box { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.streak-count { font-size: 11px; color: var(--fg-tertiary); font-weight: 500; font-variant-numeric: tabular-nums; min-width: 22px; text-align: right; }
+.streak-box { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.streak-count { font-size: 11px; color: var(--fg-tertiary); font-weight: 500; font-variant-numeric: tabular-nums; min-width: 26px; text-align: right; }
 .streak-strip { display: flex; gap: 3px; }
 .streak-dot {
-  width: 12px; height: 12px; border-radius: var(--r-pill);
+  width: 14px; height: 14px; border-radius: var(--r-pill);
   cursor: pointer; background: rgba(0, 0, 0, 0.05);
   border: 0; padding: 0;
   transition: transform var(--dur-fast) var(--ease);
 }
 .dark .streak-dot { background: rgba(255, 255, 255, 0.06); }
-.streak-dot:hover { transform: scale(1.15); }
+.streak-dot:hover { transform: scale(1.18); }
 .streak-dot[data-state="done"] { background: var(--success); }
 .streak-dot[data-state="fail"] { background: rgba(188, 74, 72, 0.35); }
-.streak-dot[data-state="today"] { box-shadow: inset 0 0 0 1.5px var(--success); background: var(--bg-elevated); }
+.streak-dot[data-state="today"] { box-shadow: inset 0 0 0 2px var(--success); background: var(--bg-elevated); }
 
 /* Heatmap */
 .heatmap { display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; }
@@ -773,6 +780,9 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
 .chart-title { font-size: 13px; font-weight: 500; color: var(--fg-primary); }
 .chart-meta { font-size: 10.5px; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+
+/* Consistent vertical stack for Analysis sections */
+.page-stack { display: flex; flex-direction: column; gap: 10px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    NOTES

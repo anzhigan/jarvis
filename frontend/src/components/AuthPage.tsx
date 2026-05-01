@@ -97,7 +97,8 @@ export default function AuthPage() {
             <div className="text-xs px-3 py-2 rounded-md animate-slide-down"
               style={{
                 background: 'var(--destructive-soft)',
-                color: 'var(--destructive)',
+                color: 'var(--danger)',
+                borderRadius: 'var(--r-control)',
               }}>
               {error}
             </div>

@@ -1016,34 +1016,26 @@ export default function Analysis() {
             />
           </div>
 
-          {/* Main section: 2×2 chart grid + right panel */}
-          <div className="section-row">
-            <div>
-              <div className="analysis-grid">
-                <ProductivityTrend routines={activeRoutines} days={periodDays(period)} />
-                <RoutineCompletionByDay routines={activeRoutines} />
-                <GoalDistribution goals={goals} />
-                <PeriodComparison routines={activeRoutines} days={periodDays(period)} />
+          {/* All sections stacked with consistent gap */}
+          <div className="page-stack">
+            <div className="section-row">
+              <div>
+                <div className="analysis-grid">
+                  <ProductivityTrend routines={activeRoutines} days={periodDays(period)} />
+                  <RoutineCompletionByDay routines={activeRoutines} />
+                  <GoalDistribution goals={goals} />
+                  <PeriodComparison routines={activeRoutines} days={periodDays(period)} />
+                </div>
+              </div>
+              <div className="right-panel">
+                <ProductivityInsight routines={activeRoutines} />
+                <MostProductiveDays routines={activeRoutines} />
+                <TopStreaks routines={activeRoutines} />
               </div>
             </div>
-            <div className="right-panel">
-              <ProductivityInsight routines={activeRoutines} />
-              <MostProductiveDays routines={activeRoutines} />
-              <TopStreaks routines={activeRoutines} />
-            </div>
-          </div>
-
-          {/* Below the fold */}
-          <div style={{ marginTop: 10 }}>
             <PerRoutineGrid routines={activeRoutines} />
-          </div>
-          <div style={{ marginTop: 10 }}>
             <ActiveTimeline goals={goals} sprints={sprints} />
-          </div>
-          <div style={{ marginTop: 10 }}>
             <ActiveSprintsCard sprints={sprints} />
-          </div>
-          <div style={{ marginTop: 10, marginBottom: 10 }}>
             <YearHeatmap routines={routines} />
           </div>
         </div>

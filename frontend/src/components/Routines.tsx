@@ -317,15 +317,14 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
 
   return (
     <div className="routine-row" style={{ position: 'relative' }}>
-      {/* Color stripe (now subtle, on left edge) */}
+      {/* Color stripe */}
       <div
         style={{
           position: 'absolute',
-          left: 0, top: 8, bottom: 8,
-          width: 3,
-          borderRadius: '0 999px 999px 0',
+          left: 0, top: 0, bottom: 0,
+          width: 4,
           background: routine.color,
-          opacity: routine.is_paused ? 0.3 : 0.6,
+          opacity: routine.is_paused ? 0.35 : 0.9,
         }}
       />
 
@@ -720,10 +719,24 @@ export default function Routines() {
               <h1 className="page-title">Routines</h1>
               <p className="page-subtitle">Build rhythm. Stay consistent. Reduce friction.</p>
             </div>
+            <div className="page-head-actions">
+              <button
+                onClick={() => setCreating((v) => !v)}
+                className={creating ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
+              >
+                {creating ? <X size={13} /> : <Plus size={13} />}
+                {creating ? 'Cancel' : 'New routine'}
+              </button>
+            </div>
           </div>
 
+          {/* Create form */}
+          {creating && (
+            <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} goals={goals} />
+          )}
+
           {/* Filter pills */}
-          <div className="flex gap-1.5 mb-4 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap" style={{ marginBottom: 14 }}>
             {(['today', 'all', 'paused'] as const).map((f) => (
               <button
                 key={f}
@@ -736,19 +749,6 @@ export default function Routines() {
               </button>
             ))}
           </div>
-
-          {/* Create button / form */}
-          {!creating ? (
-            <button
-              onClick={() => setCreating(true)}
-              className="btn btn-ghost w-full"
-              style={{ marginBottom: 16, justifyContent: 'center' }}
-            >
-              <Plus size={15} /> New routine
-            </button>
-          ) : (
-            <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} goals={goals} />
-          )}
 
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -764,7 +764,7 @@ export default function Routines() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div>
               {filteredRoutines.map((r) => (
                 <RoutineCard key={r.id} routine={r} onReload={load} />
               ))}

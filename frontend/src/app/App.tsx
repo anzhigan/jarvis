@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
 import {
   Loader2, Moon, Sun, BookOpen, BarChart3, Repeat, Zap,
-  PanelLeftClose, PanelLeftOpen, Search, Bell, Plus, Target, Play,
+  PanelLeftClose, PanelLeftOpen, Search, Target,
 } from 'lucide-react';
 import Notes from '../components/Notes';
 import Tasks from '../components/Tasks';
@@ -150,37 +150,19 @@ export default function App() {
           </nav>
 
           <div className="sidebar-foot">
-            <div className="focus-card">
-              <div className="focus-card-label">Focus mode</div>
-              <div className="focus-card-title">Deep work</div>
-              <div className="focus-card-row">
-                <div className="focus-card-timer">25:00</div>
-                <button className="focus-card-play" aria-label="Start focus session">
-                  <Play size={9} fill="currentColor" />
-                </button>
-              </div>
-            </div>
-
-            <div className="quick-row">
-              <button className="quick-btn" title="Quick capture">
-                <Plus size={14} />
+            <div className="sidebar-foot-row">
+              <button onClick={() => setTab('profile')} className="profile-row" style={{ flex: 1, width: 'auto', minWidth: 0 }}>
+                {user.avatar_url ? (
+                  <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+                ) : (
+                  <span className="profile-avatar">{user.username.charAt(0).toUpperCase()}</span>
+                )}
+                <span className="profile-name">{user.username}</span>
               </button>
-              <button className="quick-btn" data-badge="true" title="Notifications">
-                <Bell size={14} />
-              </button>
-              <button onClick={toggleTheme} className="quick-btn" title="Toggle theme">
+              <button onClick={toggleTheme} className="icon-btn icon-btn-sm" title="Toggle theme" style={{ flexShrink: 0 }}>
                 {dark ? <Sun size={14} /> : <Moon size={14} />}
               </button>
             </div>
-
-            <button onClick={() => setTab('profile')} className="profile-row">
-              {user.avatar_url ? (
-                <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
-              ) : (
-                <span className="profile-avatar">{user.username.charAt(0).toUpperCase()}</span>
-              )}
-              <span className="profile-name">{user.username}</span>
-            </button>
           </div>
         </aside>
 
