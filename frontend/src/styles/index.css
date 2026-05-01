@@ -1147,6 +1147,32 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   overflow-x: hidden;
   padding: 6px 8px 12px;
 }
+
+/* Force tree styling regardless of inner Tailwind classes */
+.notes-library-tree .group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  color: var(--fg-secondary);
+  letter-spacing: var(--tracking-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background var(--dur-fast) var(--ease);
+}
+.notes-library-tree .group:hover {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+.notes-library-tree [class*="ml-3.5"],
+.notes-library-tree [class*="ml-3"] {
+  margin-left: 14px;
+  border-left: 0.5px solid var(--line);
+  padding-left: 0;
+}
 .lib-folder {
   display: flex;
   align-items: center;
@@ -1345,6 +1371,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   align-items: center;
   margin-bottom: 16px;
   padding: 0;
+  justify-content: flex-start;
 }
 .editor-toolbar-row {
   display: inline-flex;
@@ -1353,7 +1380,20 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   padding: 4px;
   background: var(--bg-input);
   border-radius: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: 100%;
+  scrollbar-width: thin;
+}
+.editor-toolbar-row::-webkit-scrollbar { height: 4px; }
+.editor-toolbar-row::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 2px; }
+.editor-toolbar-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--line-strong);
+  margin: 0 4px;
+  flex-shrink: 0;
+  align-self: center;
 }
 .editor-toolbar-frame .w-px {
   width: 1px;

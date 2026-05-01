@@ -651,7 +651,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
             <UnderlineIcon size={15} />
           </button>
 
-          <div className="w-px h-5 bg-border mx-1" />
+          <div className="editor-toolbar-divider" />
 
           <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={btnCls(editor.isActive('heading', { level: 1 }))} title="Heading 1">
             <Heading1 size={15} />
@@ -663,7 +663,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
             <Heading3 size={15} />
           </button>
 
-          <div className="w-px h-5 bg-border mx-1" />
+          <div className="editor-toolbar-divider" />
 
           <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={btnCls(editor.isActive('bulletList'))} title="Bullet list">
             <List size={15} />
@@ -681,7 +681,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
             <Code size={15} />
           </button>
 
-          <div className="w-px h-5 bg-border mx-1" />
+          <div className="editor-toolbar-divider" />
 
           {/* Link */}
           <button
@@ -720,7 +720,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
             <Sigma size={15} />
           </button>
 
-          <div className="w-px h-5 bg-border mx-1" />
+          <div className="editor-toolbar-divider" />
 
           <button onClick={() => editor.chain().focus().setTextAlign('left').run()} className={btnCls(editor.isActive({ textAlign: 'left' }))} title="Align left">
             <AlignLeft size={15} />
@@ -732,7 +732,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
             <AlignRight size={15} />
           </button>
 
-          <div className="w-px h-5 bg-border mx-1" />
+          <div className="editor-toolbar-divider" />
 
           {/* Color */}
           <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -784,7 +784,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
             )}
           </div>
 
-          <div className="w-px h-5 bg-border mx-1" />
+          <div className="editor-toolbar-divider" />
 
           <button
             onClick={() => fileInputRef.current?.click()}
