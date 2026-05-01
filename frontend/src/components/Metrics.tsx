@@ -699,7 +699,7 @@ export default function Analysis() {
   return (
     <PullToRefresh onRefresh={load}>
       <div className="size-full">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-6">
+        <div className="max-w-[1100px] mx-auto px-4 md:px-8 py-5 md:py-8 w-full">
         {/* KPI row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <KpiCard

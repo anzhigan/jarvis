@@ -352,7 +352,7 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
                 <button
                   onClick={toggleToday}
                   disabled={busy || routine.is_paused}
-                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+                  className="w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-90"
                   style={{
                     border: '1.5px solid',
                     borderColor: isDoneToday ? 'var(--success)' : 'oklch(0.65 0.16 145 / 0.5)',
@@ -363,7 +363,7 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
                   }}
                   title={isDoneToday ? 'Mark not done' : 'Mark done today'}
                 >
-                  {busy && isDoneToday ? <Loader2 size={13} className="animate-spin" /> : <Check size={15} strokeWidth={3} />}
+                  {busy && isDoneToday ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} strokeWidth={3} />}
                 </button>
                 <button
                   onClick={async () => {
@@ -382,7 +382,7 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
                     } finally { setBusy(false); }
                   }}
                   disabled={busy || routine.is_paused}
-                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+                  className="w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-90"
                   style={{
                     border: '1.5px solid',
                     borderColor: todayEntry?.value === 0 ? 'var(--destructive)' : 'oklch(0.62 0.20 25 / 0.5)',
@@ -393,7 +393,7 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
                   }}
                   title={todayEntry?.value === 0 ? 'Clear' : 'Mark not done'}
                 >
-                  {busy && todayEntry?.value === 0 ? <Loader2 size={13} className="animate-spin" /> : <X size={15} strokeWidth={3} />}
+                  {busy && todayEntry?.value === 0 ? <Loader2 size={13} className="animate-spin" /> : <X size={13} strokeWidth={3} />}
                 </button>
               </div>
             )}
@@ -770,11 +770,10 @@ export default function Routines() {
   }), [routines]);
 
   return (
-    <div className="size-full flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        <PullToRefresh onRefresh={load}>
-          <div className="px-4 md:px-6 py-4">
-            <div className="max-w-3xl mx-auto">
+    <div className="size-full overflow-y-auto">
+      <PullToRefresh onRefresh={load}>
+        <div className="px-4 md:px-8 py-5 md:py-8">
+          <div className="max-w-[1100px] mx-auto w-full">
           {/* Filter pills — standardized with btn-pill class */}
           <div className="flex gap-1.5 mb-4 flex-wrap">
             {(['today', 'all', 'paused'] as const).map((f) => (
@@ -816,7 +815,7 @@ export default function Routines() {
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {filteredRoutines.map((r) => (
                 <RoutineCard key={r.id} routine={r} onReload={load} />
               ))}
@@ -825,7 +824,6 @@ export default function Routines() {
             </div>
           </div>
         </PullToRefresh>
-      </div>
     </div>
   );
 }

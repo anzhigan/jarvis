@@ -41,7 +41,8 @@ export default function App() {
 
   const [dark, setDark] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    const saved = localStorage.getItem('jarvnote:sidebarOpen');
+    // Migration: previous version saved '0' as collapsed; force open for new design
+    const saved = localStorage.getItem('jarvnote:sidebarOpen:v2');
     return saved === null ? true : saved === '1';
   });
 
@@ -74,7 +75,7 @@ export default function App() {
   }, [tab]);
 
   useEffect(() => {
-    localStorage.setItem('jarvnote:sidebarOpen', sidebarOpen ? '1' : '0');
+    localStorage.setItem('jarvnote:sidebarOpen:v2', sidebarOpen ? '1' : '0');
   }, [sidebarOpen]);
 
   const toggleTheme = () => {
@@ -130,7 +131,7 @@ export default function App() {
     );
   }
 
-  const SIDEBAR_W = sidebarOpen ? 220 : 56;
+  const SIDEBAR_W = sidebarOpen ? 240 : 60;
 
   return (
     <div className="h-screen flex overflow-hidden" style={{ background: 'var(--background)' }}>

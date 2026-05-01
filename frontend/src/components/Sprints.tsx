@@ -422,7 +422,7 @@ function SprintDetail({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-[1100px] mx-auto w-full">
           {editing && (
             <div className="p-3 bg-card border border-border rounded-xl mb-4 space-y-2">
               <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2}
@@ -635,7 +635,7 @@ export default function Sprints() {
       <div className="flex-1 overflow-hidden">
         <PullToRefresh onRefresh={load}>
           <div className="px-4 md:px-6 py-4">
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-[1100px] mx-auto w-full">
           <div className="flex gap-1.5 mb-4 flex-wrap">
             {(['current', 'future', 'past'] as const).map((f) => (
               <button

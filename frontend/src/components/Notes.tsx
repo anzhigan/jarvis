@@ -692,7 +692,7 @@ export default function Notes() {
                         onClick={() => setSelection({ kind: 'note', noteId: n.id, parentType: 'way', parentId: way.id })}
                         className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
                           selection?.noteId === n.id
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary/10 text-primary font-medium'
                             : 'hover:bg-sidebar-accent'
                         } ${draggingNote === n.id ? 'opacity-40' : ''}`}
                       >
@@ -764,7 +764,7 @@ export default function Notes() {
                                       onClick={() => setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: topic.id })}
                                       className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
                                         selection?.noteId === note.id
-                                          ? 'bg-primary text-primary-foreground'
+                                          ? 'bg-primary/10 text-primary font-medium'
                                           : 'hover:bg-sidebar-accent'
                                       } ${draggingNote === note.id ? 'opacity-40' : ''}`}
                                     >

@@ -1952,8 +1952,8 @@ export default function Tasks() {
       )}
 
       <PullToRefresh onRefresh={load} disabled={!isMobile}>
-        <div className="size-full text-[13px]">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
+        <div className="size-full overflow-y-auto text-[13px]">
+          <div className="max-w-[1100px] mx-auto px-4 md:px-8 py-5 md:py-8 w-full">
           {/* Desktop segmented + mobile pill nav with Go in center */}
           <div className="mb-5">
             {/* Desktop */}
