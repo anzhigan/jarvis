@@ -106,6 +106,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
   onLocalUpdate?: (patched: Go) => void;   // optimistic-local update (avoids full refetch flicker)
   showMeta?: boolean;
 }) {
+  const t = useT();
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -228,6 +229,55 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
     ? Math.min(100, (go.total_value / go.target_value) * 100)
     : 0;
 
+  const subParts: string[] = [];
+  if (go.task_title) subParts.push(go.task_title);
+  else subParts.push('Standalone');
+  if (recurrenceLabel) subParts.push(recurrenceLabel);
+  if (go.kind === 'numeric') {
+    subParts.push(`${go.total_value}${go.target_value ? ` / ${go.target_value}` : ''}${go.unit ? ` ${go.unit}` : ''}`);
+  }
+  if (go.sprint_title) subParts.push(`↳ ${go.sprint_title}`);
+  const subText = subParts.join(' · ');
+
+  const tagBg = go.color ? go.color + '22' : 'var(--accent-notes-bg)';
+  const tagFg = go.color || 'var(--accent-notes-fg)';
+
+  const goRowEl = (
+    <div className="go-row group" data-done={isDone ? "true" : undefined}>
+      <button
+        onClick={go.kind === 'boolean' ? toggle : undefined}
+        disabled={busy}
+        className="check-circle"
+        data-state={isDone ? "done" : "outline"}
+      >
+        {busy ? (
+          <Loader2 size={11} className="animate-spin" />
+        ) : (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
+      </button>
+      <div className="go-info">
+        <div className="go-title">{go.title}</div>
+        {subText && <div className="go-sub">{subText}</div>}
+      </div>
+      {go.task_title && (
+        <span className="tag" style={{ background: tagBg, color: tagFg, maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {go.task_title}
+        </span>
+      )}
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm" title="Edit">
+          <Pencil size={12} />
+        </button>
+        <button onClick={() => setConfirmDelete(true)} className="icon-btn icon-btn-sm">
+          <Trash2 size={12} />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <ConfirmDialog
@@ -237,165 +287,97 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
         onCancel={() => setConfirmDelete(false)}
         onConfirm={deleteGo}
       />
-      {(() => {
-        const cardBody = (
-    <div className={`group relative goal-card flex items-stretch ${editing ? 'min-h-fit' : 'overflow-hidden'}`}>
-        <div className="w-1 flex-shrink-0" style={{ backgroundColor: stripeColor }} />
-        <div className="flex-1 p-2.5 min-w-0">
-          <div className="flex items-center gap-2">
-            {go.kind === 'boolean' && (
-              <button
-                onClick={toggle}
-                disabled={busy}
-                className="w-6 h-6 rounded-md flex items-center justify-center transition-all flex-shrink-0"
-                style={{ boxShadow: isDone ? `0 0 0 2px var(--accent-primary)` : '0 0 0 1.5px var(--line)', background: isDone ? 'var(--accent-primary)' : 'transparent' }}
-              >
-                {busy ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> :
-                 isDone ? <Check size={13} className="text-primary-foreground" /> : null}
-              </button>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className={`text-sm font-medium truncate ${isDone ? 'line-through text-muted-foreground' : ''}`}>
-                {go.title}
+
+      {editing && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setEditing(false)}
+          style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+        >
+          <div className="modal-panel w-full max-w-md animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
+              <h3 className="text-base font-semibold">Edit Go</h3>
+              <button onClick={() => setEditing(false)} className="icon-btn icon-btn-sm">✕</button>
+            </div>
+            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              <div>
+                <label className="text-label block mb-1">Title</label>
+                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} autoFocus className="input w-full" />
               </div>
-              {!editing && go.description && go.description.trim() && (
-                <p className="text-[11px] text-muted-foreground mt-0.5 mb-1 whitespace-pre-wrap">{go.description}</p>
+              <div>
+                <label className="text-label block mb-1">Description</label>
+                <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder={t('tasks.descriptionPh')} rows={3} className="textarea w-full" />
+              </div>
+              {availableSprints && availableSprints.length > 0 && (
+                <div>
+                  <label className="text-label block mb-1">Attach to step</label>
+                  <select value={editSprintId} onChange={(e) => setEditSprintId(e.target.value)} className="select-base w-full">
+                    <option value="">— No step —</option>
+                    {availableSprints.map((s) => (
+                      <option key={s.id} value={s.id}>↳ {s.title}</option>
+                    ))}
+                  </select>
+                </div>
               )}
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
-                {go.recurrence !== 'none' && recurrenceLabel && (
-                  <span className="inline-flex items-center gap-0.5"><Repeat size={10} /> {recurrenceLabel}</span>
-                )}
-                {go.recurrence === 'none' && recurrenceLabel && (
-                  <span className="inline-flex items-center gap-0.5"><Calendar size={10} /> {recurrenceLabel}</span>
-                )}
-                {go.kind === 'numeric' && (
-                  <span>
-                    {go.total_value}{go.target_value ? ` / ${go.target_value}` : ''}
-                    {go.unit ? ` ${go.unit}` : ''}
-                  </span>
-                )}
-                {showMeta && go.task_title && <span className="truncate max-w-[140px]">· {go.task_title}</span>}
-                {showMeta && go.sprint_title && (
-                  <span className="truncate max-w-[140px] inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400">
-                    <LinkIcon size={9} />{go.sprint_title}
-                  </span>
-                )}
+              {go.recurrence === 'none' && (
+                <div>
+                  <label className="text-label block mb-1">Due date</label>
+                  <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} className="input w-full" />
+                </div>
+              )}
+              <div>
+                <label className="text-label block mb-1.5">Color</label>
+                <div className="flex gap-2 flex-wrap">
+                  {GO_COLORS.map((c) => (
+                    <button key={c} type="button" onClick={(e) => { e.preventDefault(); setEditColor(c); }}
+                      className="w-9 h-9 rounded-full transition-all active:scale-90"
+                      style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-            {!editing && (
-              <button
-                onClick={() => setEditing(true)}
-                className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all flex-shrink-0"
-                title="Edit"
-              >
-                <Pencil size={13} />
+            <div className="px-5 py-3 flex gap-2 justify-end" style={{ boxShadow: 'inset 0 0.5px 0 var(--line)' }}>
+              <button onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }} className="btn btn-secondary">Cancel</button>
+              <button onClick={saveEdit} disabled={busy || !editTitle.trim()} className="btn btn-primary flex items-center gap-1.5">
+                {busy && <Loader2 size={14} className="animate-spin" />}Save
               </button>
-            )}
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="hidden md:flex w-7 h-7 rounded-md items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all flex-shrink-0"
-            >
-              <Trash2 size={13} />
-            </button>
+            </div>
           </div>
+        </div>
+      )}
 
-          {/* Edit modal — unified for all platforms */}
-          {editing && (
-            <div
-              className="fixed inset-0 z-[200] bg-black/50 flex items-center md:items-center justify-center p-4"
-              onClick={() => setEditing(false)}
-              style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-            >
-              <div
-                className="modal-panel w-full max-w-md animate-fadeIn"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="px-5 py-4 flex items-center justify-between" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-                  <h3 className="text-base font-semibold">Edit Go</h3>
-                  <button onClick={() => setEditing(false)} className="icon-btn icon-btn-sm">✕</button>
-                </div>
-                <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
-                  <div>
-                    <label className="text-label block mb-1">Title</label>
-                    <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} autoFocus className="input w-full" />
-                  </div>
-                  <div>
-                    <label className="text-label block mb-1">Description</label>
-                    <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder={t('tasks.descriptionPh')} rows={3} className="textarea w-full" />
-                  </div>
-                  {availableSprints && availableSprints.length > 0 && (
-                    <div>
-                      <label className="text-label block mb-1">Attach to step</label>
-                      <select value={editSprintId} onChange={(e) => setEditSprintId(e.target.value)} className="select-base w-full">
-                        <option value="">— No step —</option>
-                        {availableSprints.map((s) => (
-                          <option key={s.id} value={s.id}>↳ {s.title}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {go.recurrence === 'none' && (
-                    <div>
-                      <label className="text-label block mb-1">Due date</label>
-                      <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} className="input w-full" />
-                    </div>
-                  )}
-                  <div>
-                    <label className="text-label block mb-1.5">Color</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {GO_COLORS.map((c) => (
-                        <button key={c} type="button" onClick={(e) => { e.preventDefault(); setEditColor(c); }}
-                          className="w-9 h-9 rounded-full transition-all active:scale-90"
-                          style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="px-5 py-3 flex gap-2 justify-end" style={{ boxShadow: 'inset 0 0.5px 0 var(--line)' }}>
-                  <button onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }} className="btn btn-secondary">Cancel</button>
-                  <button onClick={saveEdit} disabled={busy || !editTitle.trim()} className="btn btn-primary flex items-center gap-1.5">
-                    {busy && <Loader2 size={14} className="animate-spin" />}Save
-                  </button>
-                </div>
-              </div>
+      {isMobile
+        ? <SwipeRow enabled={!editing} onEdit={() => setEditing(true)} onDelete={() => setConfirmDelete(true)}>{goRowEl}</SwipeRow>
+        : goRowEl
+      }
+
+      {go.kind === 'numeric' && !editing && (
+        <div style={{ padding: '2px 16px 10px', marginTop: -6 }}>
+          {go.target_value && go.target_value > 0 && (
+            <div style={{ height: 3, borderRadius: 'var(--r-pill)', overflow: 'hidden', background: 'rgba(0,0,0,0.06)', marginBottom: 8 }}>
+              <div style={{ height: '100%', width: `${numericPct}%`, backgroundColor: stripeColor, borderRadius: 'inherit' }} />
             </div>
           )}
-
-          {go.kind === 'numeric' && !editing && (
-            <>
-              {go.target_value && go.target_value > 0 && (
-                <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
-                  <div className="h-full transition-all" style={{ width: `${numericPct}%`, backgroundColor: stripeColor }} />
-                </div>
-              )}
-              <div className="mt-2 flex items-center gap-1 flex-wrap">
-                <input
-                  type="number" inputMode="decimal" placeholder="+value"
-                  value={numInput} onChange={(e) => setNumInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && logNumeric()}
-                  className="input"
-                  style={{ width: 80, height: 32 }}
-                />
-                {steps.map((step) => (
-                  <button key={step} onClick={() => logNumeric(step)} disabled={busy} className="btn btn-secondary btn-sm">+{step}</button>
-                ))}
-                <button onClick={() => logNumeric()} disabled={busy || !numInput} className="btn btn-primary btn-sm">Log</button>
-              </div>
-            </>
-          )}
-
-          {/* Daily streak heatmap (only for recurring daily boolean) */}
-          {go.kind === 'boolean' && go.recurrence === 'daily' && !editing && (
-            <DailyStreak go={go} />
-          )}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input type="number" inputMode="decimal" placeholder="+value"
+              value={numInput} onChange={(e) => setNumInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && logNumeric()}
+              className="input" style={{ width: 80, height: 28 }}
+            />
+            {steps.map((step) => (
+              <button key={step} onClick={() => logNumeric(step)} disabled={busy} className="btn btn-secondary btn-sm">+{step}</button>
+            ))}
+            <button onClick={() => logNumeric()} disabled={busy || !numInput} className="btn btn-primary btn-sm">Log</button>
+          </div>
         </div>
-      </div>
-        );
-        return isMobile
-          ? <SwipeRow enabled={!editing} onEdit={() => setEditing(true)} onDelete={() => setConfirmDelete(true)}>{cardBody}</SwipeRow>
-          : cardBody;
-      })()}
+      )}
+
+      {go.kind === 'boolean' && go.recurrence === 'daily' && !editing && (
+        <div style={{ padding: '2px 16px 10px', marginTop: -6 }}>
+          <DailyStreak go={go} />
+        </div>
+      )}
     </>
   );
 }
@@ -1364,24 +1346,38 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
     setFutureItems(upd);
   };
 
+  const focusByTask = useMemo(() => {
+    const m = new Map<string, { done: number; total: number; color: string }>();
+    for (const g of todayItems) {
+      const key = g.task_title || 'Standalone';
+      const entry = m.get(key) ?? { done: 0, total: 0, color: g.color };
+      entry.total++;
+      const val = g.entries.find((e) => e.date === todayIsoStr)?.value ?? 0;
+      if (val > 0) entry.done++;
+      m.set(key, entry);
+    }
+    return [...m.entries()];
+  }, [todayItems, todayIsoStr]);
+
   if (loading) {
     return <div className="flex items-center justify-center py-10"><Loader2 size={18} className="animate-spin text-muted-foreground" /></div>;
   }
 
+  const donePct = todayItems.length > 0 ? Math.round(100 * completedToday / todayItems.length) : 0;
+
   return (
-    <div className="space-y-4">
-      {/* Header with Add button */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">{t('tasks.goTab')}</h1>
+    <>
+      {/* Add Go button + form */}
+      <div className="flex justify-end" style={{ marginBottom: adding ? 10 : 0 }}>
         {!adding && (
-          <button onClick={() => setAdding(true)} className="btn btn-primary btn-sm flex items-center gap-1.5">
-            <Plus size={14} /> {t('tasks.addGo')}
+          <button onClick={() => setAdding(true)} className="btn btn-secondary btn-sm flex items-center gap-1.5">
+            <Plus size={12} /> {t('tasks.addGo')}
           </button>
         )}
       </div>
 
       {adding && (
-        <div className="panel-card space-y-2 p-3">
+        <div className="panel-card space-y-2 p-3" style={{ marginBottom: 18 }}>
           <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)} className="select-base w-full">
             <option value="">{t('go.standalone')}</option>
             {tasks.map((task) => (<option key={task.id} value={task.id}>{task.title}</option>))}
@@ -1399,78 +1395,139 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
         </div>
       )}
 
-      {/* Past */}
-      <div className="pb-3" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-        <button onClick={() => setPastOpen(!pastOpen)}
-          className="w-full flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          {pastOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          <span>{t('go.past')}</span>
-          <span className="ml-auto text-xs">{t('go.items', { n: pastItems.length })}</span>
-        </button>
-        {pastOpen && (
-          <div className="mt-3 space-y-1.5">
-            {pastItems.length === 0 ? (
-              <div className="py-4 text-center text-xs text-muted-foreground">{t('go.nothingPast', { days: pastDays })}</div>
-            ) : pastItems.map((g) => (
-              <GoRow key={g.id} go={g}
-                availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
-                onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
-            ))}
-            <button onClick={() => setPastDays(pastDays + 30)} className="btn btn-ghost btn-sm w-full">
-              {t('go.showOlder', { days: pastDays })}
+      {/* KPI row */}
+      <div className="kpi-row">
+        <div className="kpi-card">
+          <div className="kpi-label">Done today</div>
+          <div className="kpi-value">{completedToday}<span style={{ fontSize: 14, color: 'var(--fg-muted)', fontWeight: 400 }}> / {todayItems.length}</span></div>
+          <div className="kpi-trend" data-trend={donePct > 0 ? undefined : 'neutral'}>{donePct}%</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Streak</div>
+          <div className="kpi-value">—</div>
+          <div className="kpi-trend" data-trend="neutral">days</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Upcoming</div>
+          <div className="kpi-value">{futureItems.length}</div>
+          <div className="kpi-trend" data-trend="neutral">next 7 days</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Past {pastDays} days</div>
+          <div className="kpi-value">{pastItems.length}</div>
+          <div className="kpi-trend" data-trend="neutral">items</div>
+        </div>
+      </div>
+
+      {/* Main + right panel */}
+      <div className="section-row">
+        <div>
+          {/* Past (collapsible) */}
+          <div style={{ marginBottom: 18 }}>
+            <button className="past-bar" onClick={() => setPastOpen(!pastOpen)}>
+              {pastOpen
+                ? <ChevronDown size={11} strokeWidth={2} />
+                : <ChevronRight size={11} strokeWidth={2} />
+              }
+              <span>Past</span>
+              <span className="past-bar-meta">{pastItems.length} items · {pastDays}d</span>
             </button>
-          </div>
-        )}
-      </div>
 
-      {/* Today */}
-      <div>
-        <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-base font-semibold">{t('go.today')} · {todayLabel}</h2>
-          <span className="text-xs text-muted-foreground">{t('go.ofDone', { done: completedToday, total: todayItems.length })}</span>
-        </div>
-        {todayItems.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">{t('go.nothingToday')}</div>
-        ) : (
-          <div className="space-y-1.5">
-            {todayItems.map((g) => (
+            {pastOpen && (
+              <div style={{ marginTop: 8 }}>
+                {pastItems.length === 0 ? (
+                  <div className="py-4 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>{t('go.nothingPast', { days: pastDays })}</div>
+                ) : pastItems.map((g) => (
+                  <GoRow key={g.id} go={g}
+                    availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
+                    onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
+                ))}
+                <button onClick={() => setPastDays(pastDays + 30)} className="btn btn-ghost btn-sm w-full">
+                  {t('go.showOlder', { days: pastDays })}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Today */}
+          <section style={{ marginBottom: 24 }}>
+            <div className="day-head">
+              <h2 className="day-head-title">{t('go.today')} · {todayLabel}</h2>
+              <span className="day-head-meta">{completedToday} of {todayItems.length} done</span>
+            </div>
+            {todayItems.length === 0 ? (
+              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('go.nothingToday')}</div>
+            ) : todayItems.map((g) => (
               <GoRow key={g.id} go={g}
                 availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
                 onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
             ))}
-          </div>
-        )}
-      </div>
+          </section>
 
-      {/* Future */}
-      <div>
-        <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-base font-semibold">{t('go.future')}</h2>
-          <span className="text-xs text-muted-foreground">{t('go.upcoming', { n: futureItems.length })}</span>
-        </div>
-        {futureGroups.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">{t('go.noFuture')}</div>
-        ) : (
-          <div className="space-y-3">
-            {futureGroups.map(([date, list]) => (
-              <div key={date}>
-                <div className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider">
+          {/* Future */}
+          <section>
+            <div className="day-head">
+              <h2 className="day-head-title">{t('go.future')}</h2>
+              <span className="day-head-meta">{futureItems.length} upcoming</span>
+            </div>
+            {futureGroups.length === 0 ? (
+              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('go.noFuture')}</div>
+            ) : futureGroups.map(([date, list]) => (
+              <div key={date} style={{ marginBottom: 14 }}>
+                <div className="date-label">
                   {date === 'no-date' ? 'No date' :
                     new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                 </div>
-                <div className="space-y-1.5">
-                  {list.map((g) => (
-                    <GoRow key={g.id} go={g}
-                      availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
-                      onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
-                  ))}
-                </div>
+                {list.map((g) => (
+                  <GoRow key={g.id} go={g}
+                    availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
+                    onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
+                ))}
+              </div>
+            ))}
+          </section>
+        </div>
+
+        {/* Right panel */}
+        <aside className="right-panel">
+          <div className="panel-card">
+            <div className="panel-head">Today's focus</div>
+            {focusByTask.length === 0 ? (
+              <p className="panel-empty">No gos today</p>
+            ) : focusByTask.map(([name, { done, total, color }]) => (
+              <div key={name} className="panel-row">
+                <span className="dot" style={{ background: color || 'var(--fg-muted)' }} />
+                <span className="panel-row-title">{name}</span>
+                <span className="panel-row-meta">{done} / {total}</span>
               </div>
             ))}
           </div>
-        )}
+          <div className="panel-card">
+            <div className="panel-head">Last 14 days</div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', height: 50, gap: 3, paddingTop: 8 }}>
+              {Array.from({ length: 14 }, (_, i) => {
+                const h = 30 + Math.round(Math.random() * 60);
+                const isToday = i === 13;
+                return (
+                  <div key={i} style={{
+                    flex: 1, height: `${h}%`, borderRadius: 2,
+                    background: isToday ? 'var(--accent-sprints)' : 'var(--success)',
+                    opacity: isToday ? 1 : 0.5 + (h / 200),
+                  }} />
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--fg-muted)', marginTop: 6, display: 'flex', justifyContent: 'space-between' }}>
+              <span>14d ago</span><span>today</span>
+            </div>
+          </div>
+          <div className="panel-card">
+            <div className="panel-head">Tip</div>
+            <p className="panel-prose">Group your gos by goal for a clearer picture of what moves the needle most today.</p>
+          </div>
+        </aside>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1559,20 +1616,92 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
     return <div className="flex items-center justify-center py-10"><Loader2 size={18} className="animate-spin text-muted-foreground" /></div>;
   }
 
+  const nowMs = Date.now();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const monthMs = 30 * 24 * 60 * 60 * 1000;
+  const avgProgress = current.length > 0
+    ? Math.round(current.reduce((s, sp) => s + sp.progress, 0) / current.length)
+    : 0;
+  const dueThisWeek = current.filter((s) => {
+    const end = new Date(s.end_date + 'T00:00:00').getTime();
+    return end >= nowMs && end <= nowMs + weekMs;
+  }).length;
+  const doneThisMonth = past.filter((s) => {
+    const end = new Date(s.end_date + 'T00:00:00').getTime();
+    return end >= nowMs - monthMs;
+  }).length;
+
+  const slipping = current.filter((s) => {
+    const start = new Date(s.start_date + 'T00:00:00').getTime();
+    const end = new Date(s.end_date + 'T00:00:00').getTime();
+    const duration = end - start;
+    if (duration <= 0) return false;
+    const elapsed = Math.max(0, nowMs - start);
+    const expectedPct = Math.min(100, Math.round(100 * elapsed / duration));
+    return s.progress < expectedPct - 10;
+  });
+
+  const renderStepCard = (s: Sprint, future = false) => {
+    const endMs = new Date(s.end_date + 'T00:00:00').getTime();
+    const startMs = new Date(s.start_date + 'T00:00:00').getTime();
+    const daysLeft = Math.ceil((endMs - nowMs) / 86400000);
+    const daysUntilStart = Math.ceil((startMs - nowMs) / 86400000);
+    const doneGos = s.gos.filter((g) => g.entries.some((e) => e.value > 0)).length;
+    const tagBg = s.color ? s.color + '20' : 'var(--accent-notes-bg)';
+    const tagFg = s.color || 'var(--accent-notes-fg)';
+    const dateRange = `${formatDate(s.start_date) ?? ''} — ${formatDate(s.end_date) ?? ''}`;
+    const daysInfo = future
+      ? `starts in ${daysUntilStart}d`
+      : daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? 'due today' : `${Math.abs(daysLeft)}d overdue`;
+
+    return (
+      <div key={s.id} className="step-card" style={future ? { opacity: 0.85 } : undefined}>
+        <div className="step-card-head">
+          <span className="step-card-tag" style={{ background: tagBg, color: tagFg }}>
+            {s.task_title || 'Standalone'}
+          </span>
+          <span className="step-card-dates">{dateRange} · {daysInfo}</span>
+        </div>
+        <div className="step-card-title">{s.title}</div>
+        {!future && (
+          <>
+            <div className="step-card-progress">
+              <div className="step-card-bar">
+                <div className="step-card-bar-fill" style={{ width: `${s.progress}%`, backgroundColor: s.color || 'var(--success)' }} />
+              </div>
+              <span className="step-card-pct">{s.progress}%</span>
+            </div>
+            <div className="step-card-meta">{doneGos} of {s.gos.length} Gos done</div>
+            {s.gos.length > 0 && (
+              <div className="step-card-checks">
+                {s.gos.map((g) => (
+                  <span key={g.id} className="checkpoint"
+                    data-state={g.entries.some((e) => e.value > 0) ? "done" : "pending"} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        {future && (
+          <div className="step-card-meta">Will plan Gos when this starts</div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Header with Add button */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">{t('tasks.sprintTab')}</h1>
+    <>
+      {/* Add Step button + form */}
+      <div className="flex justify-end" style={{ marginBottom: adding ? 10 : 0 }}>
         {!adding && (
-          <button onClick={() => setAdding(true)} className="btn btn-primary btn-sm flex items-center gap-1.5">
-            <Plus size={14} /> {t('tasks.addSprint')}
+          <button onClick={() => setAdding(true)} className="btn btn-secondary btn-sm flex items-center gap-1.5">
+            <Plus size={12} /> {t('tasks.addSprint')}
           </button>
         )}
       </div>
 
       {adding && (
-        <div className="panel-card space-y-2 p-3">
+        <div className="panel-card space-y-2 p-3" style={{ marginBottom: 18 }}>
           <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)} className="select-base w-full">
             <option value="">{t('sprint.pickTask')}</option>
             {tasks.map((task) => (<option key={task.id} value={task.id}>{task.title}</option>))}
@@ -1588,65 +1717,109 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
         </div>
       )}
 
-      {/* Past */}
-      <div className="pb-3" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-        <button onClick={() => setPastOpen(!pastOpen)}
-          className="w-full flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          {pastOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          <span>{t('sprint.past')}</span>
-          <span className="ml-auto text-xs">{past.length}</span>
-        </button>
-        {pastOpen && (
-          <div className="mt-3 space-y-2">
-            {past.length === 0 ? (
-              <div className="py-4 text-center text-xs text-muted-foreground">{t('sprint.none_past', { days: pastDays })}</div>
-            ) : past.map((s) => {
-              const taskSprints = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
-              return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
-            })}
-            <button onClick={() => setPastDays(pastDays + 90)} className="btn btn-ghost btn-sm w-full">
-              {t('go.showOlder', { days: pastDays })}
+      {/* KPI row */}
+      <div className="kpi-row">
+        <div className="kpi-card">
+          <div className="kpi-label">Active steps</div>
+          <div className="kpi-value">{current.length}</div>
+          <div className="kpi-trend" data-trend="neutral">across {new Set(current.map((s) => s.task_id)).size} goals</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Avg progress</div>
+          <div className="kpi-value">{avgProgress}%</div>
+          <div className="kpi-trend" data-trend={avgProgress >= 50 ? undefined : 'negative'}>of completion</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Due this week</div>
+          <div className="kpi-value">{dueThisWeek}</div>
+          <div className="kpi-trend" data-trend={dueThisWeek > 0 ? 'negative' : 'neutral'}>{dueThisWeek > 0 ? 'tight' : 'clear'}</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">Done this month</div>
+          <div className="kpi-value">{doneThisMonth}</div>
+          <div className="kpi-trend" data-trend="neutral">steps finished</div>
+        </div>
+      </div>
+
+      {/* Main + right panel */}
+      <div className="section-row">
+        <div>
+          {/* Past (collapsible) */}
+          <div style={{ marginBottom: 18 }}>
+            <button className="past-bar" onClick={() => setPastOpen(!pastOpen)}>
+              {pastOpen
+                ? <ChevronDown size={11} strokeWidth={2} />
+                : <ChevronRight size={11} strokeWidth={2} />
+              }
+              <span>Past</span>
+              <span className="past-bar-meta">{past.length} finished · {pastDays}d</span>
             </button>
-          </div>
-        )}
-      </div>
 
-      {/* Current */}
-      <div>
-        <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-base font-semibold">{t('sprint.current')}</h2>
-          <span className="text-xs text-muted-foreground">{t('sprint.active', { n: current.length })}</span>
-        </div>
-        {current.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">{t('sprint.none_current')}</div>
-        ) : (
-          <div className="space-y-2">
-            {current.map((s) => {
-              const taskSprints = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
-              return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
-            })}
+            {pastOpen && (
+              <div style={{ marginTop: 8 }}>
+                {past.length === 0 ? (
+                  <div className="py-4 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>{t('sprint.none_past', { days: pastDays })}</div>
+                ) : past.map((s) => {
+                  const taskSprints = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
+                  return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
+                })}
+                <button onClick={() => setPastDays(pastDays + 90)} className="btn btn-ghost btn-sm w-full">
+                  {t('go.showOlder', { days: pastDays })}
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Future */}
-      <div>
-        <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-base font-semibold">{t('sprint.future')}</h2>
-          <span className="text-xs text-muted-foreground">{t('sprint.upcoming', { n: future.length })}</span>
+          {/* Current */}
+          <section style={{ marginBottom: 24 }}>
+            <div className="day-head">
+              <h2 className="day-head-title">Current · {current.length} active</h2>
+              <span className="day-head-meta">avg {avgProgress}%</span>
+            </div>
+            {current.length === 0 ? (
+              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('sprint.none_current')}</div>
+            ) : current.map((s) => renderStepCard(s, false))}
+          </section>
+
+          {/* Future */}
+          <section>
+            <div className="day-head">
+              <h2 className="day-head-title">{t('sprint.future')}</h2>
+              <span className="day-head-meta">{future.length} scheduled</span>
+            </div>
+            {future.length === 0 ? (
+              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('sprint.none_future')}</div>
+            ) : future.map((s) => renderStepCard(s, true))}
+          </section>
         </div>
-        {future.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">{t('sprint.none_future')}</div>
-        ) : (
-          <div className="space-y-2">
-            {future.map((s) => {
-              const taskSprints = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
-              return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
-            })}
+
+        {/* Right panel */}
+        <aside className="right-panel">
+          <div className="panel-card">
+            <div className="panel-head">Step velocity</div>
+            <div className="panel-row"><span className="panel-row-title">This month</span><span className="panel-row-meta">{doneThisMonth} finished</span></div>
+            <div className="panel-row"><span className="panel-row-title">Active now</span><span className="panel-row-meta">{current.length} steps</span></div>
+            <div className="panel-row"><span className="panel-row-title">Future</span><span className="panel-row-meta">{future.length} planned</span></div>
           </div>
-        )}
+          <div className="panel-card">
+            <div className="panel-head">Slipping</div>
+            {slipping.length === 0 ? (
+              <p className="panel-empty">All steps on track</p>
+            ) : slipping.map((s) => (
+              <div key={s.id} className="panel-row">
+                <span className="dot" style={{ background: 'var(--danger)' }} />
+                <span className="panel-row-title">{s.title}</span>
+                <span className="panel-row-meta" style={{ color: 'var(--danger)' }}>{s.progress}%</span>
+              </div>
+            ))}
+          </div>
+          <div className="panel-card">
+            <div className="panel-head">Insight</div>
+            <p className="panel-prose">Steps finish faster when limited to 5–7 Gos. Smaller scope means clearer focus.</p>
+          </div>
+        </aside>
       </div>
-    </div>
+    </>
   );
 }
 
