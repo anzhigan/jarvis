@@ -597,7 +597,7 @@ export default function Notes() {
         onCancel={() => setConfirmState(null)}
         onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
       />
-    <div className="notes-layout" data-no-rp={!contextOpen} data-no-lib={!sidebarOpen}>
+    <div className="notes-layout" data-no-lib={!sidebarOpen}>
       <aside className="notes-library" data-collapsed={!sidebarOpen}>
         <div className="px-4 pt-4 pb-3 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
@@ -806,7 +806,7 @@ export default function Notes() {
         </div>
       </aside>
 
-      <main className="notes-content">
+      <main className="notes-content" data-no-rp={!contextOpen}>
         {currentNote && editorState?.noteId === currentNote.id ? (
           <div className="notes-editor-and-context">
             <div className="notes-editor-wrap">
