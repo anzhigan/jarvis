@@ -114,7 +114,7 @@ export default function App() {
     <div className="app-root">
       <div className="app-shell">
         {/* ─── Sidebar ─────────────────────────────────────────────────── */}
-        <aside className="app-sidebar hidden md:flex" data-collapsed={!sidebarOpen}>
+        <aside className="app-sidebar app-only-desktop" data-collapsed={!sidebarOpen}>
           <div className="sidebar-header">
             <span className="sidebar-brand">Jarvnote</span>
           </div>
@@ -175,7 +175,7 @@ export default function App() {
           <header className="topbar">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="topbar-toggle hidden md:inline-flex"
+              className="topbar-toggle app-only-desktop"
               title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
             >
               {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
@@ -187,7 +187,7 @@ export default function App() {
               <span className="topbar-search-kbd">⌘K</span>
             </button>
 
-            <div className="topbar-spacer hidden md:block" />
+            <div className="topbar-spacer app-only-desktop" />
 
             <button className="topbar-icon-btn" title="Quick capture">
               <Plus size={15} />
@@ -204,23 +204,23 @@ export default function App() {
               ) : (
                 <span className="topbar-user-avatar">{user.username.charAt(0).toUpperCase()}</span>
               )}
-              <span className="topbar-user-name hidden md:inline">{user.username}</span>
+              <span className="topbar-user-name app-only-desktop">{user.username}</span>
             </button>
           </header>
 
           {/* Main content */}
           <main className="app-main">
-            <div className={`app-page ${tab === 'notes' ? '' : 'hidden'}`}><Notes /></div>
-            <div className={`app-page ${tab === 'tasks' ? '' : 'hidden'}`}><Tasks /></div>
-            <div className={`app-page ${tab === 'routines' ? '' : 'hidden'}`}><Routines /></div>
-            <div className={`app-page ${tab === 'sprints' ? '' : 'hidden'}`}><Sprints /></div>
-            <div className={`app-page ${tab === 'tutor' ? '' : 'hidden'}`}><AITutorPage /></div>
-            <div className={`app-page ${tab === 'analysis' ? '' : 'hidden'}`}><Dashboard /></div>
-            <div className={`app-page ${tab === 'profile' ? '' : 'hidden'}`}><Profile /></div>
+            <div className="app-page" data-visible={tab === 'notes'}><Notes /></div>
+            <div className="app-page" data-visible={tab === 'tasks'}><Tasks /></div>
+            <div className="app-page" data-visible={tab === 'routines'}><Routines /></div>
+            <div className="app-page" data-visible={tab === 'sprints'}><Sprints /></div>
+            <div className="app-page" data-visible={tab === 'tutor'}><AITutorPage /></div>
+            <div className="app-page" data-visible={tab === 'analysis'}><Dashboard /></div>
+            <div className="app-page" data-visible={tab === 'profile'}><Profile /></div>
           </main>
 
           {/* Mobile bottom tab bar */}
-          <nav className="mobile-tabbar md:hidden">
+          <nav className="mobile-tabbar app-only-mobile">
             {TABS.map((tabDef) => {
               const Icon = tabDef.icon;
               const active = tab === tabDef.key;

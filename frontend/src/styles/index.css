@@ -535,12 +535,42 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   display: flex;
 }
 
+/* Page visibility — only one is shown at a time */
 .app-page {
   flex: 1;
   overflow-y: auto;
-  display: flex;
+  display: none;
   flex-direction: column;
   min-width: 0;
+}
+.app-page[data-visible="true"] { display: flex; }
+
+/* Always-on utility shims (in case Tailwind didn't generate them) */
+.size-full { width: 100%; height: 100%; }
+.h-full { height: 100%; }
+.w-full { width: 100%; }
+.min-w-0 { min-width: 0; }
+.flex-1 { flex: 1; }
+.flex-shrink-0 { flex-shrink: 0; }
+.overflow-hidden { overflow: hidden; }
+.overflow-y-auto { overflow-y: auto; }
+.overflow-x-auto { overflow-x: auto; }
+
+/* Visibility helpers */
+.app-only-desktop { display: inline-flex; }
+.app-only-mobile { display: none; }
+@media (max-width: 768px) {
+  .app-only-desktop { display: none !important; }
+  .app-only-mobile { display: flex !important; }
+}
+/* For specifically the mobile tabbar — keep flex */
+.mobile-tabbar.app-only-mobile { display: none; }
+@media (max-width: 768px) {
+  .mobile-tabbar.app-only-mobile { display: flex !important; }
+}
+.app-sidebar.app-only-desktop { display: flex; }
+@media (max-width: 768px) {
+  .app-sidebar.app-only-desktop { display: none !important; }
 }
 
 .page-container {
