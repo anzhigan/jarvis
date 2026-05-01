@@ -16,6 +16,7 @@ import {
   Loader2,
   BookOpen,
   FolderTree,
+  PanelRightClose,
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -95,7 +96,15 @@ export default function Notes() {
   const [mobileView, setMobileView] = useState<MobileView>({ kind: 'root' });
 
   // Desktop sidebar visibility
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    return localStorage.getItem('jarvnote:notes:libOpen') !== '0';
+  });
+  // Right context panel visibility
+  const [contextOpen, setContextOpen] = useState(() => {
+    return localStorage.getItem('jarvnote:notes:ctxOpen') !== '0';
+  });
+  useEffect(() => { localStorage.setItem('jarvnote:notes:libOpen', sidebarOpen ? '1' : '0'); }, [sidebarOpen]);
+  useEffect(() => { localStorage.setItem('jarvnote:notes:ctxOpen', contextOpen ? '1' : '0'); }, [contextOpen]);
 
   // Editor state
   const [editorState, setEditorState] = useState<{ noteId: string; content: string; dirty: boolean } | null>(null);
@@ -588,14 +597,14 @@ export default function Notes() {
         onCancel={() => setConfirmState(null)}
         onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
       />
-    <div className="notes-layout">
+    <div className="notes-layout" data-no-rp={!contextOpen} data-no-lib={!sidebarOpen}>
       <aside className="notes-library" data-collapsed={!sidebarOpen}>
         <div className="px-4 pt-4 pb-3 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSidebarOpen(false)}
               title="Hide library"
-              className="btn-icon btn-icon-sm flex-shrink-0"
+              className="icon-btn icon-btn-sm flex-shrink-0"
             >
               <FolderTree size={15} />
             </button>
@@ -802,12 +811,12 @@ export default function Notes() {
           <div className="notes-editor-and-context">
             <div className="notes-editor-wrap">
               <div className="notes-editor-paper">
-                {/* Breadcrumbs + saved status */}
+                {/* Breadcrumbs + saved status + right-panel toggle */}
                 <div className="notes-meta-row">
                   {!sidebarOpen && (
                     <button
                       onClick={() => setSidebarOpen(true)}
-                      className="btn-icon btn-icon-sm"
+                      className="icon-btn icon-btn-sm"
                       title="Show library"
                     >
                       <FolderTree size={14} />
@@ -830,6 +839,14 @@ export default function Notes() {
                     {saving ? <><Loader2 size={11} className="animate-spin" /> Saving…</> :
                      editorState.dirty ? 'Unsaved' : <><Check size={11} /> Saved</>}
                   </span>
+                  <button
+                    onClick={() => setContextOpen(!contextOpen)}
+                    className="icon-btn icon-btn-sm"
+                    data-active={contextOpen}
+                    title={contextOpen ? 'Hide right panel' : 'Show right panel'}
+                  >
+                    <PanelRightClose size={14} />
+                  </button>
                 </div>
 
                 {/* Title */}
@@ -898,7 +915,7 @@ export default function Notes() {
             {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="btn-icon"
+                className="icon-btn"
                 style={{ position: 'absolute', top: 16, left: 16 }}
                 title="Show library"
               >

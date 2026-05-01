@@ -421,21 +421,21 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
             <div className="hidden md:flex items-center gap-0.5 flex-shrink-0">
               <button
                 onClick={togglePause}
-                className="btn-icon btn-icon-sm"
+                className="icon-btn icon-btn-sm"
                 title={routine.is_paused ? 'Resume' : 'Pause'}
               >
                 {routine.is_paused ? <Play size={13} /> : <Pause size={13} />}
               </button>
               <button
                 onClick={() => setEditing(true)}
-                className="btn-icon btn-icon-sm"
+                className="icon-btn icon-btn-sm"
                 title="Edit"
               >
                 <Pencil size={13} />
               </button>
               <button
                 onClick={remove}
-                className="btn-icon btn-icon-sm"
+                className="icon-btn icon-btn-sm"
                 title="Delete"
                 style={{ color: 'var(--destructive)' }}
               >

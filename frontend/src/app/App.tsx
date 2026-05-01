@@ -18,12 +18,12 @@ import { useT } from '../store/i18n';
 
 type Tab = 'notes' | 'tasks' | 'routines' | 'sprints' | 'tutor' | 'analysis' | 'profile';
 
-const TABS: { key: Tab; labelKey: string; icon: React.ElementType }[] = [
-  { key: 'notes',    labelKey: 'nav.notes',    icon: BookOpen },
-  { key: 'tasks',    labelKey: 'nav.tasks',    icon: Target },
-  { key: 'routines', labelKey: 'nav.routines', icon: Repeat },
-  { key: 'sprints',  labelKey: 'nav.sprints',  icon: Zap },
-  { key: 'analysis', labelKey: 'nav.analysis', icon: BarChart3 },
+const TABS: { key: Tab; labelKey: string; icon: React.ElementType; acc: string }[] = [
+  { key: 'notes',    labelKey: 'nav.notes',    icon: BookOpen,  acc: 'notes' },
+  { key: 'tasks',    labelKey: 'nav.tasks',    icon: Target,    acc: 'goals' },
+  { key: 'routines', labelKey: 'nav.routines', icon: Repeat,    acc: 'routines' },
+  { key: 'sprints',  labelKey: 'nav.sprints',  icon: Zap,       acc: 'sprints' },
+  { key: 'analysis', labelKey: 'nav.analysis', icon: BarChart3, acc: 'analysis' },
 ];
 
 export default function App() {
@@ -92,7 +92,7 @@ export default function App() {
            biometryType === 'touchId' ? 'Use Touch ID to unlock' :
            'Authenticate to continue'}
         </p>
-        <button onClick={triggerBiometryUnlock} className="btn btn-md btn-primary">
+        <button onClick={triggerBiometryUnlock} className="btn btn-primary">
           {biometryType === 'faceId' ? 'Use Face ID' :
            biometryType === 'touchId' ? 'Use Touch ID' :
            'Authenticate'}
@@ -113,10 +113,20 @@ export default function App() {
   return (
     <div className="app-root">
       <div className="app-shell">
-        {/* ─── Sidebar ─────────────────────────────────────────────────── */}
         <aside className="app-sidebar app-only-desktop" data-collapsed={!sidebarOpen}>
-          <div className="sidebar-header">
+          <div className="sidebar-head">
             <span className="sidebar-brand">Jarvnote</span>
+            <button onClick={() => setSidebarOpen(false)} className="icon-btn icon-btn-sm" title="Hide sidebar">
+              <PanelLeftClose size={14} />
+            </button>
+          </div>
+
+          <div className="sidebar-search">
+            <button className="field" type="button">
+              <Search size={11} strokeWidth={2} />
+              <span>Search…</span>
+              <span className="kbd">⌘K</span>
+            </button>
           </div>
 
           <div className="sidebar-section-label">Workspace</div>
@@ -128,87 +138,59 @@ export default function App() {
                 <button
                   key={tabDef.key}
                   onClick={() => setTab(tabDef.key)}
-                  className="sidebar-item"
+                  className="nav-item"
                   data-active={active}
-                  data-page={tabDef.key}
+                  data-acc={tabDef.acc}
                 >
-                  <Icon className="icon" strokeWidth={active ? 2.2 : 1.6} />
+                  <Icon className="icon" />
                   <span>{t(tabDef.labelKey)}</span>
                 </button>
               );
             })}
           </nav>
 
-          <div className="sidebar-footer">
+          <div className="sidebar-foot">
             <div className="focus-card">
               <div className="focus-card-label">Focus mode</div>
               <div className="focus-card-title">Deep work</div>
               <div className="focus-card-row">
-                <div className="focus-timer">25:00</div>
-                <button className="focus-play" aria-label="Start focus session">
-                  <Play size={11} fill="currentColor" />
+                <div className="focus-card-timer">25:00</div>
+                <button className="focus-card-play" aria-label="Start focus session">
+                  <Play size={9} fill="currentColor" />
                 </button>
               </div>
             </div>
 
-            <button
-              onClick={() => setTab('profile')}
-              className="sidebar-item"
-              data-active={tab === 'profile'}
-              style={{ paddingLeft: 6 }}
-            >
+            <div className="quick-row">
+              <button className="quick-btn" title="Quick capture">
+                <Plus size={14} />
+              </button>
+              <button className="quick-btn" data-badge="true" title="Notifications">
+                <Bell size={14} />
+              </button>
+              <button onClick={toggleTheme} className="quick-btn" title="Toggle theme">
+                {dark ? <Sun size={14} /> : <Moon size={14} />}
+              </button>
+            </div>
+
+            <button onClick={() => setTab('profile')} className="profile-row">
               {user.avatar_url ? (
-                <img src={resolveUrl(user.avatar_url)} alt="" className="icon" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', opacity: 1 }} />
+                <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
               ) : (
-                <span className="icon" style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--accent-notes-soft)', color: 'var(--accent-notes)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 500, opacity: 1 }}>
-                  {user.username.charAt(0).toUpperCase()}
-                </span>
+                <span className="profile-avatar">{user.username.charAt(0).toUpperCase()}</span>
               )}
-              <span>{user.username}</span>
+              <span className="profile-name">{user.username}</span>
             </button>
           </div>
         </aside>
 
-        {/* ─── Workspace ─────────────────────────────────────────────── */}
         <div className="app-workspace">
-          {/* Topbar */}
-          <header className="topbar">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="topbar-toggle app-only-desktop"
-              title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-            >
-              {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+          {!sidebarOpen && (
+            <button onClick={() => setSidebarOpen(true)} className="icon-btn float-sidebar-toggle app-only-desktop" title="Show sidebar">
+              <PanelLeftOpen size={14} />
             </button>
+          )}
 
-            <button className="topbar-search">
-              <Search size={13} strokeWidth={2} />
-              <span>Search anything…</span>
-              <span className="topbar-search-kbd">⌘K</span>
-            </button>
-
-            <div className="topbar-spacer app-only-desktop" />
-
-            <button className="topbar-icon-btn" title="Quick capture">
-              <Plus size={15} />
-            </button>
-            <button className="topbar-icon-btn" title="Notifications">
-              <Bell size={15} />
-            </button>
-            <button onClick={toggleTheme} className="topbar-icon-btn" title="Toggle theme">
-              {dark ? <Sun size={15} /> : <Moon size={15} />}
-            </button>
-            <button onClick={() => setTab('profile')} className="topbar-user">
-              {user.avatar_url ? (
-                <img src={resolveUrl(user.avatar_url)} alt="" className="topbar-user-avatar" />
-              ) : (
-                <span className="topbar-user-avatar">{user.username.charAt(0).toUpperCase()}</span>
-              )}
-              <span className="topbar-user-name app-only-desktop">{user.username}</span>
-            </button>
-          </header>
-
-          {/* Main content */}
           <main className="app-main">
             <div className="app-page" data-visible={tab === 'notes'}><Notes /></div>
             <div className="app-page" data-visible={tab === 'tasks'}><Tasks /></div>
@@ -219,7 +201,6 @@ export default function App() {
             <div className="app-page" data-visible={tab === 'profile'}><Profile /></div>
           </main>
 
-          {/* Mobile bottom tab bar */}
           <nav className="mobile-tabbar app-only-mobile">
             {TABS.map((tabDef) => {
               const Icon = tabDef.icon;
@@ -248,8 +229,8 @@ export default function App() {
         toastOptions={{
           style: {
             fontFamily: 'var(--font-sans)',
-            borderRadius: 'var(--r-md)',
-            border: '0.5px solid var(--line)',
+            borderRadius: 'var(--r-control)',
+            boxShadow: 'var(--sh-popover)',
           },
         }}
       />

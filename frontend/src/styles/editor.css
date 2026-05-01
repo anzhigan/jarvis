@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PROSEMIRROR / TIPTAP — Notion-style editor
+   PROSEMIRROR / TIPTAP
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .ProseMirror {
@@ -7,7 +7,7 @@
   min-height: 50vh;
   color: var(--fg-primary);
   line-height: 1.7;
-  font-size: var(--editor-font-size, 15px);
+  font-size: var(--editor-font-size, 14.5px);
   caret-color: var(--accent-notes);
   letter-spacing: var(--tracking-normal);
 }
@@ -18,16 +18,11 @@
   box-shadow: none !important;
 }
 
-/* Block elements */
 .ProseMirror > * { margin: 6px 0; padding: 2px 0; }
 .ProseMirror > *:first-child { margin-top: 0; }
 .ProseMirror > *:last-child { margin-bottom: 0; }
 
-.ProseMirror p {
-  font-size: inherit;
-  min-height: 1.5em;
-  color: #2C2B27;
-}
+.ProseMirror p { font-size: inherit; min-height: 1.5em; color: #2C2B27; }
 .dark .ProseMirror p { color: var(--fg-secondary); }
 
 .ProseMirror p.is-empty::before {
@@ -38,192 +33,129 @@
   height: 0;
 }
 
-/* Headings — Notion-style */
 .ProseMirror h1 {
-  font-size: 1.875em;
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
-  margin: 1.4em 0 0.4em;
-  color: var(--fg-primary);
+  font-size: 1.875em; font-weight: 600;
+  letter-spacing: -0.025em; line-height: 1.2;
+  margin: 1.4em 0 0.4em; color: var(--fg-primary);
 }
 .ProseMirror h2 {
-  font-size: 1.45em;
-  font-weight: 600;
-  letter-spacing: -0.022em;
-  line-height: 1.25;
-  margin: 1.2em 0 0.3em;
-  color: var(--fg-primary);
+  font-size: 1.45em; font-weight: 600;
+  letter-spacing: -0.022em; line-height: 1.25;
+  margin: 1.2em 0 0.3em; color: var(--fg-primary);
 }
 .ProseMirror h3 {
-  font-size: 1.18em;
-  font-weight: 600;
-  letter-spacing: -0.018em;
-  line-height: 1.3;
-  margin: 1em 0 0.25em;
-  color: var(--fg-primary);
+  font-size: 1.18em; font-weight: 600;
+  letter-spacing: -0.018em; line-height: 1.3;
+  margin: 1em 0 0.25em; color: var(--fg-primary);
 }
 .ProseMirror h4, .ProseMirror h5, .ProseMirror h6 {
-  font-size: 1em;
-  font-weight: 600;
-  margin: 0.8em 0 0.2em;
-  color: var(--fg-primary);
+  font-size: 1em; font-weight: 600;
+  margin: 0.8em 0 0.2em; color: var(--fg-primary);
 }
 
-/* Lists */
 .ProseMirror ul,
-.ProseMirror ol {
-  padding-left: 1.5em;
-  margin: 0.4em 0;
-}
+.ProseMirror ol { padding-left: 1.5em; margin: 0.4em 0; }
 .ProseMirror li { padding-left: 4px; margin: 4px 0; }
 .ProseMirror li > p { margin: 0; }
 .ProseMirror ul > li::marker { color: var(--fg-muted); }
 .ProseMirror ol > li::marker { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 
-/* Task lists */
-.ProseMirror ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 0;
-}
+.ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 0; }
 .ProseMirror ul[data-type="taskList"] li {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 6px 0;
-  padding-left: 0;
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 6px 0; padding-left: 0;
 }
 .ProseMirror ul[data-type="taskList"] li > label {
-  flex-shrink: 0;
-  user-select: none;
-  margin-top: 4px;
+  flex-shrink: 0; user-select: none; margin-top: 4px;
 }
 .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid var(--line-strong);
-  border-radius: 4px;
-  cursor: pointer;
-  position: relative;
+  appearance: none; -webkit-appearance: none;
+  width: 16px; height: 16px; border-radius: 4px;
+  cursor: pointer; position: relative;
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
   transition: all var(--dur-fast) var(--ease);
 }
 .ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked {
   background: var(--accent-notes);
-  border-color: var(--accent-notes);
+  box-shadow: inset 0 0 0 1.5px var(--accent-notes);
 }
 .ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked::after {
   content: '';
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 5px;
-  height: 9px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
+  position: absolute; left: 4px; top: 1px;
+  width: 5px; height: 9px;
+  border: solid white; border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
 .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div > p {
-  color: var(--fg-muted);
-  text-decoration: line-through;
+  color: var(--fg-muted); text-decoration: line-through;
 }
 
-/* Blockquote */
 .ProseMirror blockquote {
-  border-left: 3px solid var(--line-strong);
-  padding: 4px 0 4px 16px;
-  margin: 0.5em 0;
+  box-shadow: inset 3px 0 0 var(--line-strong);
+  padding: 4px 0 4px 16px; margin: 0.5em 0;
   color: var(--fg-secondary);
 }
 
-/* Code */
 .ProseMirror code {
-  background: var(--bg-input);
-  padding: 2px 5px;
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 0.875em;
-  color: var(--accent-notes);
+  background: var(--accent-notes-bg);
+  padding: 1px 5px; border-radius: 4px;
+  font-family: var(--font-mono); font-size: 0.88em;
+  color: var(--accent-notes-fg);
 }
 
 .ProseMirror pre {
   background: var(--bg-input);
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin: 0.5em 0;
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: 0.85em;
-  line-height: 1.6;
-  color: var(--fg-primary);
+  padding: 12px 16px; border-radius: var(--r-card);
+  margin: 0.5em 0; overflow-x: auto;
+  font-family: var(--font-mono); font-size: 0.85em;
+  line-height: 1.6; color: var(--fg-primary);
 }
 .ProseMirror pre code {
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-  color: inherit;
-  font-size: inherit;
+  background: transparent; padding: 0; border-radius: 0;
+  color: inherit; font-size: inherit;
 }
 
-/* Tables */
 .ProseMirror table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0.6em 0;
-  border: 0.5px solid var(--line-strong);
-  border-radius: 8px;
+  width: 100%; border-collapse: collapse;
+  margin: 0.6em 0; border-radius: var(--r-control);
   overflow: hidden;
+  box-shadow: 0 0 0 0.5px var(--line-strong);
 }
 .ProseMirror table td,
 .ProseMirror table th {
-  border: 0.5px solid var(--line-strong);
-  padding: 8px 12px;
-  vertical-align: top;
-  position: relative;
+  box-shadow: inset 0 0 0 0.5px var(--line);
+  padding: 8px 12px; vertical-align: top; position: relative;
 }
 .ProseMirror table th {
-  background: var(--bg-input);
-  font-weight: 600;
-  text-align: left;
+  background: var(--bg-input); font-weight: 600; text-align: left;
 }
 .ProseMirror table .selectedCell::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--accent-notes);
-  opacity: 0.1;
+  content: ''; position: absolute; inset: 0;
+  background: var(--accent-notes); opacity: 0.1;
   pointer-events: none;
 }
 
 .ProseMirror hr {
-  border: 0;
-  height: 1px;
-  background: var(--line);
-  margin: 1.5em 0;
+  border: 0; height: 1px; background: var(--line); margin: 1.5em 0;
 }
 
 .ProseMirror a {
   color: var(--accent-notes);
   text-decoration: underline;
-  text-decoration-color: rgba(83, 74, 183, 0.4);
+  text-decoration-color: rgba(91, 83, 201, 0.4);
   text-underline-offset: 2px;
   transition: text-decoration-color var(--dur-fast);
 }
 .ProseMirror a:hover { text-decoration-color: var(--accent-notes); }
 
 .ProseMirror img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
+  max-width: 100%; height: auto;
+  border-radius: var(--r-card);
   margin: 0.5em 0;
 }
 
-.ProseMirror .math-display {
-  margin: 0.5em 0;
-  text-align: center;
-}
+.ProseMirror .math-display { margin: 0.5em 0; text-align: center; }
 
-/* Editor wrap focus reset */
 .editor-wrap, .editor-content { outline: 0; }
 .editor-wrap:focus-within, .editor-content:focus-within { outline: 0; box-shadow: none; }
