@@ -260,32 +260,35 @@ function SprintCard({
   return (
     <button
       onClick={onOpen}
-      className="w-full text-left flex items-stretch rounded-xl bg-card border border-border overflow-hidden hover:shadow-md transition-shadow"
+      className="goal-card"
+      style={{ width: '100%', textAlign: 'left', display: 'block', position: 'relative' }}
     >
-      <div className="w-1 flex-shrink-0" style={{ backgroundColor: sprint.color }} />
-      <div className="flex-1 p-3.5 min-w-0">
-        <div className="flex items-start gap-2 mb-1.5">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold truncate">{sprint.title}</h3>
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
-              <Calendar size={11} />
-              <span>{fmtDate(sprint.start_date)} — {fmtDate(sprint.end_date)}</span>
-              {status === 'current' && <span className="px-1.5 py-px rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium">Active</span>}
-              {status === 'future' && <span className="px-1.5 py-px rounded bg-blue-500/15 text-blue-700 dark:text-blue-400 font-medium">Upcoming</span>}
-              {status === 'past' && <span className="px-1.5 py-px rounded bg-muted text-muted-foreground">Finished</span>}
-            </div>
-          </div>
+      {/* color stripe */}
+      <div style={{
+        position: 'absolute', left: 0, top: 8, bottom: 8, width: 3,
+        borderRadius: '0 999px 999px 0', background: sprint.color, opacity: 0.7,
+      }} />
+      <div style={{ paddingLeft: 8 }}>
+        <div className="flex items-start justify-between gap-2" style={{ marginBottom: 6 }}>
+          <span className="goal-card-title" style={{ margin: 0, flex: 1 }}>{sprint.title}</span>
+          {status === 'current' && <span className="tag" style={{ background: 'var(--accent-routines-bg)', color: 'var(--accent-routines-fg)' }}>Active</span>}
+          {status === 'future' && <span className="tag" style={{ background: 'var(--accent-notes-bg)', color: 'var(--accent-notes-fg)' }}>Upcoming</span>}
+          {status === 'past' && <span className="tag" style={{ background: 'var(--bg-input)', color: 'var(--fg-muted)' }}>Finished</span>}
+        </div>
+        <div className="goal-card-meta" style={{ marginTop: 0, marginBottom: 8 }}>
+          <Calendar size={11} />
+          <span>{fmtDate(sprint.start_date)} — {fmtDate(sprint.end_date)}</span>
         </div>
 
         {sprint.description && (
-          <p className="text-[11px] text-muted-foreground mb-2 line-clamp-2 whitespace-pre-wrap">{sprint.description}</p>
+          <p className="goal-card-meta" style={{ marginBottom: 8, lineHeight: 1.5, whiteSpace: 'pre-wrap', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{sprint.description}</p>
         )}
 
         {sprint.items.length > 0 ? (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap">
             {(['goal', 'step', 'go', 'routine'] as const).map((k) =>
               itemsByType[k].length > 0 ? (
-                <span key={k} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-[11px] text-foreground">
+                <span key={k} className="tag" style={{ background: 'var(--bg-input)', color: 'var(--fg-secondary)' }}>
                   <ItemTypeIcon type={k} size={11} />
                   {itemsByType[k].length}
                 </span>
@@ -293,7 +296,7 @@ function SprintCard({
             )}
           </div>
         ) : (
-          <p className="text-[11px] text-muted-foreground italic">No items in focus yet</p>
+          <p className="goal-card-meta" style={{ fontStyle: 'italic', marginTop: 0 }}>No items in focus yet</p>
         )}
       </div>
     </button>
@@ -635,8 +638,10 @@ export default function Sprints() {
       <PullToRefresh onRefresh={load}>
         <div className="page-container">
           <div className="page-head">
-            <h1 className="page-title">Sprints</h1>
-            <p className="page-subtitle">Deep work, focused time, meaningful progress.</p>
+            <div className="page-head-info">
+              <h1 className="page-title">Sprints</h1>
+              <p className="page-subtitle">Deep work, focused time, meaningful progress.</p>
+            </div>
           </div>
 
           <div className="flex gap-1.5 mb-4 flex-wrap">

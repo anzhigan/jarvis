@@ -1365,7 +1365,7 @@ function TaskCard({
     </>
   );
 
-  const cls = `group bg-card border border-border rounded-xl card-lift overflow-hidden ${
+  const cls = `group goal-card overflow-hidden ${
     isDragging ? 'opacity-40 scale-[0.98]' : ''
   } ${isMobile ? '' : 'cursor-grab active:cursor-grabbing'}`;
 
@@ -1955,12 +1955,14 @@ export default function Tasks() {
         <div className="size-full overflow-y-auto">
           <div className="page-container">
           <div className="page-head">
-            <h1 className="page-title">Goals</h1>
-            <p className="page-subtitle">Refine direction. Track progress. Grow with intention.</p>
-            <div className="subtabs" style={{ marginTop: 16 }}>
-              <button onClick={() => setView('tasks')} className="subtab" data-active={view === 'tasks'}>Goals</button>
-              <button onClick={() => setView('go')} className="subtab" data-active={view === 'go'}>Go</button>
-              <button onClick={() => setView('sprint')} className="subtab" data-active={view === 'sprint'}>Step</button>
+            <div className="page-head-info">
+              <h1 className="page-title">Goals</h1>
+              <p className="page-subtitle">Refine direction. Track progress. Grow with intention.</p>
+              <div className="subtabs" style={{ marginTop: 12 }}>
+                <button onClick={() => setView('tasks')} className="subtab" data-active={view === 'tasks'}>Goals</button>
+                <button onClick={() => setView('go')} className="subtab" data-active={view === 'go'}>Go</button>
+                <button onClick={() => setView('sprint')} className="subtab" data-active={view === 'sprint'}>Step</button>
+              </div>
             </div>
           </div>
 
@@ -2120,7 +2122,7 @@ export default function Tasks() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="kanban-grid">
                 {STATUSES.map(({ key, labelKey }) => {
                   const list = tasksByStatus[key] ?? [];
                   const isDropTarget = dragOverStatus === key;
@@ -2147,8 +2149,8 @@ export default function Tasks() {
                         className={`w-full px-3 py-2.5 flex items-center justify-between ${isMobile ? 'hover:bg-secondary/50 rounded-t-xl' : 'cursor-default'}`}
                       >
                         <div className="flex items-center gap-2">
-                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</h3>
-                          <span className="text-[10px] text-muted-foreground/70 font-medium">{list.length}</span>
+                          <span className="kanban-column-name">{label}</span>
+                          <span className="kanban-column-count">{list.length}</span>
                         </div>
                         {isMobile && (collapsed.has(key)
                           ? <ChevronRight size={14} className="text-muted-foreground" />

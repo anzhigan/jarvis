@@ -97,13 +97,13 @@ function KpiCard({
   color?: string;
 }) {
   return (
-    <div className="p-4 bg-card border border-border rounded-xl">
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <span className={color}>{icon}</span>
+    <div className="kpi-card">
+      <div className="flex items-start justify-between" style={{ marginBottom: 2 }}>
+        <span className="kpi-label">{label}</span>
+        <span className={color} style={{ opacity: 0.7 }}>{icon}</span>
       </div>
-      <div className="text-2xl font-semibold">{value}</div>
-      {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}
+      <div className="kpi-value">{value}</div>
+      {sub && <div className="kpi-trend" data-trend="neutral">{sub}</div>}
     </div>
   );
 }
@@ -113,7 +113,7 @@ function KpiCard({
 function PerRoutineGrid({ routines }: { routines: Routine[] }) {
   if (routines.length === 0) {
     return (
-      <div className="p-6 bg-card border border-border rounded-xl text-center text-muted-foreground">
+      <div className="chart-card" style={{ textAlign: "center", color: "var(--fg-muted)" }}>
         <RepeatIcon size={28} className="mx-auto mb-2 opacity-40" />
         <p className="text-sm">No routines yet. Create some on the Routines page.</p>
       </div>
@@ -124,7 +124,7 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
   const DAYS = 30;
 
   return (
-    <div className="p-5 bg-card border border-border rounded-xl">
+    <div className="chart-card">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div>
           <h3 className="text-sm font-semibold flex items-center gap-1.5">
@@ -272,7 +272,7 @@ function ProductivityTrend({ routines }: { routines: Routine[] }) {
   const topRoutines = useMemo(() => routines.filter((r) => !r.is_paused).slice(0, 4), [routines]);
 
   return (
-    <div className="p-5 bg-card border border-border rounded-xl">
+    <div className="chart-card">
       <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
         <div>
           <h3 className="text-sm font-semibold">Productivity trend</h3>
@@ -348,16 +348,16 @@ function GoalDistribution({ goals }: { goals: Task[] }) {
       else counts.backlog += 1;
     }
     return [
-      { name: 'Backlog', value: counts.backlog, color: '#94a3b8' },
-      { name: 'Active', value: counts.active, color: '#4f46e5' },
-      { name: 'Paused', value: counts.paused, color: '#f59e0b' },
-      { name: 'Done', value: counts.done, color: '#10b981' },
+      { name: 'Backlog', value: counts.backlog, color: 'var(--fg-muted)' },
+      { name: 'Active', value: counts.active, color: 'var(--accent-notes)' },
+      { name: 'Paused', value: counts.paused, color: 'var(--accent-goals)' },
+      { name: 'Done', value: counts.done, color: 'var(--accent-routines)' },
     ].filter((d) => d.value > 0);
   }, [goals]);
 
   if (data.length === 0) {
     return (
-      <div className="p-5 bg-card border border-border rounded-xl text-center text-muted-foreground">
+      <div className="chart-card" style={{ textAlign: "center", color: "var(--fg-muted)" }}>
         <TargetIcon size={28} className="mx-auto mb-2 opacity-40" />
         <p className="text-sm">No goals yet.</p>
       </div>
@@ -365,7 +365,7 @@ function GoalDistribution({ goals }: { goals: Task[] }) {
   }
 
   return (
-    <div className="p-5 bg-card border border-border rounded-xl">
+    <div className="chart-card">
       <h3 className="text-sm font-semibold mb-3">Goals by status</h3>
       <div className="flex items-center gap-4">
         <div className="w-32 h-32 flex-shrink-0">
@@ -417,7 +417,7 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
   for (const g of activeGoals) {
     const start = g.start_date ? new Date(g.start_date) : today;
     const end = g.due_date ? new Date(g.due_date) : new Date(today.getTime() + 7 * 86400000);
-    items.push({ id: g.id, title: g.title, color: '#4f46e5', start, end, type: 'goal' });
+    items.push({ id: g.id, title: g.title, color: 'var(--accent-notes)', start, end, type: 'goal' });
   }
   for (const s of activeSprints) {
     items.push({ id: s.id, title: s.title, color: s.color, start: new Date(s.start_date), end: new Date(s.end_date), type: 'sprint' });
@@ -437,7 +437,7 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
   const todayPct = ((today.getTime() - rangeStart.getTime()) / totalMs) * 100;
 
   return (
-    <div className="p-5 bg-card border border-border rounded-xl">
+    <div className="chart-card">
       <h3 className="text-sm font-semibold mb-3">Active timeline</h3>
 
       {/* Header with date labels */}
@@ -504,7 +504,7 @@ function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
   }
 
   return (
-    <div className="p-5 bg-card border border-border rounded-xl">
+    <div className="chart-card">
       <h3 className="text-sm font-semibold mb-4">Active sprints</h3>
       <div className="space-y-4">
         {active.map((s) => {
@@ -612,7 +612,7 @@ function YearHeatmap({ routines }: { routines: Routine[] }) {
   }
 
   return (
-    <div className="p-5 bg-card border border-border rounded-xl">
+    <div className="chart-card">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h3 className="text-sm font-semibold">Year activity</h3>
         <span className="text-xs text-muted-foreground">{totalDone} active days</span>
@@ -701,8 +701,10 @@ export default function Analysis() {
       <div className="size-full overflow-y-auto">
         <div className="page-container">
         <div className="page-head">
-          <h1 className="page-title">Analysis</h1>
-          <p className="page-subtitle">Reflect on your progress, understand patterns, improve what matters.</p>
+          <div className="page-head-info">
+            <h1 className="page-title">Analysis</h1>
+            <p className="page-subtitle">Reflect on your progress, understand patterns, improve what matters.</p>
+          </div>
         </div>
 
         {/* KPI row */}
@@ -737,28 +739,28 @@ export default function Analysis() {
         </div>
 
         {/* Two-column layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div className="analysis-grid" style={{ marginBottom: 10 }}>
           <ProductivityTrend routines={activeRoutines} />
           <GoalDistribution goals={goals} />
         </div>
 
         {/* Active timeline */}
-        <div className="mb-3">
+        <div style={{ marginBottom: 10 }}>
           <ActiveTimeline goals={goals} sprints={sprints} />
         </div>
 
         {/* Per-routine grid full width */}
-        <div className="mb-3">
+        <div style={{ marginBottom: 10 }}>
           <PerRoutineGrid routines={activeRoutines} />
         </div>
 
         {/* Active sprints */}
-        <div className="mb-3">
+        <div style={{ marginBottom: 10 }}>
           <ActiveSprintsCard sprints={sprints} />
         </div>
 
         {/* Year heatmap */}
-        <div className="mb-3">
+        <div style={{ marginBottom: 10 }}>
           <YearHeatmap routines={routines} />
         </div>
         </div>
