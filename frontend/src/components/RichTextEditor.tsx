@@ -552,11 +552,7 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
   if (!editor) return null;
 
   const btnCls = (active: boolean) =>
-    `h-9 min-w-9 px-1.5 rounded-md flex items-center justify-center transition-all active:scale-92 border ${
-      active
-        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-        : 'border-transparent bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground hover:border-border'
-    }`;
+    `notes-toolbar-btn${active ? ' is-active' : ''}`;
 
   return (
     <>
@@ -641,12 +637,10 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
             }
           }
         }}
-        className={`md:sticky md:top-0 md:relative md:!translate-y-0 z-30 md:z-10 bg-background/95 backdrop-blur-md py-2 md:pb-2 px-3 md:-mx-10 md:px-10 border-t md:border-t-0 md:border-b border-border editor-mobile-toolbar ${
-          isMobile ? 'fixed left-0 right-0' : ''
-        }`}
+        className={`editor-toolbar-frame ${isMobile ? 'editor-toolbar-mobile' : ''}`}
         style={isMobile ? { bottom: `${keyboardOffset}px` } : undefined}
       >
-        <div className="flex items-center gap-0.5 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible md:pt-2 editor-toolbar-scroll">
+        <div className="editor-toolbar-row">
           <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnCls(editor.isActive('bold'))} title="Bold">
             <Bold size={15} />
           </button>

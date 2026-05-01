@@ -631,11 +631,14 @@ export default function Sprints() {
   }
 
   return (
-    <div className="size-full flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        <PullToRefresh onRefresh={load}>
-          <div className="px-4 md:px-6 py-4">
-            <div className="max-w-[1100px] mx-auto w-full">
+    <div className="size-full overflow-y-auto">
+      <PullToRefresh onRefresh={load}>
+        <div className="page-container">
+          <div className="page-head">
+            <h1 className="page-title">Sprints</h1>
+            <p className="page-subtitle">Deep work, focused time, meaningful progress.</p>
+          </div>
+
           <div className="flex gap-1.5 mb-4 flex-wrap">
             {(['current', 'future', 'past'] as const).map((f) => (
               <button
@@ -645,7 +648,7 @@ export default function Sprints() {
                 data-active={filter === f}
               >
                 {f === 'current' ? 'Current' : f === 'future' ? 'Future' : 'Past'}
-                <span className="opacity-70">{grouped[f].length}</span>
+                <span className="pill-count">{grouped[f].length}</span>
               </button>
             ))}
           </div>
@@ -681,10 +684,8 @@ export default function Sprints() {
               ))}
             </div>
           )}
-            </div>
-          </div>
-        </PullToRefresh>
-      </div>
+        </div>
+      </PullToRefresh>
     </div>
   );
 }

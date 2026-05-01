@@ -1952,11 +1952,20 @@ export default function Tasks() {
       )}
 
       <PullToRefresh onRefresh={load} disabled={!isMobile}>
-        <div className="size-full overflow-y-auto text-[13px]">
-          <div className="max-w-[1100px] mx-auto px-4 md:px-8 py-5 md:py-8 w-full">
-          {/* Desktop segmented + mobile pill nav with Go in center */}
-          <div className="mb-5">
-            {/* Desktop */}
+        <div className="size-full overflow-y-auto">
+          <div className="page-container">
+          <div className="page-head">
+            <h1 className="page-title">Goals</h1>
+            <p className="page-subtitle">Refine direction. Track progress. Grow with intention.</p>
+            <div className="subtabs" style={{ marginTop: 16 }}>
+              <button onClick={() => setView('tasks')} className="subtab" data-active={view === 'tasks'}>Goals</button>
+              <button onClick={() => setView('go')} className="subtab" data-active={view === 'go'}>Go</button>
+              <button onClick={() => setView('sprint')} className="subtab" data-active={view === 'sprint'}>Step</button>
+            </div>
+          </div>
+
+          <div className="mb-5" style={{ display: 'none' }}>
+            {/* Old tabs hidden, kept for ref */}
             <div className="hidden md:flex text-sm bg-muted rounded-md p-0.5 w-fit">
               <button onClick={() => setView('tasks')}
                 className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'tasks' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>

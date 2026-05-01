@@ -772,9 +772,13 @@ export default function Routines() {
   return (
     <div className="size-full overflow-y-auto">
       <PullToRefresh onRefresh={load}>
-        <div className="px-4 md:px-8 py-5 md:py-8">
-          <div className="max-w-[1100px] mx-auto w-full">
-          {/* Filter pills — standardized with btn-pill class */}
+        <div className="page-container">
+          <div className="page-head">
+            <h1 className="page-title">Routines</h1>
+            <p className="page-subtitle">Build rhythm. Stay consistent. Reduce friction.</p>
+          </div>
+
+          {/* Filter pills */}
           <div className="flex gap-1.5 mb-4 flex-wrap">
             {(['today', 'all', 'paused'] as const).map((f) => (
               <button
@@ -784,7 +788,7 @@ export default function Routines() {
                 data-active={filter === f}
               >
                 {f === 'today' ? 'Today' : f === 'all' ? 'All active' : 'Paused'}
-                <span className="opacity-70">{counts[f]}</span>
+                <span className="pill-count">{counts[f]}</span>
               </button>
             ))}
           </div>
@@ -821,9 +825,8 @@ export default function Routines() {
               ))}
             </div>
           )}
-            </div>
-          </div>
-        </PullToRefresh>
+        </div>
+      </PullToRefresh>
     </div>
   );
 }

@@ -698,10 +698,15 @@ export default function Analysis() {
 
   return (
     <PullToRefresh onRefresh={load}>
-      <div className="size-full">
-        <div className="max-w-[1100px] mx-auto px-4 md:px-8 py-5 md:py-8 w-full">
+      <div className="size-full overflow-y-auto">
+        <div className="page-container">
+        <div className="page-head">
+          <h1 className="page-title">Analysis</h1>
+          <p className="page-subtitle">Reflect on your progress, understand patterns, improve what matters.</p>
+        </div>
+
         {/* KPI row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="kpi-row">
           <KpiCard
             label="Active goals"
             value={kpis.activeGoals}

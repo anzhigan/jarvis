@@ -16,6 +16,7 @@ import {
   Loader2,
   BookOpen,
   FolderTree,
+  Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
@@ -618,7 +619,7 @@ export default function Notes() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-1.5 py-2">
+        <div className="notes-library-tree">
           {adding?.kind === 'way' && (
             <InlineInput placeholder="Way name" onCommit={commitAdd} onCancel={cancelAdd} />
           )}
@@ -798,27 +799,40 @@ export default function Notes() {
 
       <main className="notes-content">
         {currentNote && editorState?.noteId === currentNote.id ? (
-          <>
-            <div className="flex-1 overflow-y-auto relative">
-              {/* Floating burger — only when sidebar closed, sticks to top-left while scrolling */}
-              {!sidebarOpen && (
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="sticky top-4 left-4 z-10 float-left h-9 w-9 flex items-center justify-center rounded-md bg-background/80 backdrop-blur-sm border border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shadow-sm"
-                  style={{ marginLeft: '1rem', marginTop: '1rem' }}
-                  title="Show sidebar"
-                >
-                  <FolderTree size={16} />
-                </button>
-              )}
-              {/* Save status top-right — inline, not floating absolute */}
-              <div className="sticky top-4 right-6 z-10 float-right text-xs text-muted-foreground flex items-center gap-1.5"
-                   style={{ marginRight: '1.5rem', marginTop: '1rem' }}>
-                {saving ? <><Loader2 size={12} className="animate-spin" /> Saving...</> : editorState.dirty ? 'Unsaved' : 'Saved'}
-              </div>
+          <div className="notes-editor-and-context">
+            <div className="notes-editor-wrap">
+              <div className="notes-editor-paper">
+                {/* Breadcrumbs + saved status */}
+                <div className="notes-meta-row">
+                  {!sidebarOpen && (
+                    <button
+                      onClick={() => setSidebarOpen(true)}
+                      className="btn-icon btn-icon-sm"
+                      title="Show library"
+                    >
+                      <FolderTree size={14} />
+                    </button>
+                  )}
+                  <div className="notes-breadcrumb">
+                    {(() => {
+                      const wayName = ways.find((w) => w.id === currentNote.way_id)?.name;
+                      const topicName = ways.flatMap((w) => w.topics ?? []).find((tp) => tp.id === currentNote.topic_id)?.name;
+                      return (
+                        <>
+                          {wayName && <><span className="crumb">{wayName}</span><span className="crumb-sep">/</span></>}
+                          {topicName && <><span className="crumb">{topicName}</span><span className="crumb-sep">/</span></>}
+                          <span className="crumb-current">{currentNote.name || 'Untitled'}</span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <span className="notes-meta-saved">
+                    {saving ? <><Loader2 size={11} className="animate-spin" /> Saving…</> :
+                     editorState.dirty ? 'Unsaved' : <><Check size={11} /> Saved</>}
+                  </span>
+                </div>
 
-              <div className="max-w-4xl mx-auto px-10 pt-4 pb-3">
-                {/* Note title as h1 */}
+                {/* Title */}
                 <NoteTitle
                   key={currentNote.id + '-title'}
                   initial={currentNote.name}
@@ -830,11 +844,13 @@ export default function Notes() {
                     } catch (e: any) { toast.error(e?.detail ?? 'Failed to rename'); }
                   }}
                 />
-                <div className="mt-3">
+
+                {/* Tags */}
+                <div className="note-tags-row">
                   <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
                 </div>
-              </div>
-              <div className="max-w-4xl mx-auto px-10 pb-8">
+
+                {/* Editor body */}
                 <RichTextEditor
                   key={currentNote.id}
                   noteId={currentNote.id}
@@ -847,23 +863,51 @@ export default function Notes() {
                 />
               </div>
             </div>
-          </>
+
+            {/* Right context panel */}
+            <aside className="notes-context">
+              <div className="panel-card">
+                <div className="panel-head">Linked goals</div>
+                <div className="panel-empty">No goals linked yet</div>
+              </div>
+              <div className="panel-card">
+                <div className="panel-head">Backlinks</div>
+                <div className="panel-empty">No backlinks</div>
+              </div>
+              <div className="panel-card">
+                <div className="panel-head">Note stats</div>
+                <div className="panel-row">
+                  <span className="panel-row-title">Words</span>
+                  <span className="panel-row-meta">{(editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length}</span>
+                </div>
+                <div className="panel-row">
+                  <span className="panel-row-title">Read time</span>
+                  <span className="panel-row-meta">
+                    {Math.max(1, Math.round((editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length / 200))} min
+                  </span>
+                </div>
+                <div className="panel-row">
+                  <span className="panel-row-title">Tags</span>
+                  <span className="panel-row-meta">{(currentNote.tags ?? []).length}</span>
+                </div>
+              </div>
+            </aside>
+          </div>
         ) : (
-          <div className="flex-1 flex flex-col relative">
+          <div className="notes-empty-state">
             {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="absolute top-4 left-4 z-10 h-9 w-9 flex items-center justify-center rounded-md bg-background/80 backdrop-blur-sm border border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shadow-sm"
-                title="Show sidebar"
+                className="btn-icon"
+                style={{ position: 'absolute', top: 16, left: 16 }}
+                title="Show library"
               >
                 <FolderTree size={16} />
               </button>
             )}
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
-                <p className="text-sm">Select or create a note to start</p>
-              </div>
+            <div className="notes-empty-content">
+              <BookOpen size={32} style={{ opacity: 0.4, marginBottom: 12 }} />
+              <p style={{ fontSize: 14, color: 'var(--fg-tertiary)' }}>Select or create a note to start</p>
             </div>
           </div>
         )}
