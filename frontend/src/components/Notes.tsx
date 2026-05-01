@@ -435,7 +435,7 @@ export default function Notes() {
         onChange={(e) => setAddName(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') onCommit(); if (e.key === 'Escape') onCancel(); }}
         onBlur={() => (addName.trim() ? onCommit() : onCancel())}
-        className="w-full h-9 px-3 text-base md:text-sm bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+        className="input w-full"
         autoFocus
       />
     </div>
@@ -449,7 +449,7 @@ export default function Notes() {
         onChange={(e) => setRenameValue(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') onCommit(); if (e.key === 'Escape') onCancel(); }}
         onBlur={() => (renameValue.trim() ? onCommit() : onCancel())}
-        className="w-full h-9 px-3 text-base md:text-sm bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+        className="input w-full"
         autoFocus
       />
     </div>
@@ -487,14 +487,14 @@ export default function Notes() {
                 await loadWays();
                 setSelection(null);
               }}
-              className="md:absolute md:top-3 md:left-2 fixed top-16 left-3 z-30 h-10 w-10 flex items-center justify-center rounded-full bg-background/90 backdrop-blur-sm border border-border text-foreground hover:bg-secondary active:scale-90 transition-all"
+              className="md:absolute md:top-3 md:left-2 fixed top-16 left-3 z-30 icon-btn icon-btn-lg active:scale-90 transition-all"
+              style={{ background: 'color-mix(in srgb, var(--bg-app) 90%, transparent)', backdropFilter: 'blur(8px)', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
               title="Back"
-              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
             >
               <ChevronLeft size={22} strokeWidth={2} />
             </button>
             {/* Floating save status */}
-            <div className="md:fixed md:top-5 md:right-4 fixed top-16 right-4 z-30 text-xs text-muted-foreground flex items-center gap-1 bg-background/90 backdrop-blur-sm px-2 py-1 rounded-full border border-border">
+            <div className="md:fixed md:top-5 md:right-4 fixed top-16 right-4 z-30 text-xs flex items-center gap-1 px-2 py-1" style={{ color: 'var(--fg-muted)', background: 'color-mix(in srgb, var(--bg-app) 90%, transparent)', backdropFilter: 'blur(8px)', borderRadius: 'var(--r-pill)', boxShadow: '0 0 0 0.5px var(--line)' }}>
               {saving ? <><Loader2 size={12} className="animate-spin" /> Saving</> : editorState.dirty ? 'Unsaved' : 'Saved'}
             </div>
 
@@ -599,33 +599,27 @@ export default function Notes() {
       />
     <div className="notes-layout" data-no-lib={!sidebarOpen}>
       <aside className="notes-library" data-collapsed={!sidebarOpen}>
-        <div className="px-4 pt-4 pb-3 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSidebarOpen(false)}
-              title="Hide library"
-              className="icon-btn icon-btn-sm flex-shrink-0"
-            >
-              <FolderTree size={15} />
-            </button>
-            <div className="relative flex-1">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-8 pl-8 pr-2.5 text-xs bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-              />
-            </div>
-            <button
-              onClick={() => { setAdding({ kind: 'way' }); setAddName(''); }}
-              title="Add way"
-              className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
-            >
-              <Plus size={15} />
-            </button>
+        <div className="notes-library-head" style={{ padding: '10px 6px 8px' }}>
+          <button onClick={() => setSidebarOpen(false)} title="Hide library" className="icon-btn icon-btn-sm flex-shrink-0">
+            <FolderTree size={14} />
+          </button>
+          <div className="field flex-1" style={{ paddingLeft: 8, paddingRight: 8, gap: 5 }}>
+            <Search size={12} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ flex: 1, minWidth: 0, background: 'transparent', fontSize: 12 }}
+            />
           </div>
+          <button
+            onClick={() => { setAdding({ kind: 'way' }); setAddName(''); }}
+            title="Add way"
+            className="icon-btn icon-btn-sm flex-shrink-0"
+          >
+            <Plus size={14} />
+          </button>
         </div>
 
         <div className="notes-library-tree">
@@ -683,11 +677,14 @@ export default function Notes() {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="ml-3.5 overflow-hidden border-l border-sidebar-border"
+                    className="ml-3.5 overflow-hidden"
                     onDragOver={(e) => { e.preventDefault(); setDragOver({ kind: 'way', id: way.id }); }}
                     onDragLeave={() => setDragOver((p) => p?.kind === 'way' && p.id === way.id ? null : p)}
                     onDrop={(e) => handleDrop(e, { kind: 'way', id: way.id })}
-                    style={dragOver?.kind === 'way' && dragOver.id === way.id ? { backgroundColor: 'var(--primary-rgb, rgba(79,70,229,0.08))' } : undefined}
+                    style={{
+                      borderLeft: '0.5px solid var(--line)',
+                      ...(dragOver?.kind === 'way' && dragOver.id === way.id ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 8%, transparent)' } : {}),
+                    }}
                   >
                     {adding?.kind === 'way-note' && adding.wayId === way.id && (
                       <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
@@ -700,15 +697,14 @@ export default function Notes() {
                         onDragEnd={() => { setDraggingNote(null); setDragOver(null); }}
                         onClick={() => setSelection({ kind: 'note', noteId: n.id, parentType: 'way', parentId: way.id })}
                         className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
-                          selection?.noteId === n.id
-                            ? 'bg-primary/10 text-primary font-medium'
-                            : 'hover:bg-sidebar-accent'
+                          selection?.noteId === n.id ? '' : 'hover:bg-sidebar-accent'
                         } ${draggingNote === n.id ? 'opacity-40' : ''}`}
+                        style={selection?.noteId === n.id ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', color: 'var(--accent-primary)', fontWeight: 500 } : undefined}
                       >
                         {n.pinned ? (
-                          <Pin size={11} className="text-primary flex-shrink-0 fill-current" />
+                          <Pin size={11} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} className="flex-shrink-0" />
                         ) : (
-                          <FileText size={12} className="text-muted-foreground flex-shrink-0" />
+                          <FileText size={12} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                         )}
                         <span className="flex-1 text-sm truncate">{n.name}</span>
                         <ActionBtn icon={n.pinned ? PinOff : Pin} title={n.pinned ? 'Unpin' : 'Pin'} onClick={() => togglePin(n)} />
@@ -728,10 +724,9 @@ export default function Notes() {
                             onDragLeave={() => setDragOver((p) => p?.kind === 'topic' && p.id === topic.id ? null : p)}
                             onDrop={(e) => handleDrop(e, { kind: 'topic', id: topic.id })}
                             className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
-                              dragOver?.kind === 'topic' && dragOver.id === topic.id
-                                ? 'bg-primary/15 ring-1 ring-primary'
-                                : 'hover:bg-sidebar-accent'
+                              dragOver?.kind === 'topic' && dragOver.id === topic.id ? '' : 'hover:bg-sidebar-accent'
                             }`}
+                            style={dragOver?.kind === 'topic' && dragOver.id === topic.id ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 15%, transparent)', boxShadow: '0 0 0 1px var(--accent-primary)' } : undefined}
                           >
                             {expandedTopics.has(topic.id) ? (
                               <ChevronDown size={12} className="text-muted-foreground flex-shrink-0" />
@@ -759,7 +754,8 @@ export default function Notes() {
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: 'auto', opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }}
-                              className="ml-3.5 overflow-hidden border-l border-sidebar-border"
+                              className="ml-3.5 overflow-hidden"
+                              style={{ borderLeft: '0.5px solid var(--line)' }}
                             >
                               {topic.notes.map((note) => (
                                 <div key={note.id}>
@@ -772,12 +768,11 @@ export default function Notes() {
                                       onDragEnd={() => { setDraggingNote(null); setDragOver(null); }}
                                       onClick={() => setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: topic.id })}
                                       className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
-                                        selection?.noteId === note.id
-                                          ? 'bg-primary/10 text-primary font-medium'
-                                          : 'hover:bg-sidebar-accent'
+                                        selection?.noteId === note.id ? '' : 'hover:bg-sidebar-accent'
                                       } ${draggingNote === note.id ? 'opacity-40' : ''}`}
+                                      style={selection?.noteId === note.id ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', color: 'var(--accent-primary)', fontWeight: 500 } : undefined}
                                     >
-                                      <FileText size={12} className="text-muted-foreground flex-shrink-0" />
+                                      <FileText size={12} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                                       <span className="flex-1 text-sm truncate">{note.name}</span>
                                       <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: note.id }, note.name)} />
                                       <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(note.id)} />
@@ -939,7 +934,7 @@ function ActionBtn({ icon: Icon, onClick, title }: { icon: React.ElementType; on
     <div
       title={title}
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      className="p-1 rounded-md hover:bg-card/80 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+      className="icon-btn icon-btn-sm opacity-0 group-hover:opacity-100 transition-opacity"
     >
       <Icon size={12} />
     </div>
@@ -1036,11 +1031,11 @@ function MobileHierarchy({
   return (
     <div className="size-full flex flex-col bg-background">
       {/* Top bar */}
-      <header className="px-3 py-3 border-b border-border flex items-center gap-2 flex-shrink-0">
+      <header className="px-3 py-3 flex items-center gap-2 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
         {view.kind !== 'root' && (
           <button
             onClick={goBack}
-            className="h-10 w-10 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+            className="icon-btn icon-btn-lg flex-shrink-0"
             title="Back"
           >
             <ChevronLeft size={22} />
@@ -1049,7 +1044,7 @@ function MobileHierarchy({
         <h2 className="text-lg font-semibold tracking-tight flex-1 min-w-0 truncate">{title}</h2>
         <button
           onClick={onAddClick}
-          className="h-10 w-10 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+          className="icon-btn icon-btn-lg flex-shrink-0"
           title="Add"
         >
           <Plus size={20} />
@@ -1063,18 +1058,19 @@ function MobileHierarchy({
           onClick={() => setShowAddMenu(false)}
         >
           <div
-            className="absolute top-16 right-3 bg-card border border-border rounded-lg shadow-lg p-1 min-w-[180px]"
+            className="panel-card absolute top-16 right-3 p-1 min-w-[180px]"
             onClick={(e) => e.stopPropagation()}
+            style={{ boxShadow: 'var(--sh-popover)', zIndex: 41 }}
           >
             <button
               onClick={() => { setAdding({ kind: 'way-note', wayId: currentWay.id }); setShowAddMenu(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-secondary text-sm text-left"
+              className="btn btn-ghost w-full justify-start gap-2 text-sm"
             >
               <FileText size={15} /> New note
             </button>
             <button
               onClick={() => { setAdding({ kind: 'topic', wayId: currentWay.id }); setShowAddMenu(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-md hover:bg-secondary text-sm text-left"
+              className="btn btn-ghost w-full justify-start gap-2 text-sm"
             >
               <FolderPlus size={15} /> New topic
             </button>
@@ -1083,13 +1079,13 @@ function MobileHierarchy({
       )}
 
       {mobileDragNoteId && (
-        <div className="px-4 py-3 bg-primary/10 border-b border-primary/20 flex items-center gap-2 flex-shrink-0">
-          <div className="text-xs font-medium text-primary flex-1">
+        <div className="px-4 py-3 flex items-center gap-2 flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', boxShadow: 'inset 0 -0.5px 0 color-mix(in srgb, var(--accent-primary) 20%, transparent)' }}>
+          <div className="text-xs font-medium flex-1" style={{ color: 'var(--accent-primary)' }}>
             Moving note — tap a way or topic to drop, or Cancel.
           </div>
           <button
             onClick={onCancelMobileDrag}
-            className="h-8 px-3 text-xs bg-card border border-border rounded-md hover:bg-secondary"
+            className="btn btn-secondary btn-sm"
           >
             Cancel
           </button>
@@ -1098,15 +1094,15 @@ function MobileHierarchy({
 
       {/* Search (only at root) */}
       {view.kind === 'root' && (
-        <div className="px-3 py-2 border-b border-border flex-shrink-0">
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <div className="px-3 py-2 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
+          <div className="field w-full" style={{ gap: 6 }}>
+            <Search size={14} style={{ color: 'var(--fg-muted)', flexShrink: 0, marginLeft: 2 }} />
             <input
               type="text"
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-10 pl-10 pr-3 text-base bg-card rounded-md border border-border focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+              style={{ flex: 1, minWidth: 0, background: 'transparent', fontSize: 15 }}
             />
           </div>
         </div>
@@ -1114,17 +1110,17 @@ function MobileHierarchy({
 
       {/* Add-way inline */}
       {view.kind === 'root' && adding?.kind === 'way' && (
-        <div className="border-b border-border">
+        <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
           <InlineInput placeholder="Way name" onCommit={commitAdd} onCancel={cancelAdd} />
         </div>
       )}
       {view.kind === 'way' && currentWay && adding?.kind === 'topic' && adding.wayId === currentWay.id && (
-        <div className="border-b border-border">
+        <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
           <InlineInput placeholder="Topic name" onCommit={commitAdd} onCancel={cancelAdd} />
         </div>
       )}
       {view.kind === 'topic' && currentTopic && adding?.kind === 'topic-note' && adding.topicId === currentTopic.id && (
-        <div className="border-b border-border">
+        <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
           <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
         </div>
       )}
@@ -1155,15 +1151,17 @@ function MobileHierarchy({
                         setView({ kind: 'way', wayId: way.id });
                       }
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left ${
-                      mobileDragNoteId ? 'bg-primary/5 hover:bg-primary/10' : ''
-                    }`}
+                    className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-secondary/40 active:bg-secondary/60"
+                    style={{
+                      boxShadow: 'inset 0 -0.5px 0 var(--line)',
+                      ...(mobileDragNoteId ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 5%, transparent)' } : {}),
+                    }}
                   >
                     <span className="flex-1 text-base font-medium truncate">{way.name}</span>
-                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                    <span className="text-xs flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>
                       {way.topics.length + way.notes.length}
                     </span>
-                    <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                    <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                   </button>
                 )}
               </SwipeRow>
@@ -1177,7 +1175,8 @@ function MobileHierarchy({
             {mobileDragNoteId && (
               <button
                 onClick={() => onDropMobileDrag({ kind: 'way', id: currentWay.id })}
-                className="w-full px-4 py-3 border-b border-primary/20 bg-primary/10 text-sm font-medium text-primary text-left active:bg-primary/20"
+                className="w-full px-4 py-3 text-sm font-medium text-left"
+                style={{ color: 'var(--accent-primary)', backgroundColor: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', boxShadow: 'inset 0 -0.5px 0 color-mix(in srgb, var(--accent-primary) 20%, transparent)' }}
               >
                 ↓ Drop here (in "{currentWay.name}")
               </button>
@@ -1187,7 +1186,7 @@ function MobileHierarchy({
             {currentWay.notes.map((note) => (
               <div key={note.id}>
                 {renaming?.kind === 'note' && renaming.id === note.id ? (
-                  <div className="border-b border-border">
+                  <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
                     <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                   </div>
                 ) : (
@@ -1202,15 +1201,16 @@ function MobileHierarchy({
                         if (mobileDragNoteId) return;
                         onSelectNote(note.id, 'way', currentWay.id);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                      className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-secondary/40 active:bg-secondary/60"
+                      style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}
                     >
                       {note.pinned ? (
-                        <Pin size={14} className="text-primary flex-shrink-0 fill-current" />
+                        <Pin size={14} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} className="flex-shrink-0" />
                       ) : (
-                        <FileText size={16} className="text-muted-foreground flex-shrink-0" />
+                        <FileText size={16} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                       )}
                       <span className="flex-1 text-base truncate">{note.name}</span>
-                      <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                      <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                     </button>
                   </LongPressRow>
                 )}
@@ -1218,7 +1218,7 @@ function MobileHierarchy({
             ))}
 
             {adding?.kind === 'way-note' && adding.wayId === currentWay.id && (
-              <div className="border-b border-border">
+              <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
                 <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
               </div>
             )}
@@ -1227,7 +1227,7 @@ function MobileHierarchy({
             {currentWay.topics.map((topic) => (
               <div key={topic.id}>
                 {renaming?.kind === 'topic' && renaming.id === topic.id ? (
-                  <div className="border-b border-border">
+                  <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
                     <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                   </div>
                 ) : (
@@ -1243,13 +1243,15 @@ function MobileHierarchy({
                           setView({ kind: 'topic', topicId: topic.id });
                         }
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left ${
-                        mobileDragNoteId ? 'bg-primary/5 hover:bg-primary/10' : ''
-                      }`}
+                      className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-secondary/40 active:bg-secondary/60"
+                      style={{
+                        boxShadow: 'inset 0 -0.5px 0 var(--line)',
+                        ...(mobileDragNoteId ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 5%, transparent)' } : {}),
+                      }}
                     >
                       <span className="flex-1 text-base truncate">{topic.name}</span>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">{topic.notes.length}</span>
-                      <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>{topic.notes.length}</span>
+                      <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                     </button>
                   </SwipeRow>
                 )}
@@ -1269,7 +1271,8 @@ function MobileHierarchy({
             {mobileDragNoteId && (
               <button
                 onClick={() => onDropMobileDrag({ kind: 'topic', id: currentTopic.id })}
-                className="w-full px-4 py-3 border-b border-primary/20 bg-primary/10 text-sm font-medium text-primary text-left active:bg-primary/20"
+                className="w-full px-4 py-3 text-sm font-medium text-left"
+                style={{ color: 'var(--accent-primary)', backgroundColor: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', boxShadow: 'inset 0 -0.5px 0 color-mix(in srgb, var(--accent-primary) 20%, transparent)' }}
               >
                 ↓ Drop here (in "{currentTopic.name}")
               </button>
@@ -1277,7 +1280,7 @@ function MobileHierarchy({
             {currentTopic.notes.map((note) => (
               <div key={note.id}>
                 {renaming?.kind === 'note' && renaming.id === note.id ? (
-                  <div className="border-b border-border">
+                  <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
                     <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                   </div>
                 ) : (
@@ -1292,15 +1295,16 @@ function MobileHierarchy({
                         if (mobileDragNoteId) return;
                         onSelectNote(note.id, 'topic', currentTopic.id);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-4 border-b border-border hover:bg-secondary/40 active:bg-secondary/60 text-left"
+                      className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-secondary/40 active:bg-secondary/60"
+                      style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}
                     >
                       {note.pinned ? (
-                        <Pin size={14} className="text-primary flex-shrink-0 fill-current" />
+                        <Pin size={14} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} className="flex-shrink-0" />
                       ) : (
-                        <FileText size={16} className="text-muted-foreground flex-shrink-0" />
+                        <FileText size={16} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                       )}
                       <span className="flex-1 text-base truncate">{note.name}</span>
-                      <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" />
+                      <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                     </button>
                   </LongPressRow>
                 )}

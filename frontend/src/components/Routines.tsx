@@ -440,12 +440,12 @@ function RoutineEditForm({
   };
 
   return (
-    <div className="p-3 bg-card border border-border rounded-md space-y-2">
+    <div className="panel-card" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 7 }}>
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md"
+        className="input"
         placeholder="Routine title"
         autoFocus
       />
@@ -454,16 +454,16 @@ function RoutineEditForm({
         onChange={(e) => setDescription(e.target.value)}
         rows={2}
         placeholder="Description…"
-        className="w-full px-2.5 py-2 text-sm bg-input-background border border-border rounded-md resize-none"
+        className="textarea"
       />
 
       {/* Schedule type */}
       <div>
-        <label className="text-[11px] text-muted-foreground">Schedule</label>
+        <div className="text-label" style={{ marginBottom: 4 }}>Schedule</div>
         <select
           value={scheduleType}
           onChange={(e) => setScheduleType(e.target.value as RoutineScheduleType)}
-          className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+          className="select-base"
         >
           <option value="daily">Every day</option>
           <option value="weekly_on_days">On specific weekdays</option>
@@ -477,11 +477,8 @@ function RoutineEditForm({
             <button
               key={idx}
               onClick={() => toggleDay(idx)}
-              className={`w-9 h-9 rounded-md text-xs font-medium border transition-colors ${
-                scheduleDays.includes(String(idx))
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-card border-border hover:bg-secondary'
-              }`}
+              className={scheduleDays.includes(String(idx)) ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+              style={{ width: 36, padding: 0, justifyContent: 'center' }}
             >
               {lbl}
             </button>
@@ -491,14 +488,14 @@ function RoutineEditForm({
 
       {scheduleType === 'times_per_week' && (
         <div>
-          <label className="text-[11px] text-muted-foreground">Times per week</label>
+          <div className="text-label" style={{ marginBottom: 4 }}>Times per week</div>
           <input
             type="number"
             min={1}
             max={7}
             value={scheduleCount}
             onChange={(e) => setScheduleCount(parseInt(e.target.value || '1', 10))}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+            className="input"
           />
         </div>
       )}
@@ -510,18 +507,18 @@ function RoutineEditForm({
             key={c}
             type="button"
             onClick={() => setColor(c)}
-            className={`w-7 h-7 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-            style={{ backgroundColor: c }}
+            style={{
+              width: 24, height: 24, borderRadius: 'var(--r-pill)', backgroundColor: c,
+              boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3.5px ${c}` : 'none',
+              transition: 'all 150ms',
+            }}
           />
         ))}
       </div>
 
-      <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="h-8 px-3 text-sm text-muted-foreground rounded-md hover:bg-secondary">
-          {t('common.cancel')}
-        </button>
-        <button onClick={save} disabled={saving || !title.trim()}
-          className="h-8 px-3 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50 flex items-center gap-1">
+      <div className="flex justify-end gap-2">
+        <button onClick={onCancel} className="btn btn-secondary btn-sm">{t('common.cancel')}</button>
+        <button onClick={save} disabled={saving || !title.trim()} className="btn btn-primary btn-sm">
           {saving && <Loader2 size={11} className="animate-spin" />}
           {t('common.save')}
         </button>
@@ -575,10 +572,10 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
   };
 
   return (
-    <div className="p-3 bg-card border border-border rounded-xl mb-4 space-y-2">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-medium text-muted-foreground">New routine</span>
-        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground" title="Cancel">
+    <div className="panel-card" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 2 }}>
+        <span className="text-label">New routine</span>
+        <button onClick={onCancel} className="icon-btn icon-btn-sm" title="Cancel">
           <X size={14} />
         </button>
       </div>
@@ -589,20 +586,20 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
         onChange={(e) => setTitle(e.target.value)}
         autoFocus
         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && submit()}
-        className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md"
+        className="input"
       />
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description…"
         rows={2}
-        className="w-full px-2.5 py-2 text-sm bg-input-background border border-border rounded-md resize-none"
+        className="textarea"
       />
 
       <select
         value={scheduleType}
         onChange={(e) => setScheduleType(e.target.value as RoutineScheduleType)}
-        className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+        className="select-base"
       >
         <option value="daily">Every day</option>
         <option value="weekly_on_days">On specific weekdays</option>
@@ -615,11 +612,8 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
             <button
               key={idx}
               onClick={() => toggleDay(idx)}
-              className={`w-9 h-9 rounded-md text-xs font-medium border transition-colors ${
-                scheduleDays.includes(String(idx))
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-card border-border hover:bg-secondary'
-              }`}
+              className={scheduleDays.includes(String(idx)) ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+              style={{ width: 36, padding: 0, justifyContent: 'center' }}
             >
               {lbl}
             </button>
@@ -635,7 +629,7 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
           value={scheduleCount}
           onChange={(e) => setScheduleCount(parseInt(e.target.value || '1', 10))}
           placeholder="Times per week"
-          className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+          className="input"
         />
       )}
 
@@ -643,7 +637,7 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
         <select
           value={goalId}
           onChange={(e) => setGoalId(e.target.value)}
-          className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
+          className="select-base"
         >
           <option value="">No goal (standalone)</option>
           {goals.map((g) => (
@@ -659,15 +653,17 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
               key={c}
               type="button"
               onClick={() => setColor(c)}
-              className={`w-7 h-7 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-              style={{ backgroundColor: c }}
+              style={{
+                width: 24, height: 24, borderRadius: 'var(--r-pill)', backgroundColor: c,
+                boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3.5px ${c}` : 'none',
+                transition: 'all 150ms',
+              }}
             />
           ))}
         </div>
-        <button onClick={submit} disabled={saving || !title.trim()}
-          className="h-9 px-4 bg-primary text-primary-foreground rounded-md font-medium disabled:opacity-50 flex items-center gap-1.5 text-sm">
+        <button onClick={submit} disabled={saving || !title.trim()} className="btn btn-primary btn-sm">
           {saving && <Loader2 size={11} className="animate-spin" />}
-          <Plus size={15} /> Create
+          <Plus size={14} /> Create
         </button>
       </div>
     </div>
@@ -745,9 +741,10 @@ export default function Routines() {
           {!creating ? (
             <button
               onClick={() => setCreating(true)}
-              className="w-full h-11 mb-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-1.5 font-medium text-sm"
+              className="btn btn-ghost w-full"
+              style={{ marginBottom: 16, justifyContent: 'center' }}
             >
-              <Plus size={16} /> New routine
+              <Plus size={15} /> New routine
             </button>
           ) : (
             <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} goals={goals} />

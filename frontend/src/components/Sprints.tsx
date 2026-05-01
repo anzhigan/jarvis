@@ -136,24 +136,23 @@ function AddItemPanel({
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full md:max-w-lg bg-card border border-border rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] md:max-h-[80vh]"
+        className="modal-panel w-full md:max-w-lg rounded-t-[var(--r-shell)] md:rounded-[var(--r-shell)] flex flex-col max-h-[85vh] md:max-h-[80vh]"
+        style={{ boxShadow: 'var(--sh-popover)' }}
       >
-        <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
+        <div className="flex items-center justify-between p-4 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
           <h3 className="text-base font-semibold">Add to focus</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <X size={20} />
-          </button>
+          <button onClick={onClose} className="icon-btn icon-btn-sm"><X size={18} /></button>
         </div>
 
         {/* Type tabs */}
-        <div className="flex gap-1 p-3 border-b border-border flex-shrink-0">
+        <div className="flex gap-1 p-3 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
           {(['goal', 'step', 'go', 'routine'] as const).map((k) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={`flex-1 h-9 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
-                tab === k ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'
-              }`}
+            <button key={k} onClick={() => setTab(k)}
+              className="flex-1 h-9 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+              style={{
+                borderRadius: 'var(--r-control)',
+                ...(tab === k ? { background: 'var(--accent-primary)', color: '#fff' } : { background: 'var(--bg-hover)', color: 'var(--fg-secondary)' }),
+              }}
             >
               <ItemTypeIcon type={k} size={13} />
               {itemTypeLabel(k)}
@@ -163,72 +162,54 @@ function AddItemPanel({
 
         {/* Search */}
         <div className="px-3 pt-3 flex-shrink-0">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search…"
-            className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md"
-          />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="input w-full" />
         </div>
 
         {/* List */}
         <div className="flex-1 overflow-y-auto p-3">
           {loading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <div className="flex items-center justify-center py-8" style={{ color: 'var(--fg-muted)' }}>
               <Loader2 size={18} className="animate-spin" />
             </div>
           ) : filteredOptions.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">No items.</p>
+            <p className="text-center text-sm py-8" style={{ color: 'var(--fg-muted)' }}>No items.</p>
           ) : (
             <div className="space-y-1.5">
               {tab === 'goal' && (filteredOptions as Task[]).map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => add('goal', g.id)}
-                  className="w-full text-left p-2.5 bg-card border border-border rounded-md hover:bg-secondary transition-colors flex items-center gap-2"
-                >
-                  <Target size={14} className="text-muted-foreground flex-shrink-0" />
+                <button key={g.id} onClick={() => add('goal', g.id)}
+                  className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
+                  <Target size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                   <span className="text-sm flex-1 truncate">{g.title}</span>
-                  <span className="text-[10px] text-muted-foreground capitalize">{g.status}</span>
+                  <span className="text-[10px] capitalize" style={{ color: 'var(--fg-muted)' }}>{g.status}</span>
                 </button>
               ))}
               {tab === 'step' && (filteredOptions as { id: string; title: string; goalTitle: string; color: string }[]).map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => add('step', s.id)}
-                  className="w-full text-left p-2.5 bg-card border border-border rounded-md hover:bg-secondary transition-colors flex items-center gap-2"
-                >
+                <button key={s.id} onClick={() => add('step', s.id)}
+                  className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
                   <span className="w-1 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                  <ListChecks size={14} className="text-muted-foreground flex-shrink-0" />
+                  <ListChecks size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm truncate">{s.title}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">↳ {s.goalTitle}</div>
+                    <div className="text-[10px] truncate" style={{ color: 'var(--fg-muted)' }}>↳ {s.goalTitle}</div>
                   </div>
                 </button>
               ))}
               {tab === 'go' && (filteredOptions as Go[]).map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => add('go', g.id)}
-                  className="w-full text-left p-2.5 bg-card border border-border rounded-md hover:bg-secondary transition-colors flex items-center gap-2"
-                >
+                <button key={g.id} onClick={() => add('go', g.id)}
+                  className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
                   <span className="w-1 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: g.color }} />
-                  <CircleDot size={14} className="text-muted-foreground flex-shrink-0" />
+                  <CircleDot size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                   <span className="text-sm flex-1 truncate">{g.title}</span>
-                  {g.due_date && <span className="text-[10px] text-muted-foreground">{fmtDate(g.due_date)}</span>}
+                  {g.due_date && <span className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>{fmtDate(g.due_date)}</span>}
                 </button>
               ))}
               {tab === 'routine' && (filteredOptions as Routine[]).map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => add('routine', r.id)}
-                  className="w-full text-left p-2.5 bg-card border border-border rounded-md hover:bg-secondary transition-colors flex items-center gap-2"
-                >
+                <button key={r.id} onClick={() => add('routine', r.id)}
+                  className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
                   <span className="w-1 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
-                  <RepeatIcon size={14} className="text-muted-foreground flex-shrink-0" />
+                  <RepeatIcon size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                   <span className="text-sm flex-1 truncate">{r.title}</span>
-                  <span className="text-[10px] text-muted-foreground">{r.schedule_type}</span>
+                  <span className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>{r.schedule_type}</span>
                 </button>
               ))}
             </div>
@@ -375,11 +356,8 @@ function SprintDetail({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-2 px-4 md:px-6 pt-4 pb-3 border-b border-border flex-shrink-0">
-        <button
-          onClick={onBack}
-          className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-        >
+      <div className="flex items-center gap-2 px-4 md:px-6 pt-4 pb-3 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
+        <button onClick={onBack} className="icon-btn icon-btn-lg">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 min-w-0">
@@ -396,27 +374,24 @@ function SprintDetail({
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="w-full h-9 px-2 text-sm font-semibold bg-input-background border border-border rounded-md"
+              className="input w-full font-semibold"
             />
           )}
         </div>
         {!editing ? (
           <>
-            <button onClick={() => setEditing(true)}
-              className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground" title="Edit">
-              <Pencil size={16} />
+            <button onClick={() => setEditing(true)} className="icon-btn icon-btn-lg" title="Edit">
+              <Pencil size={15} />
             </button>
-            <button onClick={removeSprint}
-              className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive" title="Delete">
-              <Trash2 size={16} />
+            <button onClick={removeSprint} className="icon-btn icon-btn-lg" style={{ color: 'var(--danger)' }} title="Delete">
+              <Trash2 size={15} />
             </button>
           </>
         ) : (
           <>
             <button onClick={() => { setEditing(false); setEditTitle(sprint.title); setEditDesc(sprint.description); setEditStart(sprint.start_date); setEditEnd(sprint.end_date); setEditColor(sprint.color); }}
-              className="h-9 px-3 text-sm rounded-md hover:bg-secondary">{t('common.cancel')}</button>
-            <button onClick={saveEdit} disabled={saving}
-              className="h-9 px-3 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50 flex items-center gap-1">
+              className="btn btn-secondary btn-sm">{t('common.cancel')}</button>
+            <button onClick={saveEdit} disabled={saving} className="btn btn-primary btn-sm">
               {saving && <Loader2 size={11} className="animate-spin" />}
               {t('common.save')}
             </button>
@@ -427,20 +402,17 @@ function SprintDetail({
       <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
         <div className="max-w-[1100px] mx-auto w-full">
           {editing && (
-            <div className="p-3 bg-card border border-border rounded-xl mb-4 space-y-2">
+            <div className="panel-card" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2}
-                placeholder="Description…"
-                className="w-full px-2.5 py-2 text-sm bg-input-background border border-border rounded-md resize-none" />
+                placeholder="Description…" className="textarea" />
               <div className="grid grid-cols-2 gap-2">
                 <div className="min-w-0">
-                  <label className="text-[10px] text-muted-foreground">Start</label>
-                  <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)}
-                    className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
+                  <div className="text-label" style={{ marginBottom: 4 }}>Start</div>
+                  <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="input" />
                 </div>
                 <div className="min-w-0">
-                  <label className="text-[10px] text-muted-foreground">End</label>
-                  <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)}
-                    className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
+                  <div className="text-label" style={{ marginBottom: 4 }}>End</div>
+                  <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className="input" />
                 </div>
               </div>
               <div className="flex gap-1.5 flex-wrap">
@@ -454,7 +426,7 @@ function SprintDetail({
           )}
 
           {!editing && sprint.description && (
-            <div className="mb-4 p-3 bg-muted/40 rounded-md text-sm text-foreground whitespace-pre-wrap">
+            <div style={{ marginBottom: 16, padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 'var(--r-card)', fontSize: 13, whiteSpace: 'pre-wrap', color: 'var(--fg-secondary)' }}>
               {sprint.description}
             </div>
           )}
@@ -471,16 +443,14 @@ function SprintDetail({
                     {itemTypeLabel(kind)}s
                     <span className="opacity-60 normal-case font-normal">({items.length})</span>
                   </div>
-                  <div className="space-y-1.5">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {items.map((it) => (
-                      <div key={it.id}
-                        className="flex items-center gap-2 p-2.5 bg-card border border-border rounded-md group">
-                        {it.color && <span className="w-1 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: it.color }} />}
-                        <ItemTypeIcon type={kind} size={13} />
-                        <span className="flex-1 text-sm truncate">{it.title || '(untitled)'}</span>
-                        <button onClick={() => removeItem(it.id)}
-                          className="opacity-0 group-hover:opacity-100 md:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all">
-                          <X size={14} />
+                      <div key={it.id} className="goal-card" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 0 }}>
+                        {it.color && <span className="flex-shrink-0" style={{ width: 3, height: 20, borderRadius: 'var(--r-pill)', backgroundColor: it.color }} />}
+                        <span style={{ color: 'var(--fg-muted)' }}><ItemTypeIcon type={kind} size={12} /></span>
+                        <span className="flex-1 truncate" style={{ fontSize: 12.5 }}>{it.title || '(untitled)'}</span>
+                        <button onClick={() => removeItem(it.id)} className="icon-btn icon-btn-sm" style={{ color: 'var(--danger)' }}>
+                          <X size={13} />
                         </button>
                       </div>
                     ))}
@@ -492,9 +462,10 @@ function SprintDetail({
 
           <button
             onClick={() => setAdding(true)}
-            className="w-full h-11 mt-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-1.5 font-medium text-sm"
+            className="btn btn-ghost w-full"
+            style={{ marginTop: 16, justifyContent: 'center' }}
           >
-            <Plus size={16} /> Add to focus
+            <Plus size={15} /> Add to focus
           </button>
 
           {sprint.items.length === 0 && (
@@ -550,44 +521,43 @@ function CreateSprintForm({ onCreated, onCancel }: { onCreated: () => Promise<vo
   };
 
   return (
-    <div className="p-3 bg-card border border-border rounded-xl mb-4 space-y-2">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-medium text-muted-foreground">New sprint</span>
-        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">
+    <div className="panel-card" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 2 }}>
+        <span className="text-label">New sprint</span>
+        <button onClick={onCancel} className="icon-btn icon-btn-sm">
           <X size={14} />
         </button>
       </div>
       <input type="text" placeholder="Sprint title (e.g. Apr 28 — May 5)"
         value={title} onChange={(e) => setTitle(e.target.value)} autoFocus
         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && submit()}
-        className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md" />
+        className="input" />
       <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
-        placeholder="Description…"
-        className="w-full px-2.5 py-2 text-sm bg-input-background border border-border rounded-md resize-none" />
+        placeholder="Description…" className="textarea" />
       <div className="grid grid-cols-2 gap-2">
         <div className="min-w-0">
-          <label className="text-[10px] text-muted-foreground">Start</label>
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
+          <div className="text-label" style={{ marginBottom: 4 }}>Start</div>
+          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="input" />
         </div>
         <div className="min-w-0">
-          <label className="text-[10px] text-muted-foreground">End</label>
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
+          <div className="text-label" style={{ marginBottom: 4 }}>End</div>
+          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="input" />
         </div>
       </div>
       <div className="flex justify-between items-center flex-wrap gap-2">
         <div className="flex gap-1.5">
           {SPRINT_COLORS.map((c) => (
             <button key={c} type="button" onClick={() => setColor(c)}
-              className={`w-7 h-7 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-              style={{ backgroundColor: c }} />
+              style={{
+                width: 24, height: 24, borderRadius: 'var(--r-pill)', backgroundColor: c,
+                boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3.5px ${c}` : 'none',
+                transition: 'all 150ms',
+              }} />
           ))}
         </div>
-        <button onClick={submit} disabled={saving || !title.trim()}
-          className="h-9 px-4 bg-primary text-primary-foreground rounded-md font-medium disabled:opacity-50 flex items-center gap-1.5 text-sm">
+        <button onClick={submit} disabled={saving || !title.trim()} className="btn btn-primary btn-sm">
           {saving && <Loader2 size={11} className="animate-spin" />}
-          <Plus size={15} /> Create
+          <Plus size={14} /> Create
         </button>
       </div>
     </div>
@@ -661,9 +631,10 @@ export default function Sprints() {
           {!creating ? (
             <button
               onClick={() => setCreating(true)}
-              className="w-full h-11 mb-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-1.5 font-medium text-sm"
+              className="btn btn-ghost w-full"
+              style={{ marginBottom: 16, justifyContent: 'center' }}
             >
-              <Plus size={16} /> New sprint
+              <Plus size={15} /> New sprint
             </button>
           ) : (
             <CreateSprintForm onCancel={() => setCreating(false)} onCreated={load} />

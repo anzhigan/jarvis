@@ -88,7 +88,7 @@ function scheduleLabel(t: RoutineScheduleType): string {
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 
 function KpiCard({
-  label, value, sub, icon, color = 'text-primary',
+  label, value, sub, icon, color = 'var(--fg-tertiary)',
 }: {
   label: string;
   value: string | number;
@@ -100,7 +100,7 @@ function KpiCard({
     <div className="kpi-card">
       <div className="flex items-start justify-between" style={{ marginBottom: 2 }}>
         <span className="kpi-label">{label}</span>
-        <span className={color} style={{ opacity: 0.7 }}>{icon}</span>
+        <span style={{ opacity: 0.6, color }}>{icon}</span>
       </div>
       <div className="kpi-value">{value}</div>
       {sub && <div className="kpi-trend" data-trend="neutral">{sub}</div>}
@@ -125,14 +125,12 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
 
   return (
     <div className="chart-card">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div>
-          <h3 className="text-sm font-semibold flex items-center gap-1.5">
-            <RepeatIcon size={14} className="text-primary" />
-            Daily habits — last {DAYS} days
-          </h3>
-          <p className="text-xs text-muted-foreground">Each row is a routine. Today on the left.</p>
-        </div>
+      <div className="chart-head">
+        <span className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <RepeatIcon size={14} style={{ color: 'var(--accent-routines)' }} />
+          Daily habits — last {DAYS} days
+        </span>
+        <span className="chart-meta">Today on the left</span>
       </div>
 
       <div className="space-y-3 overflow-x-auto">
@@ -162,41 +160,48 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
           return (
             <div key={r.id} className="flex items-center gap-3">
               <div className="w-32 md:w-40 flex-shrink-0 min-w-0">
-                <div className="text-xs font-medium truncate flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
+                <div className="flex items-center gap-1.5 min-w-0" style={{ fontSize: 12, fontWeight: 500 }}>
+                  <span className="flex-shrink-0" style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: r.color }} />
                   <span className="truncate">{r.title}</span>
                 </div>
-                <div className="text-[10px] text-muted-foreground flex items-center gap-1 flex-wrap">
+                <div className="flex items-center gap-1 flex-wrap" style={{ fontSize: 10, color: 'var(--fg-muted)', marginTop: 2 }}>
                   <span>{scheduleLabel(r.schedule_type)}</span>
                   {!r.is_paused && eligible > 0 && (
                     <>
                       <span>·</span>
-                      <span className="font-medium text-foreground">{done}/{eligible}</span>
+                      <span style={{ fontWeight: 500, color: 'var(--fg-primary)' }}>{done}/{eligible}</span>
                     </>
                   )}
-                  {r.is_paused && <span className="text-amber-600 dark:text-amber-400">paused</span>}
+                  {r.is_paused && <span style={{ color: 'var(--warning)' }}>paused</span>}
                 </div>
               </div>
               {/* Circles (matches Go DailyStreak style) */}
               <div className="flex gap-1 items-center min-w-0">
                 {cells.map((c) => {
-                  let cls = 'bg-muted/40';
+                  let cellStyle: React.CSSProperties;
                   let inner: React.ReactNode = null;
-                  let style: React.CSSProperties | undefined;
-                  if (c.before) cls = 'bg-muted/20';
+                  if (c.before) cellStyle = { background: 'rgba(0,0,0,0.03)' };
                   else if (c.value > 0) {
-                    cls = '';
-                    inner = <span className="text-white text-[8px]">✓</span>;
-                    style = { backgroundColor: r.color };
-                  } else if (c.isToday) cls = 'bg-card border-2 border-primary';
-                  else if (c.due) cls = 'bg-rose-400/40 dark:bg-rose-600/30';
-                  else cls = 'bg-muted/30';
+                    cellStyle = { backgroundColor: r.color };
+                    inner = <span style={{ color: 'white', fontSize: 8 }}>✓</span>;
+                  } else if (c.isToday) {
+                    cellStyle = { background: 'var(--bg-elevated)', boxShadow: 'inset 0 0 0 2px var(--accent-notes)' };
+                  } else if (c.due) {
+                    cellStyle = { background: 'rgba(188,74,72,0.20)' };
+                  } else {
+                    cellStyle = { background: 'rgba(0,0,0,0.05)' };
+                  }
                   return (
                     <div
                       key={c.date}
                       title={`${c.date}${c.before ? ' — before start' : (c.value > 0 ? ' — done' : c.due ? ' — missed' : ' — not due')}`}
-                      className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center transition-all ${cls} ${c.isToday ? 'scale-110' : ''}`}
-                      style={style}
+                      className="flex-shrink-0 flex items-center justify-center"
+                      style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        transition: 'all 150ms',
+                        transform: c.isToday ? 'scale(1.1)' : undefined,
+                        ...cellStyle,
+                      }}
                     >
                       {inner}
                     </div>
@@ -208,15 +213,15 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
         })}
       </div>
 
-      <div className="text-[10px] text-muted-foreground mt-3 pt-3 border-t border-border flex items-center gap-2 flex-wrap">
-        <span className="inline-flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full bg-emerald-500" /> done
+      <div className="flex items-center gap-3 flex-wrap" style={{ marginTop: 12, paddingTop: 12, boxShadow: 'inset 0 0.5px 0 var(--line)' }}>
+        <span className="chart-meta" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} /> done
         </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full bg-rose-400/40 dark:bg-rose-600/30" /> missed
+        <span className="chart-meta" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(188,74,72,0.25)', display: 'inline-block' }} /> missed
         </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full bg-muted/30" /> not due
+        <span className="chart-meta" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(0,0,0,0.05)', display: 'inline-block' }} /> not due
         </span>
       </div>
     </div>
@@ -273,18 +278,16 @@ function ProductivityTrend({ routines }: { routines: Routine[] }) {
 
   return (
     <div className="chart-card">
-      <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
-        <div>
-          <h3 className="text-sm font-semibold">Productivity trend</h3>
-          <p className="text-xs text-muted-foreground">Overall % + individual habits (30 days)</p>
-        </div>
-        <div className="flex items-center gap-1 text-xs">
-          {trend === 'up' && <><TrendingUp size={14} className="text-emerald-500" /><span className="text-emerald-500 font-medium">{Math.round(recentAvg)}%</span></>}
-          {trend === 'down' && <><TrendingDown size={14} className="text-rose-500" /><span className="text-rose-500 font-medium">{Math.round(recentAvg)}%</span></>}
-          {trend === 'flat' && <><Minus size={14} className="text-muted-foreground" /><span className="text-muted-foreground font-medium">{Math.round(recentAvg)}%</span></>}
-          <span className="text-muted-foreground">last 7d avg</span>
+      <div className="chart-head">
+        <span className="chart-title">Productivity trend</span>
+        <div className="flex items-center gap-1" style={{ fontSize: 10.5 }}>
+          {trend === 'up' && <><TrendingUp size={13} style={{ color: 'var(--success)' }} /><span style={{ color: 'var(--success)', fontWeight: 500 }}>{Math.round(recentAvg)}%</span></>}
+          {trend === 'down' && <><TrendingDown size={13} style={{ color: 'var(--danger)' }} /><span style={{ color: 'var(--danger)', fontWeight: 500 }}>{Math.round(recentAvg)}%</span></>}
+          {trend === 'flat' && <><Minus size={13} style={{ color: 'var(--fg-muted)' }} /><span style={{ color: 'var(--fg-muted)', fontWeight: 500 }}>{Math.round(recentAvg)}%</span></>}
+          <span className="chart-meta">last 7d avg</span>
         </div>
       </div>
+      <p className="chart-meta" style={{ marginBottom: 10 }}>Overall % + individual habits (30 days)</p>
       <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
@@ -297,7 +300,7 @@ function ProductivityTrend({ routines }: { routines: Routine[] }) {
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} interval={4} />
             <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
             <Tooltip
-              contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '12px' }}
+              contentStyle={{ backgroundColor: 'var(--bg-elevated)', boxShadow: 'var(--sh-popover)', borderRadius: 'var(--r-control)', fontSize: '12px', border: 'none' }}
               formatter={(v: number, _: string, ctx: any) => [`${v}% (${ctx.payload.done}/${ctx.payload.total})`, 'Done']}
             />
             {/* Per-routine subtle lines */}
@@ -320,15 +323,15 @@ function ProductivityTrend({ routines }: { routines: Routine[] }) {
         </ResponsiveContainer>
       </div>
       {topRoutines.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[10px]">
+        <div className="flex flex-wrap gap-x-3 gap-y-1" style={{ marginTop: 12 }}>
           <span className="inline-flex items-center gap-1">
-            <span className="w-3 h-0.5 bg-primary rounded" />
-            <span className="text-muted-foreground font-medium">Overall</span>
+            <span style={{ width: 12, height: 2, background: 'var(--fg-primary)', borderRadius: 1 }} />
+            <span className="chart-meta" style={{ fontWeight: 500 }}>Overall</span>
           </span>
           {topRoutines.map((r) => (
             <span key={r.id} className="inline-flex items-center gap-1">
-              <span className="w-3 h-0.5 rounded" style={{ backgroundColor: r.color, opacity: 0.6 }} />
-              <span className="text-muted-foreground truncate max-w-[80px]">{r.title}</span>
+              <span style={{ width: 12, height: 2, backgroundColor: r.color, borderRadius: 1, opacity: 0.6 }} />
+              <span className="chart-meta truncate" style={{ maxWidth: 80 }}>{r.title}</span>
             </span>
           ))}
         </div>
@@ -366,7 +369,10 @@ function GoalDistribution({ goals }: { goals: Task[] }) {
 
   return (
     <div className="chart-card">
-      <h3 className="text-sm font-semibold mb-3">Goals by status</h3>
+      <div className="chart-head">
+        <span className="chart-title">Goals by status</span>
+        <span className="chart-meta">{data.reduce((s, d) => s + d.value, 0)} total</span>
+      </div>
       <div className="flex items-center gap-4">
         <div className="w-32 h-32 flex-shrink-0">
           <ResponsiveContainer width="100%" height="100%">
@@ -438,10 +444,13 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
 
   return (
     <div className="chart-card">
-      <h3 className="text-sm font-semibold mb-3">Active timeline</h3>
+      <div className="chart-head">
+        <span className="chart-title">Active timeline</span>
+        <span className="chart-meta">{activeGoals.length + activeSprints.length} items</span>
+      </div>
 
       {/* Header with date labels */}
-      <div className="relative h-5 mb-2 text-[10px] text-muted-foreground">
+      <div className="relative h-5 mb-2" style={{ fontSize: 10, color: 'var(--fg-muted)' }}>
         {dayLabels.map((dl, i) => (
           <span
             key={i}
@@ -456,10 +465,10 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
       <div className="relative space-y-1.5">
         {/* Today indicator */}
         <div
-          className="absolute top-0 bottom-0 w-px bg-primary z-10"
-          style={{ left: `${todayPct}%` }}
+          className="absolute top-0 bottom-0 z-10"
+          style={{ left: `${todayPct}%`, width: 1, background: 'var(--fg-primary)' }}
         >
-          <span className="absolute -top-4 -translate-x-1/2 text-[9px] font-semibold text-primary">today</span>
+          <span className="absolute -translate-x-1/2" style={{ top: -18, fontSize: 9, fontWeight: 600, color: 'var(--fg-primary)' }}>today</span>
         </div>
 
         {items.map((it) => {
@@ -505,7 +514,10 @@ function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
 
   return (
     <div className="chart-card">
-      <h3 className="text-sm font-semibold mb-4">Active sprints</h3>
+      <div className="chart-head">
+        <span className="chart-title">Active sprints</span>
+        <span className="chart-meta">{active.length} running</span>
+      </div>
       <div className="space-y-4">
         {active.map((s) => {
           const start = new Date(s.start_date);
@@ -521,22 +533,27 @@ function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
             <div key={s.id} className="space-y-2">
               {/* Sprint header */}
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                <span className="text-sm font-semibold flex-1 truncate">{s.title}</span>
-                <span className="text-[11px] text-muted-foreground tabular-nums">
+                <span className="flex-shrink-0" style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: s.color }} />
+                <span className="flex-1 truncate" style={{ fontSize: 13, fontWeight: 500 }}>{s.title}</span>
+                <span className="chart-meta" style={{ fontVariantNumeric: 'tabular-nums' }}>
                   {Math.round(remaining)} day{Math.round(remaining) !== 1 ? 's' : ''} left
                 </span>
               </div>
-              {/* Apple-style timeline track */}
-              <div className="relative h-2 bg-muted/60 rounded-full overflow-hidden">
+              {/* Timeline track */}
+              <div className="relative overflow-hidden" style={{ height: 6, background: 'rgba(0,0,0,0.07)', borderRadius: 'var(--r-pill)' }}>
                 <div
-                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
-                  style={{ width: `${pct}%`, backgroundColor: s.color }}
+                  className="absolute inset-y-0 left-0 transition-all"
+                  style={{ width: `${pct}%`, backgroundColor: s.color, borderRadius: 'var(--r-pill)', transitionDuration: '700ms' }}
                 />
                 {/* Today marker */}
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-card transition-all"
-                  style={{ left: `calc(${pct}% - 6px)`, backgroundColor: s.color, boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}
+                  className="absolute"
+                  style={{
+                    left: `calc(${pct}% - 6px)`, top: '50%', transform: 'translateY(-50%)',
+                    width: 12, height: 12, borderRadius: 'var(--r-pill)',
+                    backgroundColor: s.color, boxShadow: `0 0 0 2px var(--bg-card)`,
+                    transition: 'all 150ms',
+                  }}
                 />
               </div>
               {/* Date labels + items */}
@@ -603,19 +620,19 @@ function YearHeatmap({ routines }: { routines: Routine[] }) {
     weeks[c.weekIdx].push(c);
   }
 
-  function shade(count: number): string {
-    if (count === 0) return 'bg-muted/40';
+  function shadeStyle(count: number): React.CSSProperties {
+    if (count === 0) return { background: 'rgba(0,0,0,0.05)' };
     const ratio = count / maxCount;
-    if (ratio > 0.66) return 'bg-emerald-500';
-    if (ratio > 0.33) return 'bg-emerald-500/70';
-    return 'bg-emerald-500/40';
+    if (ratio > 0.66) return { background: 'var(--success)' };
+    if (ratio > 0.33) return { background: 'rgba(29,158,117,0.70)' };
+    return { background: 'rgba(29,158,117,0.40)' };
   }
 
   return (
     <div className="chart-card">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h3 className="text-sm font-semibold">Year activity</h3>
-        <span className="text-xs text-muted-foreground">{totalDone} active days</span>
+      <div className="chart-head">
+        <span className="chart-title">Year activity</span>
+        <span className="chart-meta">{totalDone} active days</span>
       </div>
       <div className="overflow-x-auto">
         <div className="flex gap-[2px]" style={{ minWidth: '720px' }}>
@@ -623,12 +640,12 @@ function YearHeatmap({ routines }: { routines: Routine[] }) {
             <div key={wkIdx} className="flex flex-col gap-[2px]">
               {Array.from({ length: 7 }).map((_, day) => {
                 const cell = week.find((c) => c.weekday === day);
-                if (!cell) return <div key={day} className="w-2.5 h-2.5" />;
+                if (!cell) return <div key={day} style={{ width: 10, height: 10 }} />;
                 return (
                   <div
                     key={day}
                     title={`${cell.date}: ${cell.count} routine${cell.count !== 1 ? 's' : ''} done`}
-                    className={`w-2.5 h-2.5 rounded-sm ${shade(cell.count)}`}
+                    style={{ width: 10, height: 10, borderRadius: 3, ...shadeStyle(cell.count) }}
                   />
                 );
               })}
@@ -720,21 +737,21 @@ export default function Analysis() {
             value={kpis.doneGoals}
             sub={`out of ${goals.length}`}
             icon={<CheckCircle2 size={16} />}
-            color="text-emerald-500"
+            color="var(--success)"
           />
           <KpiCard
             label="Routines today"
             value={`${kpis.doneTodayCount}/${kpis.dueToday}`}
             sub="completed"
             icon={<RepeatIcon size={16} />}
-            color="text-violet-500"
+            color="var(--accent-analysis)"
           />
           <KpiCard
             label="Active sprints"
             value={kpis.activeSprints}
             sub={`${sprints.length} total`}
             icon={<Zap size={16} />}
-            color="text-amber-500"
+            color="var(--accent-goals)"
           />
         </div>
 

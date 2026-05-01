@@ -239,7 +239,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
       />
       {(() => {
         const cardBody = (
-    <div className={`group relative flex items-stretch rounded-md bg-card border border-border ${editing ? 'min-h-fit' : 'overflow-hidden'}`}>
+    <div className={`group relative goal-card flex items-stretch ${editing ? 'min-h-fit' : 'overflow-hidden'}`}>
         <div className="w-1 flex-shrink-0" style={{ backgroundColor: stripeColor }} />
         <div className="flex-1 p-2.5 min-w-0">
           <div className="flex items-center gap-2">
@@ -247,9 +247,8 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
               <button
                 onClick={toggle}
                 disabled={busy}
-                className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                  isDone ? 'bg-primary border-primary' : 'border-border hover:border-primary/50'
-                }`}
+                className="w-6 h-6 rounded-md flex items-center justify-center transition-all flex-shrink-0"
+                style={{ boxShadow: isDone ? `0 0 0 2px var(--accent-primary)` : '0 0 0 1.5px var(--line)', background: isDone ? 'var(--accent-primary)' : 'transparent' }}
               >
                 {busy ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> :
                  isDone ? <Check size={13} className="text-primary-foreground" /> : null}
@@ -308,45 +307,26 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
               style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
             >
               <div
-                className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-fadeIn"
+                className="modal-panel w-full max-w-md animate-fadeIn"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <div className="px-5 py-4 flex items-center justify-between" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
                   <h3 className="text-base font-semibold">Edit Go</h3>
-                  <button
-                    onClick={() => setEditing(false)}
-                    className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-secondary"
-                  >✕</button>
+                  <button onClick={() => setEditing(false)} className="icon-btn icon-btn-sm">✕</button>
                 </div>
                 <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Title</label>
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      autoFocus
-                      className="w-full h-10 px-3 text-sm bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/30"
-                    />
+                    <label className="text-label block mb-1">Title</label>
+                    <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} autoFocus className="input w-full" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Description</label>
-                    <textarea
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      placeholder={t('tasks.descriptionPh')}
-                      rows={3}
-                      className="w-full px-3 py-2 text-sm bg-input-background border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring/30"
-                    />
+                    <label className="text-label block mb-1">Description</label>
+                    <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder={t('tasks.descriptionPh')} rows={3} className="textarea w-full" />
                   </div>
                   {availableSprints && availableSprints.length > 0 && (
                     <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Attach to step</label>
-                      <select
-                        value={editSprintId}
-                        onChange={(e) => setEditSprintId(e.target.value)}
-                        className="w-full h-10 px-3 text-sm bg-input-background border border-border rounded-lg"
-                      >
+                      <label className="text-label block mb-1">Attach to step</label>
+                      <select value={editSprintId} onChange={(e) => setEditSprintId(e.target.value)} className="select-base w-full">
                         <option value="">— No step —</option>
                         {availableSprints.map((s) => (
                           <option key={s.id} value={s.id}>↳ {s.title}</option>
@@ -356,40 +336,25 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
                   )}
                   {go.recurrence === 'none' && (
                     <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Due date</label>
-                      <input
-                        type="date"
-                        value={editDue}
-                        onChange={(e) => setEditDue(e.target.value)}
-                        className="w-full h-10 px-3 text-sm bg-input-background border border-border rounded-lg"
-                      />
+                      <label className="text-label block mb-1">Due date</label>
+                      <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} className="input w-full" />
                     </div>
                   )}
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1.5">Color</label>
+                    <label className="text-label block mb-1.5">Color</label>
                     <div className="flex gap-2 flex-wrap">
                       {GO_COLORS.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={(e) => { e.preventDefault(); setEditColor(c); }}
-                          className={`w-9 h-9 rounded-full transition-all active:scale-90 ${editColor === c ? 'ring-2 ring-offset-2 ring-ring' : ''}`}
-                          style={{ backgroundColor: c }}
+                        <button key={c} type="button" onClick={(e) => { e.preventDefault(); setEditColor(c); }}
+                          className="w-9 h-9 rounded-full transition-all active:scale-90"
+                          style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }}
                         />
                       ))}
                     </div>
                   </div>
                 </div>
-                <div className="px-5 py-3 border-t border-border flex gap-2 justify-end">
-                  <button
-                    onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }}
-                    className="h-10 px-4 rounded-lg text-sm font-medium bg-secondary text-foreground hover:bg-secondary/80 active:scale-95 transition-all"
-                  >Cancel</button>
-                  <button
-                    onClick={saveEdit}
-                    disabled={busy || !editTitle.trim()}
-                    className="h-10 px-5 rounded-lg text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50 hover:bg-primary-hover flex items-center gap-1.5 active:scale-95 transition-all"
-                  >
+                <div className="px-5 py-3 flex gap-2 justify-end" style={{ boxShadow: 'inset 0 0.5px 0 var(--line)' }}>
+                  <button onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }} className="btn btn-secondary">Cancel</button>
+                  <button onClick={saveEdit} disabled={busy || !editTitle.trim()} className="btn btn-primary flex items-center gap-1.5">
                     {busy && <Loader2 size={14} className="animate-spin" />}Save
                   </button>
                 </div>
@@ -400,7 +365,7 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
           {go.kind === 'numeric' && !editing && (
             <>
               {go.target_value && go.target_value > 0 && (
-                <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
                   <div className="h-full transition-all" style={{ width: `${numericPct}%`, backgroundColor: stripeColor }} />
                 </div>
               )}
@@ -409,18 +374,13 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
                   type="number" inputMode="decimal" placeholder="+value"
                   value={numInput} onChange={(e) => setNumInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && logNumeric()}
-                  className="w-20 h-8 px-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                  className="input"
+                  style={{ width: 80, height: 32 }}
                 />
                 {steps.map((step) => (
-                  <button
-                    key={step} onClick={() => logNumeric(step)} disabled={busy}
-                    className="h-8 px-2 text-xs bg-secondary border border-border rounded-md hover:bg-secondary/80 disabled:opacity-50 font-medium"
-                  >+{step}</button>
+                  <button key={step} onClick={() => logNumeric(step)} disabled={busy} className="btn btn-secondary btn-sm">+{step}</button>
                 ))}
-                <button
-                  onClick={() => logNumeric()} disabled={busy || !numInput}
-                  className="h-8 px-2.5 text-xs bg-primary text-primary-foreground rounded-md disabled:opacity-40 font-medium"
-                >Log</button>
+                <button onClick={() => logNumeric()} disabled={busy || !numInput} className="btn btn-primary btn-sm">Log</button>
               </div>
             </>
           )}
@@ -494,32 +454,33 @@ function DailyStreak({ go }: { go: Go }) {
       </div>
       <div className="flex gap-1 items-end">
         {ordered.map((s) => {
-          let cls = 'bg-muted/60';   // before creation / not done
+          let cellStyle: React.CSSProperties = { background: 'color-mix(in srgb, var(--fg-muted) 20%, transparent)' };
           let inner: React.ReactNode = null;
           let title = s.date;
           if (s.beforeCreation) {
-            cls = 'bg-muted/30';
+            cellStyle = { background: 'color-mix(in srgb, var(--fg-muted) 10%, transparent)' };
             title = `${s.date} — before start`;
           } else if (s.value > 0) {
-            cls = 'bg-emerald-500';
-            inner = <span className="text-white text-[8px]">✓</span>;
+            cellStyle = { background: 'var(--success)' };
+            inner = <span style={{ color: '#fff', fontSize: 8 }}>✓</span>;
             title = `${s.date} — done`;
           } else if (s.isToday) {
-            cls = 'bg-card border-2 border-primary';
+            cellStyle = { background: 'var(--bg-card)', boxShadow: `0 0 0 2px var(--accent-primary)` };
             title = `${s.date} — today (not yet)`;
           } else {
-            cls = 'bg-rose-400/40 dark:bg-rose-600/30 border border-rose-400/30';
+            cellStyle = { background: 'color-mix(in srgb, var(--danger) 30%, transparent)' };
             title = `${s.date} — missed`;
           }
           return (
             <div key={s.date} className="flex flex-col items-center gap-0.5">
               <div
                 title={title}
-                className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${cls} ${s.isToday ? 'scale-110' : ''}`}
+                className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${s.isToday ? 'scale-110' : ''}`}
+                style={cellStyle}
               >
                 {inner}
               </div>
-              <span className={`text-[8px] ${s.isToday ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+              <span className={`text-[8px] ${s.isToday ? 'font-semibold' : ''}`} style={{ color: s.isToday ? 'var(--fg-primary)' : 'var(--fg-muted)' }}>
                 {wkLabels[s.weekdayIdx]}
               </span>
             </div>
@@ -595,56 +556,42 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
       />
       {(() => {
         const sprintCard = (
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="goal-card overflow-hidden">
         <div className="flex items-stretch">
           <div className="w-1 flex-shrink-0" style={{ backgroundColor: sprint.color }} />
           <div className="flex-1 min-w-0">
             <div className="p-3">
               {editing ? (
                 <div className="space-y-2">
-                  <input
-                    type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full h-9 px-2.5 text-sm font-medium bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                  />
+                  <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="input w-full" />
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground">{t("tasks.start")}</label>
-                      <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)}
-                        className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md" />
+                      <label className="text-label">{t("tasks.start")}</label>
+                      <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="input w-full" />
                     </div>
                     <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground">End</label>
-                      <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)}
-                        className="w-full h-8 px-2 text-sm bg-input-background border border-border rounded-md" />
+                      <label className="text-label">End</label>
+                      <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className="input w-full" />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground">Description</label>
-                    <textarea
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      placeholder="Sprint notes…"
-                      rows={2}
-                      className="w-full px-2 py-1.5 text-sm bg-input-background border border-border rounded-md resize-y"
-                    />
+                    <label className="text-label">Description</label>
+                    <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Sprint notes…" rows={2} className="textarea w-full" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground block mb-1">Color</label>
+                    <label className="text-label block mb-1">Color</label>
                     <div className="flex gap-1">
                       {ENTITY_COLORS.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => setEditColor(c)}
-                          className={`w-7 h-7 rounded-full ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-                          style={{ backgroundColor: c }}
+                        <button key={c} type="button" onClick={() => setEditColor(c)}
+                          className="w-7 h-7 rounded-full"
+                          style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3px ${c}` : 'none' }}
                         />
                       ))}
                     </div>
                   </div>
                   <div className="flex justify-end gap-1.5">
-                    <button onClick={() => setEditing(false)} className="h-8 px-2 text-xs text-muted-foreground">Cancel</button>
-                    <button onClick={save} disabled={busy} className="h-8 px-3 bg-primary text-primary-foreground rounded text-xs font-medium disabled:opacity-50 flex items-center gap-1">
+                    <button onClick={() => setEditing(false)} className="btn btn-ghost btn-sm">Cancel</button>
+                    <button onClick={save} disabled={busy} className="btn btn-primary btn-sm flex items-center gap-1">
                       {busy && <Loader2 size={11} className="animate-spin" />}Save
                     </button>
                   </div>
@@ -661,12 +608,8 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                     </button>
                     <span className="text-xs font-semibold text-muted-foreground flex-shrink-0">{sprint.progress}%</span>
                     <div className="hidden md:flex items-center gap-0.5 transition-all">
-                      <button onClick={() => setEditing(true)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground">
-                        <Pencil size={12} />
-                      </button>
-                      <button onClick={() => setConfirmDelete(true)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
-                        <Trash2 size={12} />
-                      </button>
+                      <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm"><Pencil size={12} /></button>
+                      <button onClick={() => setConfirmDelete(true)} className="icon-btn icon-btn-sm" style={{ '--icon-btn-hover-bg': 'color-mix(in srgb, var(--danger) 10%, transparent)', '--icon-btn-hover-color': 'var(--danger)' } as React.CSSProperties}><Trash2 size={12} /></button>
                     </div>
                   </div>
                   <div className="text-[11px] text-muted-foreground mb-2">
@@ -676,7 +619,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                   {sprint.description && sprint.description.trim() && (
                     <p className="text-[11px] text-muted-foreground mb-2 whitespace-pre-wrap">{sprint.description}</p>
                   )}
-                  <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-2">
+                  <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: 'var(--bg-hover)' }}>
                     <div className="h-full transition-all" style={{ width: `${sprint.progress}%`, backgroundColor: sprint.color }} />
                   </div>
                 </>
@@ -701,7 +644,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                 {!addingGo ? (
                   <button
                     onClick={() => setAddingGo(true)}
-                    className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
+                    className="btn btn-ghost btn-sm w-full"
                   >
                     <Plus size={12} /> {t('tasks.addGo')}
                   </button>
@@ -774,60 +717,38 @@ function CreateGoForm({
   };
 
   return (
-    <div className="p-2.5 bg-card border border-border rounded-md space-y-2">
-      <input
-        type="text" placeholder="Go title (e.g. Solve 50 problems)"
-        value={title} onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && submit()} autoFocus
-        className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-      />
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder={t('tasks.descriptionPh')}
-        rows={2}
-        className="w-full px-2.5 py-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-none"
-      />
+    <div className="panel-card p-2.5 space-y-2">
+      <input type="text" placeholder="Go title (e.g. Solve 50 problems)" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} autoFocus className="input w-full" />
+      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('tasks.descriptionPh')} rows={2} className="textarea w-full" />
       <div className="flex flex-wrap gap-1.5">
-        <select value={kind} onChange={(e) => setKind(e.target.value as GoKind)}
-          className="h-9 px-2 text-sm bg-input-background border border-border rounded-md">
+        <select value={kind} onChange={(e) => setKind(e.target.value as GoKind)} className="select-base">
           <option value="boolean">Done / Not done</option>
           <option value="numeric">Numeric</option>
         </select>
         {kind === 'numeric' && <>
-          <input type="text" placeholder="Unit (pages)" value={unit} onChange={(e) => setUnit(e.target.value)}
-            className="w-24 h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
-          <input type="number" placeholder="Target" value={target} onChange={(e) => setTarget(e.target.value)}
-            className="w-20 h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
+          <input type="text" placeholder="Unit (pages)" value={unit} onChange={(e) => setUnit(e.target.value)} className="input" style={{ width: 96 }} />
+          <input type="number" placeholder="Target" value={target} onChange={(e) => setTarget(e.target.value)} className="input" style={{ width: 80 }} />
         </>}
-        <input type="date" value={due} onChange={(e) => setDue(e.target.value)}
-          className="h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
+        <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="input" />
         {availableSprints && availableSprints.length > 0 && !defaultSprintId && (
-          <select value={sprintId} onChange={(e) => setSprintId(e.target.value)}
-            className="h-9 px-2 text-sm bg-input-background border border-border rounded-md max-w-[200px]">
+          <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="select-base" style={{ maxWidth: 200 }}>
             <option value="">No sprint</option>
-            {availableSprints.map((s) => (
-              <option key={s.id} value={s.id}>↳ {s.title}</option>
-            ))}
+            {availableSprints.map((s) => (<option key={s.id} value={s.id}>↳ {s.title}</option>))}
           </select>
         )}
       </div>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex gap-1">
           {GO_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={(e) => { e.preventDefault(); setColor(c); }}
-              className={`w-7 h-7 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-              style={{ backgroundColor: c }}
+            <button key={c} type="button" onClick={(e) => { e.preventDefault(); setColor(c); }}
+              className="w-7 h-7 rounded-full transition-all"
+              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3px ${c}` : 'none' }}
             />
           ))}
         </div>
         <div className="flex gap-1.5">
-          <button onClick={onCancel} className="h-8 px-2 text-sm text-muted-foreground">Cancel</button>
-          <button onClick={submit} disabled={saving || !title.trim()}
-            className="h-8 px-3 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50 flex items-center gap-1">
+          <button onClick={onCancel} className="btn btn-ghost btn-sm">Cancel</button>
+          <button onClick={submit} disabled={saving || !title.trim()} className="btn btn-primary btn-sm flex items-center gap-1">
             {saving && <Loader2 size={11} className="animate-spin" />}Create
           </button>
         </div>
@@ -891,40 +812,28 @@ function CreateSprintForm({
   };
 
   return (
-    <div className="p-3 bg-card border border-border rounded-md space-y-2">
-      <input
-        type="text" placeholder={t('sprint.titlePh')}
-        value={title} onChange={(e) => setTitle(e.target.value)} autoFocus
-        className="w-full h-9 px-2.5 text-sm bg-input-background border border-border rounded-md"
-      />
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder={t('sprint.notesPh')}
-        rows={2}
-        className="w-full px-2.5 py-2 text-sm bg-input-background border border-border rounded-md resize-none"
-      />
+    <div className="panel-card p-3 space-y-2">
+      <input type="text" placeholder={t('sprint.titlePh')} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus className="input w-full" />
+      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('sprint.notesPh')} rows={2} className="textarea w-full" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="min-w-0">
-          <label className="text-[10px] text-muted-foreground">{t("tasks.start")}</label>
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
+          <label className="text-label">{t("tasks.start")}</label>
+          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="input w-full" />
         </div>
         <div className="min-w-0">
-          <label className="text-[10px] text-muted-foreground">{t('sprint.end')}</label>
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md" />
+          <label className="text-label">{t('sprint.end')}</label>
+          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="input w-full" />
         </div>
       </div>
       {availableGos.length > 0 && (
         <div>
-          <div className="text-[10px] text-muted-foreground mb-1">Attach existing Go items:</div>
-          <div className="max-h-40 overflow-y-auto border border-border rounded-md">
+          <div className="text-label mb-1">Attach existing Go items:</div>
+          <div className="max-h-40 overflow-y-auto" style={{ borderRadius: 'var(--r-control)', boxShadow: '0 0 0 0.5px var(--line)' }}>
             {availableGos.map((g) => (
-              <label key={g.id} className="flex items-center gap-2 p-1.5 text-xs hover:bg-secondary cursor-pointer">
+              <label key={g.id} className="flex items-center gap-2 p-1.5 text-xs cursor-pointer hover:bg-secondary">
                 <input type="checkbox" checked={toAttach.has(g.id)} onChange={() => toggleAttach(g.id)} />
                 <span className="truncate flex-1">{g.title}</span>
-                {g.due_date && <span className="text-muted-foreground">{formatDate(g.due_date)}</span>}
+                {g.due_date && <span style={{ color: 'var(--fg-muted)' }}>{formatDate(g.due_date)}</span>}
               </label>
             ))}
           </div>
@@ -932,19 +841,15 @@ function CreateSprintForm({
       )}
       <div className="flex gap-1 flex-wrap">
         {ENTITY_COLORS.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={(e) => { e.preventDefault(); setColor(c); }}
-            className={`w-7 h-7 rounded-full transition-all active:scale-90 ${color === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-            style={{ backgroundColor: c }}
+          <button key={c} type="button" onClick={(e) => { e.preventDefault(); setColor(c); }}
+            className="w-7 h-7 rounded-full transition-all active:scale-90"
+            style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3px ${c}` : 'none' }}
           />
         ))}
       </div>
       <div className="flex gap-1.5 justify-end">
-        <button onClick={onCancel} type="button" className="pill" data-active="false">Cancel</button>
-        <button onClick={submit} disabled={saving || !title.trim() || !start || !end} type="button"
-          className="h-8 px-4 bg-primary text-primary-foreground rounded-full text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 hover:bg-primary-hover transition-all active:scale-95">
+        <button onClick={onCancel} type="button" className="btn btn-ghost btn-sm">Cancel</button>
+        <button onClick={submit} disabled={saving || !title.trim() || !start || !end} type="button" className="btn btn-primary btn-sm flex items-center gap-1.5">
           {saving && <Loader2 size={11} className="animate-spin" />}<Plus size={12} /> Create
         </button>
       </div>
@@ -1028,7 +933,7 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
               const { done, total, pct } = computeConsistency(link);
               return (
                 <div key={link.id}
-                  className={`p-2 bg-card border border-border rounded-md ${r.is_paused ? 'opacity-60' : ''}`}>
+                  className={`goal-card p-2 ${r.is_paused ? 'opacity-60' : ''}`}>
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className="w-1 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
                     <span className="text-sm flex-1 truncate">{r.title}</span>
@@ -1045,14 +950,14 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
                       <X size={11} />
                     </button>
                   </div>
-                  <div className="h-1 bg-muted rounded-full overflow-hidden">
+                  <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
                     <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: r.color }} />
                   </div>
                 </div>
               );
             }) : linkedRoutines.map((r) => (
               <div key={r.id}
-                className={`flex items-center gap-2 p-2 bg-card border border-border rounded-md ${r.is_paused ? 'opacity-60' : ''}`}>
+                className={`goal-card flex items-center gap-2 p-2 ${r.is_paused ? 'opacity-60' : ''}`}>
                 <span className="w-1 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
                 <span className="text-sm flex-1 truncate">{r.title}</span>
                 <span className="text-[10px] text-muted-foreground capitalize">{r.schedule_type.replace('_', ' ')}</span>
@@ -1067,16 +972,15 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
         <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4"
           style={{ backdropFilter: 'blur(4px)' }}
           onClick={() => setShowLinkPicker(false)}>
-          <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl"
+          <div className="modal-panel w-full max-w-md"
             onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+            <div className="px-5 py-4 flex items-center justify-between" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
               <h3 className="text-base font-semibold">Link a routine</h3>
-              <button onClick={() => setShowLinkPicker(false)}
-                className="w-8 h-8 rounded-md text-muted-foreground hover:bg-secondary">✕</button>
+              <button onClick={() => setShowLinkPicker(false)} className="icon-btn icon-btn-sm">✕</button>
             </div>
             <div className="p-5 max-h-[60vh] overflow-y-auto">
               {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-6">
+                <div className="text-sm text-center py-6" style={{ color: 'var(--fg-muted)' }}>
                   No more routines to link. Create one in the Routines section first.
                 </div>
               ) : (
@@ -1101,7 +1005,7 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
                           toast.success(`Linked "${r.title}"`);
                         } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
                       }}
-                      className="w-full flex items-center gap-2 p-3 bg-card border border-border rounded-lg hover:bg-secondary transition-all active:scale-95"
+                      className="goal-card w-full flex items-center gap-2 p-3 hover:bg-secondary transition-all active:scale-95"
                     >
                       <span className="w-1.5 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
                       <div className="flex-1 text-left min-w-0">
@@ -1123,8 +1027,8 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
             <span className="font-medium text-muted-foreground"></span>
             <span className="font-semibold">{task.progress}%</span>
           </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+            <div className="h-full transition-all" style={{ width: `${task.progress}%`, background: 'var(--accent-primary)' }} />
           </div>
         </div>
       )}
@@ -1249,101 +1153,103 @@ function TaskCard({
   const cardBody = (
     <>
       {editing ? (
-        <div className="p-4 space-y-2.5">
+        <div style={{ padding: '14px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input
             type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditing(false); }}
-            className="w-full h-10 px-3 text-base md:text-sm rounded-lg border border-border bg-input-background" autoFocus
+            className="input" autoFocus
           />
           <select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
-            className="w-full h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm">
+            className="select-base">
             <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
           </select>
           <div className="flex flex-wrap gap-2">
             <div className="flex-1 min-w-0">
-              <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
-              <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)}
-                className="w-full h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm" />
+              <div className="text-label" style={{ marginBottom: 4 }}>{t("tasks.start")}</div>
+              <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="input" />
             </div>
             <div className="flex-1 min-w-0">
-              <label className="text-[11px] text-muted-foreground">{t("tasks.due")}</label>
-              <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)}
-                className="w-full h-10 md:h-9 px-3 rounded-lg border border-border bg-input-background text-sm" />
+              <div className="text-label" style={{ marginBottom: 4 }}>{t("tasks.due")}</div>
+              <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} className="input" />
             </div>
           </div>
           <div>
-            <label className="text-[11px] text-muted-foreground">Description</label>
+            <div className="text-label" style={{ marginBottom: 4 }}>Description</div>
             <textarea
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               placeholder="Notes, context, details…"
               rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-input-background resize-y min-h-[70px]"
+              className="textarea"
             />
           </div>
-          <div className="flex gap-2 justify-end pt-1">
-            <button onClick={() => setEditing(false)} className="h-9 px-3 text-sm text-muted-foreground">Cancel</button>
-            <button onClick={saveEdit} disabled={editSaving || !editTitle.trim()}
-              className="h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50 flex items-center gap-1.5">
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setEditing(false)} className="btn btn-secondary btn-sm">Cancel</button>
+            <button onClick={saveEdit} disabled={editSaving || !editTitle.trim()} className="btn btn-primary btn-sm">
               {editSaving && <Loader2 size={12} className="animate-spin" />}Save
             </button>
           </div>
         </div>
       ) : (
         <>
-          <div className="p-4 md:p-3.5">
-            <div className="flex items-start gap-2 mb-2">
-              <h4 className="flex-1 min-w-0 text-base md:text-sm font-medium leading-snug">{task.title}</h4>
+          <div style={{ padding: '12px 13px' }}>
+            <div className="flex items-start gap-2" style={{ marginBottom: 6 }}>
+              <h4 className="goal-card-title" style={{ margin: 0, flex: 1 }}>{task.title}</h4>
               {!isMobile && (
-                <div className="flex items-center gap-0.5 transition-all">
-                  <button onClick={(e) => { e.stopPropagation(); startEdit(); }}
-                    className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground">
-                    <Pencil size={13} />
+                <div className="flex items-center gap-0.5">
+                  <button onClick={(e) => { e.stopPropagation(); startEdit(); }} className="icon-btn icon-btn-sm">
+                    <Pencil size={12} />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                    className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
-                    <X size={14} />
+                  <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="icon-btn icon-btn-sm" style={{ color: 'var(--danger)' }}>
+                    <X size={13} />
                   </button>
                 </div>
               )}
             </div>
             {task.description && task.description.trim() && (
-              <p className="text-xs text-muted-foreground mb-2 whitespace-pre-wrap">{task.description}</p>
+              <p className="goal-card-meta" style={{ marginBottom: 6, whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{task.description}</p>
             )}
 
-            <div className="mb-2.5">
+            <div style={{ marginBottom: 8 }}>
               <TagSelector targetId={task.id} targetKind="task" tags={task.tags ?? []} onChange={onReload} compact />
             </div>
 
             {hasContent && (
-              <div className="mb-2 flex items-center gap-2">
-                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary transition-all duration-500" style={{ width: `${task.progress}%` }} />
+              <div className="goal-card-progress" style={{ marginBottom: 8 }}>
+                <div className="goal-card-bar">
+                  <div className="goal-card-bar-fill" style={{ width: `${task.progress}%`, background: 'var(--accent-goals)' }} />
                 </div>
-                <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">{task.progress}%</span>
+                <span className="goal-card-pct">{task.progress}%</span>
               </div>
             )}
 
-            <div className="flex items-center justify-between">
-              <div className={`flex items-center gap-2 text-sm md:text-xs ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
-                {periodLabel && <span className="flex items-center gap-1"><Calendar size={13} />{periodLabel}</span>}
-                <PriorityStars priority={task.priority} size={11} />
+            <div className="goal-card-meta" style={{ marginTop: 0, justifyContent: 'space-between' }}>
+              <div className="flex items-center gap-2" style={{ color: isOverdue ? 'var(--danger)' : 'var(--fg-muted)' }}>
+                {periodLabel && <span className="flex items-center gap-1"><Calendar size={11} />{periodLabel}</span>}
+                <PriorityStars priority={task.priority} size={10} />
               </div>
               <select value={task.status}
                 onChange={(e) => onUpdate({ status: e.target.value as TaskStatus })}
                 onClick={(e) => e.stopPropagation()}
-                className="text-sm md:text-xs bg-transparent border-0 focus:outline-none text-muted-foreground cursor-pointer">
+                style={{ background: 'transparent', border: 0, color: 'var(--fg-muted)', fontSize: 10, cursor: 'pointer' }}>
                 {STATUSES.map((s) => <option key={s.key} value={s.key}>{t(s.labelKey)}</option>)}
               </select>
             </div>
           </div>
 
           <button onClick={() => setExpanded(!expanded)}
-            className="w-full px-4 md:px-3.5 py-2.5 md:py-2 border-t border-border flex items-center gap-1.5 text-sm md:text-xs text-muted-foreground hover:bg-secondary/50">
-            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <Zap size={13} />
+            className="w-full flex items-center gap-1.5"
+            style={{
+              padding: '10px 14px 10px',
+              boxShadow: 'inset 0 0.5px 0 var(--line)',
+              fontSize: 11, color: 'var(--fg-muted)',
+              background: 'transparent',
+            }}
+          >
+            {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            <Zap size={12} />
             <span>{t('tasks.sprintsAndGos')}</span>
-            <span className="ml-auto px-1.5 py-0.5 rounded-full bg-muted text-[11px] md:text-[10px] font-medium">
+            <span style={{ marginLeft: 'auto', background: 'var(--bg-hover)', borderRadius: 'var(--r-pill)', padding: '1px 7px', fontSize: 10, fontWeight: 500 }}>
               {task.sprints.length + task.gos.length}
             </span>
           </button>
@@ -1468,17 +1374,15 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold">{t('tasks.goTab')}</h1>
         {!adding && (
-          <button onClick={() => setAdding(true)}
-            className="h-8 px-3 flex items-center gap-1.5 text-sm bg-primary text-primary-foreground rounded-md font-medium">
+          <button onClick={() => setAdding(true)} className="btn btn-primary btn-sm flex items-center gap-1.5">
             <Plus size={14} /> {t('tasks.addGo')}
           </button>
         )}
       </div>
 
       {adding && (
-        <div className="space-y-2 p-3 bg-card border border-border rounded-xl">
-          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
+        <div className="panel-card space-y-2 p-3">
+          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)} className="select-base w-full">
             <option value="">{t('go.standalone')}</option>
             {tasks.map((task) => (<option key={task.id} value={task.id}>{task.title}</option>))}
           </select>
@@ -1496,7 +1400,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
       )}
 
       {/* Past */}
-      <div className="border-b border-border pb-3">
+      <div className="pb-3" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
         <button onClick={() => setPastOpen(!pastOpen)}
           className="w-full flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           {pastOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -1512,8 +1416,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
                 availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
                 onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
             ))}
-            <button onClick={() => setPastDays(pastDays + 30)}
-              className="w-full h-8 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md">
+            <button onClick={() => setPastDays(pastDays + 30)} className="btn btn-ghost btn-sm w-full">
               {t('go.showOlder', { days: pastDays })}
             </button>
           </div>
@@ -1662,17 +1565,15 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold">{t('tasks.sprintTab')}</h1>
         {!adding && (
-          <button onClick={() => setAdding(true)}
-            className="h-8 px-3 flex items-center gap-1.5 text-sm bg-primary text-primary-foreground rounded-md font-medium">
+          <button onClick={() => setAdding(true)} className="btn btn-primary btn-sm flex items-center gap-1.5">
             <Plus size={14} /> {t('tasks.addSprint')}
           </button>
         )}
       </div>
 
       {adding && (
-        <div className="space-y-2 p-3 bg-card border border-border rounded-xl">
-          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)}
-            className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md">
+        <div className="panel-card space-y-2 p-3">
+          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)} className="select-base w-full">
             <option value="">{t('sprint.pickTask')}</option>
             {tasks.map((task) => (<option key={task.id} value={task.id}>{task.title}</option>))}
           </select>
@@ -1688,7 +1589,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
       )}
 
       {/* Past */}
-      <div className="border-b border-border pb-3">
+      <div className="pb-3" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
         <button onClick={() => setPastOpen(!pastOpen)}
           className="w-full flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           {pastOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -1703,8 +1604,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
               const taskSprints = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
               return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
             })}
-            <button onClick={() => setPastDays(pastDays + 90)}
-              className="w-full h-8 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md">
+            <button onClick={() => setPastDays(pastDays + 90)} className="btn btn-ghost btn-sm w-full">
               {t('go.showOlder', { days: pastDays })}
             </button>
           </div>
@@ -1913,40 +1813,34 @@ export default function Tasks() {
 
       {goalCompletion && (
         <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4" onClick={() => setGoalCompletion(null)}>
-          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-panel max-w-md w-full p-5" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-semibold mb-1">Goal completed 🎉</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>
               This goal has {goalCompletion.routines.length} active routine{goalCompletion.routines.length > 1 ? 's' : ''} linked to it. What would you like to do?
             </p>
             <div className="space-y-2 mb-4 max-h-32 overflow-y-auto">
               {goalCompletion.routines.map((r: Routine) => (
-                <div key={r.id} className="flex items-center gap-2 text-sm p-2 bg-muted/40 rounded-md">
+                <div key={r.id} className="flex items-center gap-2 text-sm p-2" style={{ borderRadius: 'var(--r-control)', background: 'var(--bg-hover)' }}>
                   <span className="w-1 h-4 rounded-full" style={{ backgroundColor: r.color }} />
                   <span className="truncate">{r.title}</span>
                 </div>
               ))}
             </div>
             <div className="space-y-2">
-              <button onClick={() => completeGoalWithChoice(goalCompletion.taskId, 'keep_active')}
-                className="w-full text-left p-3 rounded-md border border-border hover:bg-secondary transition-colors">
+              <button onClick={() => completeGoalWithChoice(goalCompletion.taskId, 'keep_active')} className="goal-card w-full text-left p-3 hover:bg-secondary transition-colors">
                 <div className="text-sm font-medium">Keep routines active</div>
-                <div className="text-xs text-muted-foreground">They continue independently</div>
+                <div className="text-xs" style={{ color: 'var(--fg-muted)' }}>They continue independently</div>
               </button>
-              <button onClick={() => completeGoalWithChoice(goalCompletion.taskId, 'unlink')}
-                className="w-full text-left p-3 rounded-md border border-border hover:bg-secondary transition-colors">
+              <button onClick={() => completeGoalWithChoice(goalCompletion.taskId, 'unlink')} className="goal-card w-full text-left p-3 hover:bg-secondary transition-colors">
                 <div className="text-sm font-medium">Unlink from goal</div>
-                <div className="text-xs text-muted-foreground">Routines stay active but no longer tied to this goal</div>
+                <div className="text-xs" style={{ color: 'var(--fg-muted)' }}>Routines stay active but no longer tied to this goal</div>
               </button>
-              <button onClick={() => completeGoalWithChoice(goalCompletion.taskId, 'finish_all')}
-                className="w-full text-left p-3 rounded-md border border-border hover:bg-secondary transition-colors">
+              <button onClick={() => completeGoalWithChoice(goalCompletion.taskId, 'finish_all')} className="goal-card w-full text-left p-3 hover:bg-secondary transition-colors">
                 <div className="text-sm font-medium">Pause routines</div>
-                <div className="text-xs text-muted-foreground">Mark routines as paused along with the goal</div>
+                <div className="text-xs" style={{ color: 'var(--fg-muted)' }}>Mark routines as paused along with the goal</div>
               </button>
             </div>
-            <button onClick={() => setGoalCompletion(null)}
-              className="w-full mt-3 h-9 text-sm text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary">
-              Cancel
-            </button>
+            <button onClick={() => setGoalCompletion(null)} className="btn btn-ghost w-full mt-3">Cancel</button>
           </div>
         </div>
       )}
@@ -1968,56 +1862,41 @@ export default function Tasks() {
 
           <div className="mb-5" style={{ display: 'none' }}>
             {/* Old tabs hidden, kept for ref */}
-            <div className="hidden md:flex text-sm bg-muted rounded-md p-0.5 w-fit">
-              <button onClick={() => setView('tasks')}
-                className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'tasks' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
-                <TargetIcon size={14} /> {t('tasks.tasksTab')}
-              </button>
-              <button onClick={() => setView('go')}
-                className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'go' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
-                <ListTodo size={14} /> {t('tasks.goTab')}
-              </button>
-              <button onClick={() => setView('sprint')}
-                className={`px-3 h-8 rounded flex items-center gap-1.5 ${view === 'sprint' ? 'bg-card shadow-sm font-medium' : 'text-muted-foreground'}`}>
-                <Zap size={14} /> {t('tasks.sprintTab')}
-              </button>
+            <div className="hidden md:flex text-sm p-0.5 w-fit" style={{ background: 'var(--bg-hover)', borderRadius: 'var(--r-control)' }}>
+              {([
+                { v: 'tasks', Icon: TargetIcon, label: t('tasks.tasksTab') },
+                { v: 'go', Icon: ListTodo, label: t('tasks.goTab') },
+                { v: 'sprint', Icon: Zap, label: t('tasks.sprintTab') },
+              ] as const).map(({ v, Icon, label }) => (
+                <button key={v} onClick={() => setView(v)}
+                  className="px-3 h-8 flex items-center gap-1.5"
+                  style={{
+                    borderRadius: 'calc(var(--r-control) - 2px)',
+                    ...(view === v ? { background: 'var(--bg-card)', fontWeight: 500, boxShadow: 'var(--sh-sm)' } : { color: 'var(--fg-muted)' }),
+                  }}
+                >
+                  <Icon size={14} />{label}
+                </button>
+              ))}
             </div>
 
             {/* Mobile: three pill-shaped buttons, Go centered (larger/primary) */}
             <div className="md:hidden grid grid-cols-3 gap-2">
-              <button
-                onClick={() => setView('tasks')}
-                className={`h-11 rounded-full font-medium text-sm flex items-center justify-center gap-1.5 transition-all ${
-                  view === 'tasks'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-card border border-border text-muted-foreground'
-                }`}
-              >
-                <TargetIcon size={15} />
-                {t('tasks.tasksTab')}
-              </button>
-              <button
-                onClick={() => setView('go')}
-                className={`h-11 rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 transition-all ${
-                  view === 'go'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-card border border-border text-muted-foreground'
-                }`}
-              >
-                <ListTodo size={16} />
-                {t('tasks.goTab')}
-              </button>
-              <button
-                onClick={() => setView('sprint')}
-                className={`h-11 rounded-full font-medium text-sm flex items-center justify-center gap-1.5 transition-all ${
-                  view === 'sprint'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-card border border-border text-muted-foreground'
-                }`}
-              >
-                <Zap size={15} />
-                {t('tasks.sprintTab')}
-              </button>
+              {([
+                { v: 'tasks', Icon: TargetIcon, label: t('tasks.tasksTab') },
+                { v: 'go', Icon: ListTodo, label: t('tasks.goTab') },
+                { v: 'sprint', Icon: Zap, label: t('tasks.sprintTab') },
+              ] as const).map(({ v, Icon, label }) => (
+                <button key={v} onClick={() => setView(v)}
+                  className="h-11 rounded-full font-medium text-sm flex items-center justify-center gap-1.5 transition-all"
+                  style={view === v
+                    ? { background: 'var(--accent-primary)', color: '#fff' }
+                    : { background: 'var(--bg-card)', boxShadow: '0 0 0 0.5px var(--line)', color: 'var(--fg-muted)' }
+                  }
+                >
+                  <Icon size={15} />{label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -2030,35 +1909,35 @@ export default function Tasks() {
               {!showCreateForm ? (
                 <button
                   onClick={() => setShowCreateForm(true)}
-                  className="w-full h-11 mb-5 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-1.5 font-medium text-sm"
+                  className="btn btn-ghost w-full"
+                  style={{ marginBottom: 20, justifyContent: 'center' }}
                 >
-                  <Plus size={16} /> {t('tasks.addTask')}
+                  <Plus size={15} /> {t('tasks.addTask')}
                 </button>
               ) : (
-                <div className="p-3 bg-card border border-border rounded-xl mb-5 space-y-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-muted-foreground">{t('tasks.addTask')}</span>
+                <div className="panel-card" style={{ marginBottom: 20 }}>
+                  <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+                    <span className="text-label">{t('tasks.addTask')}</span>
                     <button
                       onClick={() => { setShowCreateForm(false); setNewTitle(''); setNewDescription(''); setNewStart(''); setNewDue(''); }}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="icon-btn icon-btn-sm"
                       title={t('common.cancel')}
                     >
                       <X size={14} />
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2" style={{ marginBottom: 8 }}>
                     <input type="text" placeholder={t("tasks.new")} value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && createTask()}
                       autoFocus
-                      className="flex-1 min-w-0 h-10 px-3 rounded-md border border-border bg-input-background" />
+                      className="input flex-1 min-w-0" style={{ height: 32 }} />
                     <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)}
-                      className="h-10 px-3 rounded-md border border-border bg-input-background text-sm">
+                      className="select-base" style={{ width: 'auto', paddingRight: 32 }}>
                       <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
                     </select>
-                    <button onClick={createTask} disabled={!newTitle.trim()}
-                      className="h-10 px-4 bg-primary text-primary-foreground rounded-md font-medium disabled:opacity-50 flex items-center gap-1.5">
-                      <Plus size={15} /> {t('common.create')}
+                    <button onClick={createTask} disabled={!newTitle.trim()} className="btn btn-primary">
+                      <Plus size={14} /> {t('common.create')}
                     </button>
                   </div>
                   <textarea
@@ -2066,7 +1945,8 @@ export default function Tasks() {
                     onChange={(e) => setNewDescription(e.target.value)}
                     placeholder={t('tasks.descriptionPh')}
                     rows={2}
-                    className="w-full px-3 py-2 rounded-md border border-border bg-input-background text-sm resize-none"
+                    className="textarea"
+                    style={{ marginBottom: 8 }}
                   />
                   <div>
                     <label className="text-[11px] text-muted-foreground block mb-1">Tags</label>
@@ -2078,12 +1958,11 @@ export default function Tasks() {
                             key={tag.id}
                             type="button"
                             onClick={() => setNewTagIds((s) => sel ? s.filter((id) => id !== tag.id) : [...s, tag.id])}
-                            className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-medium border transition-all active:scale-95 ${
-                              sel
-                                ? 'text-white border-transparent shadow-sm'
-                                : 'border-border bg-card text-foreground hover:bg-secondary'
-                            }`}
-                            style={sel ? { backgroundColor: tag.color } : undefined}
+                            className="tag"
+                            style={sel
+                              ? { backgroundColor: tag.color, color: '#fff', boxShadow: 'none' }
+                              : undefined
+                            }
                           >
                             {!sel && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />}
                             {tag.name}
@@ -2101,7 +1980,7 @@ export default function Tasks() {
                             setNewTagIds([...newTagIds, created.id]);
                           } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
                         }}
-                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-all active:scale-95"
+                        className="tag" style={{ borderStyle: 'dashed', color: 'var(--fg-muted)' }}
                       >
                         <Plus size={11} /> {allTags.length === 0 ? 'Add first tag' : 'New tag'}
                       </button>
@@ -2110,13 +1989,11 @@ export default function Tasks() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="min-w-0">
                       <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
-                      <input type="date" value={newStart} onChange={(e) => setNewStart(e.target.value)}
-                        className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
+                      <input type="date" value={newStart} onChange={(e) => setNewStart(e.target.value)} className="input w-full" />
                     </div>
                     <div className="min-w-0">
-                      <label className="text-[11px] text-muted-foreground">{t("tasks.due")}</label>
-                      <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)}
-                        className="w-full h-10 px-2 rounded-md border border-border bg-input-background text-sm" />
+                      <label className="text-label">{t("tasks.due")}</label>
+                      <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)} className="input w-full" />
                     </div>
                   </div>
                 </div>
@@ -2141,23 +2018,22 @@ export default function Tasks() {
                           updateTask(id, { status: key });
                         }
                       }}
-                      className={`rounded-xl transition-all ${
-                        isDropTarget ? 'bg-accent ring-1 ring-primary/30' : 'bg-transparent'
-                      }`}>
+                      className="kanban-column"
+                      style={isDropTarget ? { background: 'var(--accent-notes-bg)', boxShadow: 'inset 0 0 0 1.5px var(--accent-notes)', borderRadius: 'var(--r-card)' } : undefined}
+                    >
                       <button
                         onClick={() => isMobile && toggleCollapsed(key)}
-                        className={`w-full px-3 py-2.5 flex items-center justify-between ${isMobile ? 'hover:bg-secondary/50 rounded-t-xl' : 'cursor-default'}`}
+                        className="kanban-column-head"
+                        style={{ width: '100%', cursor: isMobile ? 'pointer' : 'default', justifyContent: 'space-between' }}
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="kanban-column-name">{label}</span>
-                          <span className="kanban-column-count">{list.length}</span>
-                        </div>
+                        <span className="kanban-column-name">{label}</span>
+                        <span className="kanban-column-count">{list.length}</span>
                         {isMobile && (collapsed.has(key)
-                          ? <ChevronRight size={14} className="text-muted-foreground" />
-                          : <ChevronDown size={14} className="text-muted-foreground" />)}
+                          ? <ChevronRight size={14} style={{ color: 'var(--fg-muted)', marginLeft: 'auto' }} />
+                          : <ChevronDown size={14} style={{ color: 'var(--fg-muted)', marginLeft: 'auto' }} />)}
                       </button>
                       {(!isMobile || !collapsed.has(key)) && (
-                        <div className="p-2 space-y-2 min-h-[80px]">
+                        <div style={{ padding: 8, minHeight: 80 }}>
                           <AnimatePresence>
                             {list.map((task) => (
                               <TaskCard key={task.id} task={task}
@@ -2171,7 +2047,7 @@ export default function Tasks() {
                             ))}
                           </AnimatePresence>
                           {list.length === 0 && !isDropTarget && (
-                            <div className="py-6 px-3 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
+                            <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: 11, color: 'var(--fg-muted)' }}>
                               {draggingId ? t('tasks.dropHere') : t('tasks.noTasks')}
                             </div>
                           )}
