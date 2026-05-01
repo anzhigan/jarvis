@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
 import {
-  Loader2, Moon, Sun, BookOpen, Target, BarChart3, User as UserIcon,
-  PanelLeftClose, PanelLeftOpen, Repeat, Zap, Settings,
+  Loader2, Moon, Sun, BookOpen, BarChart3, Repeat, Zap,
+  PanelLeftClose, PanelLeftOpen, Search, Bell, Plus, Target, Play,
 } from 'lucide-react';
 import Notes from '../components/Notes';
 import Tasks from '../components/Tasks';
@@ -15,7 +15,6 @@ import AITutorPage from '../components/AITutorPage';
 import { resolveUrl } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import { useT } from '../store/i18n';
-import JarvnoteLogo from '../components/JarvnoteLogo';
 
 type Tab = 'notes' | 'tasks' | 'routines' | 'sprints' | 'tutor' | 'analysis' | 'profile';
 
@@ -26,8 +25,6 @@ const TABS: { key: Tab; labelKey: string; icon: React.ElementType }[] = [
   { key: 'sprints',  labelKey: 'nav.sprints',  icon: Zap },
   { key: 'analysis', labelKey: 'nav.analysis', icon: BarChart3 },
 ];
-
-export { PanelLeftOpen, PanelLeftClose };
 
 export default function App() {
   const { user, isReady, init, needsBiometryPrompt, triggerBiometryUnlock, biometryType } = useAuthStore();
@@ -41,8 +38,7 @@ export default function App() {
 
   const [dark, setDark] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    // Migration: previous version saved '0' as collapsed; force open for new design
-    const saved = localStorage.getItem('jarvnote:sidebarOpen:v2');
+    const saved = localStorage.getItem('jarvnote:sidebarOpen:v3');
     return saved === null ? true : saved === '1';
   });
 
@@ -55,28 +51,20 @@ export default function App() {
     }
   }, [needsBiometryPrompt, triggerBiometryUnlock]);
 
-  // Initialize theme
   useEffect(() => {
     const saved = localStorage.getItem('jarvnote:theme');
     const isDark = saved === 'dark' ||
       (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
     setDark(isDark);
     document.documentElement.classList.toggle('dark', isDark);
-
-    // Hide native splash + sync status bar
     import('../native/bridge').then(({ hideSplash, setStatusBarTheme }) => {
       hideSplash();
       setStatusBarTheme(isDark);
     });
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('jarvnote:tab', tab);
-  }, [tab]);
-
-  useEffect(() => {
-    localStorage.setItem('jarvnote:sidebarOpen:v2', sidebarOpen ? '1' : '0');
-  }, [sidebarOpen]);
+  useEffect(() => { localStorage.setItem('jarvnote:tab', tab); }, [tab]);
+  useEffect(() => { localStorage.setItem('jarvnote:sidebarOpen:v3', sidebarOpen ? '1' : '0'); }, [sidebarOpen]);
 
   const toggleTheme = () => {
     const next = !dark;
@@ -88,32 +76,23 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 size={28} className="animate-spin" style={{ color: 'var(--muted-foreground)' }} />
+      <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg-app)' }}>
+        <Loader2 size={28} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
       </div>
     );
   }
 
   if (needsBiometryPrompt && !user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-8 text-center"
-        style={{ background: 'var(--background)' }}>
-        <div className="w-20 h-20 rounded-3xl flex items-center justify-center"
-          style={{ background: 'var(--primary)' }}>
-          <JarvnoteLogo size={48} variant="white" />
-        </div>
-        <div>
-          <h1 className="text-display mb-2">Jarvnote</h1>
-          <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-            {biometryType === 'faceId' ? 'Use Face ID to unlock' :
-             biometryType === 'touchId' ? 'Use Touch ID to unlock' :
-             'Authenticate to continue'}
-          </p>
-        </div>
-        <button
-          onClick={triggerBiometryUnlock}
-          className="btn btn-md btn-primary"
-        >
+      <div className="h-full flex flex-col items-center justify-center gap-6 px-8 text-center"
+        style={{ background: 'var(--bg-app)' }}>
+        <h1 className="text-display">Jarvnote</h1>
+        <p style={{ color: 'var(--fg-tertiary)' }}>
+          {biometryType === 'faceId' ? 'Use Face ID to unlock' :
+           biometryType === 'touchId' ? 'Use Touch ID to unlock' :
+           'Authenticate to continue'}
+        </p>
+        <button onClick={triggerBiometryUnlock} className="btn btn-md btn-primary">
           {biometryType === 'faceId' ? 'Use Face ID' :
            biometryType === 'touchId' ? 'Use Touch ID' :
            'Authenticate'}
@@ -131,223 +110,146 @@ export default function App() {
     );
   }
 
-  const SIDEBAR_W = sidebarOpen ? 240 : 60;
-
   return (
-    <div className="h-screen flex overflow-hidden" style={{ background: 'var(--background)' }}>
-      {/* ═══════════════════════════════════════════════════════════════════
-           DESKTOP: Left sidebar
-           ═══════════════════════════════════════════════════════════════════ */}
-      <aside
-        className="hidden md:flex flex-col flex-shrink-0 transition-[width] ease-out"
-        style={{
-          width: SIDEBAR_W,
-          background: 'var(--sidebar)',
-          borderRight: '1px solid var(--sidebar-border)',
-          transitionDuration: 'var(--dur-base)',
-        }}
-      >
-        {/* Brand + collapse */}
-        <div className="flex items-center px-3 h-14 flex-shrink-0">
-          {sidebarOpen ? (
-            <>
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'var(--primary)' }}>
-                  <JarvnoteLogo size={18} variant="white" />
-                </div>
-                <span className="text-sm font-semibold tracking-tight truncate">Jarvnote</span>
+    <div className="app-root">
+      <div className="app-shell">
+        {/* ─── Sidebar ─────────────────────────────────────────────────── */}
+        <aside className="app-sidebar hidden md:flex" data-collapsed={!sidebarOpen}>
+          <div className="sidebar-header">
+            <span className="sidebar-brand">Jarvnote</span>
+          </div>
+
+          <div className="sidebar-section-label">Workspace</div>
+          <nav className="sidebar-nav">
+            {TABS.map((tabDef) => {
+              const Icon = tabDef.icon;
+              const active = tab === tabDef.key;
+              return (
+                <button
+                  key={tabDef.key}
+                  onClick={() => setTab(tabDef.key)}
+                  className="sidebar-item"
+                  data-active={active}
+                  data-page={tabDef.key}
+                >
+                  <Icon className="icon" strokeWidth={active ? 2.2 : 1.6} />
+                  <span>{t(tabDef.labelKey)}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="sidebar-footer">
+            <div className="focus-card">
+              <div className="focus-card-label">Focus mode</div>
+              <div className="focus-card-title">Deep work</div>
+              <div className="focus-card-row">
+                <div className="focus-timer">25:00</div>
+                <button className="focus-play" aria-label="Start focus session">
+                  <Play size={11} fill="currentColor" />
+                </button>
               </div>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="btn-icon btn-icon-sm"
-                title="Collapse sidebar"
-              >
-                <PanelLeftClose size={15} />
-              </button>
-            </>
-          ) : (
+            </div>
+
             <button
-              onClick={() => setSidebarOpen(true)}
-              className="w-8 h-8 mx-auto rounded-lg flex items-center justify-center transition-all hover:opacity-80 active:scale-92"
-              style={{ background: 'var(--primary)' }}
-              title="Expand sidebar"
+              onClick={() => setTab('profile')}
+              className="sidebar-item"
+              data-active={tab === 'profile'}
+              style={{ paddingLeft: 6 }}
             >
-              <JarvnoteLogo size={18} variant="white" />
+              {user.avatar_url ? (
+                <img src={resolveUrl(user.avatar_url)} alt="" className="icon" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', opacity: 1 }} />
+              ) : (
+                <span className="icon" style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--accent-notes-soft)', color: 'var(--accent-notes)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 500, opacity: 1 }}>
+                  {user.username.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span>{user.username}</span>
             </button>
-          )}
+          </div>
+        </aside>
+
+        {/* ─── Workspace ─────────────────────────────────────────────── */}
+        <div className="app-workspace">
+          {/* Topbar */}
+          <header className="topbar">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="topbar-toggle hidden md:inline-flex"
+              title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            >
+              {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+            </button>
+
+            <button className="topbar-search">
+              <Search size={13} strokeWidth={2} />
+              <span>Search anything…</span>
+              <span className="topbar-search-kbd">⌘K</span>
+            </button>
+
+            <div className="topbar-spacer hidden md:block" />
+
+            <button className="topbar-icon-btn" title="Quick capture">
+              <Plus size={15} />
+            </button>
+            <button className="topbar-icon-btn" title="Notifications">
+              <Bell size={15} />
+            </button>
+            <button onClick={toggleTheme} className="topbar-icon-btn" title="Toggle theme">
+              {dark ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+            <button onClick={() => setTab('profile')} className="topbar-user">
+              {user.avatar_url ? (
+                <img src={resolveUrl(user.avatar_url)} alt="" className="topbar-user-avatar" />
+              ) : (
+                <span className="topbar-user-avatar">{user.username.charAt(0).toUpperCase()}</span>
+              )}
+              <span className="topbar-user-name hidden md:inline">{user.username}</span>
+            </button>
+          </header>
+
+          {/* Main content */}
+          <main className="app-main">
+            <div className={`app-page ${tab === 'notes' ? '' : 'hidden'}`}><Notes /></div>
+            <div className={`app-page ${tab === 'tasks' ? '' : 'hidden'}`}><Tasks /></div>
+            <div className={`app-page ${tab === 'routines' ? '' : 'hidden'}`}><Routines /></div>
+            <div className={`app-page ${tab === 'sprints' ? '' : 'hidden'}`}><Sprints /></div>
+            <div className={`app-page ${tab === 'tutor' ? '' : 'hidden'}`}><AITutorPage /></div>
+            <div className={`app-page ${tab === 'analysis' ? '' : 'hidden'}`}><Dashboard /></div>
+            <div className={`app-page ${tab === 'profile' ? '' : 'hidden'}`}><Profile /></div>
+          </main>
+
+          {/* Mobile bottom tab bar */}
+          <nav className="mobile-tabbar md:hidden">
+            {TABS.map((tabDef) => {
+              const Icon = tabDef.icon;
+              const active = tab === tabDef.key;
+              return (
+                <button
+                  key={tabDef.key}
+                  onClick={async () => {
+                    setTab(tabDef.key);
+                    const { hapticTap } = await import('../native/bridge');
+                    hapticTap();
+                  }}
+                  className="mobile-tab"
+                  data-active={active}
+                >
+                  <Icon className="icon" strokeWidth={active ? 2.2 : 1.7} />
+                  <span className="label">{t(tabDef.labelKey)}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
-
-        {/* Nav */}
-        <nav className="flex-1 px-2 pb-2 flex flex-col gap-0.5">
-          {TABS.map((tabDef) => {
-            const active = tab === tabDef.key;
-            const Icon = tabDef.icon;
-            const label = t(tabDef.labelKey);
-            return (
-              <button
-                key={tabDef.key}
-                onClick={() => setTab(tabDef.key)}
-                className="flex items-center gap-2.5 h-9 rounded-md text-[13px] font-medium transition-all active:scale-[0.98]"
-                style={{
-                  paddingLeft: sidebarOpen ? 10 : 0,
-                  paddingRight: sidebarOpen ? 10 : 0,
-                  justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                  background: active ? 'var(--sidebar-active)' : 'transparent',
-                  color: active ? 'var(--sidebar-active-foreground)' : 'var(--sidebar-foreground)',
-                  boxShadow: active ? 'var(--shadow-xs)' : 'none',
-                }}
-                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--accent)'; }}
-                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-                title={!sidebarOpen ? label : undefined}
-              >
-                <Icon size={16} strokeWidth={active ? 2.4 : 2} className="flex-shrink-0" />
-                {sidebarOpen && <span className="truncate">{label}</span>}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Bottom: profile + theme */}
-        <div className="px-2 pb-3 pt-2 flex flex-col gap-0.5"
-          style={{ borderTop: '1px solid var(--sidebar-border)' }}>
-          <button
-            onClick={() => setTab('profile')}
-            className="flex items-center gap-2.5 h-9 rounded-md text-[13px] font-medium transition-all active:scale-[0.98]"
-            style={{
-              paddingLeft: sidebarOpen ? 6 : 0,
-              paddingRight: sidebarOpen ? 10 : 0,
-              justifyContent: sidebarOpen ? 'flex-start' : 'center',
-              background: tab === 'profile' ? 'var(--sidebar-active)' : 'transparent',
-              color: tab === 'profile' ? 'var(--sidebar-active-foreground)' : 'var(--sidebar-foreground)',
-              boxShadow: tab === 'profile' ? 'var(--shadow-xs)' : 'none',
-            }}
-            onMouseEnter={(e) => { if (tab !== 'profile') e.currentTarget.style.background = 'var(--accent)'; }}
-            onMouseLeave={(e) => { if (tab !== 'profile') e.currentTarget.style.background = 'transparent'; }}
-            title={!sidebarOpen ? user.username : undefined}
-          >
-            {user.avatar_url ? (
-              <img src={resolveUrl(user.avatar_url)} alt=""
-                className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-            ) : (
-              <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-semibold"
-                style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-foreground)' }}>
-                {user.username.charAt(0).toUpperCase()}
-              </div>
-            )}
-            {sidebarOpen && <span className="truncate flex-1 text-left">{user.username}</span>}
-          </button>
-          <button
-            onClick={toggleTheme}
-            className="flex items-center gap-2.5 h-9 rounded-md text-[13px] font-medium transition-all active:scale-[0.98]"
-            style={{
-              paddingLeft: sidebarOpen ? 10 : 0,
-              paddingRight: sidebarOpen ? 10 : 0,
-              justifyContent: sidebarOpen ? 'flex-start' : 'center',
-              color: 'var(--sidebar-foreground)',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--accent)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-            title={!sidebarOpen ? 'Toggle theme' : undefined}
-          >
-            {dark ? <Sun size={16} className="flex-shrink-0" /> : <Moon size={16} className="flex-shrink-0" />}
-            {sidebarOpen && <span>{dark ? 'Light mode' : 'Dark mode'}</span>}
-          </button>
-        </div>
-      </aside>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-           MAIN CONTENT AREA
-           ═══════════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile top header */}
-        <header
-          className="md:hidden flex items-center px-3 gap-2 flex-shrink-0 native-ios-header"
-          style={{
-            height: 52,
-            background: 'rgba(250, 250, 249, 0.92)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            borderBottom: '1px solid var(--border)',
-            zIndex: 20,
-          }}
-        >
-          <button
-            onClick={() => setTab('profile')}
-            className="flex items-center gap-2 pl-1 pr-3 h-9 rounded-full transition-colors flex-1 min-w-0"
-            style={{
-              background: tab === 'profile' ? 'var(--secondary)' : 'transparent',
-              color: tab === 'profile' ? 'var(--foreground)' : 'var(--muted-foreground)',
-            }}
-          >
-            {user.avatar_url ? (
-              <img src={resolveUrl(user.avatar_url)} alt=""
-                className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-            ) : (
-              <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-semibold"
-                style={{ background: 'var(--primary-soft)', color: 'var(--primary-soft-foreground)' }}>
-                {user.username.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <span className="text-sm font-medium truncate">{user.username}</span>
-          </button>
-          <button onClick={toggleTheme} className="btn-icon" title="Toggle theme">
-            {dark ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
-        </header>
-
-        {/* Tab content */}
-        <main className="flex-1 overflow-hidden relative">
-          <div className={`absolute inset-0 ${tab === 'notes' ? '' : 'hidden'}`}><Notes /></div>
-          <div className={`absolute inset-0 ${tab === 'tasks' ? '' : 'hidden'}`}><Tasks /></div>
-          <div className={`absolute inset-0 ${tab === 'routines' ? '' : 'hidden'}`}><Routines /></div>
-          <div className={`absolute inset-0 ${tab === 'sprints' ? '' : 'hidden'}`}><Sprints /></div>
-          <div className={`absolute inset-0 ${tab === 'tutor' ? '' : 'hidden'}`}><AITutorPage /></div>
-          <div className={`absolute inset-0 ${tab === 'analysis' ? '' : 'hidden'}`}><Dashboard /></div>
-          <div className={`absolute inset-0 ${tab === 'profile' ? '' : 'hidden'}`}><Profile /></div>
-        </main>
-
-        {/* Mobile bottom tab bar */}
-        <nav
-          className="md:hidden flex items-stretch justify-around flex-shrink-0 native-ios-tabbar"
-          style={{
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-            height: 'calc(58px + env(safe-area-inset-bottom, 0px))',
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          {TABS.map((tabDef) => {
-            const active = tab === tabDef.key;
-            const Icon = tabDef.icon;
-            const label = t(tabDef.labelKey);
-            return (
-              <button
-                key={tabDef.key}
-                onClick={async () => {
-                  setTab(tabDef.key);
-                  const { hapticTap } = await import('../native/bridge');
-                  hapticTap();
-                }}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors active:opacity-70"
-                style={{
-                  color: active ? 'var(--primary)' : 'var(--muted-foreground)',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                <Icon size={22} strokeWidth={active ? 2.4 : 1.8} />
-                <span className="text-[10px] font-medium tracking-tight">{label}</span>
-              </button>
-            );
-          })}
-        </nav>
       </div>
 
       <Toaster richColors position="top-center"
         toastOptions={{
           style: {
             fontFamily: 'var(--font-sans)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border)',
+            borderRadius: 'var(--r-md)',
+            border: '0.5px solid var(--line)',
           },
         }}
       />

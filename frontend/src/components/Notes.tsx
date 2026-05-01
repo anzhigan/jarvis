@@ -587,15 +587,14 @@ export default function Notes() {
         onCancel={() => setConfirmState(null)}
         onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
       />
-    <div className="size-full flex">
-      {sidebarOpen && (
-      <aside className="w-72 border-r border-border bg-sidebar flex flex-col flex-shrink-0">
+    <div className="notes-layout">
+      <aside className="notes-library" data-collapsed={!sidebarOpen}>
         <div className="px-4 pt-4 pb-3 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSidebarOpen(false)}
-              title="Hide sidebar"
-              className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors flex-shrink-0"
+              title="Hide library"
+              className="btn-icon btn-icon-sm flex-shrink-0"
             >
               <FolderTree size={15} />
             </button>
@@ -796,9 +795,8 @@ export default function Notes() {
           ))}
         </div>
       </aside>
-      )}
 
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <main className="notes-content">
         {currentNote && editorState?.noteId === currentNote.id ? (
           <>
             <div className="flex-1 overflow-y-auto relative">
