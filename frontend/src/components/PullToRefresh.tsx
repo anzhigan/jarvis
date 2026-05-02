@@ -64,8 +64,6 @@ export default function PullToRefresh({ onRefresh, children, threshold = 70, dis
       setArmed(false);
       if (pullDistance >= threshold) {
         setRefreshing(true);
-        // Tactile feedback
-        import('../native/bridge').then(({ hapticTap }) => hapticTap());
         try {
           await onRefresh();
         } catch { /* swallow */ }

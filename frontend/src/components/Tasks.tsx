@@ -147,11 +147,6 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
     if (go.kind !== 'boolean') return;
     const newValue = todayVal > 0 ? 0 : 1;
 
-    // Tactile feedback
-    import('../native/bridge').then(({ hapticSuccess, hapticTap }) => {
-      if (newValue === 1) hapticSuccess(); else hapticTap();
-    });
-
     // Optimistic local update — immediately reflect in UI
     if (onLocalUpdate) {
       const otherEntries = go.entries.filter((e) => e.date !== today);
@@ -1855,6 +1850,7 @@ export default function Tasks() {
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
+  const [mobileStatusFilter, setMobileStatusFilter] = useState<TaskStatus | null>(null);
   // Collapsed columns (mobile mainly — long scrolls)
   const [collapsed, setCollapsed] = useState<Set<TaskStatus>>(new Set());
   const toggleCollapsed = (s: TaskStatus) => {
@@ -1909,7 +1905,6 @@ export default function Tasks() {
         start_date: newStart || null, due_date: newDue || null,
         description: newDescription || '',
       } as any);
-      import('../native/bridge').then(({ hapticSuccess }) => hapticSuccess());
       // Attach selected tags
       for (const tagId of newTagIds) {
         try { await tagsApi.attachTag(created.id, tagId); }
@@ -1919,7 +1914,6 @@ export default function Tasks() {
       setShowCreateForm(false);
       await load();
     } catch (e: any) {
-      import('../native/bridge').then(({ hapticWarning }) => hapticWarning());
       toast.error(e?.detail ?? 'Failed');
     }
   };
@@ -2020,7 +2014,44 @@ export default function Tasks() {
 
       <PullToRefresh onRefresh={load} disabled={!isMobile}>
         <div className="size-full overflow-y-auto">
-          <div className="page-container">
+          {isMobile ? (
+            /* Mobile header */
+            <div>
+              <div className="big-title-row">
+                <div>
+                  <div className="big-title">Goals</div>
+                  <div className="big-title-sub">Track progress. Grow with intention.</div>
+                </div>
+                <button onClick={() => setShowCreateForm((v) => !v)} className="icon-btn" title="Add goal">
+                  {showCreateForm ? <X size={20} /> : <Plus size={20} />}
+                </button>
+              </div>
+              {/* Sub-view tabs */}
+              <div style={{ padding: '0 16px 10px' }}>
+                <div className="segmented" style={{ width: '100%' }}>
+                  <button onClick={() => setView('tasks')} className="segmented-item" data-active={view === 'tasks'}>Goals</button>
+                  <button onClick={() => setView('go')} className="segmented-item" data-active={view === 'go'}>Go</button>
+                  <button onClick={() => setView('sprint')} className="segmented-item" data-active={view === 'sprint'}>Step</button>
+                </div>
+              </div>
+              {/* Status chips for Goals kanban view */}
+              {view === 'tasks' && (
+                <div className="chips-row">
+                  <button className="chip" data-active={mobileStatusFilter === null} onClick={() => setMobileStatusFilter(null)}>
+                    All <span className="chip-count">{tasks.length}</span>
+                  </button>
+                  {STATUSES.map(({ key, labelKey }) => (
+                    <button key={key} className="chip" data-active={mobileStatusFilter === key} onClick={() => setMobileStatusFilter(key)}>
+                      {key.charAt(0).toUpperCase() + key.slice(1)}
+                      <span className="chip-count">{tasksByStatus[key]?.length ?? 0}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+          <div className={isMobile ? 'px-4' : 'page-container'}>
+          {!isMobile && (
           <div className="page-head">
             <div className="page-head-info">
               <h1 className="page-title">Goals</h1>
@@ -2032,6 +2063,7 @@ export default function Tasks() {
               </div>
             </div>
           </div>
+          )}
 
           <div className="mb-5" style={{ display: 'none' }}>
             {/* Old tabs hidden, kept for ref */}
@@ -2173,7 +2205,7 @@ export default function Tasks() {
               )}
 
               <div className="kanban-grid">
-                {STATUSES.map(({ key, labelKey }) => {
+                {STATUSES.filter(({ key }) => !isMobile || mobileStatusFilter === null || mobileStatusFilter === key).map(({ key, labelKey }) => {
                   const list = tasksByStatus[key] ?? [];
                   const isDropTarget = dragOverStatus === key;
                   const label = t(labelKey);
@@ -2187,7 +2219,6 @@ export default function Tasks() {
                         const id = e.dataTransfer.getData('text/plain');
                         setDragOverStatus(null); setDraggingId(null);
                         if (id) {
-                          import('../native/bridge').then(({ hapticHeavy }) => hapticHeavy());
                           updateTask(id, { status: key });
                         }
                       }}

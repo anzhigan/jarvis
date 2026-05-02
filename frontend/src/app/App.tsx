@@ -27,7 +27,7 @@ const TABS: { key: Tab; labelKey: string; icon: React.ElementType; acc: string }
 ];
 
 export default function App() {
-  const { user, isReady, init, needsBiometryPrompt, triggerBiometryUnlock, biometryType } = useAuthStore();
+  const { user, isReady, init } = useAuthStore();
   const t = useT();
 
   const [tab, setTab] = useState<Tab>(() => {
@@ -45,22 +45,11 @@ export default function App() {
   useEffect(() => { init(); }, []);
 
   useEffect(() => {
-    if (needsBiometryPrompt) {
-      const timer = setTimeout(() => { triggerBiometryUnlock(); }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [needsBiometryPrompt, triggerBiometryUnlock]);
-
-  useEffect(() => {
     const saved = localStorage.getItem('jarvnote:theme');
     const isDark = saved === 'dark' ||
       (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
     setDark(isDark);
     document.documentElement.classList.toggle('dark', isDark);
-    import('../native/bridge').then(({ hideSplash, setStatusBarTheme }) => {
-      hideSplash();
-      setStatusBarTheme(isDark);
-    });
   }, []);
 
   useEffect(() => { localStorage.setItem('jarvnote:tab', tab); }, [tab]);
@@ -71,32 +60,12 @@ export default function App() {
     setDark(next);
     document.documentElement.classList.toggle('dark', next);
     localStorage.setItem('jarvnote:theme', next ? 'dark' : 'light');
-    import('../native/bridge').then(({ setStatusBarTheme }) => setStatusBarTheme(next));
   };
 
   if (!isReady) {
     return (
       <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg-app)' }}>
         <Loader2 size={28} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
-      </div>
-    );
-  }
-
-  if (needsBiometryPrompt && !user) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-6 px-8 text-center"
-        style={{ background: 'var(--bg-app)' }}>
-        <h1 className="text-display">Jarvnote</h1>
-        <p style={{ color: 'var(--fg-tertiary)' }}>
-          {biometryType === 'faceId' ? 'Use Face ID to unlock' :
-           biometryType === 'touchId' ? 'Use Touch ID to unlock' :
-           'Authenticate to continue'}
-        </p>
-        <button onClick={triggerBiometryUnlock} className="btn btn-primary">
-          {biometryType === 'faceId' ? 'Use Face ID' :
-           biometryType === 'touchId' ? 'Use Touch ID' :
-           'Authenticate'}
-        </button>
       </div>
     );
   }
@@ -190,13 +159,10 @@ export default function App() {
               return (
                 <button
                   key={tabDef.key}
-                  onClick={async () => {
-                    setTab(tabDef.key);
-                    const { hapticTap } = await import('../native/bridge');
-                    hapticTap();
-                  }}
+                  onClick={() => setTab(tabDef.key)}
                   className="mobile-tab"
                   data-active={active}
+                  data-acc={tabDef.acc}
                 >
                   <Icon className="icon" strokeWidth={active ? 2.2 : 1.7} />
                   <span className="label">{t(tabDef.labelKey)}</span>

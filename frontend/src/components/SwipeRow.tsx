@@ -9,10 +9,10 @@ interface Props {
   children: React.ReactNode;
   onEdit?: () => void;
   onDelete: () => void;
-  enabled: boolean;
+  enabled?: boolean;
 }
 
-export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props) {
+export default function SwipeRow({ children, onEdit, onDelete, enabled = true }: Props) {
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const startX = useRef(0);
@@ -61,7 +61,6 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
     setIsDragging(false);
     if (offset < -ACTIONS_WIDTH / 2) {
       setOffset(-ACTIONS_WIDTH);
-      import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
     } else {
       setOffset(0);
     }
@@ -89,7 +88,6 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
             onClick={(e) => {
               e.stopPropagation();
               close();
-              import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
               onEdit();
             }}
             className="w-[60px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform"
@@ -109,7 +107,6 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled }: Props)
           onClick={(e) => {
             e.stopPropagation();
             close();
-            import('../native/bridge').then(({ hapticWarning }) => hapticWarning()).catch(() => {});
             onDelete();
           }}
           className="w-[60px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform"

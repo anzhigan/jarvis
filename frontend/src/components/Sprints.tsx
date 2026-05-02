@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { focusSprintsApi, tasksApi, routinesApi, gosApi } from '../api/client';
 import type { FocusSprint, FocusSprintItem, FocusSprintItemType, Task, Routine, Go } from '../api/types';
 import PullToRefresh from './PullToRefresh';
-import { useSwipeBack } from '../native/useSwipeBack';
+import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
 
 const SPRINT_COLORS = [
@@ -356,47 +356,48 @@ function SprintDetail({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-2 px-4 md:px-6 pt-4 pb-3 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-        <button onClick={onBack} className="icon-btn icon-btn-lg">
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1 min-w-0">
-          {!editing ? (
-            <>
-              <h1 className="text-lg font-semibold truncate">{sprint.title}</h1>
-              <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                <Calendar size={11} />
-                {fmtDate(sprint.start_date)} — {fmtDate(sprint.end_date)}
-              </div>
-            </>
-          ) : (
+      <div className="top-bar">
+        <div className="top-bar-leading">
+          <button onClick={onBack} className="top-bar-back" title="Back">
+            <ArrowLeft size={18} />
+            Sprints
+          </button>
+        </div>
+        <div className="top-bar-title">
+          {!editing ? sprint.title : (
             <input
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="input w-full font-semibold"
+              className="input w-full font-semibold text-center"
+              style={{ fontSize: 14 }}
             />
           )}
+          {!editing && (
+            <span className="sub">{fmtDate(sprint.start_date)} — {fmtDate(sprint.end_date)}</span>
+          )}
         </div>
-        {!editing ? (
-          <>
-            <button onClick={() => setEditing(true)} className="icon-btn icon-btn-lg" title="Edit">
-              <Pencil size={15} />
-            </button>
-            <button onClick={removeSprint} className="icon-btn icon-btn-lg" style={{ color: 'var(--danger)' }} title="Delete">
-              <Trash2 size={15} />
-            </button>
-          </>
-        ) : (
-          <>
-            <button onClick={() => { setEditing(false); setEditTitle(sprint.title); setEditDesc(sprint.description); setEditStart(sprint.start_date); setEditEnd(sprint.end_date); setEditColor(sprint.color); }}
-              className="btn btn-secondary btn-sm">{t('common.cancel')}</button>
-            <button onClick={saveEdit} disabled={saving} className="btn btn-primary btn-sm">
-              {saving && <Loader2 size={11} className="animate-spin" />}
-              {t('common.save')}
-            </button>
-          </>
-        )}
+        <div className="top-bar-trailing">
+          {!editing ? (
+            <>
+              <button onClick={() => setEditing(true)} className="icon-btn icon-btn-lg" title="Edit">
+                <Pencil size={15} />
+              </button>
+              <button onClick={removeSprint} className="icon-btn icon-btn-lg" style={{ color: 'var(--danger)' }} title="Delete">
+                <Trash2 size={15} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => { setEditing(false); setEditTitle(sprint.title); setEditDesc(sprint.description); setEditStart(sprint.start_date); setEditEnd(sprint.end_date); setEditColor(sprint.color); }}
+                className="btn btn-secondary btn-sm">{t('common.cancel')}</button>
+              <button onClick={saveEdit} disabled={saving} className="btn btn-primary btn-sm">
+                {saving && <Loader2 size={11} className="animate-spin" />}
+                {t('common.save')}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
@@ -510,7 +511,6 @@ function CreateSprintForm({ onCreated, onCancel }: { onCreated: () => Promise<vo
         end_date: end,
         color,
       });
-      import('../native/bridge').then(({ hapticSuccess }) => hapticSuccess());
       onCancel();
       await onCreated();
     } catch (e: any) {
@@ -574,6 +574,12 @@ export default function Sprints() {
   const [creating, setCreating] = useState(false);
   const [openSprintId, setOpenSprintId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'current' | 'future' | 'past'>('current');
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -606,29 +612,54 @@ export default function Sprints() {
   return (
     <div className="size-full overflow-y-auto">
       <PullToRefresh onRefresh={load}>
-        <div className="page-container">
-          <div className="page-head">
-            <div className="page-head-info">
-              <h1 className="page-title">Sprints</h1>
-              <p className="page-subtitle">Deep work, focused time, meaningful progress.</p>
-            </div>
-          </div>
-
-          <div className="flex gap-1.5 mb-4 flex-wrap">
-            {(['current', 'future', 'past'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className="pill"
-                data-active={filter === f}
-              >
-                {f === 'current' ? 'Current' : f === 'future' ? 'Future' : 'Past'}
-                <span className="pill-count">{grouped[f].length}</span>
+        {isMobile ? (
+          <>
+            <div className="big-title-row">
+              <div>
+                <div className="big-title">Sprints</div>
+                <div className="big-title-sub">Deep work, focused time</div>
+              </div>
+              <button onClick={() => setCreating(true)} className="icon-btn icon-btn-lg" title="New sprint">
+                <Plus size={22} />
               </button>
-            ))}
-          </div>
+            </div>
+            <div className="chips-row">
+              {(['current', 'future', 'past'] as const).map((f) => (
+                <button key={f} onClick={() => setFilter(f)} className="chip" data-active={filter === f}>
+                  {f === 'current' ? 'Current' : f === 'future' ? 'Future' : 'Past'}
+                  <span className="chip-count">{grouped[f].length}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
+        <div className="page-container">
+          {!isMobile && (
+            <div className="page-head">
+              <div className="page-head-info">
+                <h1 className="page-title">Sprints</h1>
+                <p className="page-subtitle">Deep work, focused time, meaningful progress.</p>
+              </div>
+            </div>
+          )}
 
-          {!creating ? (
+          {!isMobile && (
+            <div className="flex gap-1.5 mb-4 flex-wrap">
+              {(['current', 'future', 'past'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className="pill"
+                  data-active={filter === f}
+                >
+                  {f === 'current' ? 'Current' : f === 'future' ? 'Future' : 'Past'}
+                  <span className="pill-count">{grouped[f].length}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {(!isMobile && !creating) ? (
             <button
               onClick={() => setCreating(true)}
               className="btn btn-ghost w-full"
@@ -636,9 +667,9 @@ export default function Sprints() {
             >
               <Plus size={15} /> New sprint
             </button>
-          ) : (
+          ) : creating ? (
             <CreateSprintForm onCancel={() => setCreating(false)} onCreated={load} />
-          )}
+          ) : null}
 
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">

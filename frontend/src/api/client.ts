@@ -14,26 +14,14 @@ import type {
   Way,
 } from './types';
 
-// API base URL.
-// - Native iOS app: built with VITE_API_URL=https://jarvnote.ru/api → absolute URL
-// - Web on jarvnote.ru: no env var → relative /api proxied by nginx
-// - Local dev: VITE_API_URL can override
+// API base URL. No env var → relative /api proxied by nginx. VITE_API_URL overrides for dev.
 const BASE_URL: string = import.meta.env.VITE_API_URL || '/api';
 
-/**
- * Convert any backend-relative URL (e.g. "/api/images/abc.jpg") into an
- * absolute URL when running in a native app (Capacitor), where relative
- * URLs would resolve to capacitor://localhost/... and 404.
- *
- * On web, this returns the URL unchanged.
- */
 export function resolveUrl(url: string | null | undefined): string {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   if (url.startsWith('data:') || url.startsWith('blob:')) return url;
-  // We are in a native app if BASE_URL is absolute
   if (BASE_URL.startsWith('http')) {
-    // Strip /api from BASE_URL to get the origin
     const origin = BASE_URL.replace(/\/api\/?$/, '');
     return url.startsWith('/') ? `${origin}${url}` : `${origin}/${url}`;
   }

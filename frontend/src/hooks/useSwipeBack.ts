@@ -69,8 +69,6 @@ export function useSwipeBack({
       tracking.current = false;
       setActive(false);
       if (dx > screenW * triggerThreshold) {
-        // Trigger back with haptic
-        import('./bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
         onBack();
       }
       // Reset offset

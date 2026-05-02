@@ -26,7 +26,7 @@ import LongPressRow from './LongPressRow';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
 import NoteTitle from './NoteTitle';
-import { useSwipeBack } from '../native/useSwipeBack';
+import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
 import { notesApi, topicsApi, waysApi } from '../api/client';
 import type { Note, Topic, Way } from '../api/types';
@@ -1029,27 +1029,34 @@ function MobileHierarchy({
   };
 
   return (
-    <div className="size-full flex flex-col bg-background">
-      {/* Top bar */}
-      <header className="px-3 py-3 flex items-center gap-2 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-        {view.kind !== 'root' && (
-          <button
-            onClick={goBack}
-            className="icon-btn icon-btn-lg flex-shrink-0"
-            title="Back"
-          >
-            <ChevronLeft size={22} />
+    <div className="size-full flex flex-col" style={{ background: 'var(--bg-app)' }}>
+      {/* Header — big-title-row for root, top-bar for sub-views */}
+      {view.kind === 'root' ? (
+        <div className="big-title-row">
+          <div>
+            <div className="big-title">Notes</div>
+            <div className="big-title-sub">{ways.length} {ways.length === 1 ? 'way' : 'ways'}</div>
+          </div>
+          <button onClick={onAddClick} className="icon-btn icon-btn-lg" title="Add way">
+            <Plus size={22} />
           </button>
-        )}
-        <h2 className="text-lg font-semibold tracking-tight flex-1 min-w-0 truncate">{title}</h2>
-        <button
-          onClick={onAddClick}
-          className="icon-btn icon-btn-lg flex-shrink-0"
-          title="Add"
-        >
-          <Plus size={20} />
-        </button>
-      </header>
+        </div>
+      ) : (
+        <div className="top-bar">
+          <div className="top-bar-leading">
+            <button onClick={goBack} className="top-bar-back" title="Back">
+              <ChevronLeft size={20} />
+              {view.kind === 'way' ? 'Notes' : (parentWayOfTopic?.name ?? 'Back')}
+            </button>
+          </div>
+          <div className="top-bar-title">{title}</div>
+          <div className="top-bar-trailing">
+            <button onClick={onAddClick} className="icon-btn icon-btn-lg" title="Add">
+              <Plus size={20} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add-menu (way view: note or topic) */}
       {showAddMenu && view.kind === 'way' && currentWay && (
@@ -1094,17 +1101,14 @@ function MobileHierarchy({
 
       {/* Search (only at root) */}
       {view.kind === 'root' && (
-        <div className="px-3 py-2 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-          <div className="field w-full" style={{ gap: 6 }}>
-            <Search size={14} style={{ color: 'var(--fg-muted)', flexShrink: 0, marginLeft: 2 }} />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 0, background: 'transparent', fontSize: 15 }}
-            />
-          </div>
+        <div className="search-field">
+          <Search size={14} />
+          <input
+            type="text"
+            placeholder="Search…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       )}
 
@@ -1126,11 +1130,11 @@ function MobileHierarchy({
       )}
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" style={{ padding: '2px 16px 0' }}>
         {view.kind === 'root' && (
           <>
             {ways.length === 0 && !adding && (
-              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+              <div className="px-2 py-12 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
                 No ways yet. Tap + to create one.
               </div>
             )}
@@ -1141,7 +1145,9 @@ function MobileHierarchy({
                 onDelete={() => onDeleteWay(way.id)}
               >
                 {renaming?.kind === 'way' && renaming.id === way.id ? (
-                  <RenameInput onCommit={commitRename} onCancel={cancelRename} />
+                  <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
+                    <RenameInput onCommit={commitRename} onCancel={cancelRename} />
+                  </div>
                 ) : (
                   <button
                     onClick={() => {
@@ -1151,17 +1157,19 @@ function MobileHierarchy({
                         setView({ kind: 'way', wayId: way.id });
                       }
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-secondary/40 active:bg-secondary/60"
-                    style={{
-                      boxShadow: 'inset 0 -0.5px 0 var(--line)',
-                      ...(mobileDragNoteId ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 5%, transparent)' } : {}),
-                    }}
+                    className="way-tile w-full text-left"
+                    style={mobileDragNoteId ? { background: 'color-mix(in srgb, var(--accent-primary) 8%, var(--bg-card))' } : undefined}
                   >
-                    <span className="flex-1 text-base font-medium truncate">{way.name}</span>
-                    <span className="text-xs flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>
-                      {way.topics.length + way.notes.length}
-                    </span>
-                    <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
+                    <div className="way-info">
+                      <div className="way-tile-title">{way.name}</div>
+                      <div className="way-tile-meta">
+                        {way.topics.length > 0 && `${way.topics.length} topic${way.topics.length !== 1 ? 's' : ''}`}
+                        {way.topics.length > 0 && way.notes.length > 0 && ' · '}
+                        {way.notes.length > 0 && `${way.notes.length} note${way.notes.length !== 1 ? 's' : ''}`}
+                        {way.topics.length === 0 && way.notes.length === 0 && 'Empty'}
+                      </div>
+                    </div>
+                    <ChevronRight className="list-row-chevron" />
                   </button>
                 )}
               </SwipeRow>
@@ -1175,18 +1183,21 @@ function MobileHierarchy({
             {mobileDragNoteId && (
               <button
                 onClick={() => onDropMobileDrag({ kind: 'way', id: currentWay.id })}
-                className="w-full px-4 py-3 text-sm font-medium text-left"
-                style={{ color: 'var(--accent-primary)', backgroundColor: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', boxShadow: 'inset 0 -0.5px 0 color-mix(in srgb, var(--accent-primary) 20%, transparent)' }}
+                className="list-row w-full text-left text-sm font-medium"
+                style={{ color: 'var(--accent-primary)', background: 'color-mix(in srgb, var(--accent-primary) 10%, var(--bg-card))' }}
               >
                 ↓ Drop here (in "{currentWay.name}")
               </button>
             )}
 
-            {/* Way's notes */}
+            {/* Notes in this way */}
+            {currentWay.notes.length > 0 && (
+              <div className="section-h">Notes in this way</div>
+            )}
             {currentWay.notes.map((note) => (
               <div key={note.id}>
                 {renaming?.kind === 'note' && renaming.id === note.id ? (
-                  <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
+                  <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
                     <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                   </div>
                 ) : (
@@ -1201,16 +1212,17 @@ function MobileHierarchy({
                         if (mobileDragNoteId) return;
                         onSelectNote(note.id, 'way', currentWay.id);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-secondary/40 active:bg-secondary/60"
-                      style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}
+                      className="list-row w-full text-left"
                     >
-                      {note.pinned ? (
-                        <Pin size={14} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} className="flex-shrink-0" />
-                      ) : (
-                        <FileText size={16} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
-                      )}
-                      <span className="flex-1 text-base truncate">{note.name}</span>
-                      <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
+                      <div className="list-row-icon">
+                        {note.pinned
+                          ? <Pin size={15} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} />
+                          : <FileText size={15} />}
+                      </div>
+                      <div className="list-row-info">
+                        <div className="list-row-title">{note.name}</div>
+                      </div>
+                      <ChevronRight className="list-row-chevron" />
                     </button>
                   </LongPressRow>
                 )}
@@ -1218,16 +1230,19 @@ function MobileHierarchy({
             ))}
 
             {adding?.kind === 'way-note' && adding.wayId === currentWay.id && (
-              <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
+              <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
                 <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
               </div>
             )}
 
             {/* Topics */}
+            {currentWay.topics.length > 0 && (
+              <div className="section-h">Topics</div>
+            )}
             {currentWay.topics.map((topic) => (
               <div key={topic.id}>
                 {renaming?.kind === 'topic' && renaming.id === topic.id ? (
-                  <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
+                  <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
                     <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                   </div>
                 ) : (
@@ -1243,15 +1258,14 @@ function MobileHierarchy({
                           setView({ kind: 'topic', topicId: topic.id });
                         }
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-secondary/40 active:bg-secondary/60"
-                      style={{
-                        boxShadow: 'inset 0 -0.5px 0 var(--line)',
-                        ...(mobileDragNoteId ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 5%, transparent)' } : {}),
-                      }}
+                      className="list-row w-full text-left"
+                      style={mobileDragNoteId ? { background: 'color-mix(in srgb, var(--accent-primary) 8%, var(--bg-card))' } : undefined}
                     >
-                      <span className="flex-1 text-base truncate">{topic.name}</span>
-                      <span className="text-xs flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>{topic.notes.length}</span>
-                      <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
+                      <div className="list-row-info">
+                        <div className="list-row-title">{topic.name}</div>
+                        <div className="list-row-sub">{topic.notes.length} note{topic.notes.length !== 1 ? 's' : ''}</div>
+                      </div>
+                      <ChevronRight className="list-row-chevron" />
                     </button>
                   </SwipeRow>
                 )}
@@ -1259,8 +1273,8 @@ function MobileHierarchy({
             ))}
 
             {currentWay.topics.length === 0 && currentWay.notes.length === 0 && !adding && (
-              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
-                Empty. Tap + to add a topic.
+              <div className="px-2 py-12 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
+                Empty. Tap + to add a topic or note.
               </div>
             )}
           </>
@@ -1271,8 +1285,8 @@ function MobileHierarchy({
             {mobileDragNoteId && (
               <button
                 onClick={() => onDropMobileDrag({ kind: 'topic', id: currentTopic.id })}
-                className="w-full px-4 py-3 text-sm font-medium text-left"
-                style={{ color: 'var(--accent-primary)', backgroundColor: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', boxShadow: 'inset 0 -0.5px 0 color-mix(in srgb, var(--accent-primary) 20%, transparent)' }}
+                className="list-row w-full text-left text-sm font-medium"
+                style={{ color: 'var(--accent-primary)', background: 'color-mix(in srgb, var(--accent-primary) 10%, var(--bg-card))' }}
               >
                 ↓ Drop here (in "{currentTopic.name}")
               </button>
@@ -1280,7 +1294,7 @@ function MobileHierarchy({
             {currentTopic.notes.map((note) => (
               <div key={note.id}>
                 {renaming?.kind === 'note' && renaming.id === note.id ? (
-                  <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
+                  <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
                     <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                   </div>
                 ) : (
@@ -1295,23 +1309,24 @@ function MobileHierarchy({
                         if (mobileDragNoteId) return;
                         onSelectNote(note.id, 'topic', currentTopic.id);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-secondary/40 active:bg-secondary/60"
-                      style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}
+                      className="list-row w-full text-left"
                     >
-                      {note.pinned ? (
-                        <Pin size={14} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} className="flex-shrink-0" />
-                      ) : (
-                        <FileText size={16} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
-                      )}
-                      <span className="flex-1 text-base truncate">{note.name}</span>
-                      <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
+                      <div className="list-row-icon">
+                        {note.pinned
+                          ? <Pin size={15} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} />
+                          : <FileText size={15} />}
+                      </div>
+                      <div className="list-row-info">
+                        <div className="list-row-title">{note.name}</div>
+                      </div>
+                      <ChevronRight className="list-row-chevron" />
                     </button>
                   </LongPressRow>
                 )}
               </div>
             ))}
             {currentTopic.notes.length === 0 && !adding && (
-              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+              <div className="px-2 py-12 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
                 No notes yet. Tap + to create one.
               </div>
             )}

@@ -874,6 +874,12 @@ export default function Analysis() {
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [sprints, setSprints] = useState<FocusSprint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const load = async () => {
     try {
@@ -952,26 +958,45 @@ export default function Analysis() {
   return (
     <PullToRefresh onRefresh={load}>
       <div className="size-full overflow-y-auto">
-        <div className="page-container">
-          {/* Header */}
-          <div className="page-head">
-            <div className="page-head-info">
-              <h1 className="page-title">Analysis</h1>
-              <p className="page-subtitle">Reflect on your progress, understand patterns, improve what matters.</p>
-              <div className="segmented" style={{ marginTop: 12 }}>
-                {(['week', 'month', 'quarter', 'year'] as Period[]).map((p) => (
-                  <button
-                    key={p}
-                    className="segmented-item"
-                    data-active={period === p || undefined}
-                    onClick={() => setPeriod(p)}
-                  >
-                    {p.charAt(0).toUpperCase() + p.slice(1)}
-                  </button>
-                ))}
+        {isMobile && (
+          <>
+            <div className="big-title-row">
+              <div>
+                <div className="big-title">Analysis</div>
+                <div className="big-title-sub">Progress & patterns</div>
               </div>
             </div>
-          </div>
+            <div className="chips-row">
+              {(['week', 'month', 'quarter', 'year'] as Period[]).map((p) => (
+                <button key={p} onClick={() => setPeriod(p)} className="chip" data-active={period === p}>
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <div className="page-container">
+          {/* Header */}
+          {!isMobile && (
+            <div className="page-head">
+              <div className="page-head-info">
+                <h1 className="page-title">Analysis</h1>
+                <p className="page-subtitle">Reflect on your progress, understand patterns, improve what matters.</p>
+                <div className="segmented" style={{ marginTop: 12 }}>
+                  {(['week', 'month', 'quarter', 'year'] as Period[]).map((p) => (
+                    <button
+                      key={p}
+                      className="segmented-item"
+                      data-active={period === p || undefined}
+                      onClick={() => setPeriod(p)}
+                    >
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 5-card KPI row */}
           <div className="kpi-row" data-cols="5">

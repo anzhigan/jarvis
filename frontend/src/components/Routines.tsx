@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Plus, Pencil, Trash2, Repeat, Pause, Play, X, Check, Calendar } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Repeat, Pause, Play, X, Check, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 import { routinesApi, tasksApi } from '../api/client';
 import type { Routine, RoutineScheduleType } from '../api/types';
@@ -13,6 +13,7 @@ const ROUTINE_COLORS = [
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // Sun..Sat
 const WEEKDAY_LABELS_RU = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 function todayIso(): string {
   const d = new Date();
@@ -56,7 +57,6 @@ function isRoutineDueToday(r: Routine): boolean {
       return diff >= 0 && diff % Math.max(1, r.schedule_n_days) === 0;
     }
     case 'times_per_week': {
-      // Show until weekly quota is met
       const start = new Date(today);
       start.setDate(start.getDate() - today.getDay()); // Sunday
       const startMs = start.getTime();
@@ -93,9 +93,9 @@ function scheduleLabel(r: Routine, lang: 'en' | 'ru'): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Streak — last 14 days as colored circles (today on the LEFT)
+// Desktop streak strip — 14 days, small dots, long-press modal
 // ═══════════════════════════════════════════════════════════════════════════
-function RoutineStreak({ routine, onSetEntry }: {
+function RoutineStreakDesktop({ routine, onSetEntry }: {
   routine: Routine;
   onSetEntry?: (date: string, value: number | null) => Promise<void>;
 }) {
@@ -138,14 +138,12 @@ function RoutineStreak({ routine, onSetEntry }: {
     });
   }
   const ordered = [...cells].reverse();
-
   const eligible = cells.filter((c) => !c.before).length;
   const done = cells.filter((c) => !c.before && c.value > 0).length;
 
   const startLongPress = (date: string) => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
     longPressTimer.current = window.setTimeout(() => {
-      import('../native/bridge').then(({ hapticHeavy }) => hapticHeavy()).catch(() => {});
       setActivePopover(date);
     }, 450);
   };
@@ -163,12 +161,12 @@ function RoutineStreak({ routine, onSetEntry }: {
       </div>
       <div className="streak-strip">
         {ordered.map((c) => {
-          let state: 'done' | 'fail' | 'today' | 'empty' = 'empty';
+          let state: 'done' | 'fail' | 'today' | undefined;
           if (c.isToday) state = 'today';
-          else if (c.before) state = 'empty';
+          else if (c.before) state = undefined;
           else if (c.value > 0) state = 'done';
           else if (c.hasEntry) state = 'fail';
-          else state = 'empty';
+          else state = undefined;
 
           const interactive = onSetEntry && !c.before;
           return (
@@ -183,45 +181,27 @@ function RoutineStreak({ routine, onSetEntry }: {
               onTouchEnd={cancelLongPress}
               onTouchCancel={cancelLongPress}
               className="streak-dot"
-              data-state={state === 'empty' ? undefined : state}
+              data-state={state}
             />
           );
         })}
       </div>
 
-      {/* Long-press popover */}
       {activePopover && onSetEntry && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setActivePopover(null)}
-        >
+        <div className="modal-backdrop" onClick={() => setActivePopover(null)}>
           <div className="modal-panel" style={{ padding: 16 }} onClick={(e) => e.stopPropagation()}>
             <div className="text-label" style={{ textAlign: 'center', marginBottom: 12 }}>{activePopover}</div>
             <div className="flex gap-3">
-              <button
-                onClick={async () => { await onSetEntry(activePopover, 1); setActivePopover(null); }}
-                className="check-circle"
-                data-state="done"
-                style={{ width: 56, height: 56 }}
-                title="Mark done"
-              >
+              <button onClick={async () => { await onSetEntry(activePopover, 1); setActivePopover(null); }}
+                className="check-circle" data-state="done" style={{ width: 56, height: 56 }}>
                 <Check size={24} strokeWidth={3} />
               </button>
-              <button
-                onClick={async () => { await onSetEntry(activePopover, 0); setActivePopover(null); }}
-                className="check-circle"
-                data-state="fail"
-                style={{ width: 56, height: 56 }}
-                title="Mark not done"
-              >
+              <button onClick={async () => { await onSetEntry(activePopover, 0); setActivePopover(null); }}
+                className="check-circle" data-state="fail" style={{ width: 56, height: 56 }}>
                 <X size={24} strokeWidth={3} />
               </button>
-              <button
-                onClick={async () => { await onSetEntry(activePopover, null); setActivePopover(null); }}
-                className="check-circle"
-                style={{ width: 56, height: 56, color: 'var(--fg-muted)' }}
-                title="Clear"
-              >
+              <button onClick={async () => { await onSetEntry(activePopover, null); setActivePopover(null); }}
+                className="check-circle" style={{ width: 56, height: 56, color: 'var(--fg-muted)' }}>
                 <span className="text-xl">−</span>
               </button>
             </div>
@@ -233,24 +213,149 @@ function RoutineStreak({ routine, onSetEntry }: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Mobile streak strip — 7 days, 22×22 tappable dots, inline popover
+// ═══════════════════════════════════════════════════════════════════════════
+function RoutineStreakMobile({ routine, onSetEntry }: {
+  routine: Routine;
+  onSetEntry?: (date: string, value: number | null) => Promise<void>;
+}) {
+  const [activePopover, setActivePopover] = useState<string | null>(null);
+
+  const entryMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of routine.entries) m.set(e.date, e.value);
+    return m;
+  }, [routine.entries]);
+
+  const entryHasMap = useMemo(() => {
+    const m = new Set<string>();
+    for (const e of routine.entries) m.add(e.date);
+    return m;
+  }, [routine.entries]);
+
+  const created = useMemo(() => {
+    const d = new Date(routine.created_at);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [routine.created_at]);
+
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+
+  // Build 7-day cells: oldest → newest (left → right)
+  const cells: { date: string; value: number; isToday: boolean; before: boolean; hasEntry: boolean; dayInitial: string }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() - i);
+    const key = dateIso(d);
+    cells.push({
+      date: key,
+      value: entryMap.get(key) ?? 0,
+      isToday: i === 0,
+      before: d < created,
+      hasEntry: entryHasMap.has(key),
+      dayInitial: DAY_INITIALS[d.getDay()],
+    });
+  }
+
+  const handleDotClick = (date: string, isToday: boolean, before: boolean) => {
+    if (isToday || before || !onSetEntry) return;
+    setActivePopover((prev) => prev === date ? null : date);
+  };
+
+  const handlePopoverAction = async (date: string, action: 'done' | 'fail' | 'empty') => {
+    if (!onSetEntry) return;
+    const value = action === 'done' ? 1 : action === 'fail' ? 0 : null;
+    await onSetEntry(date, value);
+    setActivePopover(null);
+  };
+
+  return (
+    <div className="streak-strip-row" onClick={() => setActivePopover(null)}>
+      <span className="streak-strip-label">7d</span>
+      <div className="streak-strip">
+        {cells.map((c) => {
+          let state: 'done' | 'fail' | 'today' | 'empty';
+          if (c.isToday) state = 'today';
+          else if (c.before) state = 'empty';
+          else if (c.value > 0) state = 'done';
+          else if (c.hasEntry) state = 'fail';
+          else state = 'empty';
+
+          const isOpen = activePopover === c.date;
+          const canEdit = !c.isToday && !c.before && !!onSetEntry;
+
+          return (
+            <span key={c.date} className="streak-popover-wrap" onClick={(e) => e.stopPropagation()}>
+              <button
+                className="streak-dot"
+                data-state={state}
+                data-day={c.dayInitial}
+                data-popover={isOpen ? 'open' : undefined}
+                onClick={() => handleDotClick(c.date, c.isToday, c.before)}
+                disabled={!canEdit}
+                title={c.date}
+              />
+              {isOpen && (
+                <div className="streak-popover" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="streak-popover-btn"
+                    data-action="done"
+                    onClick={() => handlePopoverAction(c.date, 'done')}
+                    title="Mark done"
+                  >
+                    <Check size={14} strokeWidth={3.2} />
+                  </button>
+                  <button
+                    className="streak-popover-btn"
+                    data-action="fail"
+                    onClick={() => handlePopoverAction(c.date, 'fail')}
+                    title="Mark failed"
+                  >
+                    <X size={14} strokeWidth={3.2} />
+                  </button>
+                  <button
+                    className="streak-popover-btn"
+                    data-action="empty"
+                    onClick={() => handlePopoverAction(c.date, 'empty')}
+                    title="Clear"
+                  >
+                    <Minus size={14} strokeWidth={2} />
+                  </button>
+                </div>
+              )}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // RoutineCard
 // ═══════════════════════════════════════════════════════════════════════════
-function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => Promise<void> }) {
+function RoutineCard({ routine, onReload, isMobile }: { routine: Routine; onReload: () => Promise<void>; isMobile: boolean }) {
   const t = useT();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+
+  // Swipe gesture state
+  const swipeStartX = useRef(0);
+  const swipeStartY = useRef(0);
+  const swipeDragging = useRef(false);
+  const swipeHorizontal = useRef<boolean | null>(null);
 
   const today = todayIso();
   const todayEntry = routine.entries.find((e) => e.date === today);
   const isDoneToday = (todayEntry?.value ?? 0) > 0;
-  const dueToday = isRoutineDueToday(routine);
+  const isSkippedToday = todayEntry !== undefined && todayEntry.value === 0;
 
-  /** Set value for a specific date — for past edits or current */
   const setEntry = async (date: string, value: number | null) => {
     if (busy) return;
     setBusy(true);
     try {
-      import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
       if (value === null) {
         await routinesApi.deleteEntry(routine.id, date);
       } else {
@@ -269,13 +374,27 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
     setBusy(true);
     try {
       const newValue = isDoneToday ? 0 : 1;
-      // Tactile feedback
-      const { hapticSuccess, hapticTap } = await import('../native/bridge');
-      if (newValue === 1) hapticSuccess(); else hapticTap();
       if (newValue === 0) {
         await routinesApi.deleteEntry(routine.id, today);
       } else {
         await routinesApi.upsertEntry(routine.id, today, newValue);
+      }
+      await onReload();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const markSkippedToday = async () => {
+    if (routine.kind !== 'boolean' || busy) return;
+    setBusy(true);
+    try {
+      if (isSkippedToday) {
+        await routinesApi.deleteEntry(routine.id, today);
+      } else {
+        await routinesApi.upsertEntry(routine.id, today, 0);
       }
       await onReload();
     } catch (e: any) {
@@ -311,12 +430,48 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
     }
   };
 
+  const onTouchStart = (e: React.TouchEvent) => {
+    swipeStartX.current = e.touches[0].clientX;
+    swipeStartY.current = e.touches[0].clientY;
+    swipeDragging.current = true;
+    swipeHorizontal.current = null;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!swipeDragging.current) return;
+    const dx = e.touches[0].clientX - swipeStartX.current;
+    const dy = e.touches[0].clientY - swipeStartY.current;
+    if (swipeHorizontal.current === null) {
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        swipeHorizontal.current = Math.abs(dx) > Math.abs(dy);
+      }
+    }
+    if (swipeHorizontal.current && Math.abs(dx) > 3) {
+      e.stopPropagation();
+    }
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!swipeDragging.current) return;
+    swipeDragging.current = false;
+    const dx = e.changedTouches[0].clientX - swipeStartX.current;
+    if (swipeHorizontal.current) {
+      if (dx < -60) setRevealed(true);
+      else if (dx > 20) setRevealed(false);
+    }
+    swipeHorizontal.current = null;
+  };
+
   if (editing) {
     return <RoutineEditForm routine={routine} onCancel={() => setEditing(false)} onSaved={async () => { setEditing(false); await onReload(); }} />;
   }
 
-  return (
-    <div className="routine-row" style={{ position: 'relative' }}>
+  const card = (
+    <div
+      className="routine-row"
+      style={{ position: 'relative' }}
+      onClick={() => revealed && setRevealed(false)}
+    >
       {/* Color stripe */}
       <div
         style={{
@@ -325,18 +480,44 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
           width: 4,
           background: routine.color,
           opacity: routine.is_paused ? 0.35 : 0.9,
+          borderRadius: 'var(--r-card) 0 0 var(--r-card)',
         }}
       />
 
-      {/* Done circle */}
-      {routine.kind === 'boolean' && (
+      {/* Mobile: dual check-pair */}
+      {isMobile && routine.kind === 'boolean' && (
+        <div className="check-pair" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={toggleToday}
+            disabled={busy || routine.is_paused}
+            className="check-circle"
+            data-action="done"
+            data-state={isDoneToday ? 'done' : 'idle'}
+            title={isDoneToday ? 'Undo done' : 'Mark done'}
+          >
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} strokeWidth={3.2} />}
+          </button>
+          <button
+            onClick={markSkippedToday}
+            disabled={busy || routine.is_paused}
+            className="check-circle"
+            data-action="skip"
+            data-state={isSkippedToday ? 'done' : 'idle'}
+            title={isSkippedToday ? 'Undo skip' : 'Mark skipped'}
+          >
+            <X size={13} strokeWidth={3.2} />
+          </button>
+        </div>
+      )}
+
+      {/* Desktop: single check circle */}
+      {!isMobile && routine.kind === 'boolean' && (
         <button
           onClick={toggleToday}
           disabled={busy || routine.is_paused}
           className="check-circle"
           data-state={isDoneToday ? 'done' : 'outline'}
           style={{ opacity: routine.is_paused ? 0.4 : 1 }}
-          title={isDoneToday ? 'Mark not done' : 'Mark done today'}
         >
           {busy && isDoneToday ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} strokeWidth={3.2} />}
         </button>
@@ -353,43 +534,72 @@ function RoutineCard({ routine, onReload }: { routine: Routine; onReload: () => 
         </div>
       </div>
 
-      {/* Streak */}
-      <RoutineStreak routine={routine} onSetEntry={setEntry} />
+      {/* Desktop-only streak strip */}
+      {!isMobile && (
+        <RoutineStreakDesktop routine={routine} onSetEntry={setEntry} />
+      )}
 
-      {/* Actions */}
-      <div className="hidden md:flex items-center gap-0.5 flex-shrink-0">
-        <button onClick={togglePause} className="icon-btn icon-btn-sm" title={routine.is_paused ? 'Resume' : 'Pause'}>
-          {routine.is_paused ? <Play size={13} /> : <Pause size={13} />}
-        </button>
-        <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm" title="Edit">
-          <Pencil size={13} />
+      {/* Desktop-only action buttons */}
+      {!isMobile && (
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <button onClick={togglePause} className="icon-btn icon-btn-sm" title={routine.is_paused ? 'Resume' : 'Pause'}>
+            {routine.is_paused ? <Play size={13} /> : <Pause size={13} />}
+          </button>
+          <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm" title="Edit">
+            <Pencil size={13} />
+          </button>
+          <button
+            onClick={markSkippedToday}
+            disabled={busy || routine.is_paused}
+            className="icon-btn icon-btn-sm"
+            title="Mark not done"
+            style={{ color: isSkippedToday ? 'var(--danger)' : undefined }}
+          >
+            {busy && isSkippedToday ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
+          </button>
+          <button onClick={remove} className="icon-btn icon-btn-sm" title="Delete" style={{ color: 'var(--danger)' }}>
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* Mobile 7-day streak strip — wraps to next line */}
+      {isMobile && (
+        <RoutineStreakMobile routine={routine} onSetEntry={setEntry} />
+      )}
+    </div>
+  );
+
+  if (!isMobile) return card;
+
+  // Mobile: wrap in swipe-wrap
+  return (
+    <div className="swipe-wrap" data-revealed={revealed}>
+      <div className="swipe-actions">
+        <button
+          className="swipe-action"
+          data-kind="edit"
+          onClick={(e) => { e.stopPropagation(); setRevealed(false); setEditing(true); }}
+        >
+          <Pencil size={18} />
+          <span>Edit</span>
         </button>
         <button
-          onClick={async () => {
-            if (routine.kind !== 'boolean' || busy) return;
-            setBusy(true);
-            try {
-              import('../native/bridge').then(({ hapticTap }) => hapticTap()).catch(() => {});
-              if (todayEntry && todayEntry.value === 0) {
-                await routinesApi.deleteEntry(routine.id, today);
-              } else {
-                await routinesApi.upsertEntry(routine.id, today, 0);
-              }
-              await onReload();
-            } catch (e: any) {
-              toast.error(e?.detail ?? 'Failed');
-            } finally { setBusy(false); }
-          }}
-          disabled={busy || routine.is_paused}
-          className="icon-btn icon-btn-sm"
-          title="Mark not done"
-          style={{ color: todayEntry?.value === 0 ? 'var(--danger)' : undefined }}
+          className="swipe-action"
+          data-kind="delete"
+          onClick={(e) => { e.stopPropagation(); setRevealed(false); remove(); }}
         >
-          {busy && todayEntry?.value === 0 ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
+          <Trash2 size={18} />
+          <span>Delete</span>
         </button>
-        <button onClick={remove} className="icon-btn icon-btn-sm" title="Delete" style={{ color: 'var(--danger)' }}>
-          <Trash2 size={13} />
-        </button>
+      </div>
+      <div
+        className="swipe-content"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {card}
       </div>
     </div>
   );
@@ -456,7 +666,6 @@ function RoutineEditForm({
         className="textarea"
       />
 
-      {/* Schedule type */}
       <div>
         <div className="text-label" style={{ marginBottom: 4 }}>Schedule</div>
         <select
@@ -499,7 +708,6 @@ function RoutineEditForm({
         </div>
       )}
 
-      {/* Color */}
       <div className="flex gap-1.5 flex-wrap">
         {ROUTINE_COLORS.map((c) => (
           <button
@@ -560,7 +768,6 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
         schedule_count_per_period: scheduleCount,
         goal_id: goalId || null,
       });
-      import('../native/bridge').then(({ hapticSuccess }) => hapticSuccess());
       onCancel();
       await onCreated();
     } catch (e: any) {
@@ -580,7 +787,7 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
       </div>
       <input
         type="text"
-        placeholder="Routine title (e.g. Solve 10 algebra problems)"
+        placeholder="Routine title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         autoFocus
@@ -674,6 +881,13 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Routines() {
   const t = useT();
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [goals, setGoals] = useState<{ id: string; title: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -710,67 +924,120 @@ export default function Routines() {
     paused: routines.filter((r) => r.is_paused).length,
   }), [routines]);
 
+  const filterLabels = { today: 'Today', all: 'All active', paused: 'Paused' } as const;
+
   return (
     <div className="size-full overflow-y-auto">
       <PullToRefresh onRefresh={load}>
-        <div className="page-container">
-          <div className="page-head">
-            <div className="page-head-info">
-              <h1 className="page-title">Routines</h1>
-              <p className="page-subtitle">Build rhythm. Stay consistent. Reduce friction.</p>
-            </div>
-            <div className="page-head-actions">
-              <button
-                onClick={() => setCreating((v) => !v)}
-                className={creating ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
-              >
-                {creating ? <X size={13} /> : <Plus size={13} />}
-                {creating ? 'Cancel' : 'New routine'}
+        {isMobile ? (
+          /* ── Mobile layout ── */
+          <div>
+            <div className="big-title-row">
+              <div>
+                <div className="big-title">Routines</div>
+                <div className="big-title-sub">Build rhythm. Stay consistent.</div>
+              </div>
+              <button onClick={() => setCreating((v) => !v)} className="icon-btn" title="New routine">
+                {creating ? <X size={20} /> : <Plus size={20} />}
               </button>
             </div>
-          </div>
 
-          {/* Create form */}
-          {creating && (
-            <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} goals={goals} />
-          )}
-
-          {/* Filter pills */}
-          <div className="flex gap-1.5 flex-wrap" style={{ marginBottom: 14 }}>
-            {(['today', 'all', 'paused'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className="pill"
-                data-active={filter === f}
-              >
-                {f === 'today' ? 'Today' : f === 'all' ? 'All active' : 'Paused'}
-                <span className="pill-count">{counts[f]}</span>
-              </button>
-            ))}
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <Loader2 size={20} className="animate-spin" />
-            </div>
-          ) : filteredRoutines.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Repeat size={32} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm">
-                {filter === 'today' ? 'Nothing scheduled for today.' :
-                 filter === 'paused' ? 'No paused routines.' :
-                 'No routines yet. Create your first one above.'}
-              </p>
-            </div>
-          ) : (
-            <div>
-              {filteredRoutines.map((r) => (
-                <RoutineCard key={r.id} routine={r} onReload={load} />
+            {/* Filter chips */}
+            <div className="chips-row">
+              {(['today', 'all', 'paused'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className="chip"
+                  data-active={filter === f}
+                >
+                  {filterLabels[f]}
+                  <span className="chip-count">{counts[f]}</span>
+                </button>
               ))}
             </div>
-          )}
-        </div>
+
+            <div style={{ padding: '0 16px' }}>
+              {creating && (
+                <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} goals={goals} />
+              )}
+
+              {loading ? (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                  <Loader2 size={20} className="animate-spin" />
+                </div>
+              ) : filteredRoutines.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Repeat size={32} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">
+                    {filter === 'today' ? 'Nothing scheduled for today.' :
+                     filter === 'paused' ? 'No paused routines.' :
+                     'No routines yet. Create your first one above.'}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {filteredRoutines.map((r) => (
+                    <RoutineCard key={r.id} routine={r} onReload={load} isMobile={true} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* ── Desktop layout ── */
+          <div className="page-container">
+            <div className="page-head">
+              <div className="page-head-info">
+                <h1 className="page-title">Routines</h1>
+                <p className="page-subtitle">Build rhythm. Stay consistent. Reduce friction.</p>
+              </div>
+              <div className="page-head-actions">
+                <button
+                  onClick={() => setCreating((v) => !v)}
+                  className={creating ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
+                >
+                  {creating ? <X size={13} /> : <Plus size={13} />}
+                  {creating ? 'Cancel' : 'New routine'}
+                </button>
+              </div>
+            </div>
+
+            {creating && (
+              <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} goals={goals} />
+            )}
+
+            <div className="flex gap-1.5 flex-wrap" style={{ marginBottom: 14 }}>
+              {(['today', 'all', 'paused'] as const).map((f) => (
+                <button key={f} onClick={() => setFilter(f)} className="pill" data-active={filter === f}>
+                  {filterLabels[f]}
+                  <span className="pill-count">{counts[f]}</span>
+                </button>
+              ))}
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 size={20} className="animate-spin" />
+              </div>
+            ) : filteredRoutines.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Repeat size={32} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">
+                  {filter === 'today' ? 'Nothing scheduled for today.' :
+                   filter === 'paused' ? 'No paused routines.' :
+                   'No routines yet. Create your first one above.'}
+                </p>
+              </div>
+            ) : (
+              <div>
+                {filteredRoutines.map((r) => (
+                  <RoutineCard key={r.id} routine={r} onReload={load} isMobile={false} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </PullToRefresh>
     </div>
   );
