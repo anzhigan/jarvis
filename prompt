@@ -1,228 +1,192 @@
-**Промпт для Claude Code:**
+Промпт для Claude Code:
 
-```
-В мобильной версии Notes три регрессии. Найди причины и исправь, не сломав ничего другого.
+В мобильной веб-версии нужно исправить шесть конкретных регрессий. Проверь каждую и почини. Все макеты дизайн-системы лежат в корне проекта: jarvnote-design-system.html, jarvis-notes-mobile-v2.html, jarvis-mockup.html — открой их в браузере и сверяйся при работе.
 
 ═══════════════════════════════════════════════════════
-ПРОБЛЕМА 1: Edit / Delete всегда видны рядом с каждой строкой
+ПРОБЛЕМА 1: Add go / Add goal / Add step — другой дизайн чем Add note / topic / way
 ═══════════════════════════════════════════════════════
 
-В списке Ways/Topics/Notes напротив каждой строки СТАТИЧНО отрисованы оранжевая кнопка "Edit" (с иконкой карандаша) и красная "Delete" (с иконкой корзины). Это занимает половину строки и ломает дизайн.
-
-Эти кнопки должны появляться ТОЛЬКО при свайпе строки влево (iOS-style swipe-to-reveal-actions), а в обычном состоянии — быть скрыты. Сейчас они отрисованы как часть row-разметки.
+В Notes кнопки Add way / Add topic / Add note уже сделаны в правильном стиле — пунктирный border, шириной во всю плашку (но чуть уже), расположены ВЫШЕ списка. А в Tasks кнопки Add go / Add goal / Add step выглядят по-другому (вероятно остались старого вида — btn btn-secondary btn-sm, justify-end).
 
 Что сделать:
 
-1. Найди компонент списков ways/topics/notes на mobile. Кандидаты:
-   - `frontend/src/components/Notes.tsx` (вероятнее всего, см. рендер при `MobileView { kind: 'root' }` и `kind: 'way' }`).
-   - Возможно отдельный `MobileWayRow.tsx` / `MobileTopicRow.tsx` — поищи:
-     ```
-     grep -rn "Edit.*Delete\|edit.*delete\|action.*edit\|swipe" frontend/src/components --include="*.tsx"
-     grep -rn "Pencil\|Trash" frontend/src/components --include="*.tsx" | grep -i "mobile\|row"
-     ```
-
-2. Удали статический рендер этих кнопок из row-разметки. Row должен содержать ТОЛЬКО:
-   - иконку слева (lico)
-   - body (name + sub)
-   - chevron справа
-   Никаких Edit/Delete по умолчанию.
-
-3. Реализуй swipe-actions через одну из опций (выбери ту, что уже есть в проекте — поищи `useSwipeBack`, `react-swipeable`, `framer-motion` в `package.json`):
-
-   **Вариант A — нативный CSS-snap (предпочтительно, без либ)**:
-   ```jsx
-   <div className="swipe-row">
-     <button className="swipe-row-content">
-       {/* icon + body + chevron */}
-     </button>
-     <div className="swipe-row-actions">
-       <button className="swipe-action edit"><Pencil/></button>
-       <button className="swipe-action delete"><Trash2/></button>
-     </div>
-   </div>
-   ```
-   ```css
-   .swipe-row {
-     display: flex;
-     overflow-x: auto;
-     scroll-snap-type: x mandatory;
-     scrollbar-width: none;
+1. Найди компонент frontend/src/components/AddItemButton.tsx — он должен уже существовать после имплементации Notes. Если его нет — создай:
+   ```tsx
+   import { Plus } from 'lucide-react';
+   type Props = { label: string; onClick: () => void };
+   export default function AddItemButton({ label, onClick }: Props) {
+     return (
+       <button type="button" onClick={onClick} className="add-item-btn">
+         <Plus size={14} strokeWidth={2.2} />
+         <span>{label}</span>
+       </button>
+     );
    }
-   .swipe-row::-webkit-scrollbar { display: none; }
-   .swipe-row-content { flex-shrink: 0; width: 100%; scroll-snap-align: start; }
-   .swipe-row-actions { flex-shrink: 0; display: flex; scroll-snap-align: end; }
-   .swipe-action { width: 72px; height: 100%; border: 0; display: inline-flex; align-items: center; justify-content: center; }
-   .swipe-action.edit   { background: var(--accent-goals-bg); color: var(--accent-goals-fg); }
-   .swipe-action.delete { background: var(--danger-soft);     color: var(--danger); }
-   ```
 
-   **Вариант B — framer-motion** (если уже подключён): `<motion.div drag="x" dragConstraints={{ left: -144, right: 0 }} />`.
 
-4. Action-зона:
-   - Только иконка (Pencil 16px / Trash2 16px), БЕЗ текста "Edit"/"Delete".
-   - Цвета через CSS-переменные дизайн-системы:
-     - Edit: фон `var(--accent-goals-bg)`, иконка `var(--accent-goals-fg)`.
-     - Delete: фон `var(--danger-soft)`, иконка `var(--danger)`.
-   - Никаких box-shadow, никаких ярко-оранжевых/красных fill.
+ 2. CSS-класс .add-item-btn должен уже быть в index.css. Если нет — добавь:
 
-5. На desktop swipe не имеет смысла — оставь там обычный hover-меню или контекстное меню. Свайп-режим включается только при `@media (max-width: 768px)` или через флаг `isMobile`.
+.add-item-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: calc(100% - 24px); margin: 4px 12px 12px;
+  padding: 11px 14px;
+  background: transparent;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  color: var(--fg-tertiary);
+  font: inherit; font-size: var(--text-sm); font-weight: 500;
+}
+.add-item-btn:active {
+  border-color: var(--fg-muted);
+  background: var(--bg-hover);
+  color: var(--fg-secondary);
+}
 
+
+ 2. В frontend/src/components/Tasks.tsx найди три места — строки ~1404, ~1718, ~2133-2139 (или поищи addGo, addSprint, addTask, btn btn-secondary btn-sm, btn btn-ghost) и замени их на <AddItemButton label={t('tasks.addGo')} onClick={...} />.
+ 3. КРИТИЧНО — расположение: кнопка ВЫШЕ списка, не после, не справа. Точно так же, как в Notes для Add way / topic / note. Если сейчас стоит после — перенеси в начало списка.
 ═══════════════════════════════════════════════════════
-ПРОБЛЕМА 2: Keyboard toolbar за клавиатурой, а не над ней
+ПРОБЛЕМА 2: Sheet создания нового тега не соответствует макету
 ═══════════════════════════════════════════════════════
+Скриншот показывает, что текущая панель тегов имеет внутренний нестандартный layout: чёрный фон, секция “ВАШИ ТЕГИ” сверху со старыми чипами в old-style рамках, ниже “CREATE NEW” с горизонтальным рядом цветных кружков и плюсом справа. Это НЕ соответствует дизайн-системе и макету jarvis-notes-mobile-v2.html (экран 11).
+Должно быть как в макете (см. экран 11 и jarvnote-design-system.html секция “Inputs”):
+ 1. Найди компонент создания/редактирования тега. Кандидаты:
 
-При фокусе в редакторе клавиатура iOS открывается, и форматирующая панель (B / I / U / H2 / list / formula / code…) лежит ПОД клавиатурой — над клавиатурой видны только обрезанные верхушки кнопок. Должно быть наоборот: панель сидит ВПЛОТНУЮ НАД клавиатурой и полностью видима.
+grep -rn "createTag\|TagPanel\|Create new\|CREATE NEW\|create-tag" frontend/src --include="*.tsx" --include="*.ts"
 
+
+ 1. Скорее всего в frontend/src/components/TagSelector.tsx или TagPanel.tsx.
+ 2. Перерисуй sheet создания тега как .create-sheet.with-keyboard:
+ • Header (sticky): Cancel слева / “New tag” по центру / Create справа (primary).
+ • Body (compact, padding 10px 16px 12px):
+ • Live preview блок: фон var(--bg-app), padding 14px, border-radius var(--r-control), центрирование. Внутри — .tag-chip.removable с актуальным именем и выбранным цветом.
+ • Form-field с label “Name” и <input class="input"> для имени тега. autoFocus НЕ ставь (см. Проблему 4 в предыдущих промптах — Safari iOS не любит programmatic focus); фокус через setTimeout(() => ref.current?.focus(), 350) после анимации sheet’а.
+ • Aux-row над клавиатурой (.sheet-keyboard-aux): 8 цветных кружков 32×32, display: flex; justify-content: space-between; padding: 10px 12px;. Без подписи “Colour”, без скролла. Выбранный — двойное кольцо: box-shadow: 0 0 0 2px var(--bg-shell), 0 0 0 4px var(--fg-primary).
+ 3.Tag-chip на скриншоте имеет старые классы (рамки вокруг чипов, текст “Mental”, “it”, “Наука”). Эти chips в списке “ВАШИ ТЕГИ” должны быть в стиле .tag-chip.removable из дизайн-системы:
+ • height var(--h-sm), padding 0 6px 0 10px, gap 6px.
+ • Иконка X внутри .x (16×16, opacity 0.75).
+ • Без сторонних рамок снаружи.
+ 4. Удали полностью старый layout с разделом “ВАШИ ТЕГИ” / “CREATE NEW” в одном блоке — это два РАЗНЫХ sheet’а:
+ • Sheet “Pick tags” (выбор существующих) — full-height, без клавиатуры. См. экран 10 в jarvis-notes-mobile-v2.html.
+ • Sheet “New tag” (создание) — compact, с клавиатурой. См. экран 11.
+═══════════════════════════════════════════════════════
+ПРОБЛЕМА 3: Браузерная плашка с URL “jarvnote.ru” перекрывает keyboard toolbar
+═══════════════════════════════════════════════════════
+Скриншот: при фокусе в редакторе iOS Safari в нижней мини-панели браузера показывает капсулу с текущим URL (“jarvnote.ru”). Эта капсула физически находится между keyboard-toolbar и клавиатурой и отжимает toolbar вверх — toolbar отрывается от клавиатуры, кнопки видны, но это уродливо и скачет.
+Кроме того, на скриншоте видно, что сверху появляется ещё одна “контрольная” плашка с шевронами вверх/вниз и галочкой — это, похоже, autocomplete-suggestions от iOS, которые тоже отжимают toolbar.
 Что сделать:
+ 1. Свернуть клавиатуру — кнопка: на keyboard-toolbar добавь справа отдельную кнопку «свернуть клавиатуру» (как в Notion mobile). Иконка — <ChevronDown> или специальная keyboard-down иконка из lucide. По клику — editor.commands.blur() или (document.activeElement as HTMLElement)?.blur() — это закрывает iOS-клавиатуру и убирает мини-панель браузера. Кнопка визуально отделена от других через .kb-divider слева.
 
-1. Найди компонент клавиатурного тулбара:
-   ```
-   grep -rn "keyboard-toolbar\|KeyboardToolbar\|visualViewport" frontend/src --include="*.tsx" --include="*.ts" --include="*.css"
-   ```
-   Вероятно в `frontend/src/components/RichTextEditor.tsx` (стр. ~381-422 — там уже есть mobile keyboard detection через visualViewport API).
+<div className="keyboard-toolbar">
+  <button className="kb-btn"><Bold/></button>
+  {/* … все остальные кнопки … */}
+  <div className="kb-spacer" style={{flex:1}} />
+  <button className="kb-btn" onClick={() => editor.commands.blur()}>
+    <ChevronDown size={16} />
+  </button>
+</div>
 
-2. Правильная стратегия — `position: fixed` относительно visual viewport, привязка к нижнему краю видимой области:
 
-   ```jsx
-   const [kbHeight, setKbHeight] = useState(0);
-
-   useEffect(() => {
-     if (!window.visualViewport) return;
-     const onResize = () => {
-       const vv = window.visualViewport!;
-       const offset = window.innerHeight - vv.height - vv.offsetTop;
-       setKbHeight(Math.max(0, offset));
-     };
-     window.visualViewport.addEventListener('resize', onResize);
-     window.visualViewport.addEventListener('scroll', onResize);
-     onResize();
-     return () => {
-       window.visualViewport!.removeEventListener('resize', onResize);
-       window.visualViewport!.removeEventListener('scroll', onResize);
-     };
-   }, []);
-
-   {focused && kbHeight > 0 && (
-     <div className="keyboard-toolbar" style={{ bottom: `${kbHeight}px` }}>
-       {/* B / I / U / ∑ / code / link / table / image */}
-     </div>
-   )}
-   ```
-   ```css
-   .keyboard-toolbar {
-     position: fixed;
-     left: 0; right: 0;
-     z-index: 50;
-     background: var(--bg-shell);
-     box-shadow: inset 0 0.5px 0 var(--line);
-     padding: 6px 8px;
-     display: flex; gap: 4px;
-     overflow-x: auto;
-     scrollbar-width: none;
-     transition: bottom var(--dur-fast) var(--ease);
-   }
-   .keyboard-toolbar::-webkit-scrollbar { display: none; }
-   ```
-
-3. Проверь, что у `.keyboard-toolbar` нет `transform`, `will-change`, `backdrop-filter` на РОДИТЕЛЕ, которые в iOS WebKit ломают `position: fixed` — это частая причина «провала под клавиатуру». Если найдёшь — либо вынеси toolbar в портал на `document.body` через `createPortal`, либо убери transform на родителе.
-
-4. Проверь meta-viewport в `index.html`:
-   ```html
-   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
-   ```
-   Без `interactive-widget=resizes-content` Safari НЕ изменяет `window.innerHeight` — тогда visualViewport API сработает как fallback.
-
+ 2. Положение тулбара относительно следующей строки текста: вместо «toolbar прибит к низу viewport» — сделай его в стиле «inline над курсором». То есть toolbar появляется ПОД ТЕКУЩИМ АБЗАЦЕМ (или над, если места нет снизу), а не у границы экрана. Этот паттерн в Notion mobile работает так:
+ • Когда editor сфокусирован, найди bounding rect выделенного / текущего узла через editor.view.coordsAtPos(editor.state.selection.head).
+ • Позиционируй toolbar в position: absolute; top: ${rect.bottom + 8}px; left: ${rect.left}px; относительно editor-контейнера.
+ • Если строка близка к низу видимой области — переключи на top: ${rect.top - toolbarHeight - 8}px.
+ • Это убирает проблему с URL-капсулой и autocomplete-row Safari, потому что toolbar больше не борется за нижнее место с системными элементами.
+ВАРИАНТ ПРОЩЕ (если inline-позиционирование сложно):
+ • Оставь toolbar position: fixed, но верни его на bottom через bottom: ${kbHeight + safeAreaInsetBottom}px, ГДЕ safeAreaInsetBottom = env(safe-area-inset-bottom, 0px). На iOS Safari mini-bar учитывается visualViewport как часть OS-чрома, и vv.height уже её исключает — тогда toolbar встанет точно над клавой. Если не помогает — фиксированная подушка bottom: ${kbHeight + 44}px (44 — высота Safari mini-bar).
+ 3. Проверь, что .keyboard-toolbar имеет padding-bottom: env(safe-area-inset-bottom, 0) — чтобы не наезжать на home-indicator iPhone.
 ═══════════════════════════════════════════════════════
-ПРОБЛЕМА 3: Sheets "Add Way / Topic / Note" уезжают под клавиатуру
+ПРОБЛЕМА 4: Кнопка “назад” слишком маленькая
 ═══════════════════════════════════════════════════════
-
-Симптом: при тапе на "Add Way" / "Add Topic" / "Add Note" открывается bottom-sheet с полем ввода. Клавиатура поднимается СРАЗУ (потому что input получает autofocus), но sheet остаётся прижат к низу окна (`bottom: 0`) и оказывается ЗА клавиатурой. Если свернуть клавиатуру — sheet виден внизу. Если ВРУЧНУЮ тапнуть на input после открытия — sheet всплывает корректно над клавиатурой (Safari тогда сам подкручивает viewport, потому что фокус был инициирован пользователем).
-
-Это та же проблема, что и в #2 — `position: fixed; bottom: 0` без учёта высоты клавиатуры. И ещё дополнительно: programmatic focus в Safari iOS НЕ триггерит `scrollIntoView`-логику, которую WebKit делает только для user-initiated focus.
-
+В навбаре по всему интерфейсу кнопка back (.back-btn) — 28×28 с иконкой 14px. На реальном устройстве пальцем плохо попадать.
 Что сделать:
+ 1. В index.css увеличь .back-btn:
 
-1. Найди sheet-компоненты для создания Way/Topic/Note. Кандидаты:
-   - `frontend/src/components/CreateSheet.tsx` (общий каркас).
-   - `frontend/src/components/Notes.tsx` — где отрисовывается форма для нового Way/Topic/Note (поищи `addWay`, `createWay`, `setShowCreate`, `showAddSheet` и подобное).
-   ```
-   grep -rn "createWay\|addWay\|createTopic\|addTopic\|create-sheet\|CreateSheet" frontend/src --include="*.tsx"
-   ```
+.back-btn {
+  width: var(--h-md); height: var(--h-md);  /* было var(--h-sm) 28px → теперь 32px */
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-control);
+  background: transparent; border: 0;
+  color: var(--fg-secondary);
+  flex-shrink: 0;
+  /* Обязательно — расширенная hit-зона без визуального изменения */
+  position: relative;
+}
+.back-btn::before {
+  content: '';
+  position: absolute;
+  inset: -8px;  /* +8px вокруг для tap-target 48×48 (iOS recommendation) */
+}
+.back-btn:active { background: var(--bg-hover); color: var(--fg-primary); }
+.back-btn svg { width: 18px; height: 18px; stroke-width: 2; }  /* было 14px */
 
-2. Применяй ту же visualViewport-логику, что и для toolbar (Проблема 2). Создай переиспользуемый хук:
 
-   ```ts
-   // frontend/src/hooks/useKeyboardHeight.ts
-   import { useEffect, useState } from 'react';
-   export function useKeyboardHeight() {
-     const [h, setH] = useState(0);
-     useEffect(() => {
-       if (!window.visualViewport) return;
-       const onResize = () => {
-         const vv = window.visualViewport!;
-         setH(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
-       };
-       window.visualViewport.addEventListener('resize', onResize);
-       window.visualViewport.addEventListener('scroll', onResize);
-       onResize();
-       return () => {
-         window.visualViewport!.removeEventListener('resize', onResize);
-         window.visualViewport!.removeEventListener('scroll', onResize);
-       };
-     }, []);
-     return h;
-   }
-   ```
+ 2. Найди все использования .back-btn и убедись, что иконка внутри — <ChevronLeft size={18}> (была 14).
+═══════════════════════════════════════════════════════
+ПРОБЛЕМА 5: Линия прогресса на плашках Go и Step слишком тонкая
+═══════════════════════════════════════════════════════
+В Tasks компоненты Go и Step имеют progress-bar (заливка по мере выполнения подшагов / процент готовности). Сейчас она 2-3px высотой — еле видна.
+Что сделать:
+ 1. Найди progress-bar в плашках Go/Step:
 
-3. В `.create-sheet-root` подвинь sheet вверх на высоту клавиатуры:
-   ```jsx
-   const kb = useKeyboardHeight();
-   <div className="create-sheet-root">
-     <div
-       className="create-sheet"
-       style={{ transform: kb > 0 ? `translateY(-${kb}px)` : undefined }}
-     >
-       {/* header / body / aux / footer */}
-     </div>
-   </div>
-   ```
-   ```css
-   .create-sheet {
-     transition: transform var(--dur-fast) var(--ease);
-   }
-   ```
+grep -rn "progress\|Progress" frontend/src/components/Tasks.tsx | head -20
+grep -rn "h-1\|h-1\.5\|h-0\.5\|height: 2px\|height: 3px" frontend/src/components --include="*.tsx"
 
-   ИЛИ вариант через `padding-bottom` на родителе:
-   ```css
-   .create-sheet-root {
-     position: fixed; inset: 0;
-     padding-bottom: var(--kb-h, 0px);
-     display: flex; flex-direction: column; justify-content: flex-end;
-   }
-   ```
-   и в JS: `document.documentElement.style.setProperty('--kb-h', `${kb}px`)`.
 
-4. **Важно про autofocus**: убери `autoFocus` у input'а — Safari iOS не любит programmatic focus. Вместо этого либо:
-   - Не фокусируй input автоматически — пользователь сам тапнет на него (UX чуть хуже, но точно работает).
-   - Фокусируй с задержкой ПОСЛЕ того как sheet полностью открылся (`setTimeout(() => inputRef.current?.focus(), 350)` — после анимации sheet'а, чтобы фокус был «как будто пользователь сам тапнул»).
-   - Использовать `inputRef.current?.focus({ preventScroll: false })` — иногда помогает.
+ 2. Увеличь высоту до 6px (см. дизайн-систему — это стандарт для inline progress bar):
 
-5. Проверь, что `.create-sheet-root` НЕ имеет `transform`, `will-change`, `backdrop-filter` — те же ловушки iOS WebKit, что и в #2. Если есть — вынеси sheet через `createPortal` на `document.body`.
+<div className="progress-bar">
+  <div className="progress-fill" style={{ width: ${pct}% }} />
+</div>
 
-6. Проверь `<html>` и `<body>` — на mobile они должны иметь `overflow: hidden; position: fixed; height: 100%` пока sheet открыт, иначе при появлении клавиатуры iOS Safari прокручивает body, и sheet сползает вверх вместе со всем.
 
+.progress-bar {
+  height: 6px;          /* было 2-3px */
+  background: var(--bg-active);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent-sprints);
+  border-radius: var(--r-pill);
+  transition: width var(--dur-base) var(--ease);
+}
+
+
+ 3. Если progress отображается через Tailwind-утилиты (h-1, h-2) — замени на h-1.5 (это 6px в Tailwind).
+═══════════════════════════════════════════════════════
+ПРОБЛЕМА 6: Слишком большой отступ от текста до края плашки Goal
+═══════════════════════════════════════════════════════
+В Tasks плашки Goal имеют padding больше, чем нужно. Текст внутри сильно отступает от левого/правого края.
+Что сделать:
+ 1. Найди стиль карточки Goal:
+
+grep -rn "goal-card\|GoalCard\|goal-row\|p-4\|px-4\|py-4\|p-5\|px-5" frontend/src/components/Tasks.tsx | head -20
+
+
+ 2. Проверь внутренние отступы. По дизайн-системе list-row / card имеют padding 12px 14px (а не 16px 20px). Привяжись к токенам:
+
+.goal-card, .goal-row {
+  padding: 12px 14px;  /* было больше */
+}
+
+
+ 2. Или если Tailwind — замени p-4 (16px) / p-5 (20px) на p-3 (12px) или px-3.5 py-3 (14px / 12px).
+ 3. ВАЖНО: padding должен быть консистентным между плашками Goal, Go, Step — все три карточки имеют одинаковую внутреннюю геометрию. Сравни визуально все три после правки.
 ═══════════════════════════════════════════════════════
 ПРОВЕРКА
-
 ═══════════════════════════════════════════════════════
-
-1. Открой `jarvnote-design-system.html` и `jarvis-notes-mobile-v2.html` (лежат в корне проекта) — сверь визуально как ДОЛЖНО быть.
-2. Проверь на реальном iOS Safari (или iOS-эмуляторе через Xcode) — visualViewport API ведёт себя там иначе, чем в Chrome DevTools.
-3. Проверь Android Chrome — там клавиатура поднимается через interactive-widget или через resize.
-4. Тестовые сценарии:
-   - Тап на строку Way в списке → переход. Свайп влево по строке → видны Edit/Delete иконки. Свайп вправо или тап → закрытие.
-   - Тап в редакторе → клавиатура снизу + toolbar вплотную над ней, все кнопки видны.
-   - Тап на "Add Way" / "Add Topic" / "Add Note" → sheet открывается ПОД меньшим хедером и СРАЗУ виден над клавиатурой, не нужно ничего тапать вручную.
-   - Pull-to-refresh, swipe-back, image-resize — продолжают работать.
-5. Покажи мне дифф каждого изменённого файла и список новых файлов.
-```
+ 1. Открой в браузере все четыре макета:
+ • jarvnote-design-system.html
+ • jarvis-notes-mobile-v2.html
+ • jarvis-notes-redesign-v2.html
+ • jarvis-mockup.html
+Сверяйся с ними при правках.
+ 2. Тестовые сценарии после исправления:
+ • Tasks → Add Goal / Add Go / Add Step — все три имеют одинаковый пунктирный вид и стоят ВЫШЕ списка.
+ • Tasks → плашка Goal: отступы такие же как у Go и Step. Прогресс-бар 6px высотой, заметный.
+ • Notes → создание тега: live preview сверху, поле имени, палитра ровно над клавиатурой через space-between, без скролла.
+ • Notes → редактор → tap в текст: keyboard toolbar появляется. URL-капсула Safari не отжимает toolbar, или toolbar появляется inline над курсором. Справа на toolbar — кнопка свернуть клавиатуру, по тапу клавиатура и mini-bar пропадают.
+ • Любой экран: тап по back-кнопке — попадаю с первого раза, кнопка визуально 32×32, иконка 18×18.
+ 3. Покажи мне дифф каждого изменённого файла и список новых файлов.

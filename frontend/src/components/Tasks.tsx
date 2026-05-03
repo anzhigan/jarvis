@@ -6,6 +6,7 @@ import {
   ListTodo, Repeat, Zap, Link as LinkIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import AddItemButton from './AddItemButton';
 import SwipeRow from './SwipeRow';
 import PullToRefresh from './PullToRefresh';
 import TagSelector from './TagSelector';
@@ -620,12 +621,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                   />
                 ))}
 
-                <button
-                  onClick={() => setAddingGo(true)}
-                  className="btn btn-ghost btn-sm w-full"
-                >
-                  <Plus size={12} /> {t('tasks.addGo')}
-                </button>
+                <AddItemButton label={t('tasks.addGo')} onClick={() => setAddingGo(true)} />
                 <CreateGoForm
                   open={addingGo}
                   defaultTaskId={sprint.task_id}
@@ -1088,12 +1084,7 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
         </div>
       )}
 
-      <button
-        onClick={() => setAddingGo(true)}
-        className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
-      >
-        <Plus size={12} /> {t('tasks.addGo')}
-      </button>
+      <AddItemButton label={t('tasks.addGo')} onClick={() => setAddingGo(true)} />
       <CreateGoForm
         open={addingGo}
         defaultTaskId={task.id}
@@ -1399,13 +1390,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
   return (
     <>
       {/* Add Go button + form */}
-      <div className="flex justify-end" style={{ marginBottom: adding ? 10 : 0 }}>
-        {!adding && (
-          <button onClick={() => setAdding(true)} className="btn btn-secondary btn-sm flex items-center gap-1.5">
-            <Plus size={12} /> {t('tasks.addGo')}
-          </button>
-        )}
-      </div>
+      {!adding && <AddItemButton label={t('tasks.addGo')} onClick={() => setAdding(true)} />}
 
       <CreateGoForm
         open={adding}
@@ -1714,11 +1699,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
   return (
     <>
       {/* Add Step button */}
-      <div className="flex justify-end">
-        <button onClick={() => setAdding(true)} className="btn btn-secondary btn-sm flex items-center gap-1.5">
-          <Plus size={12} /> {t('tasks.addSprint')}
-        </button>
-      </div>
+      <AddItemButton label={t('tasks.addSprint')} onClick={() => setAdding(true)} />
       <CreateSprintForm
         open={adding}
         tasks={tasks}
@@ -2130,13 +2111,7 @@ export default function Tasks() {
             <SprintPanel tasks={tasks} onReload={load} />
           ) : (
             <>
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="btn btn-ghost w-full"
-                style={{ marginBottom: 20, justifyContent: 'center' }}
-              >
-                <Plus size={15} /> {t('tasks.addTask')}
-              </button>
+              <AddItemButton label={t('tasks.addTask')} onClick={() => setShowCreateForm(true)} />
               <CreateSheet
                 open={showCreateForm}
                 onClose={() => { setShowCreateForm(false); setNewTitle(''); setNewDescription(''); setNewStart(''); setNewDue(''); setNewTagIds([]); }}

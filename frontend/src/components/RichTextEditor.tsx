@@ -33,6 +33,7 @@ import {
   Loader2,
   Minus,
   Plus,
+  ChevronDown,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -567,7 +568,7 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
         if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') e.preventDefault();
       }}
       className="keyboard-toolbar"
-      style={{ position: 'fixed', left: 0, right: 0, bottom: kbHeight, zIndex: 50 }}
+      style={{ position: 'fixed', left: 0, right: 0, bottom: kbHeight, zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       {/* B / I / U */}
       <button onClick={() => editor.chain().focus().toggleBold().run()} className={`kb-btn${editor.isActive('bold') ? ' is-active' : ''}`} title="Bold" style={{ fontWeight: 700 }}>B</button>
@@ -585,6 +586,8 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
       <button onClick={() => { const prev = editor.getAttributes('link').href as string | undefined; setDialogExtra({ prevUrl: prev }); setDialog('link'); }} className={`kb-btn${editor.isActive('link') ? ' is-active' : ''}`} title="Link"><LinkIcon size={16} /></button>
       <button onClick={() => { if (editor.isActive('table')) editor.chain().focus().deleteTable().run(); else setDialog('table'); }} className={`kb-btn${editor.isActive('table') ? ' is-active' : ''}`} title="Table"><TableIcon size={16} /></button>
       <button onClick={() => fileInputRef.current?.click()} disabled={uploadingImage} className="kb-btn" title="Image">{uploadingImage ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}</button>
+      <div className="kb-divider" style={{ marginLeft: 'auto' }} />
+      <button onMouseDown={(e) => { e.preventDefault(); editor.commands.blur(); }} className="kb-btn" title="Dismiss keyboard"><ChevronDown size={16} /></button>
     </div>
   ) : null;
 

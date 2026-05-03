@@ -38,7 +38,7 @@ export default function MobileNavbar({ variant, title, crumb, user, onBack, onAv
     <div className="navbar app-only-mobile">
       {onBack && (
         <button className="back-btn" onClick={onBack}>
-          <ChevronLeft />
+          <ChevronLeft size={18} />
         </button>
       )}
       {crumb ? (

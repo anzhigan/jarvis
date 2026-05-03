@@ -689,7 +689,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   color: var(--fg-primary);
 }
 .goal-card-progress { display: flex; align-items: center; gap: 6px; }
-.goal-card-bar { flex: 1; height: 3px; background: rgba(0, 0, 0, 0.06); border-radius: var(--r-pill); overflow: hidden; }
+.goal-card-bar { flex: 1; height: 6px; background: rgba(0, 0, 0, 0.06); border-radius: var(--r-pill); overflow: hidden; }
 .dark .goal-card-bar { background: rgba(255, 255, 255, 0.08); }
 .goal-card-bar-fill { height: 100%; border-radius: var(--r-pill); }
 .goal-card-pct { font-size: 10px; font-weight: 500; color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
@@ -826,7 +826,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .step-card-dates { font-size: 10px; color: var(--fg-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .step-card-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; margin: 0 0 8px; color: var(--fg-primary); }
 .step-card-progress { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
-.step-card-bar { flex: 1; height: 3px; background: rgba(0, 0, 0, 0.06); border-radius: var(--r-pill); overflow: hidden; }
+.step-card-bar { flex: 1; height: 6px; background: rgba(0, 0, 0, 0.06); border-radius: var(--r-pill); overflow: hidden; }
 .dark .step-card-bar { background: rgba(255, 255, 255, 0.08); }
 .step-card-bar-fill { height: 100%; border-radius: var(--r-pill); }
 .step-card-pct { font-size: 10px; font-weight: 500; color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
@@ -1843,13 +1843,17 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .navbar .right-actions { display: flex; gap: 2px; flex-shrink: 0; }
 
 .back-btn {
-  width: var(--h-sm); height: var(--h-sm);
+  width: var(--h-md); height: var(--h-md);
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--r-control); background: transparent; border: 0;
   color: var(--fg-secondary); flex-shrink: 0;
+  position: relative;
+}
+.back-btn::before {
+  content: ''; position: absolute; inset: -8px; border-radius: var(--r-control);
 }
 .back-btn:active { background: var(--bg-hover); color: var(--fg-primary); }
-.back-btn svg { width: 14px; height: 14px; stroke-width: 2; }
+.back-btn svg { width: 18px; height: 18px; stroke-width: 2; }
 
 .avatar-btn {
   width: var(--h-md); height: var(--h-md);
@@ -2162,7 +2166,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   .streak-strip-row-mobile { display: flex !important; }
 
   /* Goal card — mobile touch sizing */
-  .goal-card { padding: 16px; margin-bottom: 10px; }
+  .goal-card { padding: 12px 14px; margin-bottom: 10px; }
   .goal-card-title { font-size: 15px; }
   .goal-card-meta { font-size: 12px; margin-top: 10px; }
 
