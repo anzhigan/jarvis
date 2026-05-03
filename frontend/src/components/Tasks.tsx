@@ -655,7 +655,7 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
 // Create Go form
 // ═══════════════════════════════════════════════════════════════════════════
 function CreateGoForm({
-  open, defaultTaskId, defaultSprintId, availableSprints, onCreate, onCancel,
+  open, defaultTaskId, defaultSprintId, availableSprints, tasks, onCreate, onCancel,
 }: {
   open: boolean;
   defaultTaskId?: string | null;
