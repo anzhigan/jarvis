@@ -568,7 +568,7 @@ export default function Notes() {
           <FormField label="Name">
             <input type="text" className="input w-full" value={addName}
               onChange={(e) => setAddName(e.target.value)}
-              placeholder={addingTitle.toLowerCase()} autoFocus />
+              placeholder={addingTitle.toLowerCase()} />
           </FormField>
         </CreateSheet>
       <MobileHierarchy
@@ -640,7 +640,7 @@ export default function Notes() {
         <FormField label="Name">
           <input type="text" className="input w-full" value={addName}
             onChange={(e) => setAddName(e.target.value)}
-            placeholder={addingTitle.toLowerCase()} autoFocus />
+            placeholder={addingTitle.toLowerCase()} />
         </FormField>
       </CreateSheet>
 

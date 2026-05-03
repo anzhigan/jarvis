@@ -1,7 +1,3 @@
-/**
- * SwipeRow — iOS-native swipe-to-reveal actions.
- * Apple Mail / Notes aesthetic: rounded action buttons, spring animation.
- */
 import { useEffect, useRef, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 
@@ -12,34 +8,36 @@ interface Props {
   enabled?: boolean;
 }
 
+const SPRING = 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1)';
+const BTN_W = 64;
+
 export default function SwipeRow({ children, onEdit, onDelete, enabled = true }: Props) {
   const [offset, setOffset] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
   const startY = useRef(0);
   const startOffset = useRef(0);
-  const dragging = useRef(false);
+  const active = useRef(false);
   const horizontal = useRef<boolean | null>(null);
 
-  const ACTIONS_WIDTH = onEdit ? 144 : 76;
+  const ACTIONS_W = onEdit ? BTN_W * 2 : BTN_W;
 
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
     startY.current = e.touches[0].clientY;
     startOffset.current = offset;
-    dragging.current = true;
+    active.current = true;
     horizontal.current = null;
-    setIsDragging(true);
+    setDragging(true);
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (!dragging.current) return;
+    if (!active.current) return;
     const dx = e.touches[0].clientX - startX.current;
     const dy = e.touches[0].clientY - startY.current;
 
-    // Lock direction on first significant move
     if (horizontal.current === null) {
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
         horizontal.current = Math.abs(dx) > Math.abs(dy);
       } else {
         return;
@@ -48,22 +46,15 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
     if (!horizontal.current) return;
 
     let next = startOffset.current + dx;
-    if (next > 0) next = next * 0.3;
-    if (next < -ACTIONS_WIDTH) {
-      const overshoot = next + ACTIONS_WIDTH;
-      next = -ACTIONS_WIDTH + overshoot * 0.3;
-    }
+    if (next > 0) next = next * 0.2;
+    if (next < -ACTIONS_W) next = -ACTIONS_W + (next + ACTIONS_W) * 0.2;
     setOffset(next);
   };
 
   const onTouchEnd = () => {
-    dragging.current = false;
-    setIsDragging(false);
-    if (offset < -ACTIONS_WIDTH / 2) {
-      setOffset(-ACTIONS_WIDTH);
-    } else {
-      setOffset(0);
-    }
+    active.current = false;
+    setDragging(false);
+    setOffset(offset < -ACTIONS_W / 2 ? -ACTIONS_W : 0);
   };
 
   const close = () => setOffset(0);
@@ -72,69 +63,81 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
     if (!enabled && offset !== 0) setOffset(0);
   }, [enabled]);
 
-  if (!enabled) {
-    return <>{children}</>;
-  }
+  if (!enabled) return <>{children}</>;
+
+  const tr = dragging ? 'none' : SPRING;
+  // At offset=0: actions translateX(ACTIONS_W) = off-screen right, clipped by overflow:hidden.
+  // At offset=-ACTIONS_W: actions translateX(0) = visible at the container's right edge.
+  const actionsTx = ACTIONS_W + offset;
 
   return (
-    <div className="relative">
-      {/* Action buttons */}
-      <div
-        className="absolute right-0 top-0 bottom-0 flex items-center gap-1.5 pr-1.5"
-        style={{ pointerEvents: offset < -10 ? 'auto' : 'none' }}
-      >
-        {onEdit && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              close();
-              onEdit();
-            }}
-            className="w-[60px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform"
-            style={{
-              backgroundColor: 'var(--amber-500, #F59E0B)',
-              height: 'calc(100% - 12px)',
-              marginTop: 6, marginBottom: 6,
-              boxShadow: 'var(--shadow-sm)',
-            }}
-            aria-label="Edit"
-          >
-            <Pencil size={18} strokeWidth={2.4} />
-            Edit
-          </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            close();
-            onDelete();
-          }}
-          className="w-[60px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-white font-medium text-[11px] active:scale-95 transition-transform"
-          style={{
-            backgroundColor: 'var(--destructive)',
-            height: 'calc(100% - 12px)',
-            marginTop: 6, marginBottom: 6,
-            boxShadow: 'var(--shadow-sm)',
-          }}
-          aria-label="Delete"
-        >
-          <Trash2 size={18} strokeWidth={2.4} />
-          Delete
-        </button>
-      </div>
-
+    <div style={{ position: 'relative', overflow: 'hidden' }}>
+      {/* Content — slides left; z-index:1 keeps it above action layer during animation */}
       <div
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         style={{
+          position: 'relative',
+          zIndex: 1,
           transform: `translateX(${offset}px)`,
-          transition: isDragging ? 'none' : 'transform 320ms cubic-bezier(0.16, 1, 0.3, 1)',
-          willChange: 'transform',
-          touchAction: offset === 0 ? 'pan-y' : 'none',
+          transition: tr,
+          touchAction: 'pan-y',
         }}
       >
         {children}
+      </div>
+
+      {/* Action buttons — slide in from the right via overflow clip */}
+      <div
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'stretch',
+          width: ACTIONS_W,
+          transform: `translateX(${actionsTx}px)`,
+          transition: tr,
+          zIndex: 0,
+          pointerEvents: offset < -20 ? 'auto' : 'none',
+        }}
+      >
+        {onEdit && (
+          <button
+            onClick={(e) => { e.stopPropagation(); close(); onEdit(); }}
+            style={{
+              flex: 1,
+              border: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--accent-goals-bg)',
+              color: 'var(--accent-goals-fg)',
+            }}
+            aria-label="Edit"
+          >
+            <Pencil size={16} />
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); close(); onDelete(); }}
+          style={{
+            flex: 1,
+            border: 0,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--danger-soft)',
+            color: 'var(--danger)',
+          }}
+          aria-label="Delete"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
     </div>
   );

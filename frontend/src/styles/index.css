@@ -88,6 +88,7 @@
   --success: #1D9E75;
   --warning: #B97318;
   --danger:  #BC4A48;
+  --danger-soft: rgba(188, 74, 72, 0.12);
 
   --sh-card: 0 0 0 0.5px var(--line);
   --sh-card-hover: 0 0 0 0.5px var(--line-strong);

@@ -34,10 +34,12 @@ import {
   Minus,
   Plus,
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { notesApi } from '../api/client';
 import InputDialog from './InputDialog';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
 const lowlight = createLowlight(common);
 
@@ -372,10 +374,10 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
   const [dialogExtra, setDialogExtra] = useState<{ prevUrl?: string }>({});
 
-  // Mobile keyboard detection — toolbar shows ONLY when editor is focused (=keyboard open)
+  // Mobile keyboard detection — toolbar shows ONLY when editor is focused AND keyboard is up
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   const [editorFocused, setEditorFocused] = useState(false);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);  // px from bottom
+  const kbHeight = useKeyboardHeight();
   const blurTimerRef = useRef<number | null>(null);
 
   // Refocus editor on toolbar tap; blur is debounced so toolbar doesn't flicker
@@ -387,12 +389,12 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
     setEditorFocused(true);
   };
   const handleEditorBlur = () => {
-    // Delay — give time for tap on toolbar to refocus editor
+    // Delay — give time for tap on toolbar to refocus editor before hiding it
     if (blurTimerRef.current !== null) clearTimeout(blurTimerRef.current);
     blurTimerRef.current = window.setTimeout(() => {
       setEditorFocused(false);
       blurTimerRef.current = null;
-    }, 200);
+    }, 250);
   };
 
   useEffect(() => {
@@ -400,25 +402,6 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-
-  useEffect(() => {
-    if (!isMobile || typeof window === 'undefined' || !window.visualViewport) return;
-    const vv = window.visualViewport;
-    const update = () => {
-      // Bottom gap = how much keyboard takes
-      const bottomGap = window.innerHeight - vv.height - vv.offsetTop;
-      setKeyboardOffset(Math.max(0, bottomGap));
-    };
-    update();
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-    return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
-    };
-  }, [isMobile]);
-
-  // editorFocused/onFocus/onBlur kept for future use; toolbar is always visible now
 
 
   const editor = useEditor({
@@ -575,8 +558,8 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
 
   const currentTextColor = editor.getAttributes('textStyle').color as string | undefined;
 
-  // Mobile keyboard toolbar (rendered at bottom, only when keyboard is up)
-  const MobileKeyboardToolbar = isMobile ? (
+  // Mobile keyboard toolbar — only when editor focused AND keyboard is visible
+  const MobileKeyboardToolbar = (isMobile && editorFocused && kbHeight > 0) ? (
     <div
       onMouseDown={(e) => e.preventDefault()}
       onTouchStart={(e) => {
@@ -584,7 +567,7 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
         if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') e.preventDefault();
       }}
       className="keyboard-toolbar"
-      style={{ position: 'fixed', left: 0, right: 0, bottom: `${keyboardOffset}px`, zIndex: 50 }}
+      style={{ position: 'fixed', left: 0, right: 0, bottom: kbHeight, zIndex: 50 }}
     >
       {/* B / I / U */}
       <button onClick={() => editor.chain().focus().toggleBold().run()} className={`kb-btn${editor.isActive('bold') ? ' is-active' : ''}`} title="Bold" style={{ fontWeight: 700 }}>B</button>
@@ -811,7 +794,7 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
 
     {!isMobile && Toolbar}
-    {MobileKeyboardToolbar}
+    {MobileKeyboardToolbar && createPortal(MobileKeyboardToolbar, document.body)}
 
     <div className="notes-editor-paper">
       {children}

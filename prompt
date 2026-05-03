@@ -1,0 +1,228 @@
+**Промпт для Claude Code:**
+
+```
+В мобильной версии Notes три регрессии. Найди причины и исправь, не сломав ничего другого.
+
+═══════════════════════════════════════════════════════
+ПРОБЛЕМА 1: Edit / Delete всегда видны рядом с каждой строкой
+═══════════════════════════════════════════════════════
+
+В списке Ways/Topics/Notes напротив каждой строки СТАТИЧНО отрисованы оранжевая кнопка "Edit" (с иконкой карандаша) и красная "Delete" (с иконкой корзины). Это занимает половину строки и ломает дизайн.
+
+Эти кнопки должны появляться ТОЛЬКО при свайпе строки влево (iOS-style swipe-to-reveal-actions), а в обычном состоянии — быть скрыты. Сейчас они отрисованы как часть row-разметки.
+
+Что сделать:
+
+1. Найди компонент списков ways/topics/notes на mobile. Кандидаты:
+   - `frontend/src/components/Notes.tsx` (вероятнее всего, см. рендер при `MobileView { kind: 'root' }` и `kind: 'way' }`).
+   - Возможно отдельный `MobileWayRow.tsx` / `MobileTopicRow.tsx` — поищи:
+     ```
+     grep -rn "Edit.*Delete\|edit.*delete\|action.*edit\|swipe" frontend/src/components --include="*.tsx"
+     grep -rn "Pencil\|Trash" frontend/src/components --include="*.tsx" | grep -i "mobile\|row"
+     ```
+
+2. Удали статический рендер этих кнопок из row-разметки. Row должен содержать ТОЛЬКО:
+   - иконку слева (lico)
+   - body (name + sub)
+   - chevron справа
+   Никаких Edit/Delete по умолчанию.
+
+3. Реализуй swipe-actions через одну из опций (выбери ту, что уже есть в проекте — поищи `useSwipeBack`, `react-swipeable`, `framer-motion` в `package.json`):
+
+   **Вариант A — нативный CSS-snap (предпочтительно, без либ)**:
+   ```jsx
+   <div className="swipe-row">
+     <button className="swipe-row-content">
+       {/* icon + body + chevron */}
+     </button>
+     <div className="swipe-row-actions">
+       <button className="swipe-action edit"><Pencil/></button>
+       <button className="swipe-action delete"><Trash2/></button>
+     </div>
+   </div>
+   ```
+   ```css
+   .swipe-row {
+     display: flex;
+     overflow-x: auto;
+     scroll-snap-type: x mandatory;
+     scrollbar-width: none;
+   }
+   .swipe-row::-webkit-scrollbar { display: none; }
+   .swipe-row-content { flex-shrink: 0; width: 100%; scroll-snap-align: start; }
+   .swipe-row-actions { flex-shrink: 0; display: flex; scroll-snap-align: end; }
+   .swipe-action { width: 72px; height: 100%; border: 0; display: inline-flex; align-items: center; justify-content: center; }
+   .swipe-action.edit   { background: var(--accent-goals-bg); color: var(--accent-goals-fg); }
+   .swipe-action.delete { background: var(--danger-soft);     color: var(--danger); }
+   ```
+
+   **Вариант B — framer-motion** (если уже подключён): `<motion.div drag="x" dragConstraints={{ left: -144, right: 0 }} />`.
+
+4. Action-зона:
+   - Только иконка (Pencil 16px / Trash2 16px), БЕЗ текста "Edit"/"Delete".
+   - Цвета через CSS-переменные дизайн-системы:
+     - Edit: фон `var(--accent-goals-bg)`, иконка `var(--accent-goals-fg)`.
+     - Delete: фон `var(--danger-soft)`, иконка `var(--danger)`.
+   - Никаких box-shadow, никаких ярко-оранжевых/красных fill.
+
+5. На desktop swipe не имеет смысла — оставь там обычный hover-меню или контекстное меню. Свайп-режим включается только при `@media (max-width: 768px)` или через флаг `isMobile`.
+
+═══════════════════════════════════════════════════════
+ПРОБЛЕМА 2: Keyboard toolbar за клавиатурой, а не над ней
+═══════════════════════════════════════════════════════
+
+При фокусе в редакторе клавиатура iOS открывается, и форматирующая панель (B / I / U / H2 / list / formula / code…) лежит ПОД клавиатурой — над клавиатурой видны только обрезанные верхушки кнопок. Должно быть наоборот: панель сидит ВПЛОТНУЮ НАД клавиатурой и полностью видима.
+
+Что сделать:
+
+1. Найди компонент клавиатурного тулбара:
+   ```
+   grep -rn "keyboard-toolbar\|KeyboardToolbar\|visualViewport" frontend/src --include="*.tsx" --include="*.ts" --include="*.css"
+   ```
+   Вероятно в `frontend/src/components/RichTextEditor.tsx` (стр. ~381-422 — там уже есть mobile keyboard detection через visualViewport API).
+
+2. Правильная стратегия — `position: fixed` относительно visual viewport, привязка к нижнему краю видимой области:
+
+   ```jsx
+   const [kbHeight, setKbHeight] = useState(0);
+
+   useEffect(() => {
+     if (!window.visualViewport) return;
+     const onResize = () => {
+       const vv = window.visualViewport!;
+       const offset = window.innerHeight - vv.height - vv.offsetTop;
+       setKbHeight(Math.max(0, offset));
+     };
+     window.visualViewport.addEventListener('resize', onResize);
+     window.visualViewport.addEventListener('scroll', onResize);
+     onResize();
+     return () => {
+       window.visualViewport!.removeEventListener('resize', onResize);
+       window.visualViewport!.removeEventListener('scroll', onResize);
+     };
+   }, []);
+
+   {focused && kbHeight > 0 && (
+     <div className="keyboard-toolbar" style={{ bottom: `${kbHeight}px` }}>
+       {/* B / I / U / ∑ / code / link / table / image */}
+     </div>
+   )}
+   ```
+   ```css
+   .keyboard-toolbar {
+     position: fixed;
+     left: 0; right: 0;
+     z-index: 50;
+     background: var(--bg-shell);
+     box-shadow: inset 0 0.5px 0 var(--line);
+     padding: 6px 8px;
+     display: flex; gap: 4px;
+     overflow-x: auto;
+     scrollbar-width: none;
+     transition: bottom var(--dur-fast) var(--ease);
+   }
+   .keyboard-toolbar::-webkit-scrollbar { display: none; }
+   ```
+
+3. Проверь, что у `.keyboard-toolbar` нет `transform`, `will-change`, `backdrop-filter` на РОДИТЕЛЕ, которые в iOS WebKit ломают `position: fixed` — это частая причина «провала под клавиатуру». Если найдёшь — либо вынеси toolbar в портал на `document.body` через `createPortal`, либо убери transform на родителе.
+
+4. Проверь meta-viewport в `index.html`:
+   ```html
+   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+   ```
+   Без `interactive-widget=resizes-content` Safari НЕ изменяет `window.innerHeight` — тогда visualViewport API сработает как fallback.
+
+═══════════════════════════════════════════════════════
+ПРОБЛЕМА 3: Sheets "Add Way / Topic / Note" уезжают под клавиатуру
+═══════════════════════════════════════════════════════
+
+Симптом: при тапе на "Add Way" / "Add Topic" / "Add Note" открывается bottom-sheet с полем ввода. Клавиатура поднимается СРАЗУ (потому что input получает autofocus), но sheet остаётся прижат к низу окна (`bottom: 0`) и оказывается ЗА клавиатурой. Если свернуть клавиатуру — sheet виден внизу. Если ВРУЧНУЮ тапнуть на input после открытия — sheet всплывает корректно над клавиатурой (Safari тогда сам подкручивает viewport, потому что фокус был инициирован пользователем).
+
+Это та же проблема, что и в #2 — `position: fixed; bottom: 0` без учёта высоты клавиатуры. И ещё дополнительно: programmatic focus в Safari iOS НЕ триггерит `scrollIntoView`-логику, которую WebKit делает только для user-initiated focus.
+
+Что сделать:
+
+1. Найди sheet-компоненты для создания Way/Topic/Note. Кандидаты:
+   - `frontend/src/components/CreateSheet.tsx` (общий каркас).
+   - `frontend/src/components/Notes.tsx` — где отрисовывается форма для нового Way/Topic/Note (поищи `addWay`, `createWay`, `setShowCreate`, `showAddSheet` и подобное).
+   ```
+   grep -rn "createWay\|addWay\|createTopic\|addTopic\|create-sheet\|CreateSheet" frontend/src --include="*.tsx"
+   ```
+
+2. Применяй ту же visualViewport-логику, что и для toolbar (Проблема 2). Создай переиспользуемый хук:
+
+   ```ts
+   // frontend/src/hooks/useKeyboardHeight.ts
+   import { useEffect, useState } from 'react';
+   export function useKeyboardHeight() {
+     const [h, setH] = useState(0);
+     useEffect(() => {
+       if (!window.visualViewport) return;
+       const onResize = () => {
+         const vv = window.visualViewport!;
+         setH(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+       };
+       window.visualViewport.addEventListener('resize', onResize);
+       window.visualViewport.addEventListener('scroll', onResize);
+       onResize();
+       return () => {
+         window.visualViewport!.removeEventListener('resize', onResize);
+         window.visualViewport!.removeEventListener('scroll', onResize);
+       };
+     }, []);
+     return h;
+   }
+   ```
+
+3. В `.create-sheet-root` подвинь sheet вверх на высоту клавиатуры:
+   ```jsx
+   const kb = useKeyboardHeight();
+   <div className="create-sheet-root">
+     <div
+       className="create-sheet"
+       style={{ transform: kb > 0 ? `translateY(-${kb}px)` : undefined }}
+     >
+       {/* header / body / aux / footer */}
+     </div>
+   </div>
+   ```
+   ```css
+   .create-sheet {
+     transition: transform var(--dur-fast) var(--ease);
+   }
+   ```
+
+   ИЛИ вариант через `padding-bottom` на родителе:
+   ```css
+   .create-sheet-root {
+     position: fixed; inset: 0;
+     padding-bottom: var(--kb-h, 0px);
+     display: flex; flex-direction: column; justify-content: flex-end;
+   }
+   ```
+   и в JS: `document.documentElement.style.setProperty('--kb-h', `${kb}px`)`.
+
+4. **Важно про autofocus**: убери `autoFocus` у input'а — Safari iOS не любит programmatic focus. Вместо этого либо:
+   - Не фокусируй input автоматически — пользователь сам тапнет на него (UX чуть хуже, но точно работает).
+   - Фокусируй с задержкой ПОСЛЕ того как sheet полностью открылся (`setTimeout(() => inputRef.current?.focus(), 350)` — после анимации sheet'а, чтобы фокус был «как будто пользователь сам тапнул»).
+   - Использовать `inputRef.current?.focus({ preventScroll: false })` — иногда помогает.
+
+5. Проверь, что `.create-sheet-root` НЕ имеет `transform`, `will-change`, `backdrop-filter` — те же ловушки iOS WebKit, что и в #2. Если есть — вынеси sheet через `createPortal` на `document.body`.
+
+6. Проверь `<html>` и `<body>` — на mobile они должны иметь `overflow: hidden; position: fixed; height: 100%` пока sheet открыт, иначе при появлении клавиатуры iOS Safari прокручивает body, и sheet сползает вверх вместе со всем.
+
+═══════════════════════════════════════════════════════
+ПРОВЕРКА
+
+═══════════════════════════════════════════════════════
+
+1. Открой `jarvnote-design-system.html` и `jarvis-notes-mobile-v2.html` (лежат в корне проекта) — сверь визуально как ДОЛЖНО быть.
+2. Проверь на реальном iOS Safari (или iOS-эмуляторе через Xcode) — visualViewport API ведёт себя там иначе, чем в Chrome DevTools.
+3. Проверь Android Chrome — там клавиатура поднимается через interactive-widget или через resize.
+4. Тестовые сценарии:
+   - Тап на строку Way в списке → переход. Свайп влево по строке → видны Edit/Delete иконки. Свайп вправо или тап → закрытие.
+   - Тап в редакторе → клавиатура снизу + toolbar вплотную над ней, все кнопки видны.
+   - Тап на "Add Way" / "Add Topic" / "Add Note" → sheet открывается ПОД меньшим хедером и СРАЗУ виден над клавиатурой, не нужно ничего тапать вручную.
+   - Pull-to-refresh, swipe-back, image-resize — продолжают работать.
+5. Покажи мне дифф каждого изменённого файла и список новых файлов.
+```

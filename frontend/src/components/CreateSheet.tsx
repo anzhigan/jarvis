@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Loader2 } from 'lucide-react';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
 interface CreateSheetProps {
   open: boolean;
@@ -29,6 +30,8 @@ export default function CreateSheet({
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 768
   );
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const kbHeight = useKeyboardHeight();
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -37,8 +40,16 @@ export default function CreateSheet({
   }, []);
 
   useEffect(() => {
-    if (!open) { setError(''); setSaving(false); }
-  }, [open]);
+    if (!open) { setError(''); setSaving(false); return; }
+    if (!isMobile) return;
+    // Delay focus until after the sheet slide-up animation (280ms) so iOS
+    // treats it as user-initiated and correctly repositions the viewport
+    const timer = setTimeout(() => {
+      const el = sheetRef.current?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
+      el?.focus();
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [open, isMobile]);
 
   useEffect(() => {
     if (!open) return;
@@ -83,9 +94,11 @@ export default function CreateSheet({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
+          style={isMobile ? { paddingBottom: kbHeight, transition: 'padding-bottom 0.2s ease' } : undefined}
           onClick={onClose}
         >
           <motion.div
+            ref={sheetRef}
             className="create-sheet"
             {...sheetMotion}
             onClick={(e) => e.stopPropagation()}
