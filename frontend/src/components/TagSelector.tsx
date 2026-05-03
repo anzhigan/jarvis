@@ -122,20 +122,21 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
 
   const chipHeight = compact ? 'h-7' : 'h-8';
   const chipText = compact ? 'text-[10px]' : 'text-xs';
-  const iconSize = compact ? 9 : 11;
+  const iconSize = compact ? 10 : 13;
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {tags.map((tag) => (
         <span
           key={tag.id}
-          className={`inline-flex items-center gap-1 ${chipHeight} pl-3 pr-2 rounded-full ${chipText} font-medium`}
+          className={`inline-flex items-center gap-1.5 ${chipHeight} pl-3 pr-1.5 rounded-full ${chipText} font-medium`}
           style={{ backgroundColor: `${tag.color}20`, color: tag.color, border: `1px solid ${tag.color}40` }}
         >
           {tag.name}
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); removeAttached(tag); }}
-            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-current/10"
+            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-current/10 flex-shrink-0"
             title="Remove tag"
           >
             <X size={iconSize} />
