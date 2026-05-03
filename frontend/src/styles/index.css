@@ -1895,6 +1895,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   border-top: 0.5px solid var(--line);
   border-radius: 0 0 var(--r-card) var(--r-card);
 }
+.task-expanded > * { min-width: 0; }
 .task-expanded-section-label {
   font-size: 10px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.07em; color: var(--fg-muted); margin-bottom: 6px;
