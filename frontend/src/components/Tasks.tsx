@@ -874,42 +874,38 @@ function CreateSprintForm({
 // ═══════════════════════════════════════════════════════════════════════════
 // Task expanded content: sprints + direct gos
 // ═══════════════════════════════════════════════════════════════════════════
-function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<void> }) {
-  const t = useT();
-  const [addingSprint, setAddingSprint] = useState(false);
-  const [addingGo, setAddingGo] = useState(false);
+// ═══════════════════════════════════════════════════════════════════════════
+// GoalLinkedRoutines — separate expandable section for linked routines
+// ═══════════════════════════════════════════════════════════════════════════
+function GoalLinkedRoutines({ task, onReload }: { task: Task; onReload: () => Promise<void> }) {
   const [linkedRoutines, setLinkedRoutines] = useState<Routine[]>([]);
   const [routineLinks, setRoutineLinks] = useState<GoalRoutineLink[]>([]);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
   const [allRoutines, setAllRoutines] = useState<Routine[]>([]);
-  const directGos = task.gos;
 
   const loadLinks = async () => {
     try {
       const links = await routinesApi.linksByGoal(task.id);
       setRoutineLinks(links);
       setLinkedRoutines(links.map((l) => l.routine));
-    } catch { /* legacy fallback */
+    } catch {
       try { const r = await routinesApi.byGoal(task.id); setLinkedRoutines(r); } catch {}
     }
   };
 
   useEffect(() => { loadLinks(); }, [task.id, task.updated_at]);
 
-  /** Compute consistency for routine within a link's window: done days / target_count (or due days). */
   const computeConsistency = (link: GoalRoutineLink): { done: number; total: number; pct: number } => {
     const r = link.routine;
     const start = new Date(link.start_date);
     const end = link.end_date ? new Date(link.end_date) : new Date();
     let total = link.target_count ?? 0;
     let done = 0;
-    // Simple count: how many days within window had value > 0
     for (const e of r.entries) {
       const d = new Date(e.date);
       if (d >= start && d <= end && e.value > 0) done += 1;
     }
     if (!link.target_count) {
-      // Without explicit target — count all due days as denominator (approximation)
       const dayMs = 86400000;
       total = Math.max(1, Math.floor((end.getTime() - start.getTime()) / dayMs) + 1);
     }
@@ -918,113 +914,108 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
   };
 
   return (
-    <div className="p-3 bg-secondary/20 space-y-3">
-      {/* Linked routines section */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+    <div className="task-expanded">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="task-expanded-section-label" style={{ marginBottom: 0 }}>
+          <span className="flex items-center gap-1.5">
             <Repeat size={11} /> Linked routines
-            {linkedRoutines.length > 0 && <span className="opacity-60 font-normal">({linkedRoutines.length})</span>}
-          </div>
-          <button
-            onClick={async () => {
-              try { const all = await routinesApi.list(); setAllRoutines(all); } catch {}
-              setShowLinkPicker(true);
-            }}
-            className="text-[11px] text-primary hover:underline flex items-center gap-1"
-          >
-            <Plus size={11} /> Link routine
-          </button>
+            {linkedRoutines.length > 0 && <span style={{ opacity: 0.6, fontWeight: 400 }}>({linkedRoutines.length})</span>}
+          </span>
         </div>
-        {linkedRoutines.length === 0 ? (
-          <div className="text-[11px] text-muted-foreground italic px-2 py-2">
-            No routines linked. Routines track recurring behavior toward this goal.
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            {routineLinks.length > 0 ? routineLinks.map((link) => {
-              const r = link.routine;
-              const { done, total, pct } = computeConsistency(link);
-              return (
-                <div key={link.id}
-                  className={`goal-card p-2 ${r.is_paused ? 'opacity-60' : ''}`}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="w-1 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
-                    <span className="text-sm flex-1 truncate">{r.title}</span>
-                    <span className="text-[10px] text-muted-foreground tabular-nums">{done}/{total}</span>
-                    <button
-                      onClick={async () => {
-                        if (!confirm(`Unlink "${r.title}" from this goal?`)) return;
-                        try { await routinesApi.deleteLink(link.id); await loadLinks(); }
-                        catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-                      }}
-                      className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      title="Unlink"
-                    >
-                      <X size={11} />
-                    </button>
-                  </div>
-                  <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
-                    <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: r.color }} />
-                  </div>
-                </div>
-              );
-            }) : linkedRoutines.map((r) => (
-              <div key={r.id}
-                className={`goal-card flex items-center gap-2 p-2 ${r.is_paused ? 'opacity-60' : ''}`}>
-                <span className="w-1 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
-                <span className="text-sm flex-1 truncate">{r.title}</span>
-                <span className="text-[10px] text-muted-foreground capitalize">{r.schedule_type.replace('_', ' ')}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <button
+          onClick={async () => {
+            try { const all = await routinesApi.list(); setAllRoutines(all); } catch {}
+            setShowLinkPicker(true);
+          }}
+          style={{ fontSize: 11, color: 'var(--accent-notes)', display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 0, cursor: 'pointer' }}
+        >
+          <Plus size={11} /> Link routine
+        </button>
       </div>
 
-      {/* Picker modal for linking existing routine */}
+      {linkedRoutines.length === 0 ? (
+        <div style={{ fontSize: 11, color: 'var(--fg-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+          No routines linked yet.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {routineLinks.length > 0 ? routineLinks.map((link) => {
+            const r = link.routine;
+            const { done, total, pct } = computeConsistency(link);
+            return (
+              <div key={link.id} className={`goal-card overflow-hidden ${r.is_paused ? 'opacity-60' : ''}`} style={{ padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ width: 4, height: 16, borderRadius: 2, flexShrink: 0, backgroundColor: r.color }} />
+                  <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
+                  <span style={{ fontSize: 10, color: 'var(--fg-muted)', fontVariantNumeric: 'tabular-nums' }}>{done}/{total}</span>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Unlink "${r.title}" from this goal?`)) return;
+                      try { await routinesApi.deleteLink(link.id); await loadLinks(); }
+                      catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+                    }}
+                    style={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, background: 'none', border: 0, cursor: 'pointer', color: 'var(--fg-muted)' }}
+                    title="Unlink"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+                <div style={{ height: 4, borderRadius: 'var(--r-pill)', overflow: 'hidden', background: 'var(--bg-app)' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, backgroundColor: r.color, borderRadius: 'inherit', transition: 'width 500ms' }} />
+                </div>
+              </div>
+            );
+          }) : linkedRoutines.map((r) => (
+            <div key={r.id} className={`goal-card ${r.is_paused ? 'opacity-60' : ''}`} style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 4, height: 16, borderRadius: 2, flexShrink: 0, backgroundColor: r.color }} />
+              <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
+              <span style={{ fontSize: 10, color: 'var(--fg-muted)', textTransform: 'capitalize' }}>{r.schedule_type.replace('_', ' ')}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {showLinkPicker && (
         <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4"
           style={{ backdropFilter: 'blur(4px)' }}
           onClick={() => setShowLinkPicker(false)}>
-          <div className="modal-panel w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}>
+          <div className="modal-panel w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 flex items-center justify-between" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
               <h3 className="text-base font-semibold">Link a routine</h3>
               <button onClick={() => setShowLinkPicker(false)} className="icon-btn icon-btn-sm">✕</button>
             </div>
             <div className="p-5 max-h-[60vh] overflow-y-auto">
               {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).length === 0 ? (
-                <div className="text-sm text-center py-6" style={{ color: 'var(--fg-muted)' }}>
+                <div style={{ fontSize: 13, textAlign: 'center', padding: '24px 0', color: 'var(--fg-muted)' }}>
                   No more routines to link. Create one in the Routines section first.
                 </div>
               ) : (
-                <div className="space-y-1.5">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).map((r) => (
                     <button
                       key={r.id}
                       onClick={async () => {
                         const today = new Date().toISOString().slice(0, 10);
-                        const endIso = task.due_date ?? null;
-                        const target = endIso ? null : null; // user can edit later
                         try {
                           await routinesApi.createLink({
                             goal_id: task.id,
                             routine_id: r.id,
                             start_date: task.start_date ?? today,
-                            end_date: endIso,
-                            target_count: target,
+                            end_date: task.due_date ?? null,
+                            target_count: null,
                           });
                           await loadLinks();
                           setShowLinkPicker(false);
                           toast.success(`Linked "${r.title}"`);
                         } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
                       }}
-                      className="goal-card w-full flex items-center gap-2 p-3 hover:bg-secondary transition-all active:scale-95"
+                      className="goal-card"
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', cursor: 'pointer' }}
                     >
-                      <span className="w-1.5 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
-                      <div className="flex-1 text-left min-w-0">
-                        <div className="text-sm font-medium truncate">{r.title}</div>
-                        <div className="text-[11px] text-muted-foreground capitalize">{r.schedule_type.replace('_', ' ')}</div>
+                      <span style={{ width: 6, height: 24, borderRadius: 3, flexShrink: 0, backgroundColor: r.color }} />
+                      <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--fg-muted)', textTransform: 'capitalize' }}>{r.schedule_type.replace('_', ' ')}</div>
                       </div>
                     </button>
                   ))}
@@ -1034,20 +1025,29 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TaskExpanded — Steps (Sprints) + Direct Gos only
+// ═══════════════════════════════════════════════════════════════════════════
+function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<void> }) {
+  const t = useT();
+  const [addingSprint, setAddingSprint] = useState(false);
+  const [addingGo, setAddingGo] = useState(false);
+  const directGos = task.gos;
+
+  return (
+    <div className="task-expanded">
       {task.sprints.length > 0 && (
         <div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="font-medium text-muted-foreground"></span>
-            <span className="font-semibold">{task.progress}%</span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
-            <div className="h-full transition-all" style={{ width: `${task.progress}%`, background: 'var(--accent-primary)' }} />
+          <div style={{ height: 4, borderRadius: 'var(--r-pill)', overflow: 'hidden', background: 'var(--bg-app)', marginBottom: 10 }}>
+            <div style={{ height: '100%', width: `${task.progress}%`, background: 'var(--accent-goals)', borderRadius: 'inherit', transition: 'width 300ms' }} />
           </div>
         </div>
       )}
 
-      {/* Sprints */}
       {task.sprints.map((s) => (
         <SprintBlock
           key={s.id}
@@ -1058,12 +1058,7 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
         />
       ))}
 
-      <button
-        onClick={() => setAddingSprint(true)}
-        className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
-      >
-        <Zap size={12} /> {t('tasks.addSprint')}
-      </button>
+      <AddItemButton label={t('tasks.addSprint')} onClick={() => setAddingSprint(true)} />
       <CreateSprintForm
         open={addingSprint}
         taskId={task.id}
@@ -1072,11 +1067,10 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
         onCreate={async () => { setAddingSprint(false); await onReload(); }}
       />
 
-      {/* Direct Gos (not in any sprint) */}
       {directGos.length > 0 && (
         <div>
-          <div className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1.5">Direct gos</div>
-          <div className="space-y-1.5">
+          <div className="task-expanded-section-label">Direct gos</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {directGos.map((g) => (
               <GoRow key={g.id} go={g} availableSprints={task.sprints} onReload={onReload} />
             ))}
@@ -1117,6 +1111,7 @@ function TaskCard({
 }) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
+  const [showLinked, setShowLinked] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editPriority, setEditPriority] = useState<TaskPriority>(task.priority);
@@ -1268,6 +1263,34 @@ function TaskCard({
                 className="overflow-hidden"
               >
                 <TaskExpanded task={task} onReload={onReload} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Linked routines — separate collapsible section */}
+          <button onClick={() => setShowLinked(!showLinked)}
+            className="w-full flex items-center gap-1.5"
+            style={{
+              padding: '8px 14px',
+              boxShadow: 'inset 0 0.5px 0 var(--line)',
+              fontSize: 11, color: 'var(--fg-muted)',
+              background: 'transparent',
+            }}
+          >
+            {showLinked ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            <Repeat size={12} />
+            <span>Linked routines</span>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {showLinked && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <GoalLinkedRoutines task={task} onReload={onReload} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -1540,6 +1563,101 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// EditSprintSheet — bottom-sheet editor for a Step (Sprint)
+// ═══════════════════════════════════════════════════════════════════════════
+function EditSprintSheet({ sprint, onClose, onSaved }: { sprint: Sprint; onClose: () => void; onSaved: () => Promise<void> }) {
+  const t = useT();
+  const [title, setTitle] = useState(sprint.title);
+  const [startDate, setStartDate] = useState(sprint.start_date);
+  const [endDate, setEndDate] = useState(sprint.end_date);
+  const [description, setDescription] = useState(sprint.description ?? '');
+  const [color, setColor] = useState(sprint.color);
+
+  const canSave = title.trim().length > 0;
+
+  const handleSave = async () => {
+    await sprintsApi.update(sprint.id, {
+      title: title.trim(),
+      start_date: startDate,
+      end_date: endDate,
+      description,
+      color,
+    });
+    await onSaved();
+  };
+
+  return (
+    <CreateSheet
+      open
+      onClose={onClose}
+      title={t('tasks.editStep') || 'Edit step'}
+      primaryLabel={t('common.save') || 'Save'}
+      canSubmit={canSave}
+      onSubmit={handleSave}
+    >
+      {sprint.task_title && (
+        <FormField label="Goal">
+          <div className="input" style={{ color: 'var(--fg-muted)', cursor: 'default' }}>{sprint.task_title}</div>
+        </FormField>
+      )}
+      <FormField label="Title">
+        <input
+          type="text"
+          className="input w-full"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Step title"
+        />
+      </FormField>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <FormField label={t('tasks.start') || 'Start'}>
+          <input type="date" className="input w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </FormField>
+        <FormField label={t('tasks.due') || 'End'}>
+          <input type="date" className="input w-full" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </FormField>
+      </div>
+      <FormField label="Color">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0' }}>
+          {ENTITY_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setColor(c)}
+              style={{
+                width: 28, height: 28, borderRadius: '50%', backgroundColor: c,
+                border: color === c ? `3px solid var(--fg-primary)` : '2px solid transparent',
+                outline: color === c ? '2px solid var(--bg-card)' : 'none',
+                outlineOffset: -4,
+              }}
+            />
+          ))}
+        </div>
+      </FormField>
+      <FormField label="Description">
+        <textarea
+          className="textarea w-full"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Notes, context…"
+          rows={3}
+        />
+      </FormField>
+      <div style={{ padding: '4px 0' }}>
+        <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginBottom: 4 }}>Progress</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="step-card-bar" style={{ flex: 1 }}>
+            <div className="step-card-bar-fill" style={{ width: `${sprint.progress}%`, backgroundColor: color || 'var(--success)' }} />
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--fg-muted)', fontVariantNumeric: 'tabular-nums', minWidth: 32 }}>{sprint.progress}%</span>
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 4 }}>Progress updates automatically as Gos are completed.</div>
+      </div>
+    </CreateSheet>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SprintPanel — Past / Current / Future
 // ═══════════════════════════════════════════════════════════════════════════
 function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<void> }) {
@@ -1551,6 +1669,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
   const [pastOpen, setPastOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [editingStep, setEditingStep] = useState<Sprint | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -1648,7 +1767,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
     return s.progress < expectedPct - 10;
   });
 
-  const renderStepCard = (s: Sprint, future = false) => {
+  const renderStepCard = (s: Sprint, isFuture = false) => {
     const endMs = new Date(s.end_date + 'T00:00:00').getTime();
     const startMs = new Date(s.start_date + 'T00:00:00').getTime();
     const daysLeft = Math.ceil((endMs - nowMs) / 86400000);
@@ -1657,12 +1776,17 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
     const tagBg = s.color ? s.color + '20' : 'var(--accent-notes-bg)';
     const tagFg = s.color || 'var(--accent-notes-fg)';
     const dateRange = `${formatDate(s.start_date) ?? ''} — ${formatDate(s.end_date) ?? ''}`;
-    const daysInfo = future
+    const daysInfo = isFuture
       ? `starts in ${daysUntilStart}d`
       : daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? 'due today' : `${Math.abs(daysLeft)}d overdue`;
 
-    return (
-      <div key={s.id} className="step-card" style={future ? { opacity: 0.85 } : undefined}>
+    const cardContent = (
+      <button
+        key={s.id}
+        className="step-card"
+        style={{ width: '100%', textAlign: 'left', opacity: isFuture ? 0.85 : 1 }}
+        onClick={() => setEditingStep(s)}
+      >
         <div className="step-card-head">
           <span className="step-card-tag" style={{ background: tagBg, color: tagFg }}>
             {s.task_title || 'Standalone'}
@@ -1670,7 +1794,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
           <span className="step-card-dates">{dateRange} · {daysInfo}</span>
         </div>
         <div className="step-card-title">{s.title}</div>
-        {!future && (
+        {!isFuture && (
           <>
             <div className="step-card-progress">
               <div className="step-card-bar">
@@ -1689,15 +1813,38 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
             )}
           </>
         )}
-        {future && (
+        {isFuture && (
           <div className="step-card-meta">Will plan Gos when this starts</div>
         )}
-      </div>
+      </button>
+    );
+
+    return (
+      <SwipeRow
+        key={s.id}
+        onEdit={() => setEditingStep(s)}
+        onDelete={async () => {
+          if (!confirm(`Delete step "${s.title}"?`)) return;
+          try { await sprintsApi.delete(s.id); await reload(); }
+          catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+        }}
+      >
+        {cardContent}
+      </SwipeRow>
     );
   };
 
   return (
     <>
+      {/* Edit Step sheet */}
+      {editingStep && (
+        <EditSprintSheet
+          sprint={editingStep}
+          onClose={() => setEditingStep(null)}
+          onSaved={async () => { setEditingStep(null); await reload(); }}
+        />
+      )}
+
       {/* Add Step button */}
       <AddItemButton label={t('tasks.addSprint')} onClick={() => setAdding(true)} />
       <CreateSprintForm

@@ -669,7 +669,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .kanban-column-count { font-size: 10px; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
 
 .goal-card {
-  background: var(--bg-card); border-radius: var(--r-card);
+  background: var(--bg-elevated); border-radius: var(--r-card);
   padding: 12px 13px; margin-bottom: 7px; cursor: pointer;
   box-shadow: var(--sh-card);
   transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
@@ -763,7 +763,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 
 .go-row {
   display: flex; align-items: center; gap: 14px;
-  padding: 13px 16px; background: var(--bg-card);
+  padding: 13px 16px; background: var(--bg-elevated);
   border-radius: var(--r-card); margin-bottom: 7px;
   box-shadow: var(--sh-card);
   transition: box-shadow var(--dur-fast) var(--ease);
@@ -804,7 +804,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .step-card {
-  background: var(--bg-card); border-radius: var(--r-card);
+  background: var(--bg-elevated); border-radius: var(--r-card);
   padding: 13px 14px; margin-bottom: 8px; box-shadow: var(--sh-card);
   transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
@@ -1883,6 +1883,22 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   margin-bottom: 12px; flex-wrap: wrap;
 }
 .doc-meta-row .dot { width: 3px; height: 3px; background: var(--fg-faint); border-radius: 50%; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TASK EXPANDED PANEL (steps + gos inside a goal card)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.task-expanded {
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg-hover);
+  border-top: 0.5px solid var(--line);
+  border-radius: 0 0 var(--r-card) var(--r-card);
+}
+.task-expanded-section-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--fg-muted); margin-bottom: 6px;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ADD ITEM BUTTON

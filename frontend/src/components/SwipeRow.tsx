@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { useT } from '../store/i18n';
 
 interface Props {
   children: React.ReactNode;
@@ -9,9 +10,10 @@ interface Props {
 }
 
 const SPRING = 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1)';
-const BTN_W = 64;
+const BTN_W = 72;
 
 export default function SwipeRow({ children, onEdit, onDelete, enabled = true }: Props) {
+  const t = useT();
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
@@ -21,6 +23,7 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
   const horizontal = useRef<boolean | null>(null);
 
   const ACTIONS_W = onEdit ? BTN_W * 2 : BTN_W;
+  const swiped = offset < -20;
 
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
@@ -66,13 +69,14 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
   if (!enabled) return <>{children}</>;
 
   const tr = dragging ? 'none' : SPRING;
-  // At offset=0: actions translateX(ACTIONS_W) = off-screen right, clipped by overflow:hidden.
-  // At offset=-ACTIONS_W: actions translateX(0) = visible at the container's right edge.
   const actionsTx = ACTIONS_W + offset;
 
   return (
-    <div style={{ position: 'relative', overflow: 'hidden' }}>
-      {/* Content — slides left; z-index:1 keeps it above action layer during animation */}
+    <div
+      style={{ position: 'relative', overflow: 'hidden' }}
+      data-swiped={swiped ? 'true' : undefined}
+    >
+      {/* Content — slides left */}
       <div
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -80,15 +84,16 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
         style={{
           position: 'relative',
           zIndex: 1,
-          transform: `translateX(${offset}px)`,
+          transform: `translateX(${offset}px) ${swiped ? 'scale(0.99)' : ''}`,
           transition: tr,
           touchAction: 'pan-y',
+          transformOrigin: 'left center',
         }}
       >
         {children}
       </div>
 
-      {/* Action buttons — slide in from the right via overflow clip */}
+      {/* Action buttons */}
       <div
         style={{
           position: 'absolute',
@@ -97,6 +102,8 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
           bottom: 0,
           display: 'flex',
           alignItems: 'stretch',
+          gap: 4,
+          paddingRight: 4,
           width: ACTIONS_W,
           transform: `translateX(${actionsTx}px)`,
           transition: tr,
@@ -112,14 +119,20 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
               border: 0,
               cursor: 'pointer',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'var(--accent-goals-bg)',
-              color: 'var(--accent-goals-fg)',
+              gap: 4,
+              background: 'var(--warning)',
+              color: '#fff',
+              borderRadius: 'var(--r-control)',
+              fontSize: 10,
+              fontWeight: 600,
             }}
-            aria-label="Edit"
+            aria-label={t('common.edit')}
           >
-            <Pencil size={16} />
+            <Pencil size={16} strokeWidth={2} />
+            <span>{t('common.edit')}</span>
           </button>
         )}
         <button
@@ -129,14 +142,20 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
             border: 0,
             cursor: 'pointer',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'var(--danger-soft)',
-            color: 'var(--danger)',
+            gap: 4,
+            background: 'var(--danger)',
+            color: '#fff',
+            borderRadius: 'var(--r-control)',
+            fontSize: 10,
+            fontWeight: 600,
           }}
-          aria-label="Delete"
+          aria-label={t('common.delete')}
         >
-          <Trash2 size={16} />
+          <Trash2 size={16} strokeWidth={2} />
+          <span>{t('common.delete')}</span>
         </button>
       </div>
     </div>
