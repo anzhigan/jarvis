@@ -43,7 +43,7 @@ export default function MobileNavbar({ variant, title, crumb, user, onBack, onAv
       )}
       {crumb ? (
         <div className="nav-title with-crumb" style={{ flex: 1 }}>
-          <span className="crumb">{crumb}</span>
+          <span className="crumb">{crumb} /</span>
           <span>{title}</span>
         </div>
       ) : (
