@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Loader2 } from 'lucide-react';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
@@ -85,7 +86,7 @@ export default function CreateSheet({
         transition: { duration: 0.2 },
       };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -139,6 +140,7 @@ export default function CreateSheet({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
