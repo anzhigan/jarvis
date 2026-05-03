@@ -559,8 +559,11 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
 
   const currentTextColor = editor.getAttributes('textStyle').color as string | undefined;
 
-  // Mobile keyboard toolbar — only when editor focused AND keyboard is visible
-  const MobileKeyboardToolbar = (isMobile && editorFocused && kbHeight > 0) ? (
+  // Mobile keyboard toolbar — shown whenever the editor is focused on mobile.
+  // With interactive-widget=resizes-content the viewport already shrinks when
+  // the keyboard opens, so bottom:0 (kbHeight is always 0 in that mode) places
+  // the toolbar correctly just above the keyboard.
+  const MobileKeyboardToolbar = (isMobile && editorFocused) ? (
     <div
       onMouseDown={(e) => e.preventDefault()}
       onTouchStart={(e) => {
