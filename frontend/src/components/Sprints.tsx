@@ -257,7 +257,6 @@ function SprintCard({
           {status === 'past' && <span className="tag" style={{ background: 'var(--bg-input)', color: 'var(--fg-muted)' }}>Finished</span>}
         </div>
         <div className="goal-card-meta" style={{ marginTop: 0, marginBottom: 8 }}>
-          <Calendar size={11} />
           <span>{fmtDate(sprint.start_date)} — {fmtDate(sprint.end_date)}</span>
         </div>
 
@@ -406,14 +405,14 @@ function SprintDetail({
             <div className="panel-card" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2}
                 placeholder="Description…" className="textarea" />
-              <div className="grid grid-cols-2 gap-2">
+              <div className={isMobile ? 'flex flex-col gap-2' : 'grid grid-cols-2 gap-2'}>
                 <div className="min-w-0">
                   <div className="text-label" style={{ marginBottom: 4 }}>Start</div>
-                  <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="input" />
+                  <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="input w-full" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-label" style={{ marginBottom: 4 }}>End</div>
-                  <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className="input" />
+                  <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className="input w-full" />
                 </div>
               </div>
               <div className="flex gap-1.5 flex-wrap">

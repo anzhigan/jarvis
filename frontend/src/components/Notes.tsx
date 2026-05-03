@@ -498,7 +498,7 @@ export default function Notes() {
               {saving ? <><Loader2 size={12} className="animate-spin" /> Saving</> : editorState.dirty ? 'Unsaved' : 'Saved'}
             </div>
 
-            <div className="pl-4 pr-4 pt-16 md:pt-4 md:pl-14 pb-2">
+            <div className="pl-5 pr-5 pt-16 md:pt-4 md:pl-14 pb-2">
               <NoteTitle
                 key={currentNote.id + '-title'}
                 initial={currentNote.name}
@@ -514,7 +514,7 @@ export default function Notes() {
                 <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
               </div>
             </div>
-            <div className="px-4 pb-8">
+            <div className="px-5 pb-8">
               <RichTextEditor
                 key={currentNote.id}
                 noteId={currentNote.id}

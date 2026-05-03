@@ -1165,7 +1165,14 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif !important;
 }
 @media (hover: none) {
-  .btn:hover, .icon-btn:hover, .chip:hover, .pill:hover, .nav-item:hover, .quick-btn:hover, .subtab:hover, .segmented-item:hover {
+  .btn:not([data-active="true"]):hover,
+  .icon-btn:not([data-active="true"]):hover,
+  .chip:not([data-active="true"]):hover,
+  .pill:not([data-active="true"]):hover,
+  .nav-item:not([data-active="true"]):hover,
+  .quick-btn:not([data-active="true"]):hover,
+  .subtab:not([data-active="true"]):hover,
+  .segmented-item:not([data-active="true"]):hover {
     background: inherit; color: inherit;
   }
 }
@@ -1244,11 +1251,11 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 /* Search field — Notes root */
 .search-field {
   display: flex; align-items: center; gap: 8px;
-  height: 32px; margin: 0 16px 14px;
-  padding: 0 12px;
+  height: 40px; margin: 0 16px 14px;
+  padding: 0 14px;
   background: rgba(0, 0, 0, 0.025);
   border-radius: var(--r-control);
-  font-size: 13px; color: var(--fg-muted);
+  font-size: 14px; color: var(--fg-muted);
   cursor: text;
 }
 .search-field svg { color: var(--fg-muted); flex-shrink: 0; }
@@ -1578,8 +1585,9 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   .streak-strip-row-mobile { display: flex !important; }
 
   /* Goal card — mobile touch sizing */
-  .goal-card { padding: 14px; margin-bottom: 8px; }
-  .goal-card-title { font-size: 14px; }
+  .goal-card { padding: 16px; margin-bottom: 10px; }
+  .goal-card-title { font-size: 15px; }
+  .goal-card-meta { font-size: 12px; margin-top: 10px; }
 
   /* Analysis grid — single column */
   .analysis-grid { grid-template-columns: 1fr; }

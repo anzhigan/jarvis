@@ -1188,7 +1188,7 @@ function TaskCard({
             )}
 
             <div style={{ marginBottom: 8 }}>
-              <TagSelector targetId={task.id} targetKind="task" tags={task.tags ?? []} onChange={onReload} compact />
+              <TagSelector targetId={task.id} targetKind="task" tags={task.tags ?? []} onChange={onReload} compact={!isMobile} />
             </div>
 
             {hasContent && (
@@ -2022,7 +2022,7 @@ export default function Tasks() {
                   <div className="big-title">Goals</div>
                   <div className="big-title-sub">Track progress. Grow with intention.</div>
                 </div>
-                <button onClick={() => setShowCreateForm((v) => !v)} className="icon-btn" title="Add goal">
+                <button onClick={() => setShowCreateForm((v) => !v)} className="icon-btn icon-btn-lg" title="Add goal">
                   {showCreateForm ? <X size={20} /> : <Plus size={20} />}
                 </button>
               </div>

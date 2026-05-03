@@ -442,8 +442,8 @@ function RoutineCard({ routine, onReload, isMobile }: { routine: Routine; onRelo
     const dx = e.touches[0].clientX - swipeStartX.current;
     const dy = e.touches[0].clientY - swipeStartY.current;
     if (swipeHorizontal.current === null) {
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-        swipeHorizontal.current = Math.abs(dx) > Math.abs(dy);
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        swipeHorizontal.current = Math.abs(dx) > Math.abs(dy) * 1.5;
       }
     }
     if (swipeHorizontal.current && Math.abs(dx) > 3) {
