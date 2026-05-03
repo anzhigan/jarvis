@@ -120,7 +120,7 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
     }
   };
 
-  const chipHeight = compact ? 'h-6' : 'h-7';
+  const chipHeight = compact ? 'h-7' : 'h-8';
   const chipText = compact ? 'text-[10px]' : 'text-xs';
   const iconSize = compact ? 9 : 11;
 
@@ -129,7 +129,7 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
       {tags.map((tag) => (
         <span
           key={tag.id}
-          className={`inline-flex items-center gap-1 ${chipHeight} pl-2 pr-1 rounded-full ${chipText} font-medium`}
+          className={`inline-flex items-center gap-1 ${chipHeight} pl-3 pr-2 rounded-full ${chipText} font-medium`}
           style={{ backgroundColor: `${tag.color}20`, color: tag.color, border: `1px solid ${tag.color}40` }}
         >
           {tag.name}
@@ -147,7 +147,7 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
         <button
           ref={buttonRef}
           onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-          className={`inline-flex items-center gap-1 ${chipHeight} px-2 rounded-full ${chipText} font-medium border border-dashed border-border hover:border-border-strong hover:bg-secondary/40 text-muted-foreground transition-colors`}
+          className={`inline-flex items-center gap-1 ${chipHeight} px-3 rounded-full ${chipText} font-medium border border-dashed border-border hover:border-border-strong hover:bg-secondary/40 text-muted-foreground transition-colors`}
           title={t("tags.addTag")}
         >
           <TagIcon size={iconSize} />
@@ -194,7 +194,7 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
                     >
                       <button
                         onClick={() => toggleTag(tag)}
-                        className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1.5 text-xs font-medium"
+                        className="inline-flex items-center gap-1 h-8 pl-3 pr-2 text-xs font-medium"
                         style={{ color: attached ? 'white' : tag.color }}
                       >
                         {attached && <Check size={11} />}
