@@ -9,6 +9,7 @@ import PullToRefresh from './PullToRefresh';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
+import CreateSheet, { FormField } from './CreateSheet';
 
 const SPRINT_COLORS = [
   '#4f46e5', '#7c3aed', '#ec4899', '#e11d48', '#ea580c',
@@ -491,76 +492,60 @@ function SprintDetail({
 // ═══════════════════════════════════════════════════════════════════════════
 // CreateSprintForm
 // ═══════════════════════════════════════════════════════════════════════════
-function CreateSprintForm({ onCreated, onCancel }: { onCreated: () => Promise<void>; onCancel: () => void }) {
-  const t = useT();
+function CreateSprintForm({ open, onCreated, onCancel }: { open: boolean; onCreated: () => Promise<void>; onCancel: () => void }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [start, setStart] = useState(todayIso());
   const [end, setEnd] = useState(plusDaysIso(7));
   const [color, setColor] = useState(SPRINT_COLORS[0]);
-  const [saving, setSaving] = useState(false);
 
-  const submit = async () => {
-    if (!title.trim() || !start || !end) return;
-    setSaving(true);
-    try {
-      await focusSprintsApi.create({
-        title: title.trim(),
-        description: description.trim(),
-        start_date: start,
-        end_date: end,
-        color,
-      });
-      onCancel();
-      await onCreated();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed');
-    } finally {
-      setSaving(false);
-    }
+  useEffect(() => {
+    if (!open) { setTitle(''); setDescription(''); setStart(todayIso()); setEnd(plusDaysIso(7)); setColor(SPRINT_COLORS[0]); }
+  }, [open]);
+
+  const handleSubmit = async () => {
+    await focusSprintsApi.create({ title: title.trim(), description: description.trim(), start_date: start, end_date: end, color });
+    onCancel();
+    await onCreated();
   };
 
   return (
-    <div className="panel-card" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div className="flex items-center justify-between" style={{ marginBottom: 2 }}>
-        <span className="text-label">New sprint</span>
-        <button onClick={onCancel} className="icon-btn icon-btn-sm">
-          <X size={14} />
-        </button>
+    <CreateSheet
+      open={open}
+      onClose={onCancel}
+      title="New sprint"
+      primaryLabel="Create sprint"
+      canSubmit={!!title.trim() && !!start && !!end}
+      onSubmit={handleSubmit}
+    >
+      <FormField label="Title">
+        <input type="text" className="input w-full" value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Sprint title (e.g. Apr 28 — May 5)" autoFocus />
+      </FormField>
+      <FormField label="Description">
+        <textarea className="textarea w-full" value={description}
+          onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Description…" />
+      </FormField>
+      <div className="form-row-2col">
+        <FormField label="Start">
+          <input type="date" className="input w-full" value={start} onChange={(e) => setStart(e.target.value)} />
+        </FormField>
+        <FormField label="End">
+          <input type="date" className="input w-full" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </FormField>
       </div>
-      <input type="text" placeholder="Sprint title (e.g. Apr 28 — May 5)"
-        value={title} onChange={(e) => setTitle(e.target.value)} autoFocus
-        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && submit()}
-        className="input" />
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
-        placeholder="Description…" className="textarea" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <div className="min-w-0">
-          <div className="text-label" style={{ marginBottom: 4 }}>Start</div>
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="input w-full" />
-        </div>
-        <div className="min-w-0">
-          <div className="text-label" style={{ marginBottom: 4 }}>End</div>
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="input w-full" />
-        </div>
-      </div>
-      <div className="flex justify-between items-center flex-wrap gap-2">
-        <div className="flex gap-1.5">
+      <FormField label="Color">
+        <div className="flex gap-2 flex-wrap">
           {SPRINT_COLORS.map((c) => (
             <button key={c} type="button" onClick={() => setColor(c)}
-              style={{
-                width: 24, height: 24, borderRadius: 'var(--r-pill)', backgroundColor: c,
+              style={{ width: 24, height: 24, borderRadius: 'var(--r-pill)', backgroundColor: c,
                 boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3.5px ${c}` : 'none',
-                transition: 'all 150ms',
-              }} />
+                transition: 'all 150ms' }} />
           ))}
         </div>
-        <button onClick={submit} disabled={saving || !title.trim()} className="btn btn-primary btn-sm">
-          {saving && <Loader2 size={11} className="animate-spin" />}
-          <Plus size={14} /> Create
-        </button>
-      </div>
-    </div>
+      </FormField>
+    </CreateSheet>
   );
 }
 
@@ -674,7 +659,7 @@ export default function Sprints() {
             </div>
           )}
 
-          {(!isMobile && !creating) ? (
+          {!isMobile && (
             <button
               onClick={() => setCreating(true)}
               className="btn btn-ghost w-full"
@@ -682,9 +667,8 @@ export default function Sprints() {
             >
               <Plus size={15} /> New sprint
             </button>
-          ) : creating ? (
-            <CreateSprintForm onCancel={() => setCreating(false)} onCreated={load} />
-          ) : null}
+          )}
+          <CreateSprintForm open={creating} onCancel={() => setCreating(false)} onCreated={load} />
 
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">

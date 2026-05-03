@@ -10,6 +10,7 @@ import SwipeRow from './SwipeRow';
 import PullToRefresh from './PullToRefresh';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
+import CreateSheet, { FormField } from './CreateSheet';
 import { tasksApi, gosApi, sprintsApi, routinesApi, tagsApi, resolveUrl } from '../api/client';
 import type { Task, TaskPriority, TaskStatus, Go, GoKind, GoRecurrence, Sprint, Routine, GoalRoutineLink } from '../api/types';
 import { useT } from '../store/i18n';
@@ -619,25 +620,23 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
                   />
                 ))}
 
-                {!addingGo ? (
-                  <button
-                    onClick={() => setAddingGo(true)}
-                    className="btn btn-ghost btn-sm w-full"
-                  >
-                    <Plus size={12} /> {t('tasks.addGo')}
-                  </button>
-                ) : (
-                  <CreateGoForm
-                    defaultTaskId={sprint.task_id}
-                    defaultSprintId={sprint.id}
-                    onCancel={() => setAddingGo(false)}
-                    onCreate={async (data) => {
-                      await gosApi.create({ ...data, task_id: sprint.task_id, sprint_id: sprint.id });
-                      setAddingGo(false);
-                      await onReload();
-                    }}
-                  />
-                )}
+                <button
+                  onClick={() => setAddingGo(true)}
+                  className="btn btn-ghost btn-sm w-full"
+                >
+                  <Plus size={12} /> {t('tasks.addGo')}
+                </button>
+                <CreateGoForm
+                  open={addingGo}
+                  defaultTaskId={sprint.task_id}
+                  defaultSprintId={sprint.id}
+                  onCancel={() => setAddingGo(false)}
+                  onCreate={async (data) => {
+                    await gosApi.create({ ...data, task_id: sprint.task_id, sprint_id: sprint.id });
+                    setAddingGo(false);
+                    await onReload();
+                  }}
+                />
               </div>
             )}
           </div>
@@ -656,11 +655,13 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
 // Create Go form
 // ═══════════════════════════════════════════════════════════════════════════
 function CreateGoForm({
-  defaultTaskId, defaultSprintId, availableSprints, onCreate, onCancel,
+  open, defaultTaskId, defaultSprintId, availableSprints, onCreate, onCancel,
 }: {
+  open: boolean;
   defaultTaskId?: string | null;
   defaultSprintId?: string | null;
   availableSprints?: Sprint[];
+  tasks?: Task[];
   onCreate: (data: {
     title: string; description: string; kind: GoKind; unit: string; target_value: number | null;
     recurrence: GoRecurrence; due_date: string | null; color: string;
@@ -674,64 +675,98 @@ function CreateGoForm({
   const [kind, setKind] = useState<GoKind>('boolean');
   const [unit, setUnit] = useState('');
   const [target, setTarget] = useState('');
-  const [recurrence, setRecurrence] = useState<GoRecurrence>('none');
+  const [recurrence] = useState<GoRecurrence>('none');
   const [due, setDue] = useState('');
   const [color, setColor] = useState(GO_COLORS[0]);
   const [sprintId, setSprintId] = useState<string>(defaultSprintId ?? '');
-  const [saving, setSaving] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string>(defaultTaskId ?? '');
 
-  const submit = async () => {
-    if (!title.trim()) return;
-    setSaving(true);
-    try {
-      await onCreate({
-        title: title.trim(), description: description.trim(), kind, unit: unit.trim(),
-        target_value: target ? parseFloat(target) : null,
-        recurrence, due_date: due || null, color,
-        task_id: defaultTaskId ?? null,
-        sprint_id: sprintId || null,
-      });
-    } finally { setSaving(false); }
+  useEffect(() => {
+    if (!open) {
+      setTitle(''); setDescription(''); setKind('boolean');
+      setUnit(''); setTarget(''); setDue(''); setColor(GO_COLORS[0]);
+      setSprintId(defaultSprintId ?? ''); setSelectedTaskId(defaultTaskId ?? '');
+    }
+  }, [open, defaultSprintId, defaultTaskId]);
+
+  const effectiveTaskId = tasks ? selectedTaskId : (defaultTaskId ?? null);
+  const derivedSprints = tasks
+    ? (tasks.find((tk) => tk.id === selectedTaskId)?.sprints ?? [])
+    : (availableSprints ?? []);
+
+  const handleSubmit = async () => {
+    await onCreate({
+      title: title.trim(), description: description.trim(), kind, unit: unit.trim(),
+      target_value: target ? parseFloat(target) : null,
+      recurrence, due_date: due || null, color,
+      task_id: effectiveTaskId || null,
+      sprint_id: sprintId || null,
+    });
   };
 
   return (
-    <div className="panel-card p-2.5 space-y-2">
-      <input type="text" placeholder="Go title (e.g. Solve 50 problems)" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} autoFocus className="input w-full" />
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('tasks.descriptionPh')} rows={2} className="textarea w-full" />
-      <div className="flex flex-wrap gap-1.5">
+    <CreateSheet
+      open={open}
+      onClose={onCancel}
+      title="Add go"
+      primaryLabel="Add go"
+      canSubmit={!!title.trim()}
+      onSubmit={handleSubmit}
+    >
+      {tasks && (
+        <FormField label="Goal">
+          <select value={selectedTaskId} onChange={(e) => { setSelectedTaskId(e.target.value); setSprintId(''); }} className="select-base">
+            <option value="">{t('go.standalone')}</option>
+            {tasks.map((tk) => (<option key={tk.id} value={tk.id}>{tk.title}</option>))}
+          </select>
+        </FormField>
+      )}
+      <FormField label="Title">
+        <input type="text" className="input w-full" value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Go title (e.g. Solve 50 problems)" autoFocus />
+      </FormField>
+      <FormField label="Description">
+        <textarea className="textarea w-full" value={description}
+          onChange={(e) => setDescription(e.target.value)} placeholder={t('tasks.descriptionPh')} rows={2} />
+      </FormField>
+      <FormField label="Type">
         <select value={kind} onChange={(e) => setKind(e.target.value as GoKind)} className="select-base">
           <option value="boolean">Done / Not done</option>
           <option value="numeric">Numeric</option>
         </select>
-        {kind === 'numeric' && <>
-          <input type="text" placeholder="Unit (pages)" value={unit} onChange={(e) => setUnit(e.target.value)} className="input" style={{ width: 96 }} />
-          <input type="number" placeholder="Target" value={target} onChange={(e) => setTarget(e.target.value)} className="input" style={{ width: 80 }} />
-        </>}
-        <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="input" />
-        {availableSprints && availableSprints.length > 0 && !defaultSprintId && (
-          <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="select-base" style={{ maxWidth: 200 }}>
+      </FormField>
+      {kind === 'numeric' && (
+        <div className="form-row-2col">
+          <FormField label="Unit">
+            <input type="text" className="input w-full" placeholder="pages" value={unit} onChange={(e) => setUnit(e.target.value)} />
+          </FormField>
+          <FormField label="Target">
+            <input type="number" className="input w-full" placeholder="0" value={target} onChange={(e) => setTarget(e.target.value)} />
+          </FormField>
+        </div>
+      )}
+      <FormField label="Due date">
+        <input type="date" className="input w-full" value={due} onChange={(e) => setDue(e.target.value)} />
+      </FormField>
+      {derivedSprints.length > 0 && !defaultSprintId && (
+        <FormField label="Sprint">
+          <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="select-base">
             <option value="">No sprint</option>
-            {availableSprints.map((s) => (<option key={s.id} value={s.id}>↳ {s.title}</option>))}
+            {derivedSprints.map((s) => (<option key={s.id} value={s.id}>↳ {s.title}</option>))}
           </select>
-        )}
-      </div>
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex gap-1">
+        </FormField>
+      )}
+      <FormField label="Color">
+        <div className="flex gap-2 flex-wrap">
           {GO_COLORS.map((c) => (
             <button key={c} type="button" onClick={(e) => { e.preventDefault(); setColor(c); }}
-              className="w-7 h-7 rounded-full transition-all"
-              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3px ${c}` : 'none' }}
-            />
+              className="w-6 h-6 rounded-full transition-all"
+              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3px ${c}` : 'none' }} />
           ))}
         </div>
-        <div className="flex gap-1.5">
-          <button onClick={onCancel} className="btn btn-ghost btn-sm">Cancel</button>
-          <button onClick={submit} disabled={saving || !title.trim()} className="btn btn-primary btn-sm flex items-center gap-1">
-            {saving && <Loader2 size={11} className="animate-spin" />}Create
-          </button>
-        </div>
-      </div>
-    </div>
+      </FormField>
+    </CreateSheet>
   );
 }
 
@@ -739,75 +774,85 @@ function CreateGoForm({
 // Create Sprint form (inside a task)
 // ═══════════════════════════════════════════════════════════════════════════
 function CreateSprintForm({
-  taskId, availableGos, onCreate, onCancel,
+  open, taskId, tasks, availableGos, onCreate, onCancel,
 }: {
-  taskId: string;
-  availableGos: Go[];   // unattached gos of this task to optionally link
+  open: boolean;
+  taskId?: string;
+  tasks?: Task[];
+  availableGos?: Go[];
   onCreate: () => Promise<void>;
   onCancel: () => void;
 }) {
   const t = useT();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [start, setStart] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  });
+  const [start, setStart] = useState(todayIso);
   const [end, setEnd] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 14);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   });
   const [color, setColor] = useState(ENTITY_COLORS[1]);
   const [toAttach, setToAttach] = useState<Set<string>>(new Set());
-  const [saving, setSaving] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string>(taskId ?? '');
 
-  const submit = async () => {
-    if (!title.trim() || !start || !end) return;
-    setSaving(true);
-    try {
-      const sprint = await sprintsApi.create({
-        task_id: taskId,
-        title: title.trim(),
-        description,
-        start_date: start,
-        end_date: end,
-        color,
-      });
-      for (const goId of toAttach) {
-        await sprintsApi.attachGo(sprint.id, goId);
-      }
-      await onCreate();
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-    finally { setSaving(false); }
-  };
+  useEffect(() => {
+    if (!open) { setTitle(''); setDescription(''); setColor(ENTITY_COLORS[1]); setToAttach(new Set()); setSelectedTaskId(taskId ?? ''); }
+  }, [open, taskId]);
 
   const toggleAttach = (id: string) => {
-    setToAttach((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    setToAttach((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  };
+
+  const effectiveTaskId = tasks ? selectedTaskId : (taskId ?? '');
+  const effectiveGos = tasks
+    ? ((tasks.find((tk) => tk.id === selectedTaskId)?.gos ?? []).filter((g) => !g.sprint_id))
+    : (availableGos ?? []);
+
+  const handleSubmit = async () => {
+    if (!effectiveTaskId) throw new Error('Please select a goal first');
+    const sprint = await sprintsApi.create({ task_id: effectiveTaskId, title: title.trim(), description, start_date: start, end_date: end, color });
+    for (const goId of toAttach) await sprintsApi.attachGo(sprint.id, goId);
+    onCancel();
+    await onCreate();
   };
 
   return (
-    <div className="panel-card p-3 space-y-2">
-      <input type="text" placeholder={t('sprint.titlePh')} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus className="input w-full" />
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('sprint.notesPh')} rows={2} className="textarea w-full" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div className="min-w-0">
-          <label className="text-label">{t("tasks.start")}</label>
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="input w-full" />
-        </div>
-        <div className="min-w-0">
-          <label className="text-label">{t('sprint.end')}</label>
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="input w-full" />
-        </div>
+    <CreateSheet
+      open={open}
+      onClose={onCancel}
+      title="Add step"
+      primaryLabel="Add step"
+      canSubmit={!!title.trim() && !!start && !!end && (tasks ? !!selectedTaskId : true)}
+      onSubmit={handleSubmit}
+    >
+      {tasks && (
+        <FormField label="Goal">
+          <select value={selectedTaskId} onChange={(e) => { setSelectedTaskId(e.target.value); setToAttach(new Set()); }} className="select-base">
+            <option value="">{t('sprint.pickTask')}</option>
+            {tasks.map((tk) => (<option key={tk.id} value={tk.id}>{tk.title}</option>))}
+          </select>
+        </FormField>
+      )}
+      <FormField label="Title">
+        <input type="text" className="input w-full" value={title}
+          onChange={(e) => setTitle(e.target.value)} placeholder={t('sprint.titlePh')} autoFocus />
+      </FormField>
+      <FormField label="Description">
+        <textarea className="textarea w-full" value={description}
+          onChange={(e) => setDescription(e.target.value)} placeholder={t('sprint.notesPh')} rows={2} />
+      </FormField>
+      <div className="form-row-2col">
+        <FormField label={t('tasks.start')}>
+          <input type="date" className="input w-full" value={start} onChange={(e) => setStart(e.target.value)} />
+        </FormField>
+        <FormField label={t('sprint.end')}>
+          <input type="date" className="input w-full" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </FormField>
       </div>
-      {availableGos.length > 0 && (
-        <div>
-          <div className="text-label mb-1">Attach existing Go items:</div>
+      {effectiveGos.length > 0 && (
+        <FormField label="Attach go items">
           <div className="max-h-40 overflow-y-auto" style={{ borderRadius: 'var(--r-control)', boxShadow: '0 0 0 0.5px var(--line)' }}>
-            {availableGos.map((g) => (
+            {effectiveGos.map((g) => (
               <label key={g.id} className="flex items-center gap-2 p-1.5 text-xs cursor-pointer hover:bg-secondary">
                 <input type="checkbox" checked={toAttach.has(g.id)} onChange={() => toggleAttach(g.id)} />
                 <span className="truncate flex-1">{g.title}</span>
@@ -815,23 +860,18 @@ function CreateSprintForm({
               </label>
             ))}
           </div>
-        </div>
+        </FormField>
       )}
-      <div className="flex gap-1 flex-wrap">
-        {ENTITY_COLORS.map((c) => (
-          <button key={c} type="button" onClick={(e) => { e.preventDefault(); setColor(c); }}
-            className="w-7 h-7 rounded-full transition-all active:scale-90"
-            style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3px ${c}` : 'none' }}
-          />
-        ))}
-      </div>
-      <div className="flex gap-1.5 justify-end">
-        <button onClick={onCancel} type="button" className="btn btn-ghost btn-sm">Cancel</button>
-        <button onClick={submit} disabled={saving || !title.trim() || !start || !end} type="button" className="btn btn-primary btn-sm flex items-center gap-1.5">
-          {saving && <Loader2 size={11} className="animate-spin" />}<Plus size={12} /> Create
-        </button>
-      </div>
-    </div>
+      <FormField label="Color">
+        <div className="flex gap-2 flex-wrap">
+          {ENTITY_COLORS.map((c) => (
+            <button key={c} type="button" onClick={(e) => { e.preventDefault(); setColor(c); }}
+              className="w-6 h-6 rounded-full transition-all active:scale-90"
+              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3px ${c}` : 'none' }} />
+          ))}
+        </div>
+      </FormField>
+    </CreateSheet>
   );
 }
 
@@ -1022,21 +1062,19 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
         />
       ))}
 
-      {!addingSprint ? (
-        <button
-          onClick={() => setAddingSprint(true)}
-          className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
-        >
-          <Zap size={12} /> {t('tasks.addSprint')}
-        </button>
-      ) : (
-        <CreateSprintForm
-          taskId={task.id}
-          availableGos={directGos.filter((g) => !g.sprint_id)}
-          onCancel={() => setAddingSprint(false)}
-          onCreate={async () => { setAddingSprint(false); await onReload(); }}
-        />
-      )}
+      <button
+        onClick={() => setAddingSprint(true)}
+        className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
+      >
+        <Zap size={12} /> {t('tasks.addSprint')}
+      </button>
+      <CreateSprintForm
+        open={addingSprint}
+        taskId={task.id}
+        availableGos={directGos.filter((g) => !g.sprint_id)}
+        onCancel={() => setAddingSprint(false)}
+        onCreate={async () => { setAddingSprint(false); await onReload(); }}
+      />
 
       {/* Direct Gos (not in any sprint) */}
       {directGos.length > 0 && (
@@ -1050,25 +1088,23 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
         </div>
       )}
 
-      {!addingGo ? (
-        <button
-          onClick={() => setAddingGo(true)}
-          className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
-        >
-          <Plus size={12} /> {t('tasks.addGo')}
-        </button>
-      ) : (
-        <CreateGoForm
-          defaultTaskId={task.id}
-          availableSprints={task.sprints}
-          onCancel={() => setAddingGo(false)}
-          onCreate={async (data) => {
-            await gosApi.create({ ...data, task_id: task.id });
-            setAddingGo(false);
-            await onReload();
-          }}
-        />
-      )}
+      <button
+        onClick={() => setAddingGo(true)}
+        className="w-full h-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md"
+      >
+        <Plus size={12} /> {t('tasks.addGo')}
+      </button>
+      <CreateGoForm
+        open={addingGo}
+        defaultTaskId={task.id}
+        availableSprints={task.sprints}
+        onCancel={() => setAddingGo(false)}
+        onCreate={async (data) => {
+          await gosApi.create({ ...data, task_id: task.id });
+          setAddingGo(false);
+          await onReload();
+        }}
+      />
     </div>
   );
 }
@@ -1290,7 +1326,6 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
   const [pastOpen, setPastOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [addTaskId, setAddTaskId] = useState<string>('');
 
   const load = async () => {
     setLoading(true);
@@ -1372,24 +1407,16 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
         )}
       </div>
 
-      {adding && (
-        <div className="panel-card space-y-2 p-3" style={{ marginBottom: 18 }}>
-          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)} className="select-base w-full">
-            <option value="">{t('go.standalone')}</option>
-            {tasks.map((task) => (<option key={task.id} value={task.id}>{task.title}</option>))}
-          </select>
-          <CreateGoForm
-            defaultTaskId={addTaskId || null}
-            availableSprints={addTaskId ? tasks.find((tk) => tk.id === addTaskId)?.sprints : []}
-            onCancel={() => { setAdding(false); setAddTaskId(''); }}
-            onCreate={async (data) => {
-              await gosApi.create(data);
-              setAdding(false); setAddTaskId('');
-              await reload();
-            }}
-          />
-        </div>
-      )}
+      <CreateGoForm
+        open={adding}
+        tasks={tasks}
+        onCancel={() => setAdding(false)}
+        onCreate={async (data) => {
+          await gosApi.create(data);
+          setAdding(false);
+          await reload();
+        }}
+      />
 
       {/* KPI row */}
       <div className="kpi-row">
@@ -1539,7 +1566,6 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
   const [pastOpen, setPastOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [addTaskId, setAddTaskId] = useState<string>('');
 
   const load = async () => {
     setLoading(true);
@@ -1687,31 +1713,18 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
 
   return (
     <>
-      {/* Add Step button + form */}
-      <div className="flex justify-end" style={{ marginBottom: adding ? 10 : 0 }}>
-        {!adding && (
-          <button onClick={() => setAdding(true)} className="btn btn-secondary btn-sm flex items-center gap-1.5">
-            <Plus size={12} /> {t('tasks.addSprint')}
-          </button>
-        )}
+      {/* Add Step button */}
+      <div className="flex justify-end">
+        <button onClick={() => setAdding(true)} className="btn btn-secondary btn-sm flex items-center gap-1.5">
+          <Plus size={12} /> {t('tasks.addSprint')}
+        </button>
       </div>
-
-      {adding && (
-        <div className="panel-card space-y-2 p-3" style={{ marginBottom: 18 }}>
-          <select value={addTaskId} onChange={(e) => setAddTaskId(e.target.value)} className="select-base w-full">
-            <option value="">{t('sprint.pickTask')}</option>
-            {tasks.map((task) => (<option key={task.id} value={task.id}>{task.title}</option>))}
-          </select>
-          {addTaskId && (
-            <CreateSprintForm
-              taskId={addTaskId}
-              availableGos={(tasks.find((tk) => tk.id === addTaskId)?.gos ?? []).filter((g) => !g.sprint_id)}
-              onCancel={() => { setAdding(false); setAddTaskId(''); }}
-              onCreate={async () => { setAdding(false); setAddTaskId(''); await reload(); }}
-            />
-          )}
-        </div>
-      )}
+      <CreateSprintForm
+        open={adding}
+        tasks={tasks}
+        onCancel={() => setAdding(false)}
+        onCreate={async () => { setAdding(false); await reload(); }}
+      />
 
       {/* KPI row */}
       <div className="kpi-row">
@@ -1900,24 +1913,17 @@ export default function Tasks() {
   }, [tasks]);
 
   const createTask = async () => {
-    if (!newTitle.trim()) return;
-    try {
-      const created = await tasksApi.create({
-        title: newTitle.trim(), priority: newPriority,
-        start_date: newStart || null, due_date: newDue || null,
-        description: newDescription || '',
-      } as any);
-      // Attach selected tags
-      for (const tagId of newTagIds) {
-        try { await tagsApi.attachTag(created.id, tagId); }
-        catch { /* ignore individual */ }
-      }
-      setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription(''); setNewTagIds([]);
-      setShowCreateForm(false);
-      await load();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed');
+    const created = await tasksApi.create({
+      title: newTitle.trim(), priority: newPriority,
+      start_date: newStart || null, due_date: newDue || null,
+      description: newDescription || '',
+    } as any);
+    for (const tagId of newTagIds) {
+      try { await tagsApi.attachTag(created.id, tagId); } catch { /* ignore individual */ }
     }
+    setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription(''); setNewTagIds([]);
+    setShowCreateForm(false);
+    await load();
   };
 
   const updateTask = async (id: string, data: Partial<Task>) => {
@@ -2124,98 +2130,76 @@ export default function Tasks() {
             <SprintPanel tasks={tasks} onReload={load} />
           ) : (
             <>
-              {!showCreateForm ? (
-                <button
-                  onClick={() => setShowCreateForm(true)}
-                  className="btn btn-ghost w-full"
-                  style={{ marginBottom: 20, justifyContent: 'center' }}
-                >
-                  <Plus size={15} /> {t('tasks.addTask')}
-                </button>
-              ) : (
-                <div className="panel-card" style={{ marginBottom: 20 }}>
-                  <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
-                    <span className="text-label">{t('tasks.addTask')}</span>
-                    <button
-                      onClick={() => { setShowCreateForm(false); setNewTitle(''); setNewDescription(''); setNewStart(''); setNewDue(''); }}
-                      className="icon-btn icon-btn-sm"
-                      title={t('common.cancel')}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2" style={{ marginBottom: 8 }}>
-                    <input type="text" placeholder={t("tasks.new")} value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && createTask()}
-                      autoFocus
-                      className="input flex-1 min-w-0" style={{ height: 32 }} />
-                    <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)}
-                      className="select-base" style={{ width: 'auto', paddingRight: 32 }}>
-                      <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
-                    </select>
-                    <button onClick={createTask} disabled={!newTitle.trim()} className="btn btn-primary">
-                      <Plus size={14} /> {t('common.create')}
-                    </button>
-                  </div>
-                  <textarea
-                    value={newDescription}
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="btn btn-ghost w-full"
+                style={{ marginBottom: 20, justifyContent: 'center' }}
+              >
+                <Plus size={15} /> {t('tasks.addTask')}
+              </button>
+              <CreateSheet
+                open={showCreateForm}
+                onClose={() => { setShowCreateForm(false); setNewTitle(''); setNewDescription(''); setNewStart(''); setNewDue(''); setNewTagIds([]); }}
+                title={t('tasks.addTask')}
+                primaryLabel="Create goal"
+                canSubmit={!!newTitle.trim()}
+                onSubmit={createTask}
+              >
+                <FormField label="Title">
+                  <input type="text" className="input w-full" value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder={t('tasks.new')} autoFocus />
+                </FormField>
+                <FormField label="Priority">
+                  <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} className="select-base">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </FormField>
+                <FormField label="Description">
+                  <textarea className="textarea w-full" value={newDescription}
                     onChange={(e) => setNewDescription(e.target.value)}
-                    placeholder={t('tasks.descriptionPh')}
-                    rows={2}
-                    className="textarea"
-                    style={{ marginBottom: 8 }}
-                  />
-                  <div>
-                    <label className="text-[11px] text-muted-foreground block mb-1">Tags</label>
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                      {allTags.map((tag) => {
-                        const sel = newTagIds.includes(tag.id);
-                        return (
-                          <button
-                            key={tag.id}
-                            type="button"
-                            onClick={() => setNewTagIds((s) => sel ? s.filter((id) => id !== tag.id) : [...s, tag.id])}
-                            className="tag"
-                            style={sel
-                              ? { backgroundColor: tag.color, color: '#fff', boxShadow: 'none' }
-                              : undefined
-                            }
-                          >
-                            {!sel && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />}
-                            {tag.name}
-                          </button>
-                        );
-                      })}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const name = prompt('Tag name?');
-                          if (!name?.trim()) return;
-                          try {
-                            const created = await tagsApi.create(name.trim(), STANDARD_COLORS[allTags.length % STANDARD_COLORS.length]);
-                            setAllTags([...allTags, created]);
-                            setNewTagIds([...newTagIds, created.id]);
-                          } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-                        }}
-                        className="tag" style={{ borderStyle: 'dashed', color: 'var(--fg-muted)' }}
-                      >
-                        <Plus size={11} /> {allTags.length === 0 ? 'Add first tag' : 'New tag'}
-                      </button>
-                    </div>
+                    placeholder={t('tasks.descriptionPh')} rows={2} />
+                </FormField>
+                <FormField label="Tags">
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    {allTags.map((tag) => {
+                      const sel = newTagIds.includes(tag.id);
+                      return (
+                        <button key={tag.id} type="button"
+                          onClick={() => setNewTagIds((s) => sel ? s.filter((id) => id !== tag.id) : [...s, tag.id])}
+                          className="tag"
+                          style={sel ? { backgroundColor: tag.color, color: '#fff', boxShadow: 'none' } : undefined}>
+                          {!sel && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />}
+                          {tag.name}
+                        </button>
+                      );
+                    })}
+                    <button type="button"
+                      onClick={async () => {
+                        const name = prompt('Tag name?');
+                        if (!name?.trim()) return;
+                        try {
+                          const created = await tagsApi.create(name.trim(), STANDARD_COLORS[allTags.length % STANDARD_COLORS.length]);
+                          setAllTags([...allTags, created]);
+                          setNewTagIds([...newTagIds, created.id]);
+                        } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+                      }}
+                      className="tag" style={{ borderStyle: 'dashed', color: 'var(--fg-muted)' }}>
+                      <Plus size={11} /> {allTags.length === 0 ? 'Add first tag' : 'New tag'}
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="min-w-0">
-                      <label className="text-[11px] text-muted-foreground">{t("tasks.start")}</label>
-                      <input type="date" value={newStart} onChange={(e) => setNewStart(e.target.value)} className="input w-full" />
-                    </div>
-                    <div className="min-w-0">
-                      <label className="text-label">{t("tasks.due")}</label>
-                      <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)} className="input w-full" />
-                    </div>
-                  </div>
+                </FormField>
+                <div className="form-row-2col">
+                  <FormField label={t('tasks.start')}>
+                    <input type="date" className="input w-full" value={newStart} onChange={(e) => setNewStart(e.target.value)} />
+                  </FormField>
+                  <FormField label={t('tasks.due')}>
+                    <input type="date" className="input w-full" value={newDue} onChange={(e) => setNewDue(e.target.value)} />
+                  </FormField>
                 </div>
-              )}
+              </CreateSheet>
 
               <div className="kanban-grid">
                 {STATUSES.filter(({ key }) => !isMobile || mobileStatusFilter === null || mobileStatusFilter === key).map(({ key, labelKey }) => {

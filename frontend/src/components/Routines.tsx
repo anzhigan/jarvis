@@ -6,6 +6,7 @@ import type { Routine, RoutineScheduleType } from '../api/types';
 import PullToRefresh from './PullToRefresh';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
+import CreateSheet, { FormField } from './CreateSheet';
 
 const ROUTINE_COLORS = [
   '#10b981', '#0891b2', '#3b82f6', '#7c3aed', '#ec4899',
@@ -738,142 +739,101 @@ function RoutineEditForm({
 // ═══════════════════════════════════════════════════════════════════════════
 // Create Form
 // ═══════════════════════════════════════════════════════════════════════════
-function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Promise<void>; onCancel: () => void; goals: { id: string; title: string }[] }) {
-  const t = useT();
+function CreateRoutineForm({ open, onCreated, onCancel, goals }: { open: boolean; onCreated: () => Promise<void>; onCancel: () => void; goals: { id: string; title: string }[] }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(ROUTINE_COLORS[0]);
   const [scheduleType, setScheduleType] = useState<RoutineScheduleType>('daily');
   const [scheduleDays, setScheduleDays] = useState<string[]>([]);
-  const [scheduleNDays, setScheduleNDays] = useState(2);
+  const [scheduleNDays] = useState(2);
   const [scheduleCount, setScheduleCount] = useState(2);
   const [goalId, setGoalId] = useState('');
-  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setTitle(''); setDescription(''); setColor(ROUTINE_COLORS[0]);
+      setScheduleType('daily'); setScheduleDays([]); setScheduleCount(2); setGoalId('');
+    }
+  }, [open]);
 
   const toggleDay = (idx: number) => {
     const s = String(idx);
     setScheduleDays((d) => d.includes(s) ? d.filter((x) => x !== s) : [...d, s]);
   };
 
-  const submit = async () => {
-    if (!title.trim()) return;
-    setSaving(true);
-    try {
-      await routinesApi.create({
-        title: title.trim(),
-        description: description.trim(),
-        color,
-        schedule_type: scheduleType,
-        schedule_days: scheduleDays.join(','),
-        schedule_n_days: scheduleNDays,
-        schedule_count_per_period: scheduleCount,
-        goal_id: goalId || null,
-      });
-      onCancel();
-      await onCreated();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed');
-    } finally {
-      setSaving(false);
-    }
+  const handleSubmit = async () => {
+    await routinesApi.create({
+      title: title.trim(), description: description.trim(), color,
+      schedule_type: scheduleType, schedule_days: scheduleDays.join(','),
+      schedule_n_days: scheduleNDays, schedule_count_per_period: scheduleCount,
+      goal_id: goalId || null,
+    });
+    onCancel();
+    await onCreated();
   };
 
   return (
-    <div className="panel-card" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div className="flex items-center justify-between" style={{ marginBottom: 2 }}>
-        <span className="text-label">New routine</span>
-        <button onClick={onCancel} className="icon-btn icon-btn-sm" title="Cancel">
-          <X size={14} />
-        </button>
-      </div>
-      <input
-        type="text"
-        placeholder="Routine title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        autoFocus
-        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && submit()}
-        className="input"
-      />
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Description…"
-        rows={2}
-        className="textarea"
-      />
-
-      <select
-        value={scheduleType}
-        onChange={(e) => setScheduleType(e.target.value as RoutineScheduleType)}
-        className="select-base"
-      >
-        <option value="daily">Every day</option>
-        <option value="weekly_on_days">On specific weekdays</option>
-        <option value="times_per_week">X times per week</option>
-      </select>
-
-      {scheduleType === 'weekly_on_days' && (
-        <div className="flex gap-1 flex-wrap">
-          {WEEKDAY_LABELS.map((lbl, idx) => (
-            <button
-              key={idx}
-              onClick={() => toggleDay(idx)}
-              className={scheduleDays.includes(String(idx)) ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-              style={{ width: 36, padding: 0, justifyContent: 'center' }}
-            >
-              {lbl}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {scheduleType === 'times_per_week' && (
-        <input
-          type="number"
-          min={1}
-          max={7}
-          value={scheduleCount}
-          onChange={(e) => setScheduleCount(parseInt(e.target.value || '1', 10))}
-          placeholder="Times per week"
-          className="input"
-        />
-      )}
-
-      {goals.length > 0 && (
-        <select
-          value={goalId}
-          onChange={(e) => setGoalId(e.target.value)}
-          className="select-base"
-        >
-          <option value="">No goal (standalone)</option>
-          {goals.map((g) => (
-            <option key={g.id} value={g.id}>↳ {g.title}</option>
-          ))}
+    <CreateSheet
+      open={open}
+      onClose={onCancel}
+      title="New routine"
+      primaryLabel="Create routine"
+      canSubmit={!!title.trim()}
+      onSubmit={handleSubmit}
+    >
+      <FormField label="Title">
+        <input type="text" className="input w-full" value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Routine title" autoFocus />
+      </FormField>
+      <FormField label="Description">
+        <textarea className="textarea w-full" value={description}
+          onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Description…" />
+      </FormField>
+      <FormField label="Schedule">
+        <select value={scheduleType} onChange={(e) => setScheduleType(e.target.value as RoutineScheduleType)} className="select-base">
+          <option value="daily">Every day</option>
+          <option value="weekly_on_days">On specific weekdays</option>
+          <option value="times_per_week">X times per week</option>
         </select>
+      </FormField>
+      {scheduleType === 'weekly_on_days' && (
+        <FormField label="Days">
+          <div className="flex gap-1 flex-wrap">
+            {WEEKDAY_LABELS.map((lbl, idx) => (
+              <button key={idx} type="button" onClick={() => toggleDay(idx)}
+                className={scheduleDays.includes(String(idx)) ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+                style={{ width: 36, padding: 0, justifyContent: 'center' }}>{lbl}</button>
+            ))}
+          </div>
+        </FormField>
       )}
-
-      <div className="flex justify-between items-center flex-wrap gap-2">
-        <div className="flex gap-1.5">
+      {scheduleType === 'times_per_week' && (
+        <FormField label="Times per week">
+          <input type="number" min={1} max={7} value={scheduleCount}
+            onChange={(e) => setScheduleCount(parseInt(e.target.value || '1', 10))}
+            className="input w-full" />
+        </FormField>
+      )}
+      {goals.length > 0 && (
+        <FormField label="Linked goal">
+          <select value={goalId} onChange={(e) => setGoalId(e.target.value)} className="select-base">
+            <option value="">No goal (standalone)</option>
+            {goals.map((g) => <option key={g.id} value={g.id}>↳ {g.title}</option>)}
+          </select>
+        </FormField>
+      )}
+      <FormField label="Color">
+        <div className="flex gap-2 flex-wrap">
           {ROUTINE_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setColor(c)}
-              style={{
-                width: 24, height: 24, borderRadius: 'var(--r-pill)', backgroundColor: c,
+            <button key={c} type="button" onClick={() => setColor(c)}
+              style={{ width: 24, height: 24, borderRadius: 'var(--r-pill)', backgroundColor: c,
                 boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3.5px ${c}` : 'none',
-                transition: 'all 150ms',
-              }}
-            />
+                transition: 'all 150ms' }} />
           ))}
         </div>
-        <button onClick={submit} disabled={saving || !title.trim()} className="btn btn-primary btn-sm">
-          {saving && <Loader2 size={11} className="animate-spin" />}
-          <Plus size={14} /> Create
-        </button>
-      </div>
-    </div>
+      </FormField>
+    </CreateSheet>
   );
 }
 
@@ -976,16 +936,12 @@ export default function Routines() {
                   <span className="chip-count">{counts[f]}</span>
                 </button>
               ))}
-              <button onClick={() => setCreating((v) => !v)} className="chip" style={{ marginLeft: 'auto' }}>
-                {creating ? <X size={13} /> : <Plus size={13} />}
-                {creating ? 'Cancel' : 'New'}
+              <button onClick={() => setCreating(true)} className="chip" style={{ marginLeft: 'auto' }}>
+                <Plus size={13} /> New
               </button>
             </div>
 
             <div style={{ padding: '0 16px' }}>
-              {creating && (
-                <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} goals={goals} />
-              )}
 
               {loading ? (
                 <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -1019,18 +975,13 @@ export default function Routines() {
               </div>
               <div className="page-head-actions">
                 <button
-                  onClick={() => setCreating((v) => !v)}
-                  className={creating ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
+                  onClick={() => setCreating(true)}
+                  className="btn btn-primary btn-sm"
                 >
-                  {creating ? <X size={13} /> : <Plus size={13} />}
-                  {creating ? 'Cancel' : 'New routine'}
+                  <Plus size={13} /> New routine
                 </button>
               </div>
             </div>
-
-            {creating && (
-              <CreateRoutineForm onCancel={() => setCreating(false)} onCreated={load} goals={goals} />
-            )}
 
             <div className="flex gap-1.5 flex-wrap" style={{ marginBottom: 14 }}>
               {(['today', 'all', 'paused'] as const).map((f) => (
@@ -1064,6 +1015,7 @@ export default function Routines() {
           </div>
         )}
       </PullToRefresh>
+      <CreateRoutineForm open={creating} onCancel={() => setCreating(false)} onCreated={load} goals={goals} />
     </div>
   );
 }

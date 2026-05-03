@@ -31,6 +31,7 @@ import { useT } from '../store/i18n';
 import { notesApi, topicsApi, waysApi, resolveUrl } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import type { Note, Topic, Way } from '../api/types';
+import CreateSheet, { FormField } from './CreateSheet';
 
 type Selection =
   | { kind: 'note'; noteId: string; parentType: 'way' | 'topic'; parentId: string }
@@ -260,33 +261,30 @@ export default function Notes() {
     if (!adding || !addName.trim()) { cancelAdd(); return; }
     const name = addName.trim();
     await saveCurrentEditor();
-    try {
-      if (adding.kind === 'way') {
-        const newWay = await waysApi.create(name, ways.length);
-        setExpandedWays((p) => new Set([...p, newWay.id]));
-      } else if (adding.kind === 'topic') {
-        const way = ways.find((w) => w.id === adding.wayId);
-        await topicsApi.create(adding.wayId, name, way?.topics.length ?? 0);
-        setExpandedWays((p) => new Set([...p, adding.wayId]));
-      } else if (adding.kind === 'topic-note') {
-        const note = await notesApi.create({ name, topic_id: adding.topicId, content: '' });
-        setExpandedTopics((p) => new Set([...p, adding.topicId]));
-        await loadWays();
-        setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: adding.topicId });
-        cancelAdd();
-        return;
-      } else if (adding.kind === 'way-note') {
-        const note = await notesApi.create({ name, way_id: adding.wayId, content: '' });
-        setExpandedWays((p) => new Set([...p, adding.wayId]));
-        await loadWays();
-        setSelection({ kind: 'note', noteId: note.id, parentType: 'way', parentId: adding.wayId });
-        cancelAdd();
-        return;
-      }
+    if (adding.kind === 'way') {
+      const newWay = await waysApi.create(name, ways.length);
+      setExpandedWays((p) => new Set([...p, newWay.id]));
+    } else if (adding.kind === 'topic') {
+      const way = ways.find((w) => w.id === adding.wayId);
+      await topicsApi.create(adding.wayId, name, way?.topics.length ?? 0);
+      setExpandedWays((p) => new Set([...p, adding.wayId]));
+    } else if (adding.kind === 'topic-note') {
+      const note = await notesApi.create({ name, topic_id: adding.topicId, content: '' });
+      setExpandedTopics((p) => new Set([...p, adding.topicId]));
       await loadWays();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to create');
-    } finally { cancelAdd(); }
+      cancelAdd();
+      setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: adding.topicId });
+      return;
+    } else if (adding.kind === 'way-note') {
+      const note = await notesApi.create({ name, way_id: adding.wayId, content: '' });
+      setExpandedWays((p) => new Set([...p, adding.wayId]));
+      await loadWays();
+      cancelAdd();
+      setSelection({ kind: 'note', noteId: note.id, parentType: 'way', parentId: adding.wayId });
+      return;
+    }
+    await loadWays();
+    cancelAdd();
   };
 
   const cancelAdd = () => { setAdding(null); setAddName(''); };
@@ -427,21 +425,6 @@ export default function Notes() {
   }, [ways, search]);
 
   // ── Shared input components ───────────────────────────────────────────────
-  const InlineInput = ({ placeholder, onCommit, onCancel }: { placeholder: string; onCommit: () => void; onCancel: () => void }) => (
-    <div className="px-2 py-1">
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={addName}
-        onChange={(e) => setAddName(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') onCommit(); if (e.key === 'Escape') onCancel(); }}
-        onBlur={() => (addName.trim() ? onCommit() : onCancel())}
-        className="input w-full"
-        autoFocus
-      />
-    </div>
-  );
-
   const RenameInput = ({ onCommit, onCancel }: { onCommit: () => void; onCancel: () => void }) => (
     <div className="px-2 py-1">
       <input
@@ -534,6 +517,8 @@ export default function Notes() {
     }
 
     // Mobile hierarchy views
+    const addingTitle = !adding ? '' : adding.kind === 'way' ? 'New way' : adding.kind === 'topic' ? 'New topic' : 'New note';
+    const addingLabel = !adding ? '' : adding.kind === 'way' ? 'Create way' : adding.kind === 'topic' ? 'Add topic' : 'Add note';
     return (
       <>
         <ConfirmDialog
@@ -543,6 +528,20 @@ export default function Notes() {
           onCancel={() => setConfirmState(null)}
           onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
         />
+        <CreateSheet
+          open={adding !== null}
+          onClose={cancelAdd}
+          title={addingTitle}
+          primaryLabel={addingLabel}
+          canSubmit={!!addName.trim()}
+          onSubmit={async () => { await commitAdd(); }}
+        >
+          <FormField label="Name">
+            <input type="text" className="input w-full" value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              placeholder={addingTitle.toLowerCase()} autoFocus />
+          </FormField>
+        </CreateSheet>
       <MobileHierarchy
         view={mobileView}
         setView={setMobileView}
@@ -551,14 +550,10 @@ export default function Notes() {
         setSearch={setSearch}
         adding={adding}
         setAdding={setAdding}
-        addName={addName}
-        commitAdd={commitAdd}
-        cancelAdd={cancelAdd}
         renaming={renaming}
         startRename={startRename}
         commitRename={commitRename}
         cancelRename={cancelRename}
-        InlineInput={InlineInput}
         RenameInput={RenameInput}
         onSelectNote={(noteId, parentType, parentId) =>
           setSelection({ kind: 'note', noteId, parentType, parentId })
@@ -589,6 +584,8 @@ export default function Notes() {
   // ═══════════════════════════════════════════════════════════════════════════
   // DESKTOP VIEW (original sidebar + editor)
   // ═══════════════════════════════════════════════════════════════════════════
+  const addingTitle = !adding ? '' : adding.kind === 'way' ? 'New way' : adding.kind === 'topic' ? 'New topic' : 'New note';
+  const addingLabel = !adding ? '' : adding.kind === 'way' ? 'Create way' : adding.kind === 'topic' ? 'Add topic' : 'Add note';
   return (
     <>
       <ConfirmDialog
@@ -598,6 +595,20 @@ export default function Notes() {
         onCancel={() => setConfirmState(null)}
         onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
       />
+      <CreateSheet
+        open={adding !== null}
+        onClose={cancelAdd}
+        title={addingTitle}
+        primaryLabel={addingLabel}
+        canSubmit={!!addName.trim()}
+        onSubmit={async () => { await commitAdd(); }}
+      >
+        <FormField label="Name">
+          <input type="text" className="input w-full" value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            placeholder={addingTitle.toLowerCase()} autoFocus />
+        </FormField>
+      </CreateSheet>
     <div className="notes-layout" data-no-lib={!sidebarOpen}>
       <aside className="notes-library" data-collapsed={!sidebarOpen}>
         <div className="notes-library-head" style={{ padding: '10px 6px 8px' }}>
@@ -624,10 +635,6 @@ export default function Notes() {
         </div>
 
         <div className="notes-library-tree">
-          {adding?.kind === 'way' && (
-            <InlineInput placeholder="Way name" onCommit={commitAdd} onCancel={cancelAdd} />
-          )}
-
           {filteredWays.length === 0 && !adding && (
             <div className="px-4 py-8 text-center text-xs text-muted-foreground">
               {search ? 'No matches' : 'No ways yet. Click + to create one.'}
@@ -687,9 +694,6 @@ export default function Notes() {
                       ...(dragOver?.kind === 'way' && dragOver.id === way.id ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 8%, transparent)' } : {}),
                     }}
                   >
-                    {adding?.kind === 'way-note' && adding.wayId === way.id && (
-                      <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
-                    )}
                     {way.notes.map((n) => (
                       <div
                         key={n.id}
@@ -782,18 +786,12 @@ export default function Notes() {
                                 </div>
                               ))}
 
-                              {adding?.kind === 'topic-note' && adding.topicId === topic.id && (
-                                <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
-                              )}
                             </motion.div>
                           )}
                         </AnimatePresence>
                       </div>
                     ))}
 
-                    {adding?.kind === 'topic' && adding.wayId === way.id && (
-                      <InlineInput placeholder="Topic name" onCommit={commitAdd} onCancel={cancelAdd} />
-                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -954,14 +952,10 @@ function MobileHierarchy({
   setSearch,
   adding,
   setAdding,
-  addName,
-  commitAdd,
-  cancelAdd,
   renaming,
   startRename,
   commitRename,
   cancelRename,
-  InlineInput,
   RenameInput,
   onSelectNote,
   onDeleteWay,
@@ -979,14 +973,10 @@ function MobileHierarchy({
   setSearch: (s: string) => void;
   adding: AddingState;
   setAdding: (a: AddingState) => void;
-  addName: string;
-  commitAdd: () => void;
-  cancelAdd: () => void;
   renaming: RenameState;
   startRename: (state: NonNullable<RenameState>, name: string) => void;
   commitRename: () => void;
   cancelRename: () => void;
-  InlineInput: React.FC<{ placeholder: string; onCommit: () => void; onCancel: () => void }>;
   RenameInput: React.FC<{ onCommit: () => void; onCancel: () => void }>;
   onSelectNote: (noteId: string, parentType: 'way' | 'topic', parentId: string) => void;
   onDeleteWay: (id: string) => void;
@@ -1122,23 +1112,6 @@ function MobileHierarchy({
         </div>
       )}
 
-      {/* Add-way inline */}
-      {view.kind === 'root' && adding?.kind === 'way' && (
-        <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-          <InlineInput placeholder="Way name" onCommit={commitAdd} onCancel={cancelAdd} />
-        </div>
-      )}
-      {view.kind === 'way' && currentWay && adding?.kind === 'topic' && adding.wayId === currentWay.id && (
-        <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-          <InlineInput placeholder="Topic name" onCommit={commitAdd} onCancel={cancelAdd} />
-        </div>
-      )}
-      {view.kind === 'topic' && currentTopic && adding?.kind === 'topic-note' && adding.topicId === currentTopic.id && (
-        <div style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-          <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
-        </div>
-      )}
-
       {/* Body */}
       <div className="flex-1 overflow-y-auto" style={{ padding: '2px 16px 0' }}>
         {view.kind === 'root' && (
@@ -1249,11 +1222,6 @@ function MobileHierarchy({
               </div>
             ))}
 
-            {adding?.kind === 'way-note' && adding.wayId === currentWay.id && (
-              <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
-                <InlineInput placeholder="Note name" onCommit={commitAdd} onCancel={cancelAdd} />
-              </div>
-            )}
 
             {/* Topics */}
             {currentWay.topics.length > 0 && (
