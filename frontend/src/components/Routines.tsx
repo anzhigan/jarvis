@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Plus, Pencil, Trash2, Repeat, Pause, Play, X, Check, Minus } from 'lucide-react';
 import { toast } from 'sonner';
-import { routinesApi, tasksApi } from '../api/client';
+import { routinesApi, tasksApi, resolveUrl } from '../api/client';
 import type { Routine, RoutineScheduleType } from '../api/types';
 import PullToRefresh from './PullToRefresh';
 import { useT } from '../store/i18n';
+import { useAuthStore } from '../store/auth';
 
 const ROUTINE_COLORS = [
   '#10b981', '#0891b2', '#3b82f6', '#7c3aed', '#ec4899',
@@ -881,6 +882,7 @@ function CreateRoutineForm({ onCreated, onCancel, goals }: { onCreated: () => Pr
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Routines() {
   const t = useT();
+  const { user } = useAuthStore();
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -926,8 +928,16 @@ export default function Routines() {
 
   const filterLabels = { today: 'Today', all: 'All active', paused: 'Paused' } as const;
 
+  const doneTodayCount = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return routines.filter((r) => {
+      if (!isRoutineDueToday(r)) return false;
+      return r.entries?.some((e: any) => e.date === todayStr && e.value > 0);
+    }).length;
+  }, [routines]);
+
   return (
-    <div className="size-full overflow-y-auto">
+    <div className="size-full overflow-y-auto" style={{ overflowX: 'hidden' }}>
       <PullToRefresh onRefresh={load}>
         {isMobile ? (
           /* ── Mobile layout ── */
@@ -935,14 +945,25 @@ export default function Routines() {
             <div className="big-title-row">
               <div>
                 <div className="big-title">Routines</div>
-                <div className="big-title-sub">Build rhythm. Stay consistent.</div>
+                <div className="big-title-sub">
+                  {doneTodayCount} of {counts.today} done today
+                  {counts.paused > 0 && ` · ${counts.paused} paused`}
+                </div>
               </div>
-              <button onClick={() => setCreating((v) => !v)} className="icon-btn" title="New routine">
-                {creating ? <X size={20} /> : <Plus size={20} />}
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
+                className="profile-btn"
+                title="Profile"
+              >
+                {user?.avatar_url ? (
+                  <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+                ) : (
+                  <span className="profile-avatar">{user?.username?.charAt(0).toUpperCase() ?? '?'}</span>
+                )}
               </button>
             </div>
 
-            {/* Filter chips */}
+            {/* Filter chips + create CTA */}
             <div className="chips-row">
               {(['today', 'all', 'paused'] as const).map((f) => (
                 <button
@@ -955,6 +976,10 @@ export default function Routines() {
                   <span className="chip-count">{counts[f]}</span>
                 </button>
               ))}
+              <button onClick={() => setCreating((v) => !v)} className="chip" style={{ marginLeft: 'auto' }}>
+                {creating ? <X size={13} /> : <Plus size={13} />}
+                {creating ? 'Cancel' : 'New'}
+              </button>
             </div>
 
             <div style={{ padding: '0 16px' }}>

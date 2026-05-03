@@ -55,6 +55,12 @@ export default function App() {
   useEffect(() => { localStorage.setItem('jarvnote:tab', tab); }, [tab]);
   useEffect(() => { localStorage.setItem('jarvnote:sidebarOpen:v3', sidebarOpen ? '1' : '0'); }, [sidebarOpen]);
 
+  useEffect(() => {
+    const handler = (e: Event) => setTab((e as CustomEvent<Tab>).detail);
+    window.addEventListener('jarvnote:navigate', handler);
+    return () => window.removeEventListener('jarvnote:navigate', handler);
+  }, []);
+
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);

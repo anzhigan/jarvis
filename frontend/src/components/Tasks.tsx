@@ -10,9 +10,10 @@ import SwipeRow from './SwipeRow';
 import PullToRefresh from './PullToRefresh';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
-import { tasksApi, gosApi, sprintsApi, routinesApi, tagsApi } from '../api/client';
+import { tasksApi, gosApi, sprintsApi, routinesApi, tagsApi, resolveUrl } from '../api/client';
 import type { Task, TaskPriority, TaskStatus, Go, GoKind, GoRecurrence, Sprint, Routine, GoalRoutineLink } from '../api/types';
 import { useT } from '../store/i18n';
+import { useAuthStore } from '../store/auth';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
@@ -1823,6 +1824,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Tasks() {
   const t = useT();
+  const { user } = useAuthStore();
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -2020,18 +2022,29 @@ export default function Tasks() {
               <div className="big-title-row">
                 <div>
                   <div className="big-title">Goals</div>
-                  <div className="big-title-sub">Track progress. Grow with intention.</div>
+                  <div className="big-title-sub">
+                    {tasks.filter((tk) => tk.status === 'in_progress').length} active
+                    {tasks.filter((tk) => tk.status === 'on_hold').length > 0 && ` · ${tasks.filter((tk) => tk.status === 'on_hold').length} paused`}
+                  </div>
                 </div>
-                <button onClick={() => setShowCreateForm((v) => !v)} className="icon-btn icon-btn-lg" title="Add goal">
-                  {showCreateForm ? <X size={20} /> : <Plus size={20} />}
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
+                  className="profile-btn"
+                  title="Profile"
+                >
+                  {user?.avatar_url ? (
+                    <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+                  ) : (
+                    <span className="profile-avatar">{user?.username?.charAt(0).toUpperCase() ?? '?'}</span>
+                  )}
                 </button>
               </div>
               {/* Sub-view tabs */}
               <div style={{ padding: '0 16px 10px' }}>
                 <div className="segmented" style={{ width: '100%' }}>
-                  <button onClick={() => setView('tasks')} className="segmented-item" data-active={view === 'tasks'}>Goals</button>
-                  <button onClick={() => setView('go')} className="segmented-item" data-active={view === 'go'}>Go</button>
-                  <button onClick={() => setView('sprint')} className="segmented-item" data-active={view === 'sprint'}>Step</button>
+                  <button onClick={() => setView('tasks')} className="segmented-item" data-active={view === 'tasks'} style={{ flex: 1 }}>Goals</button>
+                  <button onClick={() => setView('go')} className="segmented-item" data-active={view === 'go'} style={{ flex: 1 }}>Go</button>
+                  <button onClick={() => setView('sprint')} className="segmented-item" data-active={view === 'sprint'} style={{ flex: 1 }}>Step</button>
                 </div>
               </div>
               {/* Status chips for Goals kanban view */}

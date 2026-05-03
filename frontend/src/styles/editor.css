@@ -55,6 +55,8 @@
 
 .ProseMirror ul,
 .ProseMirror ol { padding-left: 1.5em; margin: 0.4em 0; }
+.ProseMirror ul { list-style: disc; }
+.ProseMirror ol { list-style: decimal; }
 .ProseMirror li { padding-left: 4px; margin: 4px 0; }
 .ProseMirror li > p { margin: 0; }
 .ProseMirror ul > li::marker { color: var(--fg-muted); }

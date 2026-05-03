@@ -3,11 +3,12 @@ import {
   Loader2, Plus, Pencil, Trash2, X, Calendar, Target, ListChecks, Repeat as RepeatIcon, CircleDot, ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { focusSprintsApi, tasksApi, routinesApi, gosApi } from '../api/client';
+import { focusSprintsApi, tasksApi, routinesApi, gosApi, resolveUrl } from '../api/client';
 import type { FocusSprint, FocusSprintItem, FocusSprintItemType, Task, Routine, Go } from '../api/types';
 import PullToRefresh from './PullToRefresh';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
+import { useAuthStore } from '../store/auth';
 
 const SPRINT_COLORS = [
   '#4f46e5', '#7c3aed', '#ec4899', '#e11d48', '#ea580c',
@@ -533,14 +534,14 @@ function CreateSprintForm({ onCreated, onCancel }: { onCreated: () => Promise<vo
         className="input" />
       <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
         placeholder="Description…" className="textarea" />
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <div className="min-w-0">
           <div className="text-label" style={{ marginBottom: 4 }}>Start</div>
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="input" />
+          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="input w-full" />
         </div>
         <div className="min-w-0">
           <div className="text-label" style={{ marginBottom: 4 }}>End</div>
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="input" />
+          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="input w-full" />
         </div>
       </div>
       <div className="flex justify-between items-center flex-wrap gap-2">
@@ -568,6 +569,7 @@ function CreateSprintForm({ onCreated, onCancel }: { onCreated: () => Promise<vo
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Sprints() {
   const t = useT();
+  const { user } = useAuthStore();
   const [sprints, setSprints] = useState<FocusSprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -616,10 +618,21 @@ export default function Sprints() {
             <div className="big-title-row">
               <div>
                 <div className="big-title">Sprints</div>
-                <div className="big-title-sub">Deep work, focused time</div>
+                <div className="big-title-sub">
+                  {grouped.current.length} active
+                  {grouped.future.length > 0 && ` · ${grouped.future.length} upcoming`}
+                </div>
               </div>
-              <button onClick={() => setCreating(true)} className="icon-btn icon-btn-lg" title="New sprint">
-                <Plus size={22} />
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
+                className="profile-btn"
+                title="Profile"
+              >
+                {user?.avatar_url ? (
+                  <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+                ) : (
+                  <span className="profile-avatar">{user?.username?.charAt(0).toUpperCase() ?? '?'}</span>
+                )}
               </button>
             </div>
             <div className="chips-row">
@@ -629,6 +642,9 @@ export default function Sprints() {
                   <span className="chip-count">{grouped[f].length}</span>
                 </button>
               ))}
+              <button onClick={() => setCreating(true)} className="chip" style={{ marginLeft: 'auto' }}>
+                <Plus size={13} /> New
+              </button>
             </div>
           </>
         ) : null}

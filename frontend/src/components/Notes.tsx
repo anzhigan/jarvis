@@ -28,7 +28,8 @@ import ConfirmDialog from './ConfirmDialog';
 import NoteTitle from './NoteTitle';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
-import { notesApi, topicsApi, waysApi } from '../api/client';
+import { notesApi, topicsApi, waysApi, resolveUrl } from '../api/client';
+import { useAuthStore } from '../store/auth';
 import type { Note, Topic, Way } from '../api/types';
 
 type Selection =
@@ -996,6 +997,7 @@ function MobileHierarchy({
   onDropMobileDrag: (target: { kind: 'way' | 'topic'; id: string }) => void;
   onCancelMobileDrag: () => void;
 }) {
+  const { user } = useAuthStore();
   const currentWay = view.kind === 'way' ? ways.find((w) => w.id === view.wayId) : null;
   const currentTopic = view.kind === 'topic'
     ? ways.flatMap((w) => w.topics).find((t) => t.id === view.topicId)
@@ -1037,8 +1039,16 @@ function MobileHierarchy({
             <div className="big-title">Notes</div>
             <div className="big-title-sub">{ways.length} {ways.length === 1 ? 'way' : 'ways'}</div>
           </div>
-          <button onClick={onAddClick} className="icon-btn icon-btn-lg" title="Add way">
-            <Plus size={22} />
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
+            className="profile-btn"
+            title="Profile"
+          >
+            {user?.avatar_url ? (
+              <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+            ) : (
+              <span className="profile-avatar">{user?.username?.charAt(0).toUpperCase() ?? '?'}</span>
+            )}
           </button>
         </div>
       ) : (
@@ -1135,7 +1145,7 @@ function MobileHierarchy({
           <>
             {ways.length === 0 && !adding && (
               <div className="px-2 py-12 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
-                No ways yet. Tap + to create one.
+                No ways yet.
               </div>
             )}
             {ways.map((way) => (
@@ -1174,6 +1184,16 @@ function MobileHierarchy({
                 )}
               </SwipeRow>
             ))}
+            {/* "+ New way" CTA at bottom of list */}
+            {!adding && (
+              <button
+                onClick={() => setAdding({ kind: 'way' })}
+                className="btn btn-ghost w-full"
+                style={{ marginTop: 4, marginBottom: 16, justifyContent: 'center' }}
+              >
+                <Plus size={15} /> New way
+              </button>
+            )}
           </>
         )}
 

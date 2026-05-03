@@ -18,9 +18,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { tasksApi, routinesApi, focusSprintsApi } from '../api/client';
+import { tasksApi, routinesApi, focusSprintsApi, resolveUrl } from '../api/client';
 import type { Task, Routine, FocusSprint, RoutineScheduleType } from '../api/types';
 import { useT } from '../store/i18n';
+import { useAuthStore } from '../store/auth';
 import PullToRefresh from './PullToRefresh';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -869,6 +870,7 @@ function YearHeatmap({ routines }: { routines: Routine[] }) {
 
 export default function Analysis() {
   useT();
+  const { user } = useAuthStore();
   const [period, setPeriod] = useState<Period>('month');
   const [goals, setGoals] = useState<Task[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -963,8 +965,19 @@ export default function Analysis() {
             <div className="big-title-row">
               <div>
                 <div className="big-title">Analysis</div>
-                <div className="big-title-sub">Progress & patterns</div>
+                <div className="big-title-sub">Last {period}</div>
               </div>
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
+                className="profile-btn"
+                title="Profile"
+              >
+                {user?.avatar_url ? (
+                  <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+                ) : (
+                  <span className="profile-avatar">{user?.username?.charAt(0).toUpperCase() ?? '?'}</span>
+                )}
+              </button>
             </div>
             <div className="chips-row">
               {(['week', 'month', 'quarter', 'year'] as Period[]).map((p) => (
