@@ -7,7 +7,8 @@
   min-height: 50vh;
   color: var(--fg-primary);
   line-height: 1.7;
-  font-size: var(--editor-font-size, 14.5px);
+  font-family: ui-serif, "Iowan Old Style", "Apple Garamond", "Palatino Linotype", Georgia, serif;
+  font-size: var(--editor-font-size, 16px);
   caret-color: var(--accent-notes);
   letter-spacing: var(--tracking-normal);
 }

@@ -19,17 +19,10 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github-dark.css';
 import {
-  Bold,
-  Underline as UnderlineIcon,
-  Italic,
-  Heading1,
-  Heading2,
-  Heading3,
   Image as ImageIcon,
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Type,
   List,
   ListOrdered,
   ListChecks,
@@ -37,11 +30,11 @@ import {
   Code,
   Link as LinkIcon,
   Table as TableIcon,
-  Sigma,
-  ChevronsRight,
   Loader2,
+  Minus,
+  Plus,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { notesApi } from '../api/client';
 import InputDialog from './InputDialog';
@@ -349,6 +342,7 @@ interface RichTextEditorProps {
   noteId: string;
   content: string;
   onChange: (content: string) => void;
+  children?: ReactNode;
 }
 
 const COLORS: { color: string; name: string }[] = [
@@ -370,7 +364,7 @@ const FONT_SIZES = [
 ];
 
 // ─── Main Editor ─────────────────────────────────────────────────────────────
-export default function RichTextEditor({ noteId, content, onChange }: RichTextEditorProps) {
+export default function RichTextEditor({ noteId, content, onChange, children }: RichTextEditorProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -551,8 +545,178 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
 
   if (!editor) return null;
 
-  const btnCls = (active: boolean) =>
-    `notes-toolbar-btn${active ? ' is-active' : ''}`;
+  const getBlockType = () => {
+    if (editor.isActive('heading', { level: 1 })) return 'h1';
+    if (editor.isActive('heading', { level: 2 })) return 'h2';
+    if (editor.isActive('heading', { level: 3 })) return 'h3';
+    if (editor.isActive('blockquote')) return 'quote';
+    if (editor.isActive('codeBlock')) return 'code';
+    return 'paragraph';
+  };
+
+  const setBlockType = (val: string) => {
+    const chain = editor.chain().focus();
+    if (val === 'paragraph') chain.setParagraph().run();
+    else if (val === 'h1') chain.toggleHeading({ level: 1 }).run();
+    else if (val === 'h2') chain.toggleHeading({ level: 2 }).run();
+    else if (val === 'h3') chain.toggleHeading({ level: 3 }).run();
+    else if (val === 'quote') chain.toggleBlockquote().run();
+    else if (val === 'code') chain.toggleCodeBlock().run();
+  };
+
+  const currentFontSizeVal = editor.getAttributes('textStyle').fontSize as string | undefined;
+  const sizeIdx = FONT_SIZES.findIndex((s) => s.value === currentFontSizeVal);
+  const effectiveSizeIdx = sizeIdx === -1 ? 1 : sizeIdx;
+
+  const stepSize = (delta: number) => {
+    const next = Math.max(0, Math.min(FONT_SIZES.length - 1, effectiveSizeIdx + delta));
+    setFontSize(FONT_SIZES[next].value);
+  };
+
+  const currentTextColor = editor.getAttributes('textStyle').color as string | undefined;
+
+  const Toolbar = (
+    <div
+      onMouseDown={(e) => { if (isMobile) e.preventDefault(); }}
+      onTouchStart={(e) => {
+        if (isMobile) {
+          const tag = (e.target as HTMLElement).tagName.toLowerCase();
+          if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') e.preventDefault();
+        }
+      }}
+      className={isMobile ? 'toolbar editor-toolbar-mobile' : 'toolbar'}
+      style={isMobile ? { bottom: `${keyboardOffset}px` } : undefined}
+    >
+      {/* Block type */}
+      <div className="tb-group">
+        <select
+          className="tb-select"
+          value={getBlockType()}
+          onChange={(e) => setBlockType(e.target.value)}
+          title="Block type"
+        >
+          <option value="paragraph">Paragraph</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+          <option value="quote">Quote</option>
+          <option value="code">Code</option>
+        </select>
+      </div>
+
+      {/* Font size stepper */}
+      <div className="tb-group">
+        <button className="tb-btn" onClick={() => stepSize(-1)} title="Decrease font size"><Minus size={12} /></button>
+        <span className="tb-btn" style={{ cursor: 'default', minWidth: 38 }}>
+          {FONT_SIZES[effectiveSizeIdx].label}
+        </span>
+        <button className="tb-btn" onClick={() => stepSize(1)} title="Increase font size"><Plus size={12} /></button>
+      </div>
+
+      {/* Inline formatting */}
+      <div className="tb-group">
+        <button onClick={() => editor.chain().focus().toggleBold().run()} className={`tb-btn${editor.isActive('bold') ? ' is-active' : ''}`} title="Bold" style={{ fontWeight: 700 }}>B</button>
+        <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`tb-btn${editor.isActive('italic') ? ' is-active' : ''}`} title="Italic" style={{ fontStyle: 'italic' }}>I</button>
+        <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`tb-btn${editor.isActive('underline') ? ' is-active' : ''}`} title="Underline" style={{ textDecoration: 'underline' }}>U</button>
+        <button onClick={() => editor.chain().focus().toggleStrike().run()} className={`tb-btn${editor.isActive('strike') ? ' is-active' : ''}`} title="Strikethrough" style={{ textDecoration: 'line-through' }}>S</button>
+        <button onClick={() => editor.chain().focus().toggleCode().run()} className={`tb-btn${editor.isActive('code') ? ' is-active' : ''}`} title="Inline code" style={{ fontFamily: 'monospace', fontSize: 11 }}>&lt;/&gt;</button>
+      </div>
+
+      {/* Color */}
+      <div className="tb-group" style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={() => { setShowColorPicker(!showColorPicker); setShowSizePicker(false); }}
+          className="tb-btn"
+          title="Text color"
+        >
+          <span style={{ fontWeight: 700 }}>A</span>
+          <span className="tb-color-swatch" style={{ background: currentTextColor || 'currentColor' }} />
+        </button>
+        {showColorPicker && (
+          <div style={{
+            position: 'absolute', top: 32, left: 0, zIndex: 50,
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--line)',
+            borderRadius: 'var(--r-panel)',
+            boxShadow: 'var(--sh-popover)',
+            padding: 12, minWidth: 180,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--fg-muted)', marginBottom: 8 }}>Text color</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+              {COLORS.map(({ color, name }) => (
+                <button
+                  key={color}
+                  onClick={() => { editor.chain().focus().setColor(color).run(); setShowColorPicker(false); }}
+                  title={name}
+                  style={{
+                    width: 22, height: 22, borderRadius: 5,
+                    background: color, border: 'none', cursor: 'pointer',
+                    outline: (currentTextColor === color) ? '2px solid var(--accent-notes)' : 'none',
+                    outlineOffset: 1,
+                  }}
+                />
+              ))}
+              <button
+                onClick={() => { editor.chain().focus().unsetColor().run(); setShowColorPicker(false); }}
+                style={{
+                  width: 22, height: 22, borderRadius: 5,
+                  background: 'var(--bg-card)', border: '1px solid var(--line)',
+                  cursor: 'pointer', fontSize: 9, color: 'var(--fg-muted)',
+                }}
+                title="Reset"
+              >✕</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Alignment */}
+      <div className="tb-group">
+        <button onClick={() => editor.chain().focus().setTextAlign('left').run()} className={`tb-btn${editor.isActive({ textAlign: 'left' }) ? ' is-active' : ''}`} title="Align left"><AlignLeft size={13} /></button>
+        <button onClick={() => editor.chain().focus().setTextAlign('center').run()} className={`tb-btn${editor.isActive({ textAlign: 'center' }) ? ' is-active' : ''}`} title="Align center"><AlignCenter size={13} /></button>
+        <button onClick={() => editor.chain().focus().setTextAlign('right').run()} className={`tb-btn${editor.isActive({ textAlign: 'right' }) ? ' is-active' : ''}`} title="Align right"><AlignRight size={13} /></button>
+      </div>
+
+      {/* Lists */}
+      <div className="tb-group">
+        <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`tb-btn${editor.isActive('bulletList') ? ' is-active' : ''}`} title="Bullet list"><List size={13} /></button>
+        <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={`tb-btn${editor.isActive('orderedList') ? ' is-active' : ''}`} title="Numbered list"><ListOrdered size={13} /></button>
+        <button onClick={() => editor.chain().focus().toggleTaskList().run()} className={`tb-btn${editor.isActive('taskList') ? ' is-active' : ''}`} title="Task list"><ListChecks size={13} /></button>
+        <button onClick={() => editor.chain().focus().toggleBlockquote().run()} className={`tb-btn${editor.isActive('blockquote') ? ' is-active' : ''}`} title="Blockquote"><Quote size={13} /></button>
+      </div>
+
+      {/* Insert */}
+      <div className="tb-group">
+        <button
+          onClick={() => { const prev = editor.getAttributes('link').href as string | undefined; setDialogExtra({ prevUrl: prev }); setDialog('link'); }}
+          className={`tb-btn${editor.isActive('link') ? ' is-active' : ''}`}
+          title="Insert / edit link"
+        ><LinkIcon size={13} /></button>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadingImage}
+          className="tb-btn"
+          title="Insert image"
+        >{uploadingImage ? <Loader2 size={13} className="animate-spin" /> : <ImageIcon size={13} />}</button>
+        <button
+          onClick={() => { if (editor.isActive('table')) editor.chain().focus().deleteTable().run(); else setDialog('table'); }}
+          className={`tb-btn${editor.isActive('table') ? ' is-active' : ''}`}
+          title="Insert table"
+        ><TableIcon size={13} /></button>
+        <button
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          className={`tb-btn${editor.isActive('codeBlock') ? ' is-active' : ''}`}
+          title="Code block"
+        ><Code size={13} /></button>
+        <button
+          onClick={() => setDialog('math')}
+          className="tb-btn"
+          title="Insert math formula"
+          style={{ fontFamily: 'serif', fontStyle: 'italic', fontWeight: 600 }}
+        >∑</button>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -615,189 +779,13 @@ export default function RichTextEditor({ noteId, content, onChange }: RichTextEd
       onCancel={() => setDialog(null)}
     />
 
-    <div className="w-full">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleImageUpload}
-        className="hidden"
-      />
+    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
 
-      {/* Toolbar — sticky on desktop top, fixed at bottom on mobile (always visible) */}
-      <div
-        onMouseDown={(e) => {
-          if (isMobile) e.preventDefault();
-        }}
-        onTouchStart={(e) => {
-          if (isMobile) {
-            const tag = (e.target as HTMLElement).tagName.toLowerCase();
-            if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') {
-              e.preventDefault();
-            }
-          }
-        }}
-        className={`editor-toolbar-frame ${isMobile ? 'editor-toolbar-mobile' : ''}`}
-        style={isMobile ? { bottom: `${keyboardOffset}px` } : undefined}
-      >
-        <div className="editor-toolbar-row">
-          <button onClick={() => editor.chain().focus().toggleBold().run()} className={btnCls(editor.isActive('bold'))} title="Bold">
-            <Bold size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleItalic().run()} className={btnCls(editor.isActive('italic'))} title="Italic">
-            <Italic size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={btnCls(editor.isActive('underline'))} title="Underline">
-            <UnderlineIcon size={15} />
-          </button>
+    {Toolbar}
 
-          <div className="editor-toolbar-divider" />
-
-          <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={btnCls(editor.isActive('heading', { level: 1 }))} title="Heading 1">
-            <Heading1 size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={btnCls(editor.isActive('heading', { level: 2 }))} title="Heading 2">
-            <Heading2 size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className={btnCls(editor.isActive('heading', { level: 3 }))} title="Heading 3">
-            <Heading3 size={15} />
-          </button>
-
-          <div className="editor-toolbar-divider" />
-
-          <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={btnCls(editor.isActive('bulletList'))} title="Bullet list">
-            <List size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={btnCls(editor.isActive('orderedList'))} title="Numbered list">
-            <ListOrdered size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleTaskList().run()} className={btnCls(editor.isActive('taskList'))} title="Task list">
-            <ListChecks size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleBlockquote().run()} className={btnCls(editor.isActive('blockquote'))} title="Quote">
-            <Quote size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} className={btnCls(editor.isActive('codeBlock'))} title="Code block (syntax highlighted)">
-            <Code size={15} />
-          </button>
-
-          <div className="editor-toolbar-divider" />
-
-          {/* Link */}
-          <button
-            onClick={() => {
-              const prev = editor.getAttributes('link').href as string | undefined;
-              setDialogExtra({ prevUrl: prev });
-              setDialog('link');
-            }}
-            className={btnCls(editor.isActive('link'))}
-            title="Insert/edit link"
-          >
-            <LinkIcon size={15} />
-          </button>
-
-          {/* Table */}
-          <button
-            onClick={() => {
-              if (editor.isActive('table')) {
-                editor.chain().focus().deleteTable().run();
-              } else {
-                setDialog('table');
-              }
-            }}
-            className={btnCls(editor.isActive('table'))}
-            title="Insert table (or delete if inside one)"
-          >
-            <TableIcon size={15} />
-          </button>
-
-          {/* Math */}
-          <button
-            onClick={() => setDialog('math')}
-            className={btnCls(false)}
-            title="Insert math formula (LaTeX)"
-          >
-            <Sigma size={15} />
-          </button>
-
-          <div className="editor-toolbar-divider" />
-
-          <button onClick={() => editor.chain().focus().setTextAlign('left').run()} className={btnCls(editor.isActive({ textAlign: 'left' }))} title="Align left">
-            <AlignLeft size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().setTextAlign('center').run()} className={btnCls(editor.isActive({ textAlign: 'center' }))} title="Align center">
-            <AlignCenter size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().setTextAlign('right').run()} className={btnCls(editor.isActive({ textAlign: 'right' }))} title="Align right">
-            <AlignRight size={15} />
-          </button>
-
-          <div className="editor-toolbar-divider" />
-
-          {/* Color */}
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => {
-                setShowColorPicker(!showColorPicker);
-                setShowSizePicker(false);
-              }}
-              className="h-8 w-8 rounded-md flex items-center justify-center hover:bg-secondary transition-all active:scale-95"
-              title="Text color"
-            >
-              <div
-                className="w-4 h-4 rounded-sm border border-border-strong"
-                style={{ backgroundColor: editor.getAttributes('textStyle').color || '#1c1917' }}
-              />
-            </button>
-            {showColorPicker && (
-              <div className="editor-dropdown absolute top-9 left-0 bg-card border border-border rounded-lg shadow-lg p-3 z-50">
-                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 px-0.5">Text color</div>
-                <div className="flex gap-1.5">
-                  {COLORS.map(({ color, name }) => {
-                    const active = (editor.getAttributes('textStyle').color || '') === color;
-                    return (
-                      <button
-                        key={color}
-                        onClick={() => {
-                          editor.chain().focus().setColor(color).run();
-                          setShowColorPicker(false);
-                        }}
-                        className={`w-7 h-7 rounded-full transition-all hover:scale-110 active:scale-95 ${
-                          active ? 'ring-2 ring-offset-1 ring-ring' : ''
-                        }`}
-                        style={{ backgroundColor: color }}
-                        title={name}
-                      />
-                    );
-                  })}
-                </div>
-                <button
-                  onClick={() => {
-                    editor.chain().focus().unsetColor().run();
-                    setShowColorPicker(false);
-                  }}
-                  className="w-full mt-2.5 h-7 rounded-md text-xs text-muted-foreground hover:bg-secondary transition-colors border border-border"
-                >
-                  Reset
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="editor-toolbar-divider" />
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingImage}
-            className={btnCls(false)}
-            title="Insert image"
-          >
-            {uploadingImage ? <Loader2 size={15} className="animate-spin" /> : <ImageIcon size={15} />}
-          </button>
-        </div>
-      </div>
-
-      <div className="pb-24 md:pb-0">
+    <div className="notes-editor-paper">
+      {children}
+      <div className={isMobile ? 'pb-24' : ''}>
         <EditorContent editor={editor} />
       </div>
     </div>

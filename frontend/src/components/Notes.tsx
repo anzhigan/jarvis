@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ChevronRight,
-  ChevronDown,
   ChevronLeft,
   FolderPlus,
   FileText,
@@ -15,8 +14,11 @@ import {
   Search,
   Loader2,
   BookOpen,
-  FolderTree,
+  Layers,
+  Folder,
+  FolderOpen,
   PanelRightClose,
+  ChevronsRight,
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -582,10 +584,14 @@ export default function Notes() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DESKTOP VIEW (original sidebar + editor)
+  // DESKTOP VIEW
   // ═══════════════════════════════════════════════════════════════════════════
   const addingTitle = !adding ? '' : adding.kind === 'way' ? 'New way' : adding.kind === 'topic' ? 'New topic' : 'New note';
   const addingLabel = !adding ? '' : adding.kind === 'way' ? 'Create way' : adding.kind === 'topic' ? 'Add topic' : 'Add note';
+
+  const countWayNotes = (way: Way) =>
+    way.notes.length + way.topics.reduce((sum, t) => sum + t.notes.length, 0);
+
   return (
     <>
       <ConfirmDialog
@@ -609,34 +615,40 @@ export default function Notes() {
             placeholder={addingTitle.toLowerCase()} autoFocus />
         </FormField>
       </CreateSheet>
+
     <div className="notes-layout" data-no-lib={!sidebarOpen}>
-      <aside className="notes-library" data-collapsed={!sidebarOpen}>
-        <div className="notes-library-head" style={{ padding: '10px 6px 8px' }}>
-          <button onClick={() => setSidebarOpen(false)} title="Hide library" className="icon-btn icon-btn-sm flex-shrink-0">
-            <FolderTree size={14} />
-          </button>
-          <div className="field flex-1" style={{ paddingLeft: 8, paddingRight: 8, gap: 5 }}>
-            <Search size={12} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} />
+      {/* ── Library ── */}
+      <aside className="notes-library">
+        <div className="notes-library-head">
+          <span className="notes-library-title">Library</span>
+          <div className="notes-library-actions">
+            <button
+              onClick={() => { setAdding({ kind: 'way' }); setAddName(''); }}
+              title="New way"
+              className="icon-btn icon-btn-sm"
+            ><Plus size={14} /></button>
+            <button onClick={() => setSidebarOpen(false)} title="Hide library" className="icon-btn icon-btn-sm">
+              <ChevronsRight size={14} />
+            </button>
+          </div>
+        </div>
+
+        <div className="library-search">
+          <div className="field" style={{ height: 26, gap: 5 }}>
+            <Search size={11} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Filter notes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 0, background: 'transparent', fontSize: 12 }}
+              style={{ flex: 1, minWidth: 0, background: 'transparent', fontSize: 12, border: 0, outline: 0 }}
             />
           </div>
-          <button
-            onClick={() => { setAdding({ kind: 'way' }); setAddName(''); }}
-            title="Add way"
-            className="icon-btn icon-btn-sm flex-shrink-0"
-          >
-            <Plus size={14} />
-          </button>
         </div>
 
         <div className="notes-library-tree">
           {filteredWays.length === 0 && !adding && (
-            <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+            <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: 12, color: 'var(--fg-muted)' }}>
               {search ? 'No matches' : 'No ways yet. Click + to create one.'}
             </div>
           )}
@@ -647,35 +659,20 @@ export default function Notes() {
                 <RenameInput onCommit={commitRename} onCancel={cancelRename} />
               ) : (
                 <div
+                  className={`tree-row${expandedWays.has(way.id) ? ' is-open' : ''}`}
+                  data-depth="0"
                   onClick={() => toggleWay(way.id)}
-                  className="group flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-sidebar-accent cursor-pointer"
                 >
-                  {expandedWays.has(way.id) ? (
-                    <ChevronDown size={13} className="text-muted-foreground flex-shrink-0" />
-                  ) : (
-                    <ChevronRight size={13} className="text-muted-foreground flex-shrink-0" />
-                  )}
-                  <span className="flex-1 text-sm font-medium truncate">{way.name}</span>
-                  <ActionBtn
-                    icon={FilePlus}
-                    title="Add note"
-                    onClick={() => {
-                      setAdding({ kind: 'way-note', wayId: way.id });
-                      setAddName('');
-                      setExpandedWays((p) => new Set([...p, way.id]));
-                    }}
-                  />
-                  <ActionBtn
-                    icon={FolderPlus}
-                    title="Add topic"
-                    onClick={() => {
-                      setAdding({ kind: 'topic', wayId: way.id });
-                      setAddName('');
-                      setExpandedWays((p) => new Set([...p, way.id]));
-                    }}
-                  />
-                  <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'way', id: way.id }, way.name)} />
-                  <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteWay(way.id)} />
+                  <span className="chev"><ChevronRight size={11} /></span>
+                  <Layers size={13} className="tico" />
+                  <span className="tname">{way.name}</span>
+                  <span className="tcount">{countWayNotes(way)}</span>
+                  <div className="tree-actions">
+                    <ActionBtn icon={FilePlus} title="Add note" onClick={() => { setAdding({ kind: 'way-note', wayId: way.id }); setAddName(''); setExpandedWays((p) => new Set([...p, way.id])); }} />
+                    <ActionBtn icon={FolderPlus} title="Add topic" onClick={() => { setAdding({ kind: 'topic', wayId: way.id }); setAddName(''); setExpandedWays((p) => new Set([...p, way.id])); }} />
+                    <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'way', id: way.id }, way.name)} />
+                    <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteWay(way.id)} />
+                  </div>
                 </div>
               )}
 
@@ -685,71 +682,65 @@ export default function Notes() {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="ml-3.5 overflow-hidden"
+                    style={{ overflow: 'hidden' }}
                     onDragOver={(e) => { e.preventDefault(); setDragOver({ kind: 'way', id: way.id }); }}
                     onDragLeave={() => setDragOver((p) => p?.kind === 'way' && p.id === way.id ? null : p)}
                     onDrop={(e) => handleDrop(e, { kind: 'way', id: way.id })}
-                    style={{
-                      borderLeft: '0.5px solid var(--line)',
-                      ...(dragOver?.kind === 'way' && dragOver.id === way.id ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 8%, transparent)' } : {}),
-                    }}
                   >
+                    {/* Direct way notes */}
                     {way.notes.map((n) => (
-                      <div
-                        key={n.id}
-                        draggable
-                        onDragStart={(e) => { e.dataTransfer.setData('note-id', n.id); setDraggingNote(n.id); }}
-                        onDragEnd={() => { setDraggingNote(null); setDragOver(null); }}
-                        onClick={() => setSelection({ kind: 'note', noteId: n.id, parentType: 'way', parentId: way.id })}
-                        className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
-                          selection?.noteId === n.id ? '' : 'hover:bg-sidebar-accent'
-                        } ${draggingNote === n.id ? 'opacity-40' : ''}`}
-                        style={selection?.noteId === n.id ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', color: 'var(--accent-primary)', fontWeight: 500 } : undefined}
-                      >
-                        {n.pinned ? (
-                          <Pin size={11} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} className="flex-shrink-0" />
+                      <div key={n.id}>
+                        {renaming?.kind === 'note' && renaming.id === n.id ? (
+                          <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                         ) : (
-                          <FileText size={12} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
+                          <div
+                            draggable
+                            onDragStart={(e) => { e.dataTransfer.setData('note-id', n.id); setDraggingNote(n.id); }}
+                            onDragEnd={() => { setDraggingNote(null); setDragOver(null); }}
+                            className="tree-row"
+                            data-depth="1"
+                            data-active={selection?.noteId === n.id}
+                            style={draggingNote === n.id ? { opacity: 0.4 } : undefined}
+                            onClick={() => setSelection({ kind: 'note', noteId: n.id, parentType: 'way', parentId: way.id })}
+                          >
+                            {n.pinned ? <Pin size={11} className="tico" style={{ color: 'var(--accent-notes)', fill: 'currentColor' }} /> : <FileText size={12} className="tico" />}
+                            <span className="tname">{n.name}</span>
+                            <div className="tree-actions">
+                              <ActionBtn icon={n.pinned ? PinOff : Pin} title={n.pinned ? 'Unpin' : 'Pin'} onClick={() => togglePin(n)} />
+                              <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: n.id }, n.name)} />
+                              <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(n.id)} />
+                            </div>
+                          </div>
                         )}
-                        <span className="flex-1 text-sm truncate">{n.name}</span>
-                        <ActionBtn icon={n.pinned ? PinOff : Pin} title={n.pinned ? 'Unpin' : 'Pin'} onClick={() => togglePin(n)} />
-                        <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: n.id }, n.name)} />
-                        <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(n.id)} />
                       </div>
                     ))}
 
+                    {/* Topics */}
                     {way.topics.map((topic) => (
                       <div key={topic.id}>
                         {renaming?.kind === 'topic' && renaming.id === topic.id ? (
                           <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                         ) : (
                           <div
+                            className={`tree-row${expandedTopics.has(topic.id) ? ' is-open' : ''}`}
+                            data-depth="1"
                             onClick={() => toggleTopic(topic.id)}
                             onDragOver={(e) => { if (draggingNote) { e.preventDefault(); setDragOver({ kind: 'topic', id: topic.id }); } }}
                             onDragLeave={() => setDragOver((p) => p?.kind === 'topic' && p.id === topic.id ? null : p)}
                             onDrop={(e) => handleDrop(e, { kind: 'topic', id: topic.id })}
-                            className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
-                              dragOver?.kind === 'topic' && dragOver.id === topic.id ? '' : 'hover:bg-sidebar-accent'
-                            }`}
-                            style={dragOver?.kind === 'topic' && dragOver.id === topic.id ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 15%, transparent)', boxShadow: '0 0 0 1px var(--accent-primary)' } : undefined}
+                            style={dragOver?.kind === 'topic' && dragOver.id === topic.id ? { boxShadow: '0 0 0 1px var(--accent-notes)' } : undefined}
                           >
-                            {expandedTopics.has(topic.id) ? (
-                              <ChevronDown size={12} className="text-muted-foreground flex-shrink-0" />
-                            ) : (
-                              <ChevronRight size={12} className="text-muted-foreground flex-shrink-0" />
-                            )}
-                            <span className="flex-1 text-sm truncate">{topic.name}</span>
-                            <ActionBtn
-                              icon={Plus}
-                              title="Add note"
-                              onClick={() => {
-                                setAdding({ kind: 'topic-note', wayId: way.id, topicId: topic.id });
-                                setAddName('');
-                                setExpandedTopics((p) => new Set([...p, topic.id]));
-                              }}
-                            />
-                            <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'topic', id: topic.id }, topic.name)} />
-                            <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteTopic(topic.id)} />
+                            <span className="chev"><ChevronRight size={11} /></span>
+                            {expandedTopics.has(topic.id)
+                              ? <FolderOpen size={13} className="tico" />
+                              : <Folder size={13} className="tico" />}
+                            <span className="tname">{topic.name}</span>
+                            <span className="tcount">{topic.notes.length}</span>
+                            <div className="tree-actions">
+                              <ActionBtn icon={Plus} title="Add note" onClick={() => { setAdding({ kind: 'topic-note', wayId: way.id, topicId: topic.id }); setAddName(''); setExpandedTopics((p) => new Set([...p, topic.id])); }} />
+                              <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'topic', id: topic.id }, topic.name)} />
+                              <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteTopic(topic.id)} />
+                            </div>
                           </div>
                         )}
 
@@ -759,8 +750,7 @@ export default function Notes() {
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: 'auto', opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }}
-                              className="ml-3.5 overflow-hidden"
-                              style={{ borderLeft: '0.5px solid var(--line)' }}
+                              style={{ overflow: 'hidden' }}
                             >
                               {topic.notes.map((note) => (
                                 <div key={note.id}>
@@ -771,27 +761,27 @@ export default function Notes() {
                                       draggable
                                       onDragStart={(e) => { e.dataTransfer.setData('note-id', note.id); setDraggingNote(note.id); }}
                                       onDragEnd={() => { setDraggingNote(null); setDragOver(null); }}
+                                      className="tree-row"
+                                      data-depth="2"
+                                      data-active={selection?.noteId === note.id}
+                                      style={draggingNote === note.id ? { opacity: 0.4 } : undefined}
                                       onClick={() => setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: topic.id })}
-                                      className={`group flex items-center gap-1.5 px-2 py-1.5 ml-1 mr-1 rounded-md cursor-pointer ${
-                                        selection?.noteId === note.id ? '' : 'hover:bg-sidebar-accent'
-                                      } ${draggingNote === note.id ? 'opacity-40' : ''}`}
-                                      style={selection?.noteId === note.id ? { backgroundColor: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', color: 'var(--accent-primary)', fontWeight: 500 } : undefined}
                                     >
-                                      <FileText size={12} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
-                                      <span className="flex-1 text-sm truncate">{note.name}</span>
-                                      <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: note.id }, note.name)} />
-                                      <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(note.id)} />
+                                      <FileText size={12} className="tico" />
+                                      <span className="tname">{note.name}</span>
+                                      <div className="tree-actions">
+                                        <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: note.id }, note.name)} />
+                                        <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(note.id)} />
+                                      </div>
                                     </div>
                                   )}
                                 </div>
                               ))}
-
                             </motion.div>
                           )}
                         </AnimatePresence>
                       </div>
                     ))}
-
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -800,68 +790,56 @@ export default function Notes() {
         </div>
       </aside>
 
+      {/* Floating "show library" button when collapsed */}
+      {!sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="icon-btn"
+          title="Show library"
+          style={{ position: 'absolute', top: 10, left: 10, zIndex: 4, background: 'var(--bg-elevated)', boxShadow: '0 0 0 0.5px var(--line), var(--sh-raised)' }}
+        >
+          <ChevronsRight size={14} />
+        </button>
+      )}
+
+      {/* ── Content ── */}
       <main className="notes-content" data-no-rp={!contextOpen}>
         {currentNote && editorState?.noteId === currentNote.id ? (
-          <div className="notes-editor-and-context">
-            <div className="notes-editor-wrap">
-              <div className="notes-editor-paper">
-                {/* Breadcrumbs + saved status + right-panel toggle */}
-                <div className="notes-meta-row">
-                  {!sidebarOpen && (
-                    <button
-                      onClick={() => setSidebarOpen(true)}
-                      className="icon-btn icon-btn-sm"
-                      title="Show library"
-                    >
-                      <FolderTree size={14} />
-                    </button>
-                  )}
-                  <div className="notes-breadcrumb">
-                    {(() => {
-                      const wayName = ways.find((w) => w.id === currentNote.way_id)?.name;
-                      const topicName = ways.flatMap((w) => w.topics ?? []).find((tp) => tp.id === currentNote.topic_id)?.name;
-                      return (
-                        <>
-                          {wayName && <><span className="crumb">{wayName}</span><span className="crumb-sep">/</span></>}
-                          {topicName && <><span className="crumb">{topicName}</span><span className="crumb-sep">/</span></>}
-                          <span className="crumb-current">{currentNote.name || 'Untitled'}</span>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <span className="notes-meta-saved">
-                    {saving ? <><Loader2 size={11} className="animate-spin" /> Saving…</> :
-                     editorState.dirty ? 'Unsaved' : <><Check size={11} /> Saved</>}
-                  </span>
-                  <button
-                    onClick={() => setContextOpen(!contextOpen)}
-                    className="icon-btn icon-btn-sm"
-                    data-active={contextOpen}
-                    title={contextOpen ? 'Hide right panel' : 'Show right panel'}
-                  >
-                    <PanelRightClose size={14} />
-                  </button>
-                </div>
+          <>
+            {/* Topbar: breadcrumb + save status */}
+            <div className="notes-topbar">
+              <div className="notes-breadcrumb">
+                {(() => {
+                  const wayName = ways.find((w) => w.id === currentNote.way_id)?.name;
+                  const topicName = ways.flatMap((w) => w.topics ?? []).find((tp) => tp.id === currentNote.topic_id)?.name;
+                  return (
+                    <>
+                      {wayName && <><span className="crumb">{wayName}</span><span className="crumb-sep">›</span></>}
+                      {topicName && <><span className="crumb">{topicName}</span><span className="crumb-sep">›</span></>}
+                      <span className="crumb current">{currentNote.name || 'Untitled'}</span>
+                    </>
+                  );
+                })()}
+              </div>
+              <span className="notes-saved">
+                {saving
+                  ? <><Loader2 size={11} className="animate-spin" /> Saving…</>
+                  : editorState.dirty ? null : <><Check size={11} /> Saved</>}
+              </span>
+              <div className="notes-topbar-actions">
+                <button
+                  onClick={() => setContextOpen(!contextOpen)}
+                  className="icon-btn icon-btn-sm"
+                  data-active={contextOpen}
+                  title={contextOpen ? 'Hide right panel' : 'Show right panel'}
+                ><PanelRightClose size={14} /></button>
+              </div>
+            </div>
 
-                {/* Title */}
-                <NoteTitle
-                  key={currentNote.id + '-title'}
-                  initial={currentNote.name}
-                  onChange={async (newName) => {
-                    if (newName === currentNote.name) return;
-                    try {
-                      await notesApi.update(currentNote.id, { name: newName });
-                      await loadWays();
-                    } catch (e: any) { toast.error(e?.detail ?? 'Failed to rename'); }
-                  }}
-                />
-
-                {/* Tags */}
-                <div className="note-tags-row">
-                  <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
-                </div>
-
-                {/* Editor body */}
+            {/* Editor + context grid */}
+            <div className="notes-editor-and-context">
+              <div className="notes-editor-wrap">
+                {/* Toolbar (sticky at top of scroll) + paper: title, tags, body */}
                 <RichTextEditor
                   key={currentNote.id}
                   noteId={currentNote.id}
@@ -871,51 +849,61 @@ export default function Notes() {
                     if (!cur || cur.noteId !== currentNote.id) return;
                     setEditorState({ noteId: currentNote.id, content: html, dirty: html !== currentNote.content });
                   }}
-                />
+                >
+                  <NoteTitle
+                    key={currentNote.id + '-title'}
+                    initial={currentNote.name}
+                    onChange={async (newName) => {
+                      if (newName === currentNote.name) return;
+                      try {
+                        await notesApi.update(currentNote.id, { name: newName });
+                        await loadWays();
+                      } catch (e: any) { toast.error(e?.detail ?? 'Failed to rename'); }
+                    }}
+                  />
+                  <div className="doc-meta">
+                    <span>
+                      {currentNote.updated_at
+                        ? `Updated ${new Date(currentNote.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                        : 'New note'}
+                    </span>
+                    <span className="dot" />
+                    <span>
+                      {Math.max(1, Math.round(
+                        (editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length / 200
+                      ))} min read
+                    </span>
+                  </div>
+                  <div className="doc-tag-row">
+                    <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+                  </div>
+                </RichTextEditor>
               </div>
-            </div>
 
-            {/* Right context panel */}
-            <aside className="notes-context">
-              <div className="panel-card">
-                <div className="panel-head">Linked goals</div>
-                <div className="panel-empty">No goals linked yet</div>
-              </div>
-              <div className="panel-card">
-                <div className="panel-head">Backlinks</div>
-                <div className="panel-empty">No backlinks</div>
-              </div>
-              <div className="panel-card">
-                <div className="panel-head">Note stats</div>
-                <div className="panel-row">
-                  <span className="panel-row-title">Words</span>
-                  <span className="panel-row-meta">{(editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length}</span>
+              {/* Right context panel */}
+              <aside className="notes-context">
+                <div className="panel-card">
+                  <div className="panel-head">Note stats</div>
+                  <div className="panel-row">
+                    <span className="panel-row-title">Words</span>
+                    <span className="panel-row-meta">{(editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length}</span>
+                  </div>
+                  <div className="panel-row">
+                    <span className="panel-row-title">Read time</span>
+                    <span className="panel-row-meta">
+                      {Math.max(1, Math.round((editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length / 200))} min
+                    </span>
+                  </div>
+                  <div className="panel-row">
+                    <span className="panel-row-title">Tags</span>
+                    <span className="panel-row-meta">{(currentNote.tags ?? []).length}</span>
+                  </div>
                 </div>
-                <div className="panel-row">
-                  <span className="panel-row-title">Read time</span>
-                  <span className="panel-row-meta">
-                    {Math.max(1, Math.round((editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length / 200))} min
-                  </span>
-                </div>
-                <div className="panel-row">
-                  <span className="panel-row-title">Tags</span>
-                  <span className="panel-row-meta">{(currentNote.tags ?? []).length}</span>
-                </div>
-              </div>
-            </aside>
-          </div>
+              </aside>
+            </div>
+          </>
         ) : (
           <div className="notes-empty-state">
-            {!sidebarOpen && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="icon-btn"
-                style={{ position: 'absolute', top: 16, left: 16 }}
-                title="Show library"
-              >
-                <FolderTree size={16} />
-              </button>
-            )}
             <div className="notes-empty-content">
               <BookOpen size={32} style={{ opacity: 0.4, marginBottom: 12 }} />
               <p style={{ fontSize: 14, color: 'var(--fg-tertiary)' }}>Select or create a note to start</p>

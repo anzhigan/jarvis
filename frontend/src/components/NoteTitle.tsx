@@ -40,7 +40,7 @@ export default function NoteTitle({ initial, onChange }: Props) {
         if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget as HTMLTextAreaElement).blur(); }
       }}
       placeholder="Untitled"
-      className="w-full bg-transparent border-0 outline-none resize-none text-3xl md:text-4xl font-bold tracking-tight leading-tight placeholder:text-muted-foreground/40"
+      className="doc-title"
       style={{ overflow: 'hidden' }}
     />
   );
