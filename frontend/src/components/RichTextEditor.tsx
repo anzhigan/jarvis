@@ -575,6 +575,36 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
 
   const currentTextColor = editor.getAttributes('textStyle').color as string | undefined;
 
+  // Mobile keyboard toolbar (rendered at bottom, only when keyboard is up)
+  const MobileKeyboardToolbar = isMobile ? (
+    <div
+      onMouseDown={(e) => e.preventDefault()}
+      onTouchStart={(e) => {
+        const tag = (e.target as HTMLElement).tagName.toLowerCase();
+        if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') e.preventDefault();
+      }}
+      className="keyboard-toolbar"
+      style={{ position: 'fixed', left: 0, right: 0, bottom: `${keyboardOffset}px`, zIndex: 50 }}
+    >
+      {/* B / I / U */}
+      <button onClick={() => editor.chain().focus().toggleBold().run()} className={`kb-btn${editor.isActive('bold') ? ' is-active' : ''}`} title="Bold" style={{ fontWeight: 700 }}>B</button>
+      <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`kb-btn${editor.isActive('italic') ? ' is-active' : ''}`} title="Italic" style={{ fontStyle: 'italic' }}>I</button>
+      <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`kb-btn${editor.isActive('underline') ? ' is-active' : ''}`} title="Underline" style={{ textDecoration: 'underline' }}>U</button>
+      <div className="kb-divider" />
+      {/* H2 / bullet / task */}
+      <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`kb-btn${editor.isActive('heading', { level: 2 }) ? ' is-active' : ''}`} title="Heading 2" style={{ fontWeight: 600 }}>H2</button>
+      <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`kb-btn${editor.isActive('bulletList') ? ' is-active' : ''}`} title="Bullet list"><List size={16} /></button>
+      <button onClick={() => editor.chain().focus().toggleTaskList().run()} className={`kb-btn${editor.isActive('taskList') ? ' is-active' : ''}`} title="Task list"><ListChecks size={16} /></button>
+      <div className="kb-divider" />
+      {/* math / code / link / table / image */}
+      <button onClick={() => setDialog('math')} className="kb-btn" title="Insert math" style={{ fontFamily: 'serif', fontStyle: 'italic', fontWeight: 600 }}>∑</button>
+      <button onClick={() => editor.chain().focus().toggleCode().run()} className={`kb-btn${editor.isActive('code') ? ' is-active' : ''}`} title="Inline code"><Code size={16} /></button>
+      <button onClick={() => { const prev = editor.getAttributes('link').href as string | undefined; setDialogExtra({ prevUrl: prev }); setDialog('link'); }} className={`kb-btn${editor.isActive('link') ? ' is-active' : ''}`} title="Link"><LinkIcon size={16} /></button>
+      <button onClick={() => { if (editor.isActive('table')) editor.chain().focus().deleteTable().run(); else setDialog('table'); }} className={`kb-btn${editor.isActive('table') ? ' is-active' : ''}`} title="Table"><TableIcon size={16} /></button>
+      <button onClick={() => fileInputRef.current?.click()} disabled={uploadingImage} className="kb-btn" title="Image">{uploadingImage ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}</button>
+    </div>
+  ) : null;
+
   const Toolbar = (
     <div
       onMouseDown={(e) => { if (isMobile) e.preventDefault(); }}
@@ -584,8 +614,7 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
           if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') e.preventDefault();
         }
       }}
-      className={isMobile ? 'toolbar editor-toolbar-mobile' : 'toolbar'}
-      style={isMobile ? { bottom: `${keyboardOffset}px` } : undefined}
+      className="toolbar"
     >
       {/* Block type */}
       <div className="tb-group">
@@ -781,7 +810,8 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
 
     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
 
-    {Toolbar}
+    {!isMobile && Toolbar}
+    {MobileKeyboardToolbar}
 
     <div className="notes-editor-paper">
       {children}

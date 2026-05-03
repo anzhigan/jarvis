@@ -12,6 +12,7 @@ import Dashboard from '../components/Metrics';
 import Profile from '../components/Profile';
 import AuthPage from '../components/AuthPage';
 import AITutorPage from '../components/AITutorPage';
+import MobileDrawer from '../components/MobileDrawer';
 import { resolveUrl } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import { useT } from '../store/i18n';
@@ -41,6 +42,7 @@ export default function App() {
     const saved = localStorage.getItem('jarvnote:sidebarOpen:v3');
     return saved === null ? true : saved === '1';
   });
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => { init(); }, []);
 
@@ -59,6 +61,12 @@ export default function App() {
     const handler = (e: Event) => setTab((e as CustomEvent<Tab>).detail);
     window.addEventListener('jarvnote:navigate', handler);
     return () => window.removeEventListener('jarvnote:navigate', handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setDrawerOpen(true);
+    window.addEventListener('jarvnote:drawerOpen', handler);
+    return () => window.removeEventListener('jarvnote:drawerOpen', handler);
   }, []);
 
   const toggleTheme = () => {
@@ -87,6 +95,17 @@ export default function App() {
 
   return (
     <div className="app-root">
+      {user && (
+        <MobileDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          user={user}
+          activeTab={tab}
+          onNavigate={(t) => setTab(t as Tab)}
+          dark={dark}
+          onToggleTheme={toggleTheme}
+        />
+      )}
       <div className="app-shell">
         <aside className="app-sidebar app-only-desktop" data-collapsed={!sidebarOpen}>
           <div className="sidebar-head">

@@ -28,6 +28,8 @@ import LongPressRow from './LongPressRow';
 import TagSelector from './TagSelector';
 import ConfirmDialog from './ConfirmDialog';
 import NoteTitle from './NoteTitle';
+import MobileNavbar from './MobileNavbar';
+import AddItemButton from './AddItemButton';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
 import { notesApi, topicsApi, waysApi, resolveUrl } from '../api/client';
@@ -56,10 +58,12 @@ type RenameState =
 type MobileView =
   | { kind: 'root' }                      // list of ways
   | { kind: 'way'; wayId: string }        // inside a way — shows topics + way note
-  | { kind: 'topic'; topicId: string };   // inside a topic — shows notes
+  | { kind: 'topic'; topicId: string }    // inside a topic — shows notes
+  | { kind: 'note'; noteId: string };     // editor view (note detail)
 
 export default function Notes() {
   const t = useT();
+  const { user } = useAuthStore();
   const [ways, setWays] = useState<Way[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -132,7 +136,7 @@ export default function Notes() {
               setExpandedTopics((p) => new Set([...p, t.id]));
             }
           }
-          if (w.id === selection.parentId || w.note?.id === selection.noteId) {
+          if (w.id === selection.parentId || w.notes?.some((n) => n.id === selection.noteId)) {
             setExpandedWays((p) => new Set([...p, w.id]));
           }
         }
@@ -453,8 +457,30 @@ export default function Notes() {
   // MOBILE VIEW
   // ═══════════════════════════════════════════════════════════════════════════
   if (isMobile) {
-    // Mobile editor view (when a note is selected)
+    // Mobile editor view — triggered by selection OR mobileView.kind === 'note'
     if (currentNote && editorState?.noteId === currentNote.id) {
+      // Determine back destination from selection state
+      const backToTopic = selection?.parentType === 'topic' ? selection.parentId : null;
+      const backToWay = selection?.parentType === 'way' ? selection.parentId : null;
+
+      const handleBack = async () => {
+        await saveCurrentEditor();
+        await loadWays();
+        setSelection(null);
+        if (backToTopic) {
+          setMobileView({ kind: 'topic', topicId: backToTopic });
+        } else if (backToWay) {
+          setMobileView({ kind: 'way', wayId: backToWay });
+        } else {
+          setMobileView({ kind: 'root' });
+        }
+      };
+
+      // Build crumb for navbar
+      const wayName = ways.find((w) => w.id === currentNote.way_id)?.name;
+      const topicName = ways.flatMap((w) => w.topics ?? []).find((tp) => tp.id === currentNote.topic_id)?.name;
+      const crumb = topicName ?? wayName;
+
       return (
         <>
           <ConfirmDialog
@@ -464,27 +490,28 @@ export default function Notes() {
             onCancel={() => setConfirmState(null)}
             onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
           />
-        <div className="size-full flex flex-col">
+        <div className="size-full flex flex-col" style={{ background: 'var(--bg-elevated)' }}>
+          {user && (
+            <MobileNavbar
+              variant="compact"
+              title={currentNote.name || 'Untitled'}
+              crumb={crumb}
+              user={user}
+              onBack={handleBack}
+              onAvatarTap={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
+            />
+          )}
+          {/* Save status below navbar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 14px 0', fontSize: 11, color: 'var(--fg-muted)' }}>
+            {saving
+              ? <><Loader2 size={11} className="animate-spin" style={{ color: 'var(--fg-muted)' }} /> Saving…</>
+              : editorState.dirty
+                ? <span style={{ color: 'var(--warning)' }}>Unsaved</span>
+                : <><Check size={11} style={{ color: 'var(--success)' }} /> <span style={{ color: 'var(--success)' }}>Saved</span></>
+            }
+          </div>
           <div className="flex-1 overflow-y-auto relative">
-            {/* Floating back button — fixed so it stays visible while scrolling */}
-            <button
-              onClick={async () => {
-                await saveCurrentEditor();
-                await loadWays();
-                setSelection(null);
-              }}
-              className="md:absolute md:top-3 md:left-2 fixed top-16 left-3 z-30 icon-btn icon-btn-lg active:scale-90 transition-all"
-              style={{ background: 'color-mix(in srgb, var(--bg-app) 90%, transparent)', backdropFilter: 'blur(8px)', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-              title="Back"
-            >
-              <ChevronLeft size={22} strokeWidth={2} />
-            </button>
-            {/* Floating save status */}
-            <div className="md:fixed md:top-5 md:right-4 fixed top-16 right-4 z-30 text-xs flex items-center gap-1 px-2 py-1" style={{ color: 'var(--fg-muted)', background: 'color-mix(in srgb, var(--bg-app) 90%, transparent)', backdropFilter: 'blur(8px)', borderRadius: 'var(--r-pill)', boxShadow: '0 0 0 0.5px var(--line)' }}>
-              {saving ? <><Loader2 size={12} className="animate-spin" /> Saving</> : editorState.dirty ? 'Unsaved' : 'Saved'}
-            </div>
-
-            <div className="pl-5 pr-5 pt-16 md:pt-4 md:pl-14 pb-2">
+            <div style={{ padding: '10px 20px 4px' }}>
               <NoteTitle
                 key={currentNote.id + '-title'}
                 initial={currentNote.name}
@@ -496,11 +523,11 @@ export default function Notes() {
                   } catch (e: any) { toast.error(e?.detail ?? 'Failed to rename'); }
                 }}
               />
-              <div className="mt-2">
+              <div className="doc-tags" style={{ marginTop: 8 }}>
                 <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
               </div>
             </div>
-            <div className="px-5 pb-8">
+            <div style={{ padding: '0 20px 80px' }}>
               <RichTextEditor
                 key={currentNote.id}
                 noteId={currentNote.id}
@@ -557,9 +584,10 @@ export default function Notes() {
         commitRename={commitRename}
         cancelRename={cancelRename}
         RenameInput={RenameInput}
-        onSelectNote={(noteId, parentType, parentId) =>
-          setSelection({ kind: 'note', noteId, parentType, parentId })
-        }
+        onSelectNote={(noteId, parentType, parentId) => {
+          setSelection({ kind: 'note', noteId, parentType, parentId });
+          setMobileView({ kind: 'note', noteId });
+        }}
         onDeleteWay={deleteWay}
         onDeleteTopic={deleteTopic}
         onDeleteNote={deleteNote}
@@ -932,6 +960,16 @@ function ActionBtn({ icon: Icon, onClick, title }: { icon: React.ElementType; on
 // ═══════════════════════════════════════════════════════════════════════════
 // MOBILE HIERARCHY
 // ═══════════════════════════════════════════════════════════════════════════
+
+const getSnippet = (html: string) =>
+  html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+
+const getNoteWordCount = (html: string) =>
+  html.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
+
+const getReadTime = (html: string) =>
+  Math.max(1, Math.round(getNoteWordCount(html) / 200));
+
 function MobileHierarchy({
   view,
   setView,
@@ -984,11 +1022,6 @@ function MobileHierarchy({
     ? ways.find((w) => w.topics.some((t) => t.id === view.topicId))
     : null;
 
-  const title =
-    view.kind === 'root' ? 'Notes'
-    : view.kind === 'way' ? (currentWay?.name ?? '...')
-    : (currentTopic?.name ?? '...');
-
   const goBack = () => {
     if (view.kind === 'way') setView({ kind: 'root' });
     else if (view.kind === 'topic' && parentWayOfTopic) setView({ kind: 'way', wayId: parentWayOfTopic.id });
@@ -997,318 +1030,317 @@ function MobileHierarchy({
 
   const [showAddMenu, setShowAddMenu] = useState(false);
 
-  const onAddClick = () => {
-    if (view.kind === 'root') {
-      setAdding({ kind: 'way' });
-    } else if (view.kind === 'way') {
-      // Show menu: note or topic
-      setShowAddMenu(true);
-    } else if (view.kind === 'topic' && currentTopic && parentWayOfTopic) {
-      setAdding({ kind: 'topic-note', wayId: parentWayOfTopic.id, topicId: currentTopic.id });
-    }
-  };
+  const handleAvatarTap = () =>
+    window.dispatchEvent(new CustomEvent('jarvnote:drawerOpen'));
 
-  return (
-    <div className="size-full flex flex-col" style={{ background: 'var(--bg-app)' }}>
-      {/* Header — big-title-row for root, top-bar for sub-views */}
-      {view.kind === 'root' ? (
-        <div className="big-title-row">
-          <div>
-            <div className="big-title">Notes</div>
-            <div className="big-title-sub">{ways.length} {ways.length === 1 ? 'way' : 'ways'}</div>
-          </div>
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
-            className="profile-btn"
-            title="Profile"
+  // ── ROOT VIEW ──────────────────────────────────────────────────────────────
+  if (view.kind === 'root') {
+    return (
+      <div className="size-full flex flex-col" style={{ background: 'var(--bg-app)' }}>
+        {user && (
+          <MobileNavbar
+            variant="large"
+            title="Notes"
+            user={user}
+            onAvatarTap={handleAvatarTap}
           >
-            {user?.avatar_url ? (
-              <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
-            ) : (
-              <span className="profile-avatar">{user?.username?.charAt(0).toUpperCase() ?? '?'}</span>
-            )}
-          </button>
-        </div>
-      ) : (
-        <div className="top-bar">
-          <div className="top-bar-leading">
-            <button onClick={goBack} className="top-bar-back" title="Back">
-              <ChevronLeft size={20} />
-              {view.kind === 'way' ? 'Notes' : (parentWayOfTopic?.name ?? 'Back')}
-            </button>
-          </div>
-          <div className="top-bar-title">{title}</div>
-          <div className="top-bar-trailing">
-            <button onClick={onAddClick} className="icon-btn icon-btn-lg" title="Add">
-              <Plus size={20} />
-            </button>
-          </div>
-        </div>
-      )}
+            {/* Search bar below big title */}
+            <div className="search-field" style={{ margin: '0 0 10px' }}>
+              <Search size={14} />
+              <input
+                type="text"
+                placeholder="Search…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </MobileNavbar>
+        )}
 
-      {/* Add-menu (way view: note or topic) */}
-      {showAddMenu && view.kind === 'way' && currentWay && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40"
-          onClick={() => setShowAddMenu(false)}
-        >
-          <div
-            className="panel-card absolute top-16 right-3 p-1 min-w-[180px]"
-            onClick={(e) => e.stopPropagation()}
-            style={{ boxShadow: 'var(--sh-popover)', zIndex: 41 }}
-          >
-            <button
-              onClick={() => { setAdding({ kind: 'way-note', wayId: currentWay.id }); setShowAddMenu(false); }}
-              className="btn btn-ghost w-full justify-start gap-2 text-sm"
-            >
-              <FileText size={15} /> New note
-            </button>
-            <button
-              onClick={() => { setAdding({ kind: 'topic', wayId: currentWay.id }); setShowAddMenu(false); }}
-              className="btn btn-ghost w-full justify-start gap-2 text-sm"
-            >
-              <FolderPlus size={15} /> New topic
-            </button>
+        {mobileDragNoteId && (
+          <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, background: 'var(--accent-notes-bg)', flexShrink: 0 }}>
+            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: 'var(--accent-notes-fg)' }}>
+              Moving note — tap a way to drop
+            </div>
+            <button onClick={onCancelMobileDrag} className="btn btn-secondary btn-sm">Cancel</button>
           </div>
-        </div>
-      )}
+        )}
 
-      {mobileDragNoteId && (
-        <div className="px-4 py-3 flex items-center gap-2 flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', boxShadow: 'inset 0 -0.5px 0 color-mix(in srgb, var(--accent-primary) 20%, transparent)' }}>
-          <div className="text-xs font-medium flex-1" style={{ color: 'var(--accent-primary)' }}>
-            Moving note — tap a way or topic to drop, or Cancel.
-          </div>
-          <button
-            onClick={onCancelMobileDrag}
-            className="btn btn-secondary btn-sm"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
+        <div className="flex-1 overflow-y-auto" style={{ paddingTop: 4 }}>
+          {ways.length === 0 && !adding && (
+            <div style={{ padding: '40px 16px', textAlign: 'center', fontSize: 13, color: 'var(--fg-muted)' }}>
+              No ways yet. Tap below to create one.
+            </div>
+          )}
 
-      {/* Search (only at root) */}
-      {view.kind === 'root' && (
-        <div className="search-field">
-          <Search size={14} />
-          <input
-            type="text"
-            placeholder="Search…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      )}
-
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: '2px 16px 0' }}>
-        {view.kind === 'root' && (
-          <>
-            {ways.length === 0 && !adding && (
-              <div className="px-2 py-12 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
-                No ways yet.
-              </div>
-            )}
-            {ways.map((way) => (
-              <SwipeRow
-                key={way.id}
-                onEdit={() => startRename({ kind: 'way', id: way.id }, way.name)}
-                onDelete={() => onDeleteWay(way.id)}
-              >
-                {renaming?.kind === 'way' && renaming.id === way.id ? (
-                  <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
-                    <RenameInput onCommit={commitRename} onCancel={cancelRename} />
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      if (mobileDragNoteId) {
-                        onDropMobileDrag({ kind: 'way', id: way.id });
-                      } else {
-                        setView({ kind: 'way', wayId: way.id });
-                      }
-                    }}
-                    className="way-tile w-full text-left"
-                    style={mobileDragNoteId ? { background: 'color-mix(in srgb, var(--accent-primary) 8%, var(--bg-card))' } : undefined}
-                  >
-                    <div className="way-info">
-                      <div className="way-tile-title">{way.name}</div>
-                      <div className="way-tile-meta">
-                        {way.topics.length > 0 && `${way.topics.length} topic${way.topics.length !== 1 ? 's' : ''}`}
-                        {way.topics.length > 0 && way.notes.length > 0 && ' · '}
-                        {way.notes.length > 0 && `${way.notes.length} note${way.notes.length !== 1 ? 's' : ''}`}
-                        {way.topics.length === 0 && way.notes.length === 0 && 'Empty'}
-                      </div>
+          {ways.length > 0 && (
+            <div className="group-card">
+              {ways.map((way) => (
+                <div key={way.id}>
+                  {renaming?.kind === 'way' && renaming.id === way.id ? (
+                    <div style={{ padding: '4px 12px' }}>
+                      <RenameInput onCommit={commitRename} onCancel={cancelRename} />
                     </div>
-                    <ChevronRight className="list-row-chevron" />
+                  ) : (
+                    <SwipeRow
+                      onEdit={() => startRename({ kind: 'way', id: way.id }, way.name)}
+                      onDelete={() => onDeleteWay(way.id)}
+                    >
+                      <button
+                        className="lib-row"
+                        onClick={() => {
+                          if (mobileDragNoteId) onDropMobileDrag({ kind: 'way', id: way.id });
+                          else setView({ kind: 'way', wayId: way.id });
+                        }}
+                        style={mobileDragNoteId ? { background: 'var(--accent-notes-bg)' } : undefined}
+                      >
+                        <div className="lib-row-icon" style={{ background: 'var(--accent-notes-bg)', color: 'var(--accent-notes)' }}>
+                          <Layers size={14} />
+                        </div>
+                        <div className="lib-row-info">
+                          <div className="lib-row-title">{way.name}</div>
+                          <div className="lib-row-sub">
+                            {way.topics.length > 0 ? `${way.topics.length} topic${way.topics.length !== 1 ? 's' : ''}` : ''}
+                            {way.topics.length > 0 && way.notes.length > 0 ? ' · ' : ''}
+                            {way.notes.length > 0 ? `${way.notes.length} note${way.notes.length !== 1 ? 's' : ''}` : ''}
+                            {way.topics.length === 0 && way.notes.length === 0 ? 'Empty' : ''}
+                          </div>
+                        </div>
+                        <ChevronRight className="lib-row-chev" />
+                      </button>
+                    </SwipeRow>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <AddItemButton label="Add Way" onClick={() => setAdding({ kind: 'way' })} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── WAY VIEW ───────────────────────────────────────────────────────────────
+  if (view.kind === 'way' && currentWay) {
+    return (
+      <div className="size-full flex flex-col" style={{ background: 'var(--bg-app)' }}>
+        {user && (
+          <MobileNavbar
+            variant="compact"
+            title={currentWay.name}
+            user={user}
+            onBack={goBack}
+            onAvatarTap={handleAvatarTap}
+          />
+        )}
+
+        {/* Add-menu backdrop */}
+        {showAddMenu && (
+          <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.3)' }} onClick={() => setShowAddMenu(false)}>
+            <div
+              style={{ position: 'absolute', top: 56, right: 12, background: 'var(--bg-elevated)', borderRadius: 'var(--r-card)', boxShadow: 'var(--sh-popover)', padding: 6, minWidth: 160, zIndex: 41 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button className="lib-row" onClick={() => { setAdding({ kind: 'way-note', wayId: currentWay.id }); setShowAddMenu(false); }}>
+                <FileText size={14} style={{ flexShrink: 0 }} /> <span>New note</span>
+              </button>
+              <button className="lib-row" onClick={() => { setAdding({ kind: 'topic', wayId: currentWay.id }); setShowAddMenu(false); }}>
+                <FolderPlus size={14} style={{ flexShrink: 0 }} /> <span>New topic</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mobileDragNoteId && (
+          <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, background: 'var(--accent-notes-bg)', flexShrink: 0 }}>
+            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: 'var(--accent-notes-fg)' }}>Moving note — tap to drop</div>
+            <button onClick={onCancelMobileDrag} className="btn btn-secondary btn-sm">Cancel</button>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto" style={{ paddingTop: 10 }}>
+          {/* Search within way */}
+          <div className="search-field" style={{ margin: '0 12px 10px' }}>
+            <Search size={14} />
+            <input type="text" placeholder="Search in way…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+
+          {/* Direct notes group */}
+          {currentWay.notes.length > 0 && (
+            <>
+              <div style={{ padding: '0 12px 4px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--fg-muted)' }}>Notes</div>
+              <div className="group-card">
+                {mobileDragNoteId && (
+                  <button className="lib-row" onClick={() => onDropMobileDrag({ kind: 'way', id: currentWay.id })} style={{ color: 'var(--accent-notes-fg)', background: 'var(--accent-notes-bg)' }}>
+                    ↓ Drop here
                   </button>
                 )}
-              </SwipeRow>
-            ))}
-            {/* "+ New way" CTA at bottom of list */}
-            {!adding && (
-              <button
-                onClick={() => setAdding({ kind: 'way' })}
-                className="btn btn-ghost w-full"
-                style={{ marginTop: 4, marginBottom: 16, justifyContent: 'center' }}
-              >
-                <Plus size={15} /> New way
-              </button>
-            )}
-          </>
-        )}
-
-        {view.kind === 'way' && currentWay && (
-          <>
-            {/* Drop-zone header for current way when dragging */}
-            {mobileDragNoteId && (
-              <button
-                onClick={() => onDropMobileDrag({ kind: 'way', id: currentWay.id })}
-                className="list-row w-full text-left text-sm font-medium"
-                style={{ color: 'var(--accent-primary)', background: 'color-mix(in srgb, var(--accent-primary) 10%, var(--bg-card))' }}
-              >
-                ↓ Drop here (in "{currentWay.name}")
-              </button>
-            )}
-
-            {/* Notes in this way */}
-            {currentWay.notes.length > 0 && (
-              <div className="section-h">Notes in this way</div>
-            )}
-            {currentWay.notes.map((note) => (
-              <div key={note.id}>
-                {renaming?.kind === 'note' && renaming.id === note.id ? (
-                  <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
-                    <RenameInput onCommit={commitRename} onCancel={cancelRename} />
+                {currentWay.notes.map((note) => (
+                  <div key={note.id}>
+                    {renaming?.kind === 'note' && renaming.id === note.id ? (
+                      <div style={{ padding: '4px 12px' }}><RenameInput onCommit={commitRename} onCancel={cancelRename} /></div>
+                    ) : (
+                      <LongPressRow
+                        onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
+                        onSwipeDelete={() => onDeleteNote(note.id)}
+                        onLongPress={() => onStartMobileDrag(note.id)}
+                        isDragging={mobileDragNoteId === note.id}
+                      >
+                        <button className="lib-row" onClick={() => { if (!mobileDragNoteId) onSelectNote(note.id, 'way', currentWay.id); }}>
+                          <div className="lib-row-icon" style={{ background: 'var(--bg-input)', color: note.pinned ? 'var(--accent-notes)' : 'var(--fg-muted)' }}>
+                            {note.pinned ? <Pin size={13} style={{ fill: 'currentColor' }} /> : <FileText size={13} />}
+                          </div>
+                          <div className="lib-row-info">
+                            <div className="lib-row-title">{note.name}</div>
+                          </div>
+                          <ChevronRight className="lib-row-chev" />
+                        </button>
+                      </LongPressRow>
+                    )}
                   </div>
-                ) : (
-                  <LongPressRow
-                    onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
-                    onSwipeDelete={() => onDeleteNote(note.id)}
-                    onLongPress={() => onStartMobileDrag(note.id)}
-                    isDragging={mobileDragNoteId === note.id}
-                  >
-                    <button
-                      onClick={() => {
-                        if (mobileDragNoteId) return;
-                        onSelectNote(note.id, 'way', currentWay.id);
-                      }}
-                      className="list-row w-full text-left"
-                    >
-                      <div className="list-row-icon">
-                        {note.pinned
-                          ? <Pin size={15} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} />
-                          : <FileText size={15} />}
-                      </div>
-                      <div className="list-row-info">
-                        <div className="list-row-title">{note.name}</div>
-                      </div>
-                      <ChevronRight className="list-row-chevron" />
-                    </button>
-                  </LongPressRow>
-                )}
+                ))}
               </div>
-            ))}
+            </>
+          )}
 
-
-            {/* Topics */}
-            {currentWay.topics.length > 0 && (
-              <div className="section-h">Topics</div>
-            )}
-            {currentWay.topics.map((topic) => (
-              <div key={topic.id}>
-                {renaming?.kind === 'topic' && renaming.id === topic.id ? (
-                  <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
-                    <RenameInput onCommit={commitRename} onCancel={cancelRename} />
+          {/* Topics group */}
+          {currentWay.topics.length > 0 && (
+            <>
+              <div style={{ padding: '4px 12px 4px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--fg-muted)' }}>Topics</div>
+              <div className="group-card">
+                {currentWay.topics.map((topic) => (
+                  <div key={topic.id}>
+                    {renaming?.kind === 'topic' && renaming.id === topic.id ? (
+                      <div style={{ padding: '4px 12px' }}><RenameInput onCommit={commitRename} onCancel={cancelRename} /></div>
+                    ) : (
+                      <SwipeRow
+                        onEdit={() => startRename({ kind: 'topic', id: topic.id }, topic.name)}
+                        onDelete={() => onDeleteTopic(topic.id)}
+                      >
+                        <button
+                          className="lib-row"
+                          onClick={() => {
+                            if (mobileDragNoteId) onDropMobileDrag({ kind: 'topic', id: topic.id });
+                            else setView({ kind: 'topic', topicId: topic.id });
+                          }}
+                          style={mobileDragNoteId ? { background: 'var(--accent-notes-bg)' } : undefined}
+                        >
+                          <div className="lib-row-icon" style={{ background: 'var(--bg-input)', color: 'var(--fg-muted)' }}>
+                            <Folder size={13} />
+                          </div>
+                          <div className="lib-row-info">
+                            <div className="lib-row-title">{topic.name}</div>
+                            <div className="lib-row-sub">{topic.notes.length} note{topic.notes.length !== 1 ? 's' : ''}</div>
+                          </div>
+                          <ChevronRight className="lib-row-chev" />
+                        </button>
+                      </SwipeRow>
+                    )}
                   </div>
-                ) : (
-                  <SwipeRow
-                    onEdit={() => startRename({ kind: 'topic', id: topic.id }, topic.name)}
-                    onDelete={() => onDeleteTopic(topic.id)}
-                  >
-                    <button
-                      onClick={() => {
-                        if (mobileDragNoteId) {
-                          onDropMobileDrag({ kind: 'topic', id: topic.id });
-                        } else {
-                          setView({ kind: 'topic', topicId: topic.id });
-                        }
-                      }}
-                      className="list-row w-full text-left"
-                      style={mobileDragNoteId ? { background: 'color-mix(in srgb, var(--accent-primary) 8%, var(--bg-card))' } : undefined}
-                    >
-                      <div className="list-row-info">
-                        <div className="list-row-title">{topic.name}</div>
-                        <div className="list-row-sub">{topic.notes.length} note{topic.notes.length !== 1 ? 's' : ''}</div>
-                      </div>
-                      <ChevronRight className="list-row-chevron" />
-                    </button>
-                  </SwipeRow>
-                )}
+                ))}
               </div>
-            ))}
+            </>
+          )}
 
-            {currentWay.topics.length === 0 && currentWay.notes.length === 0 && !adding && (
-              <div className="px-2 py-12 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
-                Empty. Tap + to add a topic or note.
-              </div>
-            )}
-          </>
-        )}
+          {currentWay.topics.length === 0 && currentWay.notes.length === 0 && !adding && (
+            <div style={{ padding: '40px 16px', textAlign: 'center', fontSize: 13, color: 'var(--fg-muted)' }}>
+              Empty. Add a topic or note below.
+            </div>
+          )}
 
-        {view.kind === 'topic' && currentTopic && (
-          <>
-            {mobileDragNoteId && (
-              <button
-                onClick={() => onDropMobileDrag({ kind: 'topic', id: currentTopic.id })}
-                className="list-row w-full text-left text-sm font-medium"
-                style={{ color: 'var(--accent-primary)', background: 'color-mix(in srgb, var(--accent-primary) 10%, var(--bg-card))' }}
-              >
-                ↓ Drop here (in "{currentTopic.name}")
-              </button>
-            )}
-            {currentTopic.notes.map((note) => (
-              <div key={note.id}>
-                {renaming?.kind === 'note' && renaming.id === note.id ? (
-                  <div className="bg-card rounded-xl mb-1.5 px-3 py-1">
-                    <RenameInput onCommit={commitRename} onCancel={cancelRename} />
-                  </div>
-                ) : (
-                  <LongPressRow
-                    onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
-                    onSwipeDelete={() => onDeleteNote(note.id)}
-                    onLongPress={() => onStartMobileDrag(note.id)}
-                    isDragging={mobileDragNoteId === note.id}
-                  >
-                    <button
-                      onClick={() => {
-                        if (mobileDragNoteId) return;
-                        onSelectNote(note.id, 'topic', currentTopic.id);
-                      }}
-                      className="list-row w-full text-left"
-                    >
-                      <div className="list-row-icon">
-                        {note.pinned
-                          ? <Pin size={15} style={{ color: 'var(--accent-primary)', fill: 'currentColor' }} />
-                          : <FileText size={15} />}
-                      </div>
-                      <div className="list-row-info">
-                        <div className="list-row-title">{note.name}</div>
-                      </div>
-                      <ChevronRight className="list-row-chevron" />
-                    </button>
-                  </LongPressRow>
-                )}
-              </div>
-            ))}
-            {currentTopic.notes.length === 0 && !adding && (
-              <div className="px-2 py-12 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
-                No notes yet. Tap + to create one.
-              </div>
-            )}
-          </>
-        )}
+          <AddItemButton label="Add Note" onClick={() => setAdding({ kind: 'way-note', wayId: currentWay.id })} />
+          <AddItemButton label="Add Topic" onClick={() => setAdding({ kind: 'topic', wayId: currentWay.id })} />
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // ── TOPIC VIEW ─────────────────────────────────────────────────────────────
+  if (view.kind === 'topic' && currentTopic) {
+    return (
+      <div className="size-full flex flex-col" style={{ background: 'var(--bg-app)' }}>
+        {user && (
+          <MobileNavbar
+            variant="compact"
+            title={currentTopic.name}
+            crumb={parentWayOfTopic?.name}
+            user={user}
+            onBack={goBack}
+            onAvatarTap={handleAvatarTap}
+          />
+        )}
+
+        {mobileDragNoteId && (
+          <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, background: 'var(--accent-notes-bg)', flexShrink: 0 }}>
+            <button className="lib-row" style={{ flex: 1, fontSize: 12, fontWeight: 500, color: 'var(--accent-notes-fg)', background: 'transparent' }} onClick={() => onDropMobileDrag({ kind: 'topic', id: currentTopic.id })}>
+              ↓ Drop here (in "{currentTopic.name}")
+            </button>
+            <button onClick={onCancelMobileDrag} className="btn btn-secondary btn-sm">Cancel</button>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto" style={{ paddingTop: 10 }}>
+          {/* Search */}
+          <div className="search-field" style={{ margin: '0 12px 10px' }}>
+            <Search size={14} />
+            <input type="text" placeholder="Search notes…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+
+          {currentTopic.notes.length === 0 && !adding && (
+            <div style={{ padding: '40px 16px', textAlign: 'center', fontSize: 13, color: 'var(--fg-muted)' }}>
+              No notes yet. Tap below to create one.
+            </div>
+          )}
+
+          {currentTopic.notes.length > 0 && (
+            <div className="group-card">
+              {currentTopic.notes.map((note) => (
+                <div key={note.id}>
+                  {renaming?.kind === 'note' && renaming.id === note.id ? (
+                    <div style={{ padding: '4px 12px' }}><RenameInput onCommit={commitRename} onCancel={cancelRename} /></div>
+                  ) : (
+                    <LongPressRow
+                      onSwipeEdit={() => startRename({ kind: 'note', id: note.id }, note.name)}
+                      onSwipeDelete={() => onDeleteNote(note.id)}
+                      onLongPress={() => onStartMobileDrag(note.id)}
+                      isDragging={mobileDragNoteId === note.id}
+                    >
+                      <button
+                        className="note-card"
+                        onClick={() => { if (!mobileDragNoteId) onSelectNote(note.id, 'topic', currentTopic.id); }}
+                      >
+                        <div className="note-card-title">{note.name}</div>
+                        {note.content && (
+                          <div className="note-card-snippet">{getSnippet(note.content)}</div>
+                        )}
+                        <div className="note-card-meta">
+                          {note.updated_at && (
+                            <span>{new Date(note.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                          )}
+                          {note.content && (
+                            <><span>·</span><span>{getReadTime(note.content)} min read</span></>
+                          )}
+                          {note.pinned && (
+                            <><span>·</span><Pin size={10} style={{ color: 'var(--accent-notes)' }} /></>
+                          )}
+                        </div>
+                      </button>
+                    </LongPressRow>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <AddItemButton label="Add note" onClick={() => {
+            if (parentWayOfTopic) setAdding({ kind: 'topic-note', wayId: parentWayOfTopic.id, topicId: currentTopic.id });
+          }} />
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback (note view handled in parent)
+  return null;
 }

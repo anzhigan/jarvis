@@ -120,8 +120,6 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
     }
   };
 
-  const chipHeight = compact ? 'h-7' : 'h-8';
-  const chipText = compact ? 'text-[10px]' : 'text-xs';
   const iconSize = compact ? 10 : 13;
 
   return (
@@ -129,17 +127,17 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
       {tags.map((tag) => (
         <span
           key={tag.id}
-          className={`inline-flex items-center gap-1.5 ${chipHeight} pl-3 pr-1.5 rounded-full ${chipText} font-medium`}
+          className="tag-chip removable"
           style={{ backgroundColor: `${tag.color}20`, color: tag.color, border: `1px solid ${tag.color}40` }}
         >
           {tag.name}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); removeAttached(tag); }}
-            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-current/10 flex-shrink-0"
+            className="x"
             title="Remove tag"
           >
-            <X size={iconSize} />
+            <X size={10} />
           </button>
         </span>
       ))}
@@ -148,7 +146,7 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
         <button
           ref={buttonRef}
           onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-          className={`inline-flex items-center gap-1 ${chipHeight} px-3 rounded-full ${chipText} font-medium border border-dashed border-border hover:border-border-strong hover:bg-secondary/40 text-muted-foreground transition-colors`}
+          className={`inline-flex items-center gap-1 ${compact ? 'h-7' : 'h-8'} px-3 rounded-full ${compact ? 'text-[10px]' : 'text-xs'} font-medium border border-dashed border-border hover:border-border-strong hover:bg-secondary/40 text-muted-foreground transition-colors`}
           title={t("tags.addTag")}
         >
           <TagIcon size={iconSize} />
