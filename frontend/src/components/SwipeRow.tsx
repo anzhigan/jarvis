@@ -73,7 +73,7 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
 
   return (
     <div
-      style={{ position: 'relative', overflow: 'hidden' }}
+      style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--r-card)' }}
       data-swiped={swiped ? 'true' : undefined}
     >
       {/* Content — slides left */}
@@ -102,8 +102,7 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
           bottom: 0,
           display: 'flex',
           alignItems: 'stretch',
-          gap: 4,
-          paddingRight: 4,
+          gap: 2,
           width: ACTIONS_W,
           transform: `translateX(${actionsTx}px)`,
           transition: tr,
@@ -125,7 +124,6 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
               gap: 4,
               background: 'var(--warning)',
               color: '#fff',
-              borderRadius: 'var(--r-control)',
               fontSize: 10,
               fontWeight: 600,
             }}
@@ -148,7 +146,6 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
             gap: 4,
             background: 'var(--danger)',
             color: '#fff',
-            borderRadius: 'var(--r-control)',
             fontSize: 10,
             fontWeight: 600,
           }}
