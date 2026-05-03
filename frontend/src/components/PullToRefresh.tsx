@@ -89,7 +89,7 @@ export default function PullToRefresh({ onRefresh, children, threshold = 70, dis
   return (
     <div
       ref={containerRef}
-      className="relative h-full overflow-y-auto"
+      className="relative h-full overflow-y-auto overflow-x-hidden"
       style={{ overscrollBehavior: 'contain' }}
     >
       {/* Indicator overlay */}
