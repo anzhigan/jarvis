@@ -1115,7 +1115,9 @@ function MobileHierarchy({
             </div>
           )}
 
-          <AddItemButton label="Add Way" onClick={() => setAdding({ kind: 'way' })} />
+          <div style={{ padding: '0 12px' }}>
+            <AddItemButton label="Add Way" onClick={() => setAdding({ kind: 'way' })} />
+          </div>
         </div>
       </div>
     );
@@ -1204,6 +1206,10 @@ function MobileHierarchy({
             </>
           )}
 
+          <div style={{ padding: '0 12px' }}>
+            <AddItemButton label="Add Note" onClick={() => setAdding({ kind: 'way-note', wayId: currentWay.id })} />
+          </div>
+
           {/* Topics group */}
           {currentWay.topics.length > 0 && (
             <>
@@ -1249,8 +1255,9 @@ function MobileHierarchy({
             </div>
           )}
 
-          <AddItemButton label="Add Note" onClick={() => setAdding({ kind: 'way-note', wayId: currentWay.id })} />
-          <AddItemButton label="Add Topic" onClick={() => setAdding({ kind: 'topic', wayId: currentWay.id })} />
+          <div style={{ padding: '0 12px' }}>
+            <AddItemButton label="Add Topic" onClick={() => setAdding({ kind: 'topic', wayId: currentWay.id })} />
+          </div>
         </div>
       </div>
     );
@@ -1333,9 +1340,11 @@ function MobileHierarchy({
             </div>
           )}
 
-          <AddItemButton label="Add note" onClick={() => {
-            if (parentWayOfTopic) setAdding({ kind: 'topic-note', wayId: parentWayOfTopic.id, topicId: currentTopic.id });
-          }} />
+          <div style={{ padding: '0 12px' }}>
+            <AddItemButton label="Add note" onClick={() => {
+              if (parentWayOfTopic) setAdding({ kind: 'topic-note', wayId: parentWayOfTopic.id, topicId: currentTopic.id });
+            }} />
+          </div>
         </div>
       </div>
     );

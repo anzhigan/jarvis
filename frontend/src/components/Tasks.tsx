@@ -237,9 +237,6 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
   if (go.sprint_title) subParts.push(`↳ ${go.sprint_title}`);
   const subText = subParts.join(' · ');
 
-  const tagBg = go.color ? go.color + '22' : 'var(--accent-notes-bg)';
-  const tagFg = go.color || 'var(--accent-notes-fg)';
-
   const goRowEl = (
     <div className="go-row group" data-done={isDone ? "true" : undefined}>
       <button
@@ -260,11 +257,6 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
         <div className="go-title">{go.title}</div>
         {subText && <div className="go-sub">{subText}</div>}
       </div>
-      {go.task_title && (
-        <span className="tag" style={{ background: tagBg, color: tagFg, maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {go.task_title}
-        </span>
-      )}
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm" title="Edit">
           <Pencil size={12} />
@@ -1804,12 +1796,25 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
             </div>
             <div className="step-card-meta">{doneGos} of {s.gos.length} Gos done</div>
             {s.gos.length > 0 && (
-              <div className="step-card-checks">
-                {s.gos.map((g) => (
-                  <span key={g.id} className="checkpoint"
-                    data-state={g.entries.some((e) => e.value > 0) ? "done" : "pending"} />
-                ))}
-              </div>
+              <>
+                <div className="step-card-checks">
+                  {s.gos.map((g) => (
+                    <span key={g.id} className="checkpoint"
+                      data-state={g.entries.some((e) => e.value > 0) ? "done" : "pending"} />
+                  ))}
+                </div>
+                <div className="step-card-go-list">
+                  {s.gos.map((g) => {
+                    const done = g.entries.some((e) => e.value > 0);
+                    return (
+                      <div key={g.id} className="step-card-go-item" data-done={done ? 'true' : undefined}>
+                        <span className="step-card-go-check">{done ? '✓' : '·'}</span>
+                        <span className="step-card-go-name">{g.title}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </>
         )}

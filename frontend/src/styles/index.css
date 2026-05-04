@@ -835,6 +835,16 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .step-card-pct { font-size: 10px; font-weight: 500; color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
 .step-card-meta { font-size: 10.5px; color: var(--fg-muted); margin-bottom: 6px; }
 .step-card-checks { display: flex; gap: 3px; margin-top: 4px; }
+.step-card-go-list { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.step-card-go-item {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 10.5px; color: var(--fg-muted);
+}
+.step-card-go-item[data-done="true"] .step-card-go-name {
+  text-decoration: line-through; opacity: 0.55;
+}
+.step-card-go-check { font-size: 10px; color: var(--success); flex-shrink: 0; }
+.step-card-go-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SPRINTS
@@ -1911,7 +1921,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 
 .add-item-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: calc(100% - 24px); margin: 4px 12px 12px;
+  width: 100%; margin: 4px 0 12px;
   padding: 11px 14px;
   background: transparent;
   border: 1.5px dashed var(--line-strong);
@@ -2117,7 +2127,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   cursor: pointer; background: transparent; border: 0;
   width: 100%; text-align: left;
 }
-.note-card + .note-card { box-shadow: inset 0 0.5px 0 var(--line-faint); }
+.note-card + .note-card { box-shadow: inset 0 0.5px 0 var(--line); }
 .note-card:active { background: var(--bg-hover); }
 .note-card-title {
   font-size: var(--text-base); font-weight: 500;

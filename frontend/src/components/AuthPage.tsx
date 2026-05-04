@@ -30,26 +30,45 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6"
-      style={{ background: 'var(--background)' }}>
-      <div className="w-full max-w-sm flex flex-col items-center">
+    <div style={{
+      minHeight: '100dvh',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '24px 20px',
+      background: 'var(--bg-app)',
+    }}>
+      <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
         {/* Logo */}
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-lg"
-          style={{ background: 'var(--primary)' }}>
-          <JarvnoteLogo size={36} variant="white" />
+        <div style={{
+          width: 64, height: 64,
+          borderRadius: 18,
+          background: 'var(--accent-notes)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 20,
+          boxShadow: '0 4px 16px rgba(91, 83, 201, 0.3)',
+        }}>
+          <JarvnoteLogo size={34} variant="white" />
         </div>
 
-        <h1 className="text-2xl font-semibold mb-1 tracking-tight">Welcome to Jarvnote</h1>
-        <p className="text-sm mb-8" style={{ color: 'var(--muted-foreground)' }}>
+        <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 600, letterSpacing: 'var(--tracking-tight)', color: 'var(--fg-primary)', marginBottom: 4 }}>
+          Welcome to Jarvnote
+        </div>
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)', marginBottom: 28 }}>
           {mode === 'login' ? 'Sign in to your account' : 'Create your account'}
-        </p>
+        </div>
 
         {/* Form card */}
-        <form onSubmit={submit} className="w-full flex flex-col gap-3">
-          <div className="space-y-3">
+        <form onSubmit={submit} style={{
+          width: '100%',
+          background: 'var(--bg-elevated)',
+          borderRadius: 'var(--r-shell)',
+          boxShadow: 'var(--sh-card)',
+          padding: '20px 20px 24px',
+          display: 'flex', flexDirection: 'column', gap: 14,
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <label className="text-xs font-medium block mb-1.5"
-                style={{ color: 'var(--muted-foreground)' }}>Email</label>
+              <div style={{ fontSize: 'var(--text-xs)', fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 5 }}>Email</div>
               <input
                 type="email"
                 value={email}
@@ -58,28 +77,26 @@ export default function AuthPage() {
                 required
                 autoFocus
                 className="input"
-                style={{ height: 40 }}
+                style={{ width: '100%', height: 40, boxSizing: 'border-box' }}
               />
             </div>
 
             {mode === 'register' && (
               <div className="animate-slide-down">
-                <label className="text-xs font-medium block mb-1.5"
-                  style={{ color: 'var(--muted-foreground)' }}>Username</label>
+                <div style={{ fontSize: 'var(--text-xs)', fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 5 }}>Username</div>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="username"
                   className="input"
-                  style={{ height: 40 }}
+                  style={{ width: '100%', height: 40, boxSizing: 'border-box' }}
                 />
               </div>
             )}
 
             <div>
-              <label className="text-xs font-medium block mb-1.5"
-                style={{ color: 'var(--muted-foreground)' }}>Password</label>
+              <div style={{ fontSize: 'var(--text-xs)', fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 5 }}>Password</div>
               <input
                 type="password"
                 value={password}
@@ -88,18 +105,19 @@ export default function AuthPage() {
                 required
                 minLength={6}
                 className="input"
-                style={{ height: 40 }}
+                style={{ width: '100%', height: 40, boxSizing: 'border-box' }}
               />
             </div>
           </div>
 
           {error && (
-            <div className="text-xs px-3 py-2 rounded-md animate-slide-down"
-              style={{
-                background: 'var(--destructive-soft)',
-                color: 'var(--danger)',
-                borderRadius: 'var(--r-control)',
-              }}>
+            <div className="animate-slide-down" style={{
+              fontSize: 'var(--text-xs)',
+              padding: '8px 12px',
+              borderRadius: 'var(--r-control)',
+              background: 'rgba(188, 74, 72, 0.08)',
+              color: 'var(--danger)',
+            }}>
               {error}
             </div>
           )}
@@ -107,8 +125,13 @@ export default function AuthPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="btn btn-md btn-primary w-full mt-2"
-            style={{ height: 44 }}
+            className="btn btn-md"
+            style={{
+              width: '100%', height: 44, marginTop: 2,
+              background: 'var(--accent-notes)', color: '#fff',
+              fontSize: 'var(--text-base)', fontWeight: 600,
+              borderRadius: 'var(--r-card)',
+            }}
           >
             {isLoading ? (
               <Loader2 size={16} className="animate-spin" />
@@ -120,13 +143,17 @@ export default function AuthPage() {
 
         <button
           onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null); }}
-          className="mt-6 text-sm transition-colors hover:opacity-80"
-          style={{ color: 'var(--muted-foreground)' }}
+          style={{
+            marginTop: 20,
+            fontSize: 'var(--text-sm)',
+            color: 'var(--fg-muted)',
+            background: 'none', border: 0, cursor: 'pointer',
+          }}
         >
           {mode === 'login' ? (
-            <>Don't have an account? <span style={{ color: 'var(--primary)' }} className="font-medium">Sign up</span></>
+            <>Don't have an account? <span style={{ color: 'var(--accent-notes)', fontWeight: 500 }}>Sign up</span></>
           ) : (
-            <>Already have an account? <span style={{ color: 'var(--primary)' }} className="font-medium">Sign in</span></>
+            <>Already have an account? <span style={{ color: 'var(--accent-notes)', fontWeight: 500 }}>Sign in</span></>
           )}
         </button>
       </div>

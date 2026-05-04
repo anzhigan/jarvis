@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Plus, Pencil, Trash2, Repeat, Pause, Play, X, Check, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 import { routinesApi, tasksApi, resolveUrl } from '../api/client';
-import type { Routine, RoutineScheduleType } from '../api/types';
+import type { Routine, RoutineEntry, RoutineScheduleType } from '../api/types';
 import PullToRefresh from './PullToRefresh';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
@@ -278,7 +278,7 @@ function RoutineStreakMobile({ routine, onSetEntry }: {
       <div className="streak-strip">
         {cells.map((c) => {
           let state: 'done' | 'fail' | 'today' | 'empty';
-          if (c.isToday) state = 'today';
+          if (c.isToday) state = c.value > 0 ? 'done' : 'today';
           else if (c.before) state = 'empty';
           else if (c.value > 0) state = 'done';
           else if (c.hasEntry) state = 'fail';
@@ -337,7 +337,12 @@ function RoutineStreakMobile({ routine, onSetEntry }: {
 // ═══════════════════════════════════════════════════════════════════════════
 // RoutineCard
 // ═══════════════════════════════════════════════════════════════════════════
-function RoutineCard({ routine, onReload, isMobile }: { routine: Routine; onReload: () => Promise<void>; isMobile: boolean }) {
+function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
+  routine: Routine;
+  onReload: () => Promise<void>;
+  onPatchLocal?: (entries: RoutineEntry[]) => void;
+  isMobile: boolean;
+}) {
   const t = useT();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -373,37 +378,40 @@ function RoutineCard({ routine, onReload, isMobile }: { routine: Routine; onRelo
 
   const toggleToday = async () => {
     if (routine.kind !== 'boolean' || busy) return;
+    const newValue = isDoneToday ? 0 : 1;
+    const otherEntries = routine.entries.filter((e) => e.date !== today);
+    const optimisticEntries = newValue === 0
+      ? otherEntries
+      : [...otherEntries, { id: `tmp-${Date.now()}`, routine_id: routine.id, date: today, value: 1 }];
+    onPatchLocal?.(optimisticEntries);
     setBusy(true);
     try {
-      const newValue = isDoneToday ? 0 : 1;
-      if (newValue === 0) {
-        await routinesApi.deleteEntry(routine.id, today);
-      } else {
-        await routinesApi.upsertEntry(routine.id, today, newValue);
-      }
+      if (newValue === 0) await routinesApi.deleteEntry(routine.id, today);
+      else await routinesApi.upsertEntry(routine.id, today, newValue);
       await onReload();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed');
-    } finally {
-      setBusy(false);
-    }
+      await onReload();
+    } finally { setBusy(false); }
   };
 
   const markSkippedToday = async () => {
     if (routine.kind !== 'boolean' || busy) return;
+    const newValue = isSkippedToday ? null : 0;
+    const otherEntries = routine.entries.filter((e) => e.date !== today);
+    const optimisticEntries = newValue === null
+      ? otherEntries
+      : [...otherEntries, { id: `tmp-${Date.now()}`, routine_id: routine.id, date: today, value: 0 }];
+    onPatchLocal?.(optimisticEntries);
     setBusy(true);
     try {
-      if (isSkippedToday) {
-        await routinesApi.deleteEntry(routine.id, today);
-      } else {
-        await routinesApi.upsertEntry(routine.id, today, 0);
-      }
+      if (newValue === null) await routinesApi.deleteEntry(routine.id, today);
+      else await routinesApi.upsertEntry(routine.id, today, 0);
       await onReload();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed');
-    } finally {
-      setBusy(false);
-    }
+      await onReload();
+    } finally { setBusy(false); }
   };
 
   const togglePause = async () => {
@@ -872,6 +880,21 @@ export default function Routines() {
     }
   };
 
+  // Silent reload — no loading spinner, used after entry toggle to avoid flicker
+  const silentLoad = async () => {
+    try {
+      const list = await routinesApi.list();
+      setRoutines(list);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed');
+    }
+  };
+
+  // Optimistic patch — immediately update entries in local state
+  const patchRoutineLocal = (id: string, entries: RoutineEntry[]) => {
+    setRoutines((prev) => prev.map((r) => r.id === id ? { ...r, entries } : r));
+  };
+
   useEffect(() => { load(); }, []);
 
   const filteredRoutines = useMemo(() => {
@@ -959,7 +982,7 @@ export default function Routines() {
               ) : (
                 <div>
                   {filteredRoutines.map((r) => (
-                    <RoutineCard key={r.id} routine={r} onReload={load} isMobile={true} />
+                    <RoutineCard key={r.id} routine={r} onReload={silentLoad} onPatchLocal={(e) => patchRoutineLocal(r.id, e)} isMobile={true} />
                   ))}
                 </div>
               )}
@@ -1008,7 +1031,7 @@ export default function Routines() {
             ) : (
               <div>
                 {filteredRoutines.map((r) => (
-                  <RoutineCard key={r.id} routine={r} onReload={load} isMobile={false} />
+                  <RoutineCard key={r.id} routine={r} onReload={silentLoad} onPatchLocal={(e) => patchRoutineLocal(r.id, e)} isMobile={false} />
                 ))}
               </div>
             )}
