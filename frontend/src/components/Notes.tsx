@@ -490,7 +490,7 @@ export default function Notes() {
             onCancel={() => setConfirmState(null)}
             onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
           />
-        <div className="size-full flex flex-col" style={{ background: 'var(--bg-app)' }}>
+        <div className="size-full flex flex-col" style={{ background: 'var(--bg-elevated)' }}>
           {user && (
             <MobileNavbar
               variant="compact"
@@ -498,10 +498,16 @@ export default function Notes() {
               crumb={crumb}
               user={user}
               onBack={handleBack}
-              onAvatarTap={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
+              rightSlot={
+                <span className="notes-saved-pill">
+                  {saving
+                    ? <><Loader2 size={11} className="animate-spin" /> Saving…</>
+                    : editorState.dirty ? null : <><Check size={11} /> Saved</>}
+                </span>
+              }
             />
           )}
-          <div className="flex-1 overflow-y-auto relative">
+          <div className="flex-1 overflow-y-auto relative" style={{ background: 'var(--bg-elevated)' }}>
             <div style={{ padding: '10px 20px 4px' }}>
               <NoteTitle
                 key={currentNote.id + '-title'}
@@ -1046,10 +1052,10 @@ function MobileHierarchy({
               <div className="big-title-sub">{ways.length} way{ways.length !== 1 ? 's' : ''}</div>
             </div>
             {user && (
-              <button onClick={handleAvatarTap} className="profile-btn">
+              <button onClick={handleAvatarTap} className="avatar-btn">
                 {user.avatar_url
-                  ? <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
-                  : <span className="profile-avatar">{user.username.charAt(0).toUpperCase()}</span>}
+                  ? <img src={resolveUrl(user.avatar_url)} alt="" />
+                  : user.username.charAt(0).toUpperCase()}
               </button>
             )}
           </div>

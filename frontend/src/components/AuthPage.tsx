@@ -35,12 +35,12 @@ export default function AuthPage() {
       padding: '24px 20px',
       background: 'var(--bg-app)',
     }}>
-      <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-        <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 600, letterSpacing: 'var(--tracking-tight)', color: 'var(--fg-primary)', marginBottom: 4 }}>
+        <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: 'var(--tracking-tight)', color: 'var(--fg-primary)', marginBottom: 6 }}>
           Welcome to Jarvnote
         </div>
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)', marginBottom: 28 }}>
+        <div style={{ fontSize: 16, color: 'var(--fg-muted)', marginBottom: 32 }}>
           {mode === 'login' ? 'Sign in to your account' : 'Create your account'}
         </div>
 
@@ -50,12 +50,12 @@ export default function AuthPage() {
           background: 'var(--bg-elevated)',
           borderRadius: 'var(--r-shell)',
           boxShadow: 'var(--sh-card)',
-          padding: '20px 20px 24px',
-          display: 'flex', flexDirection: 'column', gap: 14,
+          padding: '24px 24px 28px',
+          display: 'flex', flexDirection: 'column', gap: 16,
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <div style={{ fontSize: 'var(--text-xs)', fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 5 }}>Email</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 6 }}>Email</div>
               <input
                 type="email"
                 value={email}
@@ -64,26 +64,26 @@ export default function AuthPage() {
                 required
                 autoFocus
                 className="input"
-                style={{ width: '100%', height: 40, boxSizing: 'border-box' }}
+                style={{ width: '100%', height: 48, fontSize: 16, boxSizing: 'border-box' }}
               />
             </div>
 
             {mode === 'register' && (
               <div className="animate-slide-down">
-                <div style={{ fontSize: 'var(--text-xs)', fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 5 }}>Username</div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 6 }}>Username</div>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="username"
                   className="input"
-                  style={{ width: '100%', height: 40, boxSizing: 'border-box' }}
+                  style={{ width: '100%', height: 48, fontSize: 16, boxSizing: 'border-box' }}
                 />
               </div>
             )}
 
             <div>
-              <div style={{ fontSize: 'var(--text-xs)', fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 5 }}>Password</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 6 }}>Password</div>
               <input
                 type="password"
                 value={password}
@@ -92,15 +92,15 @@ export default function AuthPage() {
                 required
                 minLength={6}
                 className="input"
-                style={{ width: '100%', height: 40, boxSizing: 'border-box' }}
+                style={{ width: '100%', height: 48, fontSize: 16, boxSizing: 'border-box' }}
               />
             </div>
           </div>
 
           {error && (
             <div className="animate-slide-down" style={{
-              fontSize: 'var(--text-xs)',
-              padding: '8px 12px',
+              fontSize: 14,
+              padding: '10px 14px',
               borderRadius: 'var(--r-control)',
               background: 'rgba(188, 74, 72, 0.08)',
               color: 'var(--danger)',
@@ -114,14 +114,14 @@ export default function AuthPage() {
             disabled={isLoading}
             className="btn btn-md"
             style={{
-              width: '100%', height: 44, marginTop: 2,
+              width: '100%', height: 52, marginTop: 4,
               background: 'var(--primary)', color: 'var(--primary-fg)',
-              fontSize: 'var(--text-base)', fontWeight: 600,
+              fontSize: 16, fontWeight: 600,
               borderRadius: 'var(--r-card)',
             }}
           >
             {isLoading ? (
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size={18} className="animate-spin" />
             ) : (
               mode === 'login' ? 'Sign in' : 'Create account'
             )}
@@ -131,8 +131,8 @@ export default function AuthPage() {
         <button
           onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null); }}
           style={{
-            marginTop: 20,
-            fontSize: 'var(--text-sm)',
+            marginTop: 24,
+            fontSize: 15,
             color: 'var(--fg-muted)',
             background: 'none', border: 0, cursor: 'pointer',
           }}

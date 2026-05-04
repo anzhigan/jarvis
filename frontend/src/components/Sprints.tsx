@@ -560,18 +560,32 @@ function CreateSprintForm({ open, onCreated, onCancel }: { open: boolean; onCrea
       </FormField>
       {allGos.length > 0 && (
         <FormField label="Go items">
-          <div style={{ borderRadius: 'var(--r-control)', boxShadow: '0 0 0 0.5px var(--line)', maxHeight: 220, overflowY: 'auto' }}>
-            {allGos.map((g) => {
-              const checked = selectedGoIds.has(g.id);
-              return (
-                <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', cursor: 'pointer', borderBottom: '0.5px solid var(--line)' }}>
-                  <input type="checkbox" checked={checked} onChange={() => toggleGo(g.id)} />
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: g.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</span>
-                </label>
-              );
-            })}
-          </div>
+          <select
+            value=""
+            onChange={(e) => { if (e.target.value) toggleGo(e.target.value); }}
+            className="select-base w-full"
+          >
+            <option value="">— Add a go —</option>
+            {allGos.filter((g) => !selectedGoIds.has(g.id)).map((g) => (
+              <option key={g.id} value={g.id}>{g.title}</option>
+            ))}
+          </select>
+          {selectedGoIds.size > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {Array.from(selectedGoIds).map((id) => {
+                const g = allGos.find((x) => x.id === id);
+                if (!g) return null;
+                return (
+                  <span key={id} className="tag-chip removable" style={{ backgroundColor: `${g.color}20`, color: g.color, border: `1px solid ${g.color}40` }}>
+                    {g.title}
+                    <button type="button" onClick={() => toggleGo(id)} className="x" title="Remove">
+                      <X size={10} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </FormField>
       )}
     </CreateSheet>

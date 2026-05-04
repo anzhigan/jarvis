@@ -651,6 +651,43 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
         onCancel={() => setConfirmDelete(false)}
         onConfirm={del}
       />
+
+      <CreateSheet
+        open={editing}
+        onClose={() => setEditing(false)}
+        title="Edit step"
+        primaryLabel={busy ? 'Saving…' : 'Save'}
+        canSubmit={!!editTitle.trim() && !busy}
+        onSubmit={save}
+      >
+        <FormField label="Title">
+          <input type="text" className="input w-full" value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)} autoFocus />
+        </FormField>
+        <FormField label="Description">
+          <textarea className="textarea w-full" value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)} placeholder="Sprint notes…" rows={2} />
+        </FormField>
+        <div className="form-row-2col">
+          <FormField label={t('tasks.start')}>
+            <input type="date" className="input w-full" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
+          </FormField>
+          <FormField label="End">
+            <input type="date" className="input w-full" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
+          </FormField>
+        </div>
+        <FormField label="Color">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0' }}>
+            {ENTITY_COLORS.map((c) => (
+              <button key={c} type="button"
+                onClick={(e) => { e.preventDefault(); setEditColor(c); }}
+                className="w-9 h-9 rounded-full transition-all active:scale-90"
+                style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }} />
+            ))}
+          </div>
+        </FormField>
+      </CreateSheet>
+
       {(() => {
         const sprintCard = (
       <div className="goal-card overflow-hidden">
@@ -658,72 +695,33 @@ function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLocalUpdate, show
           <div className="w-1 flex-shrink-0" style={{ backgroundColor: sprint.color }} />
           <div className="flex-1 min-w-0">
             <div className="p-3">
-              {editing ? (
-                <div className="space-y-2">
-                  <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="input w-full" />
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="text-label">{t("tasks.start")}</label>
-                      <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="input w-full" />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-label">End</label>
-                      <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className="input w-full" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-label">Description</label>
-                    <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Sprint notes…" rows={2} className="textarea w-full" />
-                  </div>
-                  <div>
-                    <label className="text-label block mb-1">Color</label>
-                    <div className="flex gap-1">
-                      {ENTITY_COLORS.map((c) => (
-                        <button key={c} type="button" onClick={() => setEditColor(c)}
-                          className="w-7 h-7 rounded-full"
-                          style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3px ${c}` : 'none' }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-1.5">
-                    <button onClick={() => setEditing(false)} className="btn btn-ghost btn-sm">Cancel</button>
-                    <button onClick={save} disabled={busy} className="btn btn-primary btn-sm flex items-center gap-1">
-                      {busy && <Loader2 size={11} className="animate-spin" />}Save
-                    </button>
-                  </div>
+              <div className="flex items-center gap-2 mb-1">
+                <button
+                  onClick={() => setExpanded(!expanded)}
+                  className="flex items-center gap-1 flex-1 min-w-0 text-left hover:text-primary"
+                >
+                  {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <span className="font-medium text-sm truncate">{sprint.title}</span>
+                </button>
+                <span className="text-xs font-semibold text-muted-foreground flex-shrink-0">{sprint.progress}%</span>
+                <div className="hidden md:flex items-center gap-0.5 transition-all">
+                  <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm"><Pencil size={12} /></button>
+                  <button onClick={() => setConfirmDelete(true)} className="icon-btn icon-btn-sm" style={{ '--icon-btn-hover-bg': 'color-mix(in srgb, var(--danger) 10%, transparent)', '--icon-btn-hover-color': 'var(--danger)' } as React.CSSProperties}><Trash2 size={12} /></button>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 mb-1">
-                    <button
-                      onClick={() => setExpanded(!expanded)}
-                      className="flex items-center gap-1 flex-1 min-w-0 text-left hover:text-primary"
-                    >
-                      {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      <span className="font-medium text-sm truncate">{sprint.title}</span>
-                    </button>
-                    <span className="text-xs font-semibold text-muted-foreground flex-shrink-0">{sprint.progress}%</span>
-                    <div className="hidden md:flex items-center gap-0.5 transition-all">
-                      <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm"><Pencil size={12} /></button>
-                      <button onClick={() => setConfirmDelete(true)} className="icon-btn icon-btn-sm" style={{ '--icon-btn-hover-bg': 'color-mix(in srgb, var(--danger) 10%, transparent)', '--icon-btn-hover-color': 'var(--danger)' } as React.CSSProperties}><Trash2 size={12} /></button>
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground mb-2">
-                    {formatDate(sprint.start_date)} — {formatDate(sprint.end_date)}
-                    {showMeta && sprint.task_title && <span> · task: {sprint.task_title}</span>}
-                  </div>
-                  {sprint.description && sprint.description.trim() && (
-                    <p className="text-[11px] text-muted-foreground mb-2 whitespace-pre-wrap">{sprint.description}</p>
-                  )}
-                  <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: 'var(--bg-hover)' }}>
-                    <div className="h-full transition-all" style={{ width: `${sprint.progress}%`, backgroundColor: sprint.color }} />
-                  </div>
-                </>
+              </div>
+              <div className="text-[11px] text-muted-foreground mb-2">
+                {formatDate(sprint.start_date)} — {formatDate(sprint.end_date)}
+                {showMeta && sprint.task_title && <span> · task: {sprint.task_title}</span>}
+              </div>
+              {sprint.description && sprint.description.trim() && (
+                <p className="text-[11px] text-muted-foreground mb-2 whitespace-pre-wrap">{sprint.description}</p>
               )}
+              <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: 'var(--bg-hover)' }}>
+                <div className="h-full transition-all" style={{ width: `${sprint.progress}%`, backgroundColor: sprint.color }} />
+              </div>
             </div>
 
-            {expanded && !editing && (
+            {expanded && (
               <div className="px-3 pb-3 space-y-1.5">
                 {gosOfSprint.length === 0 && !addingGo && (
                   <div className="py-2 text-center text-xs text-muted-foreground">No go items yet.</div>
