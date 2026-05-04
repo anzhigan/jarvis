@@ -1037,26 +1037,6 @@ function MobileHierarchy({
   if (view.kind === 'root') {
     return (
       <div className="size-full flex flex-col" style={{ background: 'var(--bg-app)' }}>
-        {user && (
-          <MobileNavbar
-            variant="large"
-            title="Notes"
-            user={user}
-            onAvatarTap={handleAvatarTap}
-          >
-            {/* Search bar below big title */}
-            <div className="search-field" style={{ margin: '0 0 10px' }}>
-              <Search size={14} />
-              <input
-                type="text"
-                placeholder="Search…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </MobileNavbar>
-        )}
-
         {mobileDragNoteId && (
           <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, background: 'var(--accent-notes-bg)', flexShrink: 0 }}>
             <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: 'var(--accent-notes-fg)' }}>
@@ -1066,7 +1046,25 @@ function MobileHierarchy({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto" style={{ paddingTop: 4 }}>
+        <div className="flex-1 overflow-y-auto">
+          <div className="big-title-row">
+            <div>
+              <div className="big-title">Notes</div>
+              <div className="big-title-sub">{ways.length} way{ways.length !== 1 ? 's' : ''}</div>
+            </div>
+            {user && (
+              <button onClick={handleAvatarTap} className="profile-btn">
+                {user.avatar_url
+                  ? <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+                  : <span className="profile-avatar">{user.username.charAt(0).toUpperCase()}</span>}
+              </button>
+            )}
+          </div>
+          <div className="search-field" style={{ margin: '0 12px 10px' }}>
+            <Search size={14} />
+            <input type="text" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+
           {ways.length === 0 && !adding && (
             <div style={{ padding: '40px 16px', textAlign: 'center', fontSize: 13, color: 'var(--fg-muted)' }}>
               No ways yet. Tap below to create one.
@@ -1115,9 +1113,7 @@ function MobileHierarchy({
             </div>
           )}
 
-          <div style={{ padding: '0 12px' }}>
-            <AddItemButton label="Add Way" onClick={() => setAdding({ kind: 'way' })} />
-          </div>
+          <AddItemButton label="Add Way" onClick={() => setAdding({ kind: 'way' })} />
         </div>
       </div>
     );
@@ -1178,8 +1174,8 @@ function MobileHierarchy({
                     ↓ Drop here
                   </button>
                 )}
-                {currentWay.notes.map((note) => (
-                  <div key={note.id}>
+                {currentWay.notes.map((note, idx) => (
+                  <div key={note.id} style={idx > 0 ? { borderTop: '0.5px solid var(--line)' } : undefined}>
                     {renaming?.kind === 'note' && renaming.id === note.id ? (
                       <div style={{ padding: '4px 12px' }}><RenameInput onCommit={commitRename} onCancel={cancelRename} /></div>
                     ) : (
@@ -1206,9 +1202,7 @@ function MobileHierarchy({
             </>
           )}
 
-          <div style={{ padding: '0 12px' }}>
-            <AddItemButton label="Add Note" onClick={() => setAdding({ kind: 'way-note', wayId: currentWay.id })} />
-          </div>
+          <AddItemButton label="Add Note" onClick={() => setAdding({ kind: 'way-note', wayId: currentWay.id })} />
 
           {/* Topics group */}
           {currentWay.topics.length > 0 && (
@@ -1255,9 +1249,7 @@ function MobileHierarchy({
             </div>
           )}
 
-          <div style={{ padding: '0 12px' }}>
-            <AddItemButton label="Add Topic" onClick={() => setAdding({ kind: 'topic', wayId: currentWay.id })} />
-          </div>
+          <AddItemButton label="Add Topic" onClick={() => setAdding({ kind: 'topic', wayId: currentWay.id })} />
         </div>
       </div>
     );
@@ -1302,8 +1294,8 @@ function MobileHierarchy({
 
           {currentTopic.notes.length > 0 && (
             <div className="group-card">
-              {currentTopic.notes.map((note) => (
-                <div key={note.id}>
+              {currentTopic.notes.map((note, idx) => (
+                <div key={note.id} style={idx > 0 ? { borderTop: '0.5px solid var(--line)' } : undefined}>
                   {renaming?.kind === 'note' && renaming.id === note.id ? (
                     <div style={{ padding: '4px 12px' }}><RenameInput onCommit={commitRename} onCancel={cancelRename} /></div>
                   ) : (
@@ -1340,11 +1332,9 @@ function MobileHierarchy({
             </div>
           )}
 
-          <div style={{ padding: '0 12px' }}>
-            <AddItemButton label="Add note" onClick={() => {
-              if (parentWayOfTopic) setAdding({ kind: 'topic-note', wayId: parentWayOfTopic.id, topicId: currentTopic.id });
-            }} />
-          </div>
+          <AddItemButton label="Add note" onClick={() => {
+            if (parentWayOfTopic) setAdding({ kind: 'topic-note', wayId: parentWayOfTopic.id, topicId: currentTopic.id });
+          }} />
         </div>
       </div>
     );

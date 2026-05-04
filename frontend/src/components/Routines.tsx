@@ -278,7 +278,11 @@ function RoutineStreakMobile({ routine, onSetEntry }: {
       <div className="streak-strip">
         {cells.map((c) => {
           let state: 'done' | 'fail' | 'today' | 'empty';
-          if (c.isToday) state = c.value > 0 ? 'done' : 'today';
+          if (c.isToday) {
+            if (c.value > 0) state = 'done';
+            else if (c.hasEntry) state = 'fail';
+            else state = 'today';
+          }
           else if (c.before) state = 'empty';
           else if (c.value > 0) state = 'done';
           else if (c.hasEntry) state = 'fail';

@@ -3,7 +3,6 @@ import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
 import { ApiError } from '../api/client';
 import { useT } from '../store/i18n';
-import JarvnoteLogo from './JarvnoteLogo';
 
 export default function AuthPage() {
   const t = useT();
@@ -37,18 +36,6 @@ export default function AuthPage() {
       background: 'var(--bg-app)',
     }}>
       <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-        {/* Logo */}
-        <div style={{
-          width: 64, height: 64,
-          borderRadius: 18,
-          background: 'var(--accent-notes)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: 20,
-          boxShadow: '0 4px 16px rgba(91, 83, 201, 0.3)',
-        }}>
-          <JarvnoteLogo size={34} variant="white" />
-        </div>
 
         <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 600, letterSpacing: 'var(--tracking-tight)', color: 'var(--fg-primary)', marginBottom: 4 }}>
           Welcome to Jarvnote
@@ -128,7 +115,7 @@ export default function AuthPage() {
             className="btn btn-md"
             style={{
               width: '100%', height: 44, marginTop: 2,
-              background: 'var(--accent-notes)', color: '#fff',
+              background: 'var(--primary)', color: 'var(--primary-fg)',
               fontSize: 'var(--text-base)', fontWeight: 600,
               borderRadius: 'var(--r-card)',
             }}
@@ -151,9 +138,9 @@ export default function AuthPage() {
           }}
         >
           {mode === 'login' ? (
-            <>Don't have an account? <span style={{ color: 'var(--accent-notes)', fontWeight: 500 }}>Sign up</span></>
+            <>Don't have an account? <span style={{ color: 'var(--primary)', fontWeight: 500 }}>Sign up</span></>
           ) : (
-            <>Already have an account? <span style={{ color: 'var(--accent-notes)', fontWeight: 500 }}>Sign in</span></>
+            <>Already have an account? <span style={{ color: 'var(--primary)', fontWeight: 500 }}>Sign in</span></>
           )}
         </button>
       </div>

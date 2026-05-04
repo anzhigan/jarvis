@@ -1662,6 +1662,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [editingStep, setEditingStep] = useState<Sprint | null>(null);
+  const [expandedGos, setExpandedGos] = useState<Set<string>>(new Set());
 
   const load = async () => {
     setLoading(true);
@@ -1803,17 +1804,34 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
                       data-state={g.entries.some((e) => e.value > 0) ? "done" : "pending"} />
                   ))}
                 </div>
-                <div className="step-card-go-list">
-                  {s.gos.map((g) => {
-                    const done = g.entries.some((e) => e.value > 0);
-                    return (
-                      <div key={g.id} className="step-card-go-item" data-done={done ? 'true' : undefined}>
-                        <span className="step-card-go-check">{done ? '✓' : '·'}</span>
-                        <span className="step-card-go-name">{g.title}</span>
-                      </div>
-                    );
-                  })}
+                <div
+                  className="step-card-go-toggle"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedGos((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(s.id)) next.delete(s.id);
+                      else next.add(s.id);
+                      return next;
+                    });
+                  }}
+                >
+                  <span>{doneGos}/{s.gos.length} items</span>
+                  <ChevronDown size={12} style={{ transition: 'transform 150ms', transform: expandedGos.has(s.id) ? 'rotate(180deg)' : 'rotate(0deg)' }} />
                 </div>
+                {expandedGos.has(s.id) && (
+                  <div className="step-card-go-list">
+                    {s.gos.map((g) => {
+                      const done = g.entries.some((e) => e.value > 0);
+                      return (
+                        <div key={g.id} className="step-card-go-item" data-done={done ? 'true' : undefined}>
+                          <span className="step-card-go-check">{done ? '✓' : '·'}</span>
+                          <span className="step-card-go-name">{g.title}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </>
             )}
           </>
@@ -2258,9 +2276,13 @@ export default function Tasks() {
           </div>
 
           {view === 'go' ? (
-            <GoPanel tasks={tasks} onReload={load} />
+            <div className="go-sprint-panel" style={{ padding: '0 12px' }}>
+              <GoPanel tasks={tasks} onReload={load} />
+            </div>
           ) : view === 'sprint' ? (
-            <SprintPanel tasks={tasks} onReload={load} />
+            <div className="go-sprint-panel" style={{ padding: '0 12px' }}>
+              <SprintPanel tasks={tasks} onReload={load} />
+            </div>
           ) : (
             <>
               <AddItemButton label={t('tasks.addTask')} onClick={() => setShowCreateForm(true)} />

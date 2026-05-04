@@ -835,15 +835,22 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .step-card-pct { font-size: 10px; font-weight: 500; color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
 .step-card-meta { font-size: 10.5px; color: var(--fg-muted); margin-bottom: 6px; }
 .step-card-checks { display: flex; gap: 3px; margin-top: 4px; }
-.step-card-go-list { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.step-card-go-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0; margin-top: 6px;
+  font-size: var(--text-xs); color: var(--fg-muted);
+  cursor: pointer; user-select: none;
+}
+.step-card-go-toggle:hover { color: var(--fg-secondary); }
+.step-card-go-list { margin-top: 4px; display: flex; flex-direction: column; gap: 5px; padding-bottom: 2px; }
 .step-card-go-item {
-  display: flex; align-items: baseline; gap: 6px;
-  font-size: 10.5px; color: var(--fg-muted);
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--text-sm); color: var(--fg-secondary);
 }
 .step-card-go-item[data-done="true"] .step-card-go-name {
   text-decoration: line-through; opacity: 0.55;
 }
-.step-card-go-check { font-size: 10px; color: var(--success); flex-shrink: 0; }
+.step-card-go-check { font-size: 13px; color: var(--success); flex-shrink: 0; }
 .step-card-go-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1921,7 +1928,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 
 .add-item-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; margin: 4px 0 12px;
+  width: calc(100% - 24px); margin: 4px 12px 12px;
   padding: 11px 14px;
   background: transparent;
   border: 1.5px dashed var(--line-strong);
@@ -1936,6 +1943,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   color: var(--fg-secondary);
 }
 .add-item-btn svg { width: 14px; height: 14px; }
+.go-sprint-panel .add-item-btn { width: 100%; margin-left: 0; margin-right: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    KEYBOARD TOOLBAR
