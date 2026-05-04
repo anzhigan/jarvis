@@ -1040,61 +1040,59 @@ function GoalLinkedRoutines({ task, onReload }: { task: Task; onReload: () => Pr
 
   return (
     <div className="task-expanded">
-      <div className="flex items-center justify-between mb-1.5">
+      <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
         <div className="task-expanded-section-label" style={{ marginBottom: 0 }}>
-          <span className="flex items-center gap-1.5">
-            <Repeat size={11} /> Linked routines
-            {linkedRoutines.length > 0 && <span style={{ opacity: 0.6, fontWeight: 400 }}>({linkedRoutines.length})</span>}
-          </span>
+          {linkedRoutines.length > 0 ? `${linkedRoutines.length} linked` : 'No routines linked'}
         </div>
         <button
+          type="button"
           onClick={async () => {
             try { const all = await routinesApi.list(); setAllRoutines(all); } catch {}
             setShowLinkPicker(true);
           }}
-          style={{ fontSize: 11, color: 'var(--accent-notes)', display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 0, cursor: 'pointer' }}
+          className="add-link"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 500, color: 'var(--accent-goals, var(--primary))', background: 'none', border: 0, cursor: 'pointer', padding: '2px 6px', borderRadius: 'var(--r-control)' }}
         >
           <Plus size={11} /> Link routine
         </button>
       </div>
 
-      {linkedRoutines.length === 0 ? (
-        <div style={{ fontSize: 11, color: 'var(--fg-muted)', fontStyle: 'italic', padding: '4px 0' }}>
-          No routines linked yet.
-        </div>
-      ) : (
+      {linkedRoutines.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {routineLinks.length > 0 ? routineLinks.map((link) => {
             const r = link.routine;
             const { done, total, pct } = computeConsistency(link);
             return (
-              <div key={link.id} className={`goal-card overflow-hidden ${r.is_paused ? 'opacity-60' : ''}`} style={{ padding: '10px 12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span style={{ width: 4, height: 16, borderRadius: 2, flexShrink: 0, backgroundColor: r.color }} />
-                  <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-                  <span style={{ fontSize: 10, color: 'var(--fg-muted)', fontVariantNumeric: 'tabular-nums' }}>{done}/{total}</span>
+              <div key={link.id} className={`routine-link-card ${r.is_paused ? 'opacity-60' : ''}`}>
+                <div className="routine-link-row">
+                  <span className="routine-link-stripe" style={{ backgroundColor: r.color }} />
+                  <span className="routine-link-title">{r.title}</span>
+                  <span className="routine-link-meta">{done}/{total}</span>
                   <button
+                    type="button"
                     onClick={async () => {
                       if (!confirm(`Unlink "${r.title}" from this goal?`)) return;
                       try { await routinesApi.deleteLink(link.id); await loadLinks(); }
                       catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
                     }}
-                    style={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, background: 'none', border: 0, cursor: 'pointer', color: 'var(--fg-muted)' }}
+                    className="icon-btn icon-btn-sm"
                     title="Unlink"
                   >
                     <X size={11} />
                   </button>
                 </div>
-                <div style={{ height: 4, borderRadius: 'var(--r-pill)', overflow: 'hidden', background: 'var(--bg-app)' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, backgroundColor: r.color, borderRadius: 'inherit', transition: 'width 500ms' }} />
+                <div className="routine-link-progress">
+                  <div className="routine-link-progress-fill" style={{ width: `${pct}%`, backgroundColor: r.color }} />
                 </div>
               </div>
             );
           }) : linkedRoutines.map((r) => (
-            <div key={r.id} className={`goal-card ${r.is_paused ? 'opacity-60' : ''}`} style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 4, height: 16, borderRadius: 2, flexShrink: 0, backgroundColor: r.color }} />
-              <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-              <span style={{ fontSize: 10, color: 'var(--fg-muted)', textTransform: 'capitalize' }}>{r.schedule_type.replace('_', ' ')}</span>
+            <div key={r.id} className={`routine-link-card ${r.is_paused ? 'opacity-60' : ''}`} style={{ padding: '8px 12px' }}>
+              <div className="routine-link-row">
+                <span className="routine-link-stripe" style={{ backgroundColor: r.color }} />
+                <span className="routine-link-title">{r.title}</span>
+                <span className="routine-link-meta" style={{ textTransform: 'capitalize' }}>{r.schedule_type.replace('_', ' ')}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -1369,21 +1367,11 @@ function TaskCard({
             </div>
           </div>
 
-          <button onClick={() => setExpanded(!expanded)}
-            className="w-full flex items-center gap-1.5"
-            style={{
-              padding: '10px 14px 10px',
-              boxShadow: 'inset 0 0.5px 0 var(--line)',
-              fontSize: 11, color: 'var(--fg-muted)',
-              background: 'transparent',
-            }}
-          >
+          <button onClick={() => setExpanded(!expanded)} className="task-toggle-row" type="button">
             {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             <Zap size={12} />
             <span>{t('tasks.sprintsAndGos')}</span>
-            <span style={{ marginLeft: 'auto', background: 'var(--bg-hover)', borderRadius: 'var(--r-pill)', padding: '1px 7px', fontSize: 10, fontWeight: 500 }}>
-              {task.sprints.length + task.gos.length}
-            </span>
+            <span className="badge">{task.sprints.length + task.gos.length}</span>
           </button>
 
           <AnimatePresence initial={false}>
@@ -1400,15 +1388,7 @@ function TaskCard({
           </AnimatePresence>
 
           {/* Linked routines — separate collapsible section */}
-          <button onClick={() => setShowLinked(!showLinked)}
-            className="w-full flex items-center gap-1.5"
-            style={{
-              padding: '8px 14px',
-              boxShadow: 'inset 0 0.5px 0 var(--line)',
-              fontSize: 11, color: 'var(--fg-muted)',
-              background: 'transparent',
-            }}
-          >
+          <button onClick={() => setShowLinked(!showLinked)} className="task-toggle-row" type="button">
             {showLinked ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             <Repeat size={12} />
             <span>Linked routines</span>

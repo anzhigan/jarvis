@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { routinesApi, tasksApi, resolveUrl } from '../api/client';
 import type { Routine, RoutineEntry, RoutineScheduleType } from '../api/types';
 import PullToRefresh from './PullToRefresh';
+import SwipeRow from './SwipeRow';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
@@ -348,13 +349,6 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
   const t = useT();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-
-  // Swipe gesture state
-  const swipeStartX = useRef(0);
-  const swipeStartY = useRef(0);
-  const swipeDragging = useRef(false);
-  const swipeHorizontal = useRef<boolean | null>(null);
 
   const today = todayIso();
   const todayEntry = routine.entries.find((e) => e.date === today);
@@ -442,48 +436,16 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
     }
   };
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    swipeStartX.current = e.touches[0].clientX;
-    swipeStartY.current = e.touches[0].clientY;
-    swipeDragging.current = true;
-    swipeHorizontal.current = null;
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!swipeDragging.current) return;
-    const dx = e.touches[0].clientX - swipeStartX.current;
-    const dy = e.touches[0].clientY - swipeStartY.current;
-    if (swipeHorizontal.current === null) {
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        swipeHorizontal.current = Math.abs(dx) > Math.abs(dy) * 1.5;
-      }
-    }
-    if (swipeHorizontal.current && Math.abs(dx) > 3) {
-      e.stopPropagation();
-    }
-  };
-
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (!swipeDragging.current) return;
-    swipeDragging.current = false;
-    const dx = e.changedTouches[0].clientX - swipeStartX.current;
-    if (swipeHorizontal.current) {
-      if (dx < -60) setRevealed(true);
-      else if (dx > 20) setRevealed(false);
-    }
-    swipeHorizontal.current = null;
-  };
-
-  if (editing) {
-    return <RoutineEditForm routine={routine} onCancel={() => setEditing(false)} onSaved={async () => { setEditing(false); await onReload(); }} />;
-  }
+  const editSheet = editing ? (
+    <RoutineEditForm
+      routine={routine}
+      onCancel={() => setEditing(false)}
+      onSaved={async () => { setEditing(false); await onReload(); }}
+    />
+  ) : null;
 
   const card = (
-    <div
-      className="routine-row"
-      style={{ position: 'relative' }}
-      onClick={() => revealed && setRevealed(false)}
-    >
+    <div className="routine-row" style={{ position: 'relative' }}>
       {/* Color stripe */}
       <div
         style={{
@@ -582,38 +544,19 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
     </div>
   );
 
-  if (!isMobile) return card;
+  if (!isMobile) return <>{card}{editSheet}</>;
 
-  // Mobile: wrap in swipe-wrap
+  // Mobile: use SwipeRow component for consistent edit/delete swipe UX
   return (
-    <div className="swipe-wrap" data-revealed={revealed}>
-      <div className="swipe-actions">
-        <button
-          className="swipe-action"
-          data-kind="edit"
-          onClick={(e) => { e.stopPropagation(); setRevealed(false); setEditing(true); }}
-        >
-          <Pencil size={18} />
-          <span>Edit</span>
-        </button>
-        <button
-          className="swipe-action"
-          data-kind="delete"
-          onClick={(e) => { e.stopPropagation(); setRevealed(false); remove(); }}
-        >
-          <Trash2 size={18} />
-          <span>Delete</span>
-        </button>
-      </div>
-      <div
-        className="swipe-content"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+    <>
+      <SwipeRow
+        onEdit={() => setEditing(true)}
+        onDelete={remove}
       >
         {card}
-      </div>
-    </div>
+      </SwipeRow>
+      {editSheet}
+    </>
   );
 }
 
@@ -632,7 +575,6 @@ function RoutineEditForm({
     (routine.schedule_days || '').split(',').filter(Boolean)
   );
   const [scheduleCount, setScheduleCount] = useState(routine.schedule_count_per_period);
-  const [saving, setSaving] = useState(false);
 
   const toggleDay = (idx: number) => {
     const s = String(idx);
@@ -640,85 +582,75 @@ function RoutineEditForm({
   };
 
   const save = async () => {
-    setSaving(true);
-    try {
-      await routinesApi.update(routine.id, {
-        title: title.trim() || routine.title,
-        description,
-        color,
-        schedule_type: scheduleType,
-        schedule_days: scheduleDays.join(','),
-        schedule_count_per_period: scheduleCount,
-      } as any);
-      await onSaved();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed');
-    } finally {
-      setSaving(false);
-    }
+    await routinesApi.update(routine.id, {
+      title: title.trim() || routine.title,
+      description,
+      color,
+      schedule_type: scheduleType,
+      schedule_days: scheduleDays.join(','),
+      schedule_count_per_period: scheduleCount,
+    } as any);
+    await onSaved();
   };
 
   return (
-    <div className="panel-card" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 7 }}>
-      <input
-        type="text" value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="input" placeholder="Routine title" autoFocus
-      />
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        rows={2} placeholder="Description…"
-        className="textarea"
-      />
-      <select
-        value={scheduleType}
-        onChange={(e) => setScheduleType(e.target.value as RoutineScheduleType)}
-        className="select-base"
-      >
-        <option value="daily">Every day</option>
-        <option value="weekly_on_days">On specific weekdays</option>
-        <option value="times_per_week">X times per week</option>
-      </select>
+    <CreateSheet
+      open
+      onClose={onCancel}
+      title="Edit routine"
+      primaryLabel={t('common.save') || 'Save'}
+      canSubmit={!!title.trim()}
+      onSubmit={save}
+    >
+      <FormField label="Title">
+        <input type="text" className="input w-full" value={title}
+          onChange={(e) => setTitle(e.target.value)} placeholder="Routine title" autoFocus />
+      </FormField>
+      <FormField label="Description">
+        <textarea className="textarea w-full" value={description}
+          onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Description…" />
+      </FormField>
+      <FormField label="Schedule">
+        <select value={scheduleType}
+          onChange={(e) => setScheduleType(e.target.value as RoutineScheduleType)}
+          className="select-base w-full">
+          <option value="daily">Every day</option>
+          <option value="weekly_on_days">On specific weekdays</option>
+          <option value="times_per_week">X times per week</option>
+        </select>
+      </FormField>
       {scheduleType === 'weekly_on_days' && (
-        <div className="flex gap-1 flex-wrap">
-          {WEEKDAY_LABELS.map((lbl, idx) => (
-            <button key={idx} type="button"
-              onClick={() => toggleDay(idx)}
-              className={scheduleDays.includes(String(idx)) ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-              style={{ width: 36, padding: 0, justifyContent: 'center' }}
-            >
-              {lbl}
-            </button>
-          ))}
-        </div>
+        <FormField label="Days">
+          <div className="flex gap-1 flex-wrap">
+            {WEEKDAY_LABELS.map((lbl, idx) => (
+              <button key={idx} type="button"
+                onClick={() => toggleDay(idx)}
+                className={scheduleDays.includes(String(idx)) ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+                style={{ width: 36, padding: 0, justifyContent: 'center' }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </FormField>
       )}
       {scheduleType === 'times_per_week' && (
-        <div>
-          <div className="text-label" style={{ marginBottom: 4 }}>Times per week</div>
-          <input
-            type="number" min={1} max={7}
+        <FormField label="Times per week">
+          <input type="number" min={1} max={7} className="input w-full"
             value={scheduleCount}
-            onChange={(e) => setScheduleCount(parseInt(e.target.value || '1', 10))}
-            className="input"
-          />
-        </div>
+            onChange={(e) => setScheduleCount(parseInt(e.target.value || '1', 10))} />
+        </FormField>
       )}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0' }}>
-        {ROUTINE_COLORS.map((c) => (
-          <button key={c} type="button" onClick={(e) => { e.preventDefault(); setColor(c); }}
-            className="w-9 h-9 rounded-full transition-all active:scale-90"
-            style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }} />
-        ))}
-      </div>
-      <div className="flex justify-end gap-2">
-        <button onClick={onCancel} className="btn btn-secondary btn-sm">{t('common.cancel')}</button>
-        <button onClick={save} disabled={saving || !title.trim()} className="btn btn-primary btn-sm">
-          {saving && <Loader2 size={11} className="animate-spin" />}
-          {t('common.save')}
-        </button>
-      </div>
-    </div>
+      <FormField label="Color">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0' }}>
+          {ROUTINE_COLORS.map((c) => (
+            <button key={c} type="button"
+              onClick={(e) => { e.preventDefault(); setColor(c); }}
+              className="w-9 h-9 rounded-full transition-all active:scale-90"
+              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }} />
+          ))}
+        </div>
+      </FormField>
+    </CreateSheet>
   );
 }
 

@@ -463,9 +463,11 @@ export default function Notes() {
       const backToTopic = selection?.parentType === 'topic' ? selection.parentId : null;
       const backToWay = selection?.parentType === 'way' ? selection.parentId : null;
 
-      const handleBack = async () => {
-        await saveCurrentEditor();
-        await loadWays();
+      // Non-blocking back: navigate immediately, save in background
+      const handleBack = () => {
+        // Fire and forget — don't block navigation while saving
+        saveCurrentEditor();
+        loadWays();
         setSelection(null);
         if (backToTopic) {
           setMobileView({ kind: 'topic', topicId: backToTopic });
@@ -490,34 +492,45 @@ export default function Notes() {
             onCancel={() => setConfirmState(null)}
             onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
           />
-        <div className="size-full flex flex-col" style={{ background: 'var(--bg-elevated)' }}>
-          {user && (
-            <MobileNavbar
-              variant="compact"
-              title={currentNote.name || 'Untitled'}
-              crumb={crumb}
-              user={user}
-              onBack={handleBack}
-              rightSlot={
-                <span className="notes-saved-pill">
-                  {saving
-                    ? <><Loader2 size={11} className="animate-spin" /> Saving…</>
-                    : editorState.dirty ? null : <><Check size={11} /> Saved</>}
-                </span>
-              }
-            />
-          )}
-          <div className="flex-1 overflow-y-auto relative" style={{ background: 'var(--bg-elevated)' }}>
-            <div style={{ padding: '10px 20px 4px' }}>
+        <div className="note-mobile-shell">
+          <div
+            className="note-mobile-scroll"
+            ref={(el) => {
+              if (!el) return;
+              const onScroll = () => {
+                const scrolled = el.scrollTop > 8;
+                el.parentElement?.setAttribute('data-scrolled', scrolled ? 'true' : 'false');
+              };
+              el.removeEventListener('scroll', onScroll);
+              el.addEventListener('scroll', onScroll, { passive: true });
+            }}
+          >
+            <div className="note-mobile-header">
+              <button onClick={handleBack} className="note-back-circle" aria-label="Back">
+                <ChevronLeft size={20} />
+              </button>
+              {crumb && (
+                <div className="note-crumb">
+                  <span className="crumb">{crumb}</span>
+                  <span className="crumb-sep">/</span>
+                  <span className="crumb-current">{currentNote.name || 'Untitled'}</span>
+                </div>
+              )}
+              <span className="notes-saved-pill">
+                {saving
+                  ? <><Loader2 size={11} className="animate-spin" /> Saving…</>
+                  : editorState.dirty ? null : <><Check size={11} /> Saved</>}
+              </span>
+            </div>
+            <div style={{ padding: '4px 20px 4px' }}>
               <NoteTitle
                 key={currentNote.id + '-title'}
                 initial={currentNote.name}
-                onChange={async (newName) => {
+                onChange={(newName) => {
                   if (newName === currentNote.name) return;
-                  try {
-                    await notesApi.update(currentNote.id, { name: newName });
-                    await loadWays();
-                  } catch (e: any) { toast.error(e?.detail ?? 'Failed to rename'); }
+                  notesApi.update(currentNote.id, { name: newName })
+                    .then(() => loadWays())
+                    .catch((e: any) => toast.error(e?.detail ?? 'Failed to rename'));
                 }}
               />
               <div className="doc-tags" style={{ marginTop: 8 }}>
