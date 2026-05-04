@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Loader2, Plus, Pencil, Trash2, X, Calendar, Target, ListChecks, Repeat as RepeatIcon, CircleDot, ArrowLeft,
+  Loader2, Plus, Pencil, Trash2, X, Target, ListChecks, Repeat as RepeatIcon, CircleDot, ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { focusSprintsApi, tasksApi, routinesApi, gosApi, resolveUrl } from '../api/client';
 import type { FocusSprint, FocusSprintItem, FocusSprintItemType, Task, Routine, Go } from '../api/types';
 import PullToRefresh from './PullToRefresh';
+import SwipeRow from './SwipeRow';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
@@ -676,7 +677,6 @@ export default function Sprints() {
             </div>
           ) : visible.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <Calendar size={32} className="mx-auto mb-3 opacity-30" />
               <p className="text-sm">
                 {filter === 'current' ? 'No active sprints right now.' :
                  filter === 'future' ? 'No upcoming sprints.' :
@@ -686,7 +686,17 @@ export default function Sprints() {
           ) : (
             <div className="space-y-2">
               {visible.map((s) => (
-                <SprintCard key={s.id} sprint={s} onReload={load} onOpen={() => setOpenSprintId(s.id)} />
+                <SwipeRow
+                  key={s.id}
+                  onEdit={() => setOpenSprintId(s.id)}
+                  onDelete={async () => {
+                    if (!confirm(`Delete sprint "${s.title}"?`)) return;
+                    try { await focusSprintsApi.delete(s.id); await load(); }
+                    catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+                  }}
+                >
+                  <SprintCard sprint={s} onReload={load} onOpen={() => setOpenSprintId(s.id)} />
+                </SwipeRow>
               ))}
             </div>
           )}

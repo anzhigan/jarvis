@@ -120,11 +120,6 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
   const [numInput, setNumInput] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(go.title);
-  const [editDescription, setEditDescription] = useState(go.description ?? '');
-  const [editSprintId, setEditSprintId] = useState<string>(go.sprint_id ?? '');
-  const [editDue, setEditDue] = useState(go.due_date ?? '');
-  const [editColor, setEditColor] = useState(go.color);
 
   const today = todayIso();
   const todayVal = goValueToday(go);
@@ -202,22 +197,6 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
     finally { setBusy(false); setConfirmDelete(false); }
   };
 
-  const saveEdit = async () => {
-    setBusy(true);
-    try {
-      await gosApi.update(go.id, {
-        title: editTitle.trim() || go.title,
-        description: editDescription,
-        sprint_id: editSprintId || null,
-        due_date: editDue || null,
-        color: editColor,
-      } as any);
-      setEditing(false);
-      await onReload();
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-    finally { setBusy(false); }
-  };
-
   const recurrenceLabel =
     go.recurrence === 'daily' ? 'Daily' :
     go.recurrence === 'weekly' ? 'Weekly' :
@@ -279,62 +258,12 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
       />
 
       {editing && (
-        <div
-          className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setEditing(false)}
-          style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-        >
-          <div className="modal-panel w-full max-w-md animate-fadeIn" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 flex items-center justify-between" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-              <h3 className="text-base font-semibold">Edit Go</h3>
-              <button onClick={() => setEditing(false)} className="icon-btn icon-btn-sm">✕</button>
-            </div>
-            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
-              <div>
-                <label className="text-label block mb-1">Title</label>
-                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} autoFocus className="input w-full" />
-              </div>
-              <div>
-                <label className="text-label block mb-1">Description</label>
-                <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder={t('tasks.descriptionPh')} rows={3} className="textarea w-full" />
-              </div>
-              {availableSprints && availableSprints.length > 0 && (
-                <div>
-                  <label className="text-label block mb-1">Attach to step</label>
-                  <select value={editSprintId} onChange={(e) => setEditSprintId(e.target.value)} className="select-base w-full">
-                    <option value="">— No step —</option>
-                    {availableSprints.map((s) => (
-                      <option key={s.id} value={s.id}>↳ {s.title}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {go.recurrence === 'none' && (
-                <div>
-                  <label className="text-label block mb-1">Due date</label>
-                  <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} className="input w-full" />
-                </div>
-              )}
-              <div>
-                <label className="text-label block mb-1.5">Color</label>
-                <div className="flex gap-2 flex-wrap">
-                  {GO_COLORS.map((c) => (
-                    <button key={c} type="button" onClick={(e) => { e.preventDefault(); setEditColor(c); }}
-                      className="w-9 h-9 rounded-full transition-all active:scale-90"
-                      style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="px-5 py-3 flex gap-2 justify-end" style={{ boxShadow: 'inset 0 0.5px 0 var(--line)' }}>
-              <button onClick={() => { setEditing(false); setEditTitle(go.title); setEditDescription(go.description ?? ''); setEditSprintId(go.sprint_id ?? ''); setEditDue(go.due_date ?? ''); setEditColor(go.color); }} className="btn btn-secondary">Cancel</button>
-              <button onClick={saveEdit} disabled={busy || !editTitle.trim()} className="btn btn-primary flex items-center gap-1.5">
-                {busy && <Loader2 size={14} className="animate-spin" />}Save
-              </button>
-            </div>
-          </div>
-        </div>
+        <EditGoSheet
+          go={go}
+          availableSprints={availableSprints}
+          onClose={() => setEditing(false)}
+          onSaved={async () => { setEditing(false); await onReload(); }}
+        />
       )}
 
       {isMobile
@@ -369,6 +298,80 @@ function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false
         </div>
       )}
     </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EditGoSheet — bottom-sheet editor for a Go item
+// ═══════════════════════════════════════════════════════════════════════════
+function EditGoSheet({ go, availableSprints, onClose, onSaved }: {
+  go: Go;
+  availableSprints?: Sprint[];
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const t = useT();
+  const [editTitle, setEditTitle] = useState(go.title);
+  const [editDescription, setEditDescription] = useState(go.description ?? '');
+  const [editSprintId, setEditSprintId] = useState<string>(go.sprint_id ?? '');
+  const [editDue, setEditDue] = useState(go.due_date ?? '');
+  const [editColor, setEditColor] = useState(go.color);
+
+  const canSave = editTitle.trim().length > 0;
+
+  const handleSave = async () => {
+    await gosApi.update(go.id, {
+      title: editTitle.trim() || go.title,
+      description: editDescription,
+      sprint_id: editSprintId || null,
+      due_date: editDue || null,
+      color: editColor,
+    } as any);
+    await onSaved();
+  };
+
+  return (
+    <CreateSheet
+      open
+      onClose={onClose}
+      title={t('tasks.editGo')}
+      primaryLabel={t('common.save') || 'Save'}
+      canSubmit={canSave}
+      onSubmit={handleSave}
+    >
+      <FormField label="Title">
+        <input type="text" className="input w-full" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+      </FormField>
+      <FormField label="Description">
+        <textarea className="textarea w-full" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder={t('tasks.descriptionPh')} rows={3} />
+      </FormField>
+      {availableSprints && availableSprints.length > 0 && (
+        <FormField label="Attach to step">
+          <select value={editSprintId} onChange={(e) => setEditSprintId(e.target.value)} className="select-base w-full">
+            <option value="">— No step —</option>
+            {availableSprints.map((s) => <option key={s.id} value={s.id}>↳ {s.title}</option>)}
+          </select>
+        </FormField>
+      )}
+      {go.recurrence === 'none' && (
+        <FormField label="Due date">
+          <input type="date" className="input w-full" value={editDue} onChange={(e) => setEditDue(e.target.value)} />
+        </FormField>
+      )}
+      <FormField label="Color">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0' }}>
+          {GO_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={(e) => { e.preventDefault(); setEditColor(c); }}
+              className="w-9 h-9 rounded-full transition-all active:scale-90"
+              style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }}
+            />
+          ))}
+        </div>
+      </FormField>
+    </CreateSheet>
   );
 }
 
@@ -837,17 +840,21 @@ function CreateSprintForm({
           <input type="date" className="input w-full" value={end} onChange={(e) => setEnd(e.target.value)} />
         </FormField>
       </div>
-      {effectiveGos.length > 0 && (
+      {(effectiveGos.length > 0 || (tasks ? !!selectedTaskId : !!taskId)) && (
         <FormField label="Attach go items">
-          <div className="max-h-40 overflow-y-auto" style={{ borderRadius: 'var(--r-control)', boxShadow: '0 0 0 0.5px var(--line)' }}>
-            {effectiveGos.map((g) => (
-              <label key={g.id} className="flex items-center gap-2 p-1.5 text-xs cursor-pointer hover:bg-secondary">
-                <input type="checkbox" checked={toAttach.has(g.id)} onChange={() => toggleAttach(g.id)} />
-                <span className="truncate flex-1">{g.title}</span>
-                {g.due_date && <span style={{ color: 'var(--fg-muted)' }}>{formatDate(g.due_date)}</span>}
-              </label>
-            ))}
-          </div>
+          {effectiveGos.length > 0 ? (
+            <div className="max-h-40 overflow-y-auto" style={{ borderRadius: 'var(--r-control)', boxShadow: '0 0 0 0.5px var(--line)' }}>
+              {effectiveGos.map((g) => (
+                <label key={g.id} className="flex items-center gap-2 p-1.5 text-xs cursor-pointer hover:bg-secondary">
+                  <input type="checkbox" checked={toAttach.has(g.id)} onChange={() => toggleAttach(g.id)} />
+                  <span className="truncate flex-1">{g.title}</span>
+                  {g.due_date && <span style={{ color: 'var(--fg-muted)' }}>{formatDate(g.due_date)}</span>}
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--fg-muted)', fontSize: 12, padding: '6px 0' }}>No unattached Go items for this goal.</div>
+          )}
         </FormField>
       )}
       <FormField label="Color">
@@ -1087,6 +1094,67 @@ function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// EditTaskSheet — bottom-sheet editor for a Goal (Task)
+// ═══════════════════════════════════════════════════════════════════════════
+function EditTaskSheet({ task, onClose, onSaved }: {
+  task: Task;
+  onClose: () => void;
+  onSaved: (data: Partial<Task>) => Promise<void>;
+}) {
+  const t = useT();
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editPriority, setEditPriority] = useState<TaskPriority>(task.priority);
+  const [editStart, setEditStart] = useState(task.start_date ?? '');
+  const [editDue, setEditDue] = useState(task.due_date ?? '');
+  const [editDescription, setEditDescription] = useState(task.description ?? '');
+
+  const canSave = editTitle.trim().length > 0;
+
+  const handleSave = async () => {
+    await onSaved({
+      title: editTitle.trim(),
+      priority: editPriority,
+      start_date: editStart || null,
+      due_date: editDue || null,
+      description: editDescription,
+    });
+  };
+
+  return (
+    <CreateSheet
+      open
+      onClose={onClose}
+      title={t('tasks.editGoal')}
+      primaryLabel={t('common.save') || 'Save'}
+      canSubmit={canSave}
+      onSubmit={handleSave}
+    >
+      <FormField label="Title">
+        <input type="text" className="input w-full" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+      </FormField>
+      <FormField label="Priority">
+        <select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TaskPriority)} className="select-base w-full">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </FormField>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <FormField label={t('tasks.start') || 'Start'}>
+          <input type="date" className="input w-full" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
+        </FormField>
+        <FormField label={t('tasks.due') || 'Due'}>
+          <input type="date" className="input w-full" value={editDue} onChange={(e) => setEditDue(e.target.value)} />
+        </FormField>
+      </div>
+      <FormField label="Description">
+        <textarea className="textarea w-full" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Notes, context, details…" rows={3} />
+      </FormField>
+    </CreateSheet>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TaskCard
 // ═══════════════════════════════════════════════════════════════════════════
 function TaskCard({
@@ -1105,36 +1173,11 @@ function TaskCard({
   const [expanded, setExpanded] = useState(false);
   const [showLinked, setShowLinked] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(task.title);
-  const [editPriority, setEditPriority] = useState<TaskPriority>(task.priority);
-  const [editStart, setEditStart] = useState(task.start_date ?? '');
-  const [editDue, setEditDue] = useState(task.due_date ?? '');
-  const [editDescription, setEditDescription] = useState(task.description ?? '');
-  const [editSaving, setEditSaving] = useState(false);
 
   const isOverdue = task.status !== 'done' && task.due_date &&
     new Date(task.due_date) < new Date(new Date().setHours(0, 0, 0, 0));
 
-  const startEdit = () => {
-    setEditTitle(task.title); setEditPriority(task.priority);
-    setEditStart(task.start_date ?? ''); setEditDue(task.due_date ?? '');
-    setEditDescription(task.description ?? '');
-    setEditing(true);
-  };
-
-  const saveEdit = async () => {
-    if (!editTitle.trim()) return;
-    setEditSaving(true);
-    try {
-      await onUpdate({
-        title: editTitle.trim(), priority: editPriority,
-        start_date: editStart || null, due_date: editDue || null,
-        description: editDescription,
-      });
-      setEditing(false);
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-    finally { setEditSaving(false); }
-  };
+  const startEdit = () => setEditing(true);
 
   const periodLabel = task.start_date && task.due_date
     ? `${formatDate(task.start_date)} – ${formatDate(task.due_date)}`
@@ -1144,47 +1187,7 @@ function TaskCard({
 
   const cardBody = (
     <>
-      {editing ? (
-        <div style={{ padding: '14px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input
-            type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditing(false); }}
-            className="input" autoFocus
-          />
-          <select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
-            className="select-base">
-            <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
-          </select>
-          <div className="flex flex-wrap gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="text-label" style={{ marginBottom: 4 }}>{t("tasks.start")}</div>
-              <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="input" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-label" style={{ marginBottom: 4 }}>{t("tasks.due")}</div>
-              <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} className="input" />
-            </div>
-          </div>
-          <div>
-            <div className="text-label" style={{ marginBottom: 4 }}>Description</div>
-            <textarea
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              placeholder="Notes, context, details…"
-              rows={3}
-              className="textarea"
-            />
-          </div>
-          <div className="flex gap-2 justify-end">
-            <button onClick={() => setEditing(false)} className="btn btn-secondary btn-sm">Cancel</button>
-            <button onClick={saveEdit} disabled={editSaving || !editTitle.trim()} className="btn btn-primary btn-sm">
-              {editSaving && <Loader2 size={12} className="animate-spin" />}Save
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div style={{ padding: '12px 13px' }}>
+      <div style={{ padding: '12px 13px' }}>
             <div className="flex items-start gap-2" style={{ marginBottom: 6 }}>
               <h4 className="goal-card-title" style={{ margin: 0, flex: 1 }}>{task.title}</h4>
               {!isMobile && (
@@ -1286,8 +1289,6 @@ function TaskCard({
               </motion.div>
             )}
           </AnimatePresence>
-        </>
-      )}
     </>
   );
 
@@ -1297,26 +1298,44 @@ function TaskCard({
 
   if (isMobile) {
     return (
-      <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}>
-        <SwipeRow enabled={!editing} onEdit={startEdit} onDelete={onDelete}>
-          <div className={cls}>{cardBody}</div>
-        </SwipeRow>
-      </motion.div>
+      <>
+        {editing && (
+          <EditTaskSheet
+            task={task}
+            onClose={() => setEditing(false)}
+            onSaved={async (data) => { await onUpdate(data); setEditing(false); }}
+          />
+        )}
+        <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}>
+          <SwipeRow onEdit={startEdit} onDelete={onDelete}>
+            <div className={cls}>{cardBody}</div>
+          </SwipeRow>
+        </motion.div>
+      </>
     );
   }
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-      draggable={!editing}
-      onDragStart={(e) => {
-        (e as unknown as DragEvent).dataTransfer?.setData('text/plain', task.id);
-        onDragStart();
-      }}
-      onDragEnd={onDragEnd}
-      className={cls}
-    >
-      {cardBody}
-    </motion.div>
+    <>
+      {editing && (
+        <EditTaskSheet
+          task={task}
+          onClose={() => setEditing(false)}
+          onSaved={async (data) => { await onUpdate(data); setEditing(false); }}
+        />
+      )}
+      <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+        draggable
+        onDragStart={(e) => {
+          (e as unknown as DragEvent).dataTransfer?.setData('text/plain', task.id);
+          onDragStart();
+        }}
+        onDragEnd={onDragEnd}
+        className={cls}
+      >
+        {cardBody}
+      </motion.div>
+    </>
   );
 }
 
@@ -1557,24 +1576,29 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
 // ═══════════════════════════════════════════════════════════════════════════
 // EditSprintSheet — bottom-sheet editor for a Step (Sprint)
 // ═══════════════════════════════════════════════════════════════════════════
-function EditSprintSheet({ sprint, onClose, onSaved }: { sprint: Sprint; onClose: () => void; onSaved: () => Promise<void> }) {
+function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { sprint: Sprint; tasks?: Task[]; onClose: () => void; onSaved: () => Promise<void> }) {
   const t = useT();
   const [title, setTitle] = useState(sprint.title);
   const [startDate, setStartDate] = useState(sprint.start_date);
   const [endDate, setEndDate] = useState(sprint.end_date);
   const [description, setDescription] = useState(sprint.description ?? '');
   const [color, setColor] = useState(sprint.color);
+  const [selectedTaskId, setSelectedTaskId] = useState(sprint.task_id ?? '');
 
   const canSave = title.trim().length > 0;
 
   const handleSave = async () => {
-    await sprintsApi.update(sprint.id, {
+    const payload: Parameters<typeof sprintsApi.update>[1] = {
       title: title.trim(),
       start_date: startDate,
       end_date: endDate,
       description,
       color,
-    });
+    };
+    if (selectedTaskId !== (sprint.task_id ?? '')) {
+      payload.task_id = selectedTaskId || null;
+    }
+    await sprintsApi.update(sprint.id, payload);
     await onSaved();
   };
 
@@ -1582,16 +1606,21 @@ function EditSprintSheet({ sprint, onClose, onSaved }: { sprint: Sprint; onClose
     <CreateSheet
       open
       onClose={onClose}
-      title={t('tasks.editStep') || 'Edit step'}
+      title={t('tasks.editStep')}
       primaryLabel={t('common.save') || 'Save'}
       canSubmit={canSave}
       onSubmit={handleSave}
     >
-      {sprint.task_title && (
-        <FormField label="Goal">
-          <div className="input" style={{ color: 'var(--fg-muted)', cursor: 'default' }}>{sprint.task_title}</div>
-        </FormField>
-      )}
+      <FormField label="Goal">
+        {tasks && tasks.length > 0 ? (
+          <select value={selectedTaskId} onChange={(e) => setSelectedTaskId(e.target.value)} className="select-base w-full">
+            <option value="">— Standalone —</option>
+            {tasks.map((tk) => <option key={tk.id} value={tk.id}>{tk.title}</option>)}
+          </select>
+        ) : (
+          <div className="input" style={{ color: 'var(--fg-muted)' }}>{sprint.task_title ?? '—'}</div>
+        )}
+      </FormField>
       <FormField label="Title">
         <input
           type="text"
@@ -1863,6 +1892,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
       {editingStep && (
         <EditSprintSheet
           sprint={editingStep}
+          tasks={tasks}
           onClose={() => setEditingStep(null)}
           onSaved={async () => { setEditingStep(null); await reload(); }}
         />

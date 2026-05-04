@@ -42,10 +42,10 @@
   --h-md: 32px;
   --h-lg: 40px;
 
-  --bg-app:      #F5F3EE;
-  --bg-shell:    #FAF9F5;
-  --bg-sidebar:  #F5F3EE;
-  --bg-card:     #FCFBF7;
+  --bg-app:      #E6E3D9;
+  --bg-shell:    #F0EDE5;
+  --bg-sidebar:  #E6E3D9;
+  --bg-card:     #F8F7F3;
   --bg-elevated: #FFFFFE;
   --bg-hover:    rgba(0, 0, 0, 0.04);
   --bg-active:   rgba(0, 0, 0, 0.06);
@@ -145,11 +145,11 @@
 }
 
 .dark {
-  --bg-app:      #131210;
-  --bg-shell:    #1C1B18;
-  --bg-sidebar:  #131210;
-  --bg-card:     #232220;
-  --bg-elevated: #2A2825;
+  --bg-app:      #0E0D0B;
+  --bg-shell:    #181715;
+  --bg-sidebar:  #0E0D0B;
+  --bg-card:     #2C2A27;
+  --bg-elevated: #353230;
   --bg-hover:    rgba(255, 255, 255, 0.05);
   --bg-active:   rgba(255, 255, 255, 0.08);
   --bg-input:    rgba(255, 255, 255, 0.04);
@@ -1468,7 +1468,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 /* Big title row — root screen header (Notes / Goals / Routines / etc.) */
 .big-title-row {
   padding: 6px 20px 18px;
-  display: flex; align-items: flex-end; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   gap: 12px;
 }
 .big-title {
@@ -1864,25 +1864,22 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .navbar .right-actions { display: flex; gap: 2px; flex-shrink: 0; }
 
 .back-btn {
-  width: var(--h-md); height: var(--h-md);
+  width: var(--h-lg); height: var(--h-lg);
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--r-control); background: transparent; border: 0;
   color: var(--fg-secondary); flex-shrink: 0;
   position: relative;
 }
-.back-btn::before {
-  content: ''; position: absolute; inset: -8px; border-radius: var(--r-control);
-}
 .back-btn:active { background: var(--bg-hover); color: var(--fg-primary); }
-.back-btn svg { width: 18px; height: 18px; stroke-width: 2; }
+.back-btn svg { width: 22px; height: 22px; stroke-width: 2; }
 
 .avatar-btn {
-  width: var(--h-md); height: var(--h-md);
+  width: var(--h-lg); height: var(--h-lg);
   border-radius: var(--r-pill);
   background: var(--accent-notes-bg); color: var(--accent-notes-fg);
   border: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: var(--text-xs); font-weight: 600;
+  font-size: var(--text-sm); font-weight: 600;
   flex-shrink: 0; overflow: hidden;
 }
 .avatar-btn img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
@@ -2111,7 +2108,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   width: 100%; text-align: left;
 }
 .lib-row + .lib-row {
-  box-shadow: inset 0 0.5px 0 var(--line-faint);
+  box-shadow: inset 0 0.5px 0 var(--line);
 }
 .lib-row:active { background: var(--bg-hover); }
 .lib-row-icon {
@@ -2222,6 +2219,16 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   .step-card { padding: 14px; margin-bottom: 10px; }
   .step-card-title { font-size: 14px; }
   .step-card-meta, .step-card-dates { font-size: 11.5px; }
+  .step-card-go-toggle { min-height: 44px; padding: 10px 0; font-size: 13px; font-weight: 500; }
+  .step-card-go-item { padding: 8px 0; gap: 10px; }
+  .step-card-go-check { font-size: 16px; }
+  .step-card-go-name { font-size: 13px; white-space: normal; }
+
+  /* CreateSheet footer — bigger touch targets */
+  .create-sheet-footer-row .btn { height: var(--h-lg); padding: 0 20px; font-size: var(--text-base); }
+
+  /* Date inputs — prevent native iOS override of borders */
+  .input[type="date"] { appearance: none; -webkit-appearance: none; }
 
   /* Editor: 16px prevents iOS auto-zoom; bottom padding for keyboard clearance (Issue 3) */
   .ProseMirror { font-size: 16px; padding-bottom: 80px; }

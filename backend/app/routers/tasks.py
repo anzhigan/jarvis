@@ -354,8 +354,13 @@ async def create_sprint(body: SprintCreate, user: User = Depends(get_current_use
 @router.patch("/sprints/{sprint_id}", response_model=SprintOut)
 async def update_sprint(sprint_id: uuid.UUID, body: SprintUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     s = await _get_sprint(sprint_id, user, db)
-    for k, v in body.model_dump(exclude_unset=True).items():
+    fields = body.model_dump(exclude_unset=True)
+    new_task_id = fields.pop("task_id", None)
+    for k, v in fields.items():
         setattr(s, k, v)
+    if new_task_id is not None:
+        task = await _get_task(new_task_id, user, db)
+        s.task_id = task.id
     if s.start_date > s.end_date:
         raise HTTPException(400, "start_date must be <= end_date")
     await db.flush()

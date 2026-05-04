@@ -501,15 +501,6 @@ export default function Notes() {
               onAvatarTap={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
             />
           )}
-          {/* Save status below navbar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 14px 0', fontSize: 11, color: 'var(--fg-muted)' }}>
-            {saving
-              ? <><Loader2 size={11} className="animate-spin" style={{ color: 'var(--fg-muted)' }} /> Saving…</>
-              : editorState.dirty
-                ? <span style={{ color: 'var(--warning)' }}>Unsaved</span>
-                : <><Check size={11} style={{ color: 'var(--success)' }} /> <span style={{ color: 'var(--success)' }}>Saved</span></>
-            }
-          </div>
           <div className="flex-1 overflow-y-auto relative">
             <div style={{ padding: '10px 20px 4px' }}>
               <NoteTitle
@@ -1027,6 +1018,8 @@ function MobileHierarchy({
     else if (view.kind === 'topic' && parentWayOfTopic) setView({ kind: 'way', wayId: parentWayOfTopic.id });
     else setView({ kind: 'root' });
   };
+
+  useSwipeBack({ onBack: goBack, enabled: view.kind !== 'root' });
 
   const [showAddMenu, setShowAddMenu] = useState(false);
 

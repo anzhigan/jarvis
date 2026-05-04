@@ -242,6 +242,7 @@ export const sprintsApi = {
     end_date?: string;
     is_completed?: boolean;
     color?: string;
+    task_id?: string | null;
   }) => request<Sprint>(`/sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   delete: (id: string) => request<void>(`/sprints/${id}`, { method: 'DELETE' }),

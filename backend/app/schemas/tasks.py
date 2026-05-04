@@ -89,6 +89,7 @@ class SprintUpdate(BaseModel):
     end_date: date | None = None
     is_completed: bool | None = None
     color: str | None = None
+    task_id: uuid.UUID | None = None
 
 
 class SprintOut(BaseModel):
