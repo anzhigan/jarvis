@@ -784,7 +784,7 @@ function CreateRoutineForm({ open, onCreated, onCancel, goals }: { open: boolean
       <FormField label="Title">
         <input type="text" className="input w-full" value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Routine title" autoFocus />
+          placeholder="Routine title" />
       </FormField>
       <FormField label="Description">
         <textarea className="textarea w-full" value={description}

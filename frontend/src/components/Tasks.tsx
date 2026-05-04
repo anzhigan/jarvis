@@ -720,7 +720,7 @@ function CreateGoForm({
       <FormField label="Title">
         <input type="text" className="input w-full" value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Go title (e.g. Solve 50 problems)" autoFocus />
+          placeholder="Go title (e.g. Solve 50 problems)" />
       </FormField>
       <FormField label="Description">
         <textarea className="textarea w-full" value={description}
@@ -831,7 +831,7 @@ function CreateSprintForm({
       )}
       <FormField label="Title">
         <input type="text" className="input w-full" value={title}
-          onChange={(e) => setTitle(e.target.value)} placeholder={t('sprint.titlePh')} autoFocus />
+          onChange={(e) => setTitle(e.target.value)} placeholder={t('sprint.titlePh')} />
       </FormField>
       <FormField label="Description">
         <textarea className="textarea w-full" value={description}
@@ -1452,7 +1452,7 @@ function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<v
 
       {/* Main + right panel */}
       <div className="section-row">
-        <div>
+        <div style={{ minWidth: 0 }}>
           {/* Past (collapsible) */}
           <div style={{ marginBottom: 18 }}>
             <button className="past-bar" onClick={() => setPastOpen(!pastOpen)}>
@@ -1880,7 +1880,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
 
       {/* Main + right panel */}
       <div className="section-row">
-        <div>
+        <div style={{ minWidth: 0 }}>
           {/* Past (collapsible) */}
           <div style={{ marginBottom: 18 }}>
             <button className="past-bar" onClick={() => setPastOpen(!pastOpen)}>
@@ -2270,7 +2270,7 @@ export default function Tasks() {
                 <FormField label="Title">
                   <input type="text" className="input w-full" value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder={t('tasks.new')} autoFocus />
+                    placeholder={t('tasks.new')} />
                 </FormField>
                 <FormField label="Priority">
                   <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as TaskPriority)} className="select-base">

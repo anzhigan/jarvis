@@ -94,7 +94,7 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
 
   return (
     <div
-      style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--r-card)' }}
+      style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--r-card)', width: '100%', boxSizing: 'border-box' }}
       data-swiped={swiped ? 'true' : undefined}
     >
       {/* Content — slides left */}
@@ -114,7 +114,7 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
         {children}
       </div>
 
-      {/* Action buttons — clipped by parent overflow:hidden + border-radius */}
+      {/* Action buttons */}
       <div
         style={{
           position: 'absolute',
@@ -123,7 +123,10 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
           bottom: 0,
           display: 'flex',
           alignItems: 'stretch',
-          gap: 2,
+          gap: 6,
+          paddingRight: 6,
+          paddingTop: 6,
+          paddingBottom: 6,
           width: ACTIONS_W,
           transform: `translateX(${actionsTx}px)`,
           transition: tr,
@@ -135,31 +138,47 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
           <button
             onClick={(e) => { e.stopPropagation(); handleClose(); onEdit(); }}
             style={{
-              flex: 1, border: 0, cursor: 'pointer',
+              flex: 1, border: 0, cursor: 'pointer', padding: 0,
+              background: 'none',
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 4,
-              background: '#FF9500', color: '#fff',
-              fontSize: 10, fontWeight: 500, letterSpacing: '-0.01em',
             }}
             aria-label={t('common.edit')}
           >
-            <Pencil size={18} strokeWidth={2} />
-            <span>{t('common.edit')}</span>
+            <div style={{
+              flex: 1, width: '100%',
+              borderRadius: 'var(--r-card)',
+              background: 'var(--accent-sprints)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Pencil size={20} color="#fff" strokeWidth={2} />
+            </div>
+            <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--fg-secondary)', lineHeight: 1 }}>
+              {t('common.edit')}
+            </span>
           </button>
         )}
         <button
           onClick={(e) => { e.stopPropagation(); handleClose(); onDelete(); }}
           style={{
-            flex: 1, border: 0, cursor: 'pointer',
+            flex: 1, border: 0, cursor: 'pointer', padding: 0,
+            background: 'none',
             display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center', gap: 4,
-            background: '#FF3B30', color: '#fff',
-            fontSize: 10, fontWeight: 500, letterSpacing: '-0.01em',
           }}
           aria-label={t('common.delete')}
         >
-          <Trash2 size={18} strokeWidth={2} />
-          <span>{t('common.delete')}</span>
+          <div style={{
+            flex: 1, width: '100%',
+            borderRadius: 'var(--r-card)',
+            background: 'var(--danger)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Trash2 size={20} color="#fff" strokeWidth={2} />
+          </div>
+          <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--fg-secondary)', lineHeight: 1 }}>
+            {t('common.delete')}
+          </span>
         </button>
       </div>
     </div>
