@@ -490,7 +490,7 @@ export default function Notes() {
             onCancel={() => setConfirmState(null)}
             onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
           />
-        <div className="size-full flex flex-col" style={{ background: 'var(--bg-elevated)' }}>
+        <div className="size-full flex flex-col" style={{ background: 'var(--bg-app)' }}>
           {user && (
             <MobileNavbar
               variant="compact"

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useT } from '../store/i18n';
+import { notifySwipeOpen } from '../hooks/useSwipeRowGroup';
 
 interface Props {
   children: React.ReactNode;
@@ -12,8 +13,12 @@ interface Props {
 const SPRING = 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1)';
 const BTN_W = 72;
 
+// Module-level set so any SwipeRow can tell others to close
+const closeCallbacks = new Map<string, () => void>();
+
 export default function SwipeRow({ children, onEdit, onDelete, enabled = true }: Props) {
   const t = useT();
+  const id = useId();
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
@@ -24,6 +29,14 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
 
   const ACTIONS_W = onEdit ? BTN_W * 2 : BTN_W;
   const swiped = offset < -20;
+
+  const close = () => setOffset(0);
+
+  // Register/unregister this row's close callback globally
+  useEffect(() => {
+    closeCallbacks.set(id, close);
+    return () => { closeCallbacks.delete(id); };
+  }, [id]);
 
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
@@ -57,10 +70,18 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
   const onTouchEnd = () => {
     active.current = false;
     setDragging(false);
-    setOffset(offset < -ACTIONS_W / 2 ? -ACTIONS_W : 0);
+    const snap = offset < -ACTIONS_W / 2 ? -ACTIONS_W : 0;
+    setOffset(snap);
+    if (snap < 0) {
+      // Tell all other SwipeRows to close
+      closeCallbacks.forEach((fn, cbId) => { if (cbId !== id) fn(); });
+    }
   };
 
-  const close = () => setOffset(0);
+  const handleClose = () => {
+    setOffset(0);
+    closeCallbacks.forEach((fn, cbId) => { if (cbId !== id) fn(); });
+  };
 
   useEffect(() => {
     if (!enabled && offset !== 0) setOffset(0);
@@ -93,7 +114,7 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
         {children}
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons — clipped by parent overflow:hidden + border-radius */}
       <div
         style={{
           position: 'absolute',
@@ -112,46 +133,32 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
       >
         {onEdit && (
           <button
-            onClick={(e) => { e.stopPropagation(); close(); onEdit(); }}
+            onClick={(e) => { e.stopPropagation(); handleClose(); onEdit(); }}
             style={{
-              flex: 1,
-              border: 0,
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 4,
-              background: 'var(--warning)',
-              color: '#fff',
-              fontSize: 10,
-              fontWeight: 600,
+              flex: 1, border: 0, cursor: 'pointer',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 4,
+              background: '#FF9500', color: '#fff',
+              fontSize: 10, fontWeight: 500, letterSpacing: '-0.01em',
             }}
             aria-label={t('common.edit')}
           >
-            <Pencil size={16} strokeWidth={2} />
+            <Pencil size={18} strokeWidth={2} />
             <span>{t('common.edit')}</span>
           </button>
         )}
         <button
-          onClick={(e) => { e.stopPropagation(); close(); onDelete(); }}
+          onClick={(e) => { e.stopPropagation(); handleClose(); onDelete(); }}
           style={{
-            flex: 1,
-            border: 0,
-            cursor: 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 4,
-            background: 'var(--danger)',
-            color: '#fff',
-            fontSize: 10,
-            fontWeight: 600,
+            flex: 1, border: 0, cursor: 'pointer',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 4,
+            background: '#FF3B30', color: '#fff',
+            fontSize: 10, fontWeight: 500, letterSpacing: '-0.01em',
           }}
           aria-label={t('common.delete')}
         >
-          <Trash2 size={16} strokeWidth={2} />
+          <Trash2 size={18} strokeWidth={2} />
           <span>{t('common.delete')}</span>
         </button>
       </div>

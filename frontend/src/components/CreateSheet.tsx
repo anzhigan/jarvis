@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Loader2 } from 'lucide-react';
-import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
 interface CreateSheetProps {
   open: boolean;
@@ -32,7 +31,6 @@ export default function CreateSheet({
     () => typeof window !== 'undefined' && window.innerWidth < 768
   );
   const sheetRef = useRef<HTMLDivElement>(null);
-  const kbHeight = useKeyboardHeight();
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -43,8 +41,33 @@ export default function CreateSheet({
   useEffect(() => {
     if (!open) { setError(''); setSaving(false); return; }
     if (!isMobile) return;
-    // Delay focus until after the sheet slide-up animation (280ms) so iOS
-    // treats it as user-initiated and correctly repositions the viewport
+    // Lock body scroll so iOS Safari doesn't scroll the page when focusing
+    // an input inside the sheet — which would cause position:fixed elements
+    // to visually shift upward past the top of the viewport.
+    const prevOverflow = document.body.style.overflow;
+    const prevPosition = document.body.style.position;
+    const prevTop = document.body.style.top;
+    const prevWidth = document.body.style.width;
+    const scrollY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.position = prevPosition;
+      document.body.style.top = prevTop;
+      document.body.style.width = prevWidth;
+      window.scrollTo(0, scrollY);
+    };
+  }, [open, isMobile]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isMobile) return;
+    // Delay focus until after the sheet slide-up animation so iOS treats it
+    // as user-initiated and doesn't trigger aggressive scroll-to-focus.
     const timer = setTimeout(() => {
       const el = sheetRef.current?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
       el?.focus();
@@ -95,7 +118,6 @@ export default function CreateSheet({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          style={isMobile ? { paddingBottom: kbHeight, transition: 'padding-bottom 0.2s ease' } : undefined}
           onClick={onClose}
         >
           <motion.div

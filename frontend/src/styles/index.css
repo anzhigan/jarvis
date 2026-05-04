@@ -368,8 +368,9 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .app-main { flex: 1; overflow: hidden; position: relative; min-width: 0; display: flex; }
 
 .app-page {
-  flex: 1; overflow-y: auto; display: none;
+  flex: 1; overflow-y: auto; overflow-x: hidden; display: none;
   flex-direction: column; min-width: 0;
+  background: var(--bg-app);
 }
 .app-page[data-visible="true"] { display: flex; }
 
@@ -767,6 +768,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   border-radius: var(--r-card); margin-bottom: 7px;
   box-shadow: var(--sh-card);
   transition: box-shadow var(--dur-fast) var(--ease);
+  width: 100%; box-sizing: border-box; min-width: 0;
 }
 .go-row:hover { box-shadow: var(--sh-card-hover); }
 .go-row[data-done="true"] .go-title { text-decoration: line-through; opacity: 0.55; }
@@ -807,6 +809,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   background: var(--bg-elevated); border-radius: var(--r-card);
   padding: 13px 14px; margin-bottom: 8px; box-shadow: var(--sh-card);
   transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+  width: 100%; box-sizing: border-box; min-width: 0;
 }
 .step-card:hover {
   box-shadow: var(--sh-card-hover), 0 2px 5px rgba(0, 0, 0, 0.04);
@@ -1263,7 +1266,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 }
 
 @media (max-width: 768px) {
-  .create-sheet { width: 100%; border-radius: 16px 16px 0 0; }
+  .create-sheet { width: 100%; border-radius: 16px 16px 0 0; max-height: calc(100dvh - 24px); }
 }
 
 .create-sheet-header {
@@ -2219,6 +2222,9 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
     margin-bottom: 18px; padding-bottom: 14px;
     border-bottom: 0.5px solid var(--line);
   }
+
+  /* Mobile Notes: unify editor background so title/tags/content share one tone */
+  .notes-editor-paper { background: transparent; color: var(--fg-primary); }
 
   /* Mobile tab bar: tighten gap */
   .mobile-tab { gap: 2px; }
