@@ -81,6 +81,7 @@ export interface Go {
   unit: string;
   target_value: number | null;
   recurrence: GoRecurrence;
+  start_date: string | null;
   due_date: string | null;
   color: string;
   entries: GoEntry[];

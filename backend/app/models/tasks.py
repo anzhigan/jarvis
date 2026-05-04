@@ -104,6 +104,7 @@ class Go(Base):
     unit: Mapped[str] = mapped_column(String(50), default="")
     target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     recurrence: Mapped[str] = mapped_column(String(20), default="none")  # none | daily | weekly
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     color: Mapped[str] = mapped_column(String(20), default="#4f46e5")
     # New: 'one_off' (real Go) | 'routine_legacy' (was migrated to Routine table)

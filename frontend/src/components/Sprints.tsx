@@ -11,11 +11,9 @@ import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
+import { ENTITY_COLORS } from './Tasks';
 
-const SPRINT_COLORS = [
-  '#4f46e5', '#7c3aed', '#ec4899', '#e11d48', '#ea580c',
-  '#d97706', '#0891b2', '#3b82f6', '#10b981', '#64748b',
-];
+const SPRINT_COLORS = ENTITY_COLORS;
 
 function todayIso(): string {
   const d = new Date();
@@ -366,69 +364,61 @@ function SprintDetail({
           </button>
         </div>
         <div className="top-bar-title">
-          {!editing ? sprint.title : (
-            <input
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              className="input w-full font-semibold text-center"
-              style={{ fontSize: 14 }}
-            />
-          )}
-          {!editing && (
-            <span className="sub">{fmtDate(sprint.start_date)} — {fmtDate(sprint.end_date)}</span>
-          )}
+          {sprint.title}
+          <span className="sub">{fmtDate(sprint.start_date)} — {fmtDate(sprint.end_date)}</span>
         </div>
         <div className="top-bar-trailing">
-          {!editing ? (
-            <>
-              <button onClick={() => setEditing(true)} className="icon-btn icon-btn-lg" title="Edit">
-                <Pencil size={15} />
-              </button>
-              <button onClick={removeSprint} className="icon-btn icon-btn-lg" style={{ color: 'var(--danger)' }} title="Delete">
-                <Trash2 size={15} />
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => { setEditing(false); setEditTitle(sprint.title); setEditDesc(sprint.description); setEditStart(sprint.start_date); setEditEnd(sprint.end_date); setEditColor(sprint.color); }}
-                className="btn btn-secondary btn-sm">{t('common.cancel')}</button>
-              <button onClick={saveEdit} disabled={saving} className="btn btn-primary btn-sm">
-                {saving && <Loader2 size={11} className="animate-spin" />}
-                {t('common.save')}
-              </button>
-            </>
-          )}
+          <button onClick={() => setEditing(true)} className="icon-btn icon-btn-lg" title="Edit">
+            <Pencil size={15} />
+          </button>
+          <button onClick={removeSprint} className="icon-btn icon-btn-lg" style={{ color: 'var(--danger)' }} title="Delete">
+            <Trash2 size={15} />
+          </button>
         </div>
       </div>
 
+      <CreateSheet
+        open={editing}
+        onClose={() => { setEditing(false); setEditTitle(sprint.title); setEditDesc(sprint.description); setEditStart(sprint.start_date); setEditEnd(sprint.end_date); setEditColor(sprint.color); }}
+        title="Edit sprint"
+        primaryLabel={t('common.save') || 'Save'}
+        canSubmit={!!editTitle.trim() && !saving}
+        onSubmit={saveEdit}
+      >
+        <FormField label="Title">
+          <input type="text" className="input w-full" value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)} autoFocus />
+        </FormField>
+        <FormField label="Description">
+          <textarea className="textarea w-full" value={editDesc}
+            onChange={(e) => setEditDesc(e.target.value)} rows={2} placeholder="Description…" />
+        </FormField>
+        <div className="form-row-2col">
+          <FormField label="Start">
+            <input type="date" className="input w-full" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
+          </FormField>
+          <FormField label="End">
+            <input type="date" className="input w-full" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
+          </FormField>
+        </div>
+        <FormField label="Color">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0' }}>
+            {SPRINT_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={(e) => { e.preventDefault(); setEditColor(c); }}
+                className="w-9 h-9 rounded-full transition-all active:scale-90"
+                style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }}
+              />
+            ))}
+          </div>
+        </FormField>
+      </CreateSheet>
+
       <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
         <div className="max-w-[1100px] mx-auto w-full">
-          {editing && (
-            <div className="panel-card" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2}
-                placeholder="Description…" className="textarea" />
-              <div className={isMobile ? 'flex flex-col gap-2' : 'grid grid-cols-2 gap-2'}>
-                <div className="min-w-0">
-                  <div className="text-label" style={{ marginBottom: 4 }}>Start</div>
-                  <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="input w-full" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-label" style={{ marginBottom: 4 }}>End</div>
-                  <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className="input w-full" />
-                </div>
-              </div>
-              <div className="flex gap-1.5 flex-wrap">
-                {SPRINT_COLORS.map((c) => (
-                  <button key={c} type="button" onClick={() => setEditColor(c)}
-                    className={`w-7 h-7 rounded-full transition-all ${editColor === c ? 'ring-2 ring-offset-1 ring-ring' : ''}`}
-                    style={{ backgroundColor: c }} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!editing && sprint.description && (
+          {sprint.description && (
             <div style={{ marginBottom: 16, padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 'var(--r-card)', fontSize: 13, whiteSpace: 'pre-wrap', color: 'var(--fg-secondary)' }}>
               {sprint.description}
             </div>
@@ -499,13 +489,32 @@ function CreateSprintForm({ open, onCreated, onCancel }: { open: boolean; onCrea
   const [start, setStart] = useState(todayIso());
   const [end, setEnd] = useState(plusDaysIso(7));
   const [color, setColor] = useState(SPRINT_COLORS[0]);
+  const [allGos, setAllGos] = useState<Go[]>([]);
+  const [selectedGoIds, setSelectedGoIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!open) { setTitle(''); setDescription(''); setStart(todayIso()); setEnd(plusDaysIso(7)); setColor(SPRINT_COLORS[0]); }
+    if (!open) {
+      setTitle(''); setDescription(''); setStart(todayIso()); setEnd(plusDaysIso(7));
+      setColor(SPRINT_COLORS[0]); setSelectedGoIds(new Set());
+    } else {
+      gosApi.list().then(setAllGos).catch(() => setAllGos([]));
+    }
   }, [open]);
 
+  const toggleGo = (id: string) => {
+    setSelectedGoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleSubmit = async () => {
-    await focusSprintsApi.create({ title: title.trim(), description: description.trim(), start_date: start, end_date: end, color });
+    const created = await focusSprintsApi.create({ title: title.trim(), description: description.trim(), start_date: start, end_date: end, color });
+    for (const goId of selectedGoIds) {
+      try { await focusSprintsApi.addItem(created.id, { item_type: 'go', go_id: goId }); } catch { /* ignore */ }
+    }
     onCancel();
     await onCreated();
   };
@@ -537,15 +546,34 @@ function CreateSprintForm({ open, onCreated, onCancel }: { open: boolean; onCrea
         </FormField>
       </div>
       <FormField label="Color">
-        <div className="flex gap-2 flex-wrap">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0' }}>
           {SPRINT_COLORS.map((c) => (
-            <button key={c} type="button" onClick={() => setColor(c)}
-              style={{ width: 24, height: 24, borderRadius: 'var(--r-pill)', backgroundColor: c,
-                boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3.5px ${c}` : 'none',
-                transition: 'all 150ms' }} />
+            <button
+              key={c}
+              type="button"
+              onClick={(e) => { e.preventDefault(); setColor(c); }}
+              className="w-9 h-9 rounded-full transition-all active:scale-90"
+              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }}
+            />
           ))}
         </div>
       </FormField>
+      {allGos.length > 0 && (
+        <FormField label="Go items">
+          <div style={{ borderRadius: 'var(--r-control)', boxShadow: '0 0 0 0.5px var(--line)', maxHeight: 220, overflowY: 'auto' }}>
+            {allGos.map((g) => {
+              const checked = selectedGoIds.has(g.id);
+              return (
+                <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', cursor: 'pointer', borderBottom: '0.5px solid var(--line)' }}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleGo(g.id)} />
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: g.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</span>
+                </label>
+              );
+            })}
+          </div>
+        </FormField>
+      )}
     </CreateSheet>
   );
 }

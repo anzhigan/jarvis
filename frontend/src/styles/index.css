@@ -1029,7 +1029,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .notes-editor-paper {
   max-width: 760px; margin: 0 auto;
   padding: 28px 56px 200px; position: relative;
-  background: var(--bg-app); color: var(--fg-primary);
+  background: var(--bg-elevated); color: var(--fg-primary);
 }
 @media (max-width: 768px) {
   .notes-editor-paper { padding: 0; }
@@ -1892,7 +1892,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .back-btn svg { width: 26px; height: 26px; stroke-width: 2; }
 
 .avatar-btn {
-  width: var(--h-xl); height: var(--h-xl);
+  width: var(--h-lg); height: var(--h-lg);
   border-radius: var(--r-pill);
   background: var(--accent-notes-bg); color: var(--accent-notes-fg);
   border: 0;
@@ -2266,8 +2266,8 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
     border-bottom: 0.5px solid var(--line);
   }
 
-  /* Mobile Notes: card background so title/tags/content have paper feel */
-  .notes-editor-paper { background: var(--bg-card); color: var(--fg-primary); border-radius: var(--r-card); }
+  /* Mobile Notes: paper-white background so title/tags/content match desktop */
+  .notes-editor-paper { background: var(--bg-elevated); color: var(--fg-primary); border-radius: var(--r-card); }
 
   /* Mobile tab bar: tighten gap */
   .mobile-tab { gap: 2px; }

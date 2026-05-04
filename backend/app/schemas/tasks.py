@@ -15,6 +15,7 @@ class GoCreate(BaseModel):
     unit: str = Field(default="", max_length=50)
     target_value: float | None = None
     recurrence: str = Field(default="none")
+    start_date: date | None = None
     due_date: date | None = None
     color: str = Field(default="#4f46e5", max_length=20)
     task_id: uuid.UUID | None = None
@@ -28,6 +29,7 @@ class GoUpdate(BaseModel):
     unit: str | None = None
     target_value: float | None = None
     recurrence: str | None = None
+    start_date: date | None = None
     due_date: date | None = None
     color: str | None = None
     task_id: uuid.UUID | None = None
@@ -59,6 +61,7 @@ class GoOut(BaseModel):
     unit: str
     target_value: float | None
     recurrence: str
+    start_date: date | None = None
     due_date: date | None
     color: str
     entries: list[GoEntryOut] = []

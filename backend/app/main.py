@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine
 from app.models import *  # noqa: F401, F403
-from app.routers import ai, auth, focus_sprints, notes, routines, tags, tasks
+from app.routers import auth, focus_sprints, notes, routines, tags, tasks
 from app.services.s3 import ensure_bucket_exists
 
 
@@ -43,7 +43,6 @@ app.include_router(tags.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(routines.router, prefix="/api")
 app.include_router(focus_sprints.router, prefix="/api")
-app.include_router(ai.router, prefix="/api")
 
 
 @app.get("/health")

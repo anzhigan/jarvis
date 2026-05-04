@@ -11,7 +11,6 @@ export const translations: Record<Lang, Record<string, string>> = {
     'nav.tasks': 'Goals',
     'nav.routines': 'Routines',
     'nav.sprints': 'Sprints',
-    'nav.tutor': 'Tutor',
     'nav.analysis': 'Analysis',
     'nav.profile': 'Profile',
 
@@ -217,7 +216,6 @@ export const translations: Record<Lang, Record<string, string>> = {
     'nav.tasks': 'Цели',
     'nav.routines': 'Привычки',
     'nav.sprints': 'Спринты',
-    'nav.tutor': 'Репетитор',
     'nav.analysis': 'Анализ',
     'nav.profile': 'Профиль',
 

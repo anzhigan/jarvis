@@ -215,6 +215,7 @@ def _go_dict(g: Go, task_title: str | None = None, sprint_title: str | None = No
         "unit": g.unit,
         "target_value": g.target_value,
         "recurrence": g.recurrence,
+        "start_date": g.start_date,
         "due_date": g.due_date,
         "color": g.color,
         "entries": [
@@ -424,7 +425,8 @@ async def create_go(body: GoCreate, user: User = Depends(get_current_user), db: 
         task_id=task.id if task else None,
         sprint_id=sprint.id if sprint else None,
         title=body.title, kind=body.kind, unit=body.unit, target_value=body.target_value,
-        recurrence=body.recurrence, due_date=body.due_date, color=body.color,
+        recurrence=body.recurrence, start_date=body.start_date, due_date=body.due_date,
+        color=body.color,
     )
     db.add(g)
     await db.flush()

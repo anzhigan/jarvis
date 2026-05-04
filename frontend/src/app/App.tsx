@@ -11,13 +11,12 @@ import Sprints from '../components/Sprints';
 import Dashboard from '../components/Metrics';
 import Profile from '../components/Profile';
 import AuthPage from '../components/AuthPage';
-import AITutorPage from '../components/AITutorPage';
 import MobileDrawer from '../components/MobileDrawer';
 import { resolveUrl } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import { useT } from '../store/i18n';
 
-type Tab = 'notes' | 'tasks' | 'routines' | 'sprints' | 'tutor' | 'analysis' | 'profile';
+type Tab = 'notes' | 'tasks' | 'routines' | 'sprints' | 'analysis' | 'profile';
 
 const TABS: { key: Tab; labelKey: string; icon: React.ElementType; acc: string }[] = [
   { key: 'notes',    labelKey: 'nav.notes',    icon: BookOpen,  acc: 'notes' },
@@ -172,7 +171,6 @@ export default function App() {
             <div className="app-page" data-visible={tab === 'tasks'}><Tasks /></div>
             <div className="app-page" data-visible={tab === 'routines'}><Routines /></div>
             <div className="app-page" data-visible={tab === 'sprints'}><Sprints /></div>
-            <div className="app-page" data-visible={tab === 'tutor'}><AITutorPage /></div>
             <div className="app-page" data-visible={tab === 'analysis'}><Dashboard /></div>
             <div className="app-page" data-visible={tab === 'profile'}><Profile /></div>
           </main>

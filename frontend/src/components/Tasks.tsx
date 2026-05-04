@@ -100,6 +100,121 @@ function formatDate(iso: string | null): string | null {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// DeferredTagPicker — same visuals as TagSelector but works on local state
+// (used in Add Goal form, before the goal entity exists)
+// ═══════════════════════════════════════════════════════════════════════════
+const TAG_PALETTE = [
+  '#4f46e5', '#e11d48', '#ea580c', '#d97706',
+  '#65a30d', '#059669', '#0891b2', '#7c3aed',
+];
+
+function DeferredTagPicker({ allTags, selectedIds, onChange, onCreateTag }: {
+  allTags: { id: string; name: string; color: string }[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  onCreateTag: (name: string, color: string) => Promise<{ id: string; name: string; color: string }>;
+}) {
+  const [newOpen, setNewOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState(TAG_PALETTE[0]);
+  const [creating, setCreating] = useState(false);
+  const selectedSet = new Set(selectedIds);
+
+  const toggle = (id: string) => {
+    if (selectedSet.has(id)) onChange(selectedIds.filter((x) => x !== id));
+    else onChange([...selectedIds, id]);
+  };
+
+  const create = async () => {
+    const name = newName.trim();
+    if (!name || creating) return;
+    setCreating(true);
+    try {
+      const created = await onCreateTag(name, newColor);
+      onChange([...selectedIds, created.id]);
+      setNewName(''); setNewColor(TAG_PALETTE[0]); setNewOpen(false);
+    } finally { setCreating(false); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {allTags.map((tag) => {
+          const sel = selectedSet.has(tag.id);
+          return (
+            <button
+              key={tag.id}
+              type="button"
+              onClick={() => toggle(tag.id)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, padding: '0 12px',
+                borderRadius: 999, fontSize: 13, fontWeight: 500,
+                color: sel ? 'white' : tag.color,
+                backgroundColor: sel ? tag.color : `${tag.color}15`,
+                border: `1px solid ${tag.color}${sel ? '' : '40'}`,
+                cursor: 'pointer',
+              }}
+            >
+              {sel && <Check size={11} />}
+              {tag.name}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setNewOpen((v) => !v)}
+          className="inline-flex items-center gap-1 h-8 px-3 rounded-full text-xs font-medium border border-dashed text-muted-foreground"
+          style={{ borderColor: 'var(--line-strong)' }}
+        >
+          <Plus size={11} /> New tag
+        </button>
+      </div>
+      {newOpen && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 10, borderRadius: 'var(--r-card)', background: 'var(--bg-hover)' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Tag name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && create()}
+              className="input"
+              style={{ flex: 1 }}
+              maxLength={50}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={create}
+              disabled={!newName.trim() || creating}
+              className="btn btn-primary"
+              style={{ flexShrink: 0 }}
+            >
+              {creating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={14} />}
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {TAG_PALETTE.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setNewColor(c)}
+                style={{
+                  width: 28, height: 28, borderRadius: 999, backgroundColor: c,
+                  border: newColor === c ? '3px solid var(--fg-primary)' : '2px solid transparent',
+                  outline: newColor === c ? '2px solid var(--bg-card)' : 'none',
+                  outlineOffset: -4, cursor: 'pointer',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // GoRow — single Go with stripe + checkbox/numeric + edit
 // ═══════════════════════════════════════════════════════════════════════════
 function GoRow({ go, availableSprints, onReload, onLocalUpdate, showMeta = false }: {
@@ -314,6 +429,7 @@ function EditGoSheet({ go, availableSprints, onClose, onSaved }: {
   const [editTitle, setEditTitle] = useState(go.title);
   const [editDescription, setEditDescription] = useState(go.description ?? '');
   const [editSprintId, setEditSprintId] = useState<string>(go.sprint_id ?? '');
+  const [editStart, setEditStart] = useState(go.start_date ?? '');
   const [editDue, setEditDue] = useState(go.due_date ?? '');
   const [editColor, setEditColor] = useState(go.color);
 
@@ -324,6 +440,7 @@ function EditGoSheet({ go, availableSprints, onClose, onSaved }: {
       title: editTitle.trim() || go.title,
       description: editDescription,
       sprint_id: editSprintId || null,
+      start_date: editStart || null,
       due_date: editDue || null,
       color: editColor,
     } as any);
@@ -354,9 +471,14 @@ function EditGoSheet({ go, availableSprints, onClose, onSaved }: {
         </FormField>
       )}
       {go.recurrence === 'none' && (
-        <FormField label="Due date">
-          <input type="date" className="input w-full" value={editDue} onChange={(e) => setEditDue(e.target.value)} />
-        </FormField>
+        <div className="form-row-2col">
+          <FormField label="Start date">
+            <input type="date" className="input w-full" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
+          </FormField>
+          <FormField label="Due date">
+            <input type="date" className="input w-full" value={editDue} onChange={(e) => setEditDue(e.target.value)} />
+          </FormField>
+        </div>
       )}
       <FormField label="Color">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0' }}>
@@ -655,7 +777,7 @@ function CreateGoForm({
   tasks?: Task[];
   onCreate: (data: {
     title: string; description: string; kind: GoKind; unit: string; target_value: number | null;
-    recurrence: GoRecurrence; due_date: string | null; color: string;
+    recurrence: GoRecurrence; start_date: string | null; due_date: string | null; color: string;
     task_id: string | null; sprint_id: string | null;
   }) => Promise<void>;
   onCancel: () => void;
@@ -667,6 +789,7 @@ function CreateGoForm({
   const [unit, setUnit] = useState('');
   const [target, setTarget] = useState('');
   const [recurrence] = useState<GoRecurrence>('none');
+  const [start, setStart] = useState('');
   const [due, setDue] = useState('');
   const [color, setColor] = useState(GO_COLORS[0]);
   const [sprintId, setSprintId] = useState<string>(defaultSprintId ?? '');
@@ -675,7 +798,7 @@ function CreateGoForm({
   useEffect(() => {
     if (!open) {
       setTitle(''); setDescription(''); setKind('boolean');
-      setUnit(''); setTarget(''); setDue(''); setColor(GO_COLORS[0]);
+      setUnit(''); setTarget(''); setStart(''); setDue(''); setColor(GO_COLORS[0]);
       setSprintId(defaultSprintId ?? ''); setSelectedTaskId(defaultTaskId ?? '');
     }
   }, [open, defaultSprintId, defaultTaskId]);
@@ -689,7 +812,7 @@ function CreateGoForm({
     await onCreate({
       title: title.trim(), description: description.trim(), kind, unit: unit.trim(),
       target_value: target ? parseFloat(target) : null,
-      recurrence, due_date: due || null, color,
+      recurrence, start_date: start || null, due_date: due || null, color,
       task_id: effectiveTaskId || null,
       sprint_id: sprintId || null,
     });
@@ -737,9 +860,14 @@ function CreateGoForm({
           </FormField>
         </div>
       )}
-      <FormField label="Due date">
-        <input type="date" className="input w-full" value={due} onChange={(e) => setDue(e.target.value)} />
-      </FormField>
+      <div className="form-row-2col">
+        <FormField label="Start date">
+          <input type="date" className="input w-full" value={start} onChange={(e) => setStart(e.target.value)} />
+        </FormField>
+        <FormField label="Due date">
+          <input type="date" className="input w-full" value={due} onChange={(e) => setDue(e.target.value)} />
+        </FormField>
+      </div>
       {derivedSprints.length > 0 && !defaultSprintId && (
         <FormField label="Sprint">
           <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="select-base">
@@ -2428,33 +2556,16 @@ export default function Tasks() {
                   </div>
                 </FormField>
                 <FormField label="Tags">
-                  <div className="flex flex-wrap gap-1.5 items-center">
-                    {allTags.map((tag) => {
-                      const sel = newTagIds.includes(tag.id);
-                      return (
-                        <button key={tag.id} type="button"
-                          onClick={() => setNewTagIds((s) => sel ? s.filter((id) => id !== tag.id) : [...s, tag.id])}
-                          className="tag"
-                          style={sel ? { backgroundColor: tag.color, color: '#fff', boxShadow: 'none' } : undefined}>
-                          {!sel && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />}
-                          {tag.name}
-                        </button>
-                      );
-                    })}
-                    <button type="button"
-                      onClick={async () => {
-                        const name = prompt('Tag name?');
-                        if (!name?.trim()) return;
-                        try {
-                          const created = await tagsApi.create(name.trim(), STANDARD_COLORS[allTags.length % STANDARD_COLORS.length]);
-                          setAllTags([...allTags, created]);
-                          setNewTagIds([...newTagIds, created.id]);
-                        } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-                      }}
-                      className="tag" style={{ borderStyle: 'dashed', color: 'var(--fg-muted)' }}>
-                      <Plus size={11} /> {allTags.length === 0 ? 'Add first tag' : 'New tag'}
-                    </button>
-                  </div>
+                  <DeferredTagPicker
+                    allTags={allTags}
+                    selectedIds={newTagIds}
+                    onChange={setNewTagIds}
+                    onCreateTag={async (name, color) => {
+                      const created = await tagsApi.create(name, color);
+                      setAllTags([...allTags, created]);
+                      return created;
+                    }}
+                  />
                 </FormField>
                 <div className="form-row-2col">
                   <FormField label={t('tasks.start')}>
