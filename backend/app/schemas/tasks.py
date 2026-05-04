@@ -121,6 +121,7 @@ class TaskCreate(BaseModel):
     start_date: date | None = None
     due_date: date | None = None
     order: int = 0
+    color: str = "#5B5BD6"
 
 
 class TaskUpdate(BaseModel):
@@ -132,6 +133,7 @@ class TaskUpdate(BaseModel):
     due_date: date | None = None
     is_completed: bool | None = None
     order: int | None = None
+    color: str | None = None
 
 
 class TaskOut(BaseModel):
@@ -144,6 +146,7 @@ class TaskOut(BaseModel):
     due_date: date | None
     is_completed: bool
     order: int
+    color: str = "#5B5BD6"
     sprints: list[SprintOut] = []
     gos: list[GoOut] = []
     tags: list[TagOut] = []

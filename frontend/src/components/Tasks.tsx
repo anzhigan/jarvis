@@ -749,11 +749,11 @@ function CreateGoForm({
         </FormField>
       )}
       <FormField label="Color">
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap" style={{ padding: '2px 0' }}>
           {GO_COLORS.map((c) => (
             <button key={c} type="button" onClick={(e) => { e.preventDefault(); setColor(c); }}
-              className="w-6 h-6 rounded-full transition-all"
-              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3px ${c}` : 'none' }} />
+              className="w-9 h-9 rounded-full transition-all active:scale-90"
+              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }} />
           ))}
         </div>
       </FormField>
@@ -858,11 +858,11 @@ function CreateSprintForm({
         </FormField>
       )}
       <FormField label="Color">
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap" style={{ padding: '2px 0' }}>
           {ENTITY_COLORS.map((c) => (
             <button key={c} type="button" onClick={(e) => { e.preventDefault(); setColor(c); }}
-              className="w-6 h-6 rounded-full transition-all active:scale-90"
-              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-elevated), 0 0 0 3px ${c}` : 'none' }} />
+              className="w-9 h-9 rounded-full transition-all active:scale-90"
+              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }} />
           ))}
         </div>
       </FormField>
@@ -1107,6 +1107,7 @@ function EditTaskSheet({ task, onClose, onSaved }: {
   const [editStart, setEditStart] = useState(task.start_date ?? '');
   const [editDue, setEditDue] = useState(task.due_date ?? '');
   const [editDescription, setEditDescription] = useState(task.description ?? '');
+  const [editColor, setEditColor] = useState(task.color ?? ENTITY_COLORS[0]);
 
   const canSave = editTitle.trim().length > 0;
 
@@ -1117,6 +1118,7 @@ function EditTaskSheet({ task, onClose, onSaved }: {
       start_date: editStart || null,
       due_date: editDue || null,
       description: editDescription,
+      color: editColor,
     });
   };
 
@@ -1138,6 +1140,15 @@ function EditTaskSheet({ task, onClose, onSaved }: {
           <option value="medium">Medium</option>
           <option value="high">High</option>
         </select>
+      </FormField>
+      <FormField label="Color">
+        <div className="flex gap-2 flex-wrap" style={{ padding: '2px 0' }}>
+          {ENTITY_COLORS.map((c) => (
+            <button key={c} type="button" onClick={(e) => { e.preventDefault(); setEditColor(c); }}
+              className="w-9 h-9 rounded-full transition-all active:scale-90"
+              style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }} />
+          ))}
+        </div>
       </FormField>
       <div style={{ display: 'flex', gap: 10 }}>
         <FormField label={t('tasks.start') || 'Start'}>
@@ -1584,8 +1595,24 @@ function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { sprint: Sprint; 
   const [description, setDescription] = useState(sprint.description ?? '');
   const [color, setColor] = useState(sprint.color);
   const [selectedTaskId, setSelectedTaskId] = useState(sprint.task_id ?? '');
+  // Go management — track which go IDs should be attached after save
+  const [goAttachIds, setGoAttachIds] = useState<Set<string>>(
+    new Set(sprint.gos.map((g) => g.id))
+  );
 
   const canSave = title.trim().length > 0;
+
+  // All gos from the currently selected task
+  const taskForGos = tasks?.find((tk) => tk.id === (selectedTaskId || (sprint.task_id ?? '')));
+  const allTaskGos = taskForGos?.gos ?? sprint.gos;
+
+  const toggleGoAttach = (goId: string) => {
+    setGoAttachIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(goId)) next.delete(goId); else next.add(goId);
+      return next;
+    });
+  };
 
   const handleSave = async () => {
     const payload: Parameters<typeof sprintsApi.update>[1] = {
@@ -1599,6 +1626,12 @@ function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { sprint: Sprint; 
       payload.task_id = selectedTaskId || null;
     }
     await sprintsApi.update(sprint.id, payload);
+    // Apply go attach/detach changes
+    const originalIds = new Set(sprint.gos.map((g) => g.id));
+    await Promise.all([
+      ...[...originalIds].filter((id) => !goAttachIds.has(id)).map((id) => sprintsApi.detachGo(sprint.id, id)),
+      ...[...goAttachIds].filter((id) => !originalIds.has(id)).map((id) => sprintsApi.attachGo(sprint.id, id)),
+    ]);
     await onSaved();
   };
 
@@ -1639,19 +1672,11 @@ function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { sprint: Sprint; 
         </FormField>
       </div>
       <FormField label="Color">
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 0' }}>
+        <div className="flex gap-2 flex-wrap" style={{ padding: '2px 0' }}>
           {ENTITY_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setColor(c)}
-              style={{
-                width: 28, height: 28, borderRadius: '50%', backgroundColor: c,
-                border: color === c ? `3px solid var(--fg-primary)` : '2px solid transparent',
-                outline: color === c ? '2px solid var(--bg-card)' : 'none',
-                outlineOffset: -4,
-              }}
-            />
+            <button key={c} type="button" onClick={() => setColor(c)}
+              className="w-9 h-9 rounded-full transition-all active:scale-90"
+              style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }} />
           ))}
         </div>
       </FormField>
@@ -1664,16 +1689,32 @@ function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { sprint: Sprint; 
           rows={3}
         />
       </FormField>
-      <div style={{ padding: '4px 0' }}>
-        <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginBottom: 4 }}>Progress</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div className="step-card-bar" style={{ flex: 1 }}>
-            <div className="step-card-bar-fill" style={{ width: `${sprint.progress}%`, backgroundColor: color || 'var(--success)' }} />
+      {allTaskGos.length > 0 && (
+        <FormField label="Go items">
+          <div style={{ borderRadius: 'var(--r-control)', boxShadow: '0 0 0 0.5px var(--line)' }}>
+            {allTaskGos.map((g) => {
+              const checked = goAttachIds.has(g.id);
+              return (
+                <label key={g.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px', cursor: 'pointer',
+                  boxShadow: 'inset 0 0.5px 0 var(--line-faint)',
+                  background: checked ? 'color-mix(in srgb, var(--success) 6%, transparent)' : 'transparent',
+                }}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleGoAttach(g.id)}
+                    style={{ width: 16, height: 16, accentColor: 'var(--success)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, flex: 1, color: checked ? 'var(--fg-primary)' : 'var(--fg-secondary)', textDecoration: checked ? 'none' : undefined }}>
+                    {g.title}
+                  </span>
+                  {g.sprint_id && g.sprint_id !== sprint.id && (
+                    <span style={{ fontSize: 10, color: 'var(--fg-muted)' }}>other sprint</span>
+                  )}
+                </label>
+              );
+            })}
           </div>
-          <span style={{ fontSize: 12, color: 'var(--fg-muted)', fontVariantNumeric: 'tabular-nums', minWidth: 32 }}>{sprint.progress}%</span>
-        </div>
-        <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 4 }}>Progress updates automatically as Gos are completed.</div>
-      </div>
+        </FormField>
+      )}
     </CreateSheet>
   );
 }
@@ -1692,6 +1733,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
   const [adding, setAdding] = useState(false);
   const [editingStep, setEditingStep] = useState<Sprint | null>(null);
   const [expandedGos, setExpandedGos] = useState<Set<string>>(new Set());
+  const [busyGos, setBusyGos] = useState<Set<string>>(new Set());
 
   const load = async () => {
     setLoading(true);
@@ -1802,20 +1844,39 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
       ? `starts in ${daysUntilStart}d`
       : daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? 'due today' : `${Math.abs(daysLeft)}d overdue`;
 
+    const today = todayIso();
+    const toggleGoInCard = async (g: Go) => {
+      if (busyGos.has(g.id)) return;
+      setBusyGos((prev) => { const n = new Set(prev); n.add(g.id); return n; });
+      try {
+        const todayVal = g.entries.find((e) => e.date === today)?.value ?? 0;
+        const newVal = todayVal > 0 ? 0 : 1;
+        await gosApi.upsertEntry(g.id, today, newVal);
+        const otherEntries = g.entries.filter((e) => e.date !== today);
+        const newEntries = newVal === 0 ? otherEntries : [...otherEntries, { id: `tmp`, go_id: g.id, date: today, value: newVal }];
+        patchGoInSprint({ ...g, entries: newEntries, total_value: newEntries.reduce((s, e) => s + e.value, 0) });
+      } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+      finally { setBusyGos((prev) => { const n = new Set(prev); n.delete(g.id); return n; }); }
+    };
+
     const cardContent = (
-      <button
-        key={s.id}
+      <div
         className="step-card"
-        style={{ width: '100%', textAlign: 'left', opacity: isFuture ? 0.85 : 1 }}
-        onClick={() => setEditingStep(s)}
+        style={{ opacity: isFuture ? 0.85 : 1 }}
       >
-        <div className="step-card-head">
-          <span className="step-card-tag" style={{ background: tagBg, color: tagFg }}>
-            {s.task_title || 'Standalone'}
-          </span>
-          <span className="step-card-dates">{dateRange} · {daysInfo}</span>
-        </div>
-        <div className="step-card-title">{s.title}</div>
+        <button
+          className="step-card-click-target"
+          style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
+          onClick={() => setEditingStep(s)}
+        >
+          <div className="step-card-head">
+            <span className="step-card-tag" style={{ background: tagBg, color: tagFg }}>
+              {s.task_title || 'Standalone'}
+            </span>
+            <span className="step-card-dates">{dateRange} · {daysInfo}</span>
+          </div>
+          <div className="step-card-title">{s.title}</div>
+        </button>
         {!isFuture && (
           <>
             <div className="step-card-progress">
@@ -1833,28 +1894,43 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
                       data-state={g.entries.some((e) => e.value > 0) ? "done" : "pending"} />
                   ))}
                 </div>
-                <div
+                <button
                   className="step-card-go-toggle"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpandedGos((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(s.id)) next.delete(s.id);
-                      else next.add(s.id);
-                      return next;
-                    });
-                  }}
+                  style={{ width: '100%', background: 'none', border: 0 }}
+                  onClick={() => setExpandedGos((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(s.id)) next.delete(s.id);
+                    else next.add(s.id);
+                    return next;
+                  })}
                 >
                   <span>{doneGos}/{s.gos.length} items</span>
                   <ChevronDown size={12} style={{ transition: 'transform 150ms', transform: expandedGos.has(s.id) ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-                </div>
+                </button>
                 {expandedGos.has(s.id) && (
                   <div className="step-card-go-list">
                     {s.gos.map((g) => {
-                      const done = g.entries.some((e) => e.value > 0);
+                      const todayVal = g.entries.find((e) => e.date === today)?.value ?? 0;
+                      const done = g.kind === 'boolean' && g.recurrence === 'none'
+                        ? g.entries.some((e) => e.value > 0)
+                        : todayVal > 0;
+                      const isBusy = busyGos.has(g.id);
                       return (
                         <div key={g.id} className="step-card-go-item" data-done={done ? 'true' : undefined}>
-                          <span className="step-card-go-check">{done ? '✓' : '·'}</span>
+                          <button
+                            className="step-card-go-btn"
+                            data-state={done ? 'done' : 'outline'}
+                            disabled={isBusy}
+                            onClick={() => toggleGoInCard(g)}
+                          >
+                            {isBusy ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : done ? (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            ) : null}
+                          </button>
                           <span className="step-card-go-name">{g.title}</span>
                         </div>
                       );
@@ -1868,7 +1944,7 @@ function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promi
         {isFuture && (
           <div className="step-card-meta">Will plan Gos when this starts</div>
         )}
-      </button>
+      </div>
     );
 
     return (
@@ -2042,6 +2118,7 @@ export default function Tasks() {
   const [newDue, setNewDue] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newTagIds, setNewTagIds] = useState<string[]>([]);
+  const [newColor, setNewColor] = useState(ENTITY_COLORS[0]);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -2097,12 +2174,12 @@ export default function Tasks() {
     const created = await tasksApi.create({
       title: newTitle.trim(), priority: newPriority,
       start_date: newStart || null, due_date: newDue || null,
-      description: newDescription || '',
-    } as any);
+      description: newDescription || '', color: newColor,
+    });
     for (const tagId of newTagIds) {
       try { await tagsApi.attachTag(created.id, tagId); } catch { /* ignore individual */ }
     }
-    setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription(''); setNewTagIds([]);
+    setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription(''); setNewTagIds([]); setNewColor(ENTITY_COLORS[0]);
     setShowCreateForm(false);
     await load();
   };
@@ -2318,7 +2395,7 @@ export default function Tasks() {
               <AddItemButton label={t('tasks.addTask')} onClick={() => setShowCreateForm(true)} />
               <CreateSheet
                 open={showCreateForm}
-                onClose={() => { setShowCreateForm(false); setNewTitle(''); setNewDescription(''); setNewStart(''); setNewDue(''); setNewTagIds([]); }}
+                onClose={() => { setShowCreateForm(false); setNewTitle(''); setNewDescription(''); setNewStart(''); setNewDue(''); setNewTagIds([]); setNewColor(ENTITY_COLORS[0]); }}
                 title={t('tasks.addTask')}
                 primaryLabel="Create goal"
                 canSubmit={!!newTitle.trim()}
@@ -2340,6 +2417,15 @@ export default function Tasks() {
                   <textarea className="textarea w-full" value={newDescription}
                     onChange={(e) => setNewDescription(e.target.value)}
                     placeholder={t('tasks.descriptionPh')} rows={2} />
+                </FormField>
+                <FormField label="Color">
+                  <div className="flex gap-2 flex-wrap" style={{ padding: '2px 0' }}>
+                    {ENTITY_COLORS.map((c) => (
+                      <button key={c} type="button" onClick={(e) => { e.preventDefault(); setNewColor(c); }}
+                        className="w-9 h-9 rounded-full transition-all active:scale-90"
+                        style={{ backgroundColor: c, boxShadow: newColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }} />
+                    ))}
+                  </div>
                 </FormField>
                 <FormField label="Tags">
                   <div className="flex flex-wrap gap-1.5 items-center">

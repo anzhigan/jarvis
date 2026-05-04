@@ -41,6 +41,7 @@
   --h-sm: 28px;
   --h-md: 32px;
   --h-lg: 40px;
+  --h-xl: 48px;
 
   --bg-app:      #E6E3D9;
   --bg-shell:    #F0EDE5;
@@ -842,16 +843,33 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   cursor: pointer; user-select: none;
 }
 .step-card-go-toggle:hover { color: var(--fg-secondary); }
-.step-card-go-list { margin-top: 4px; display: flex; flex-direction: column; gap: 5px; padding-bottom: 2px; }
+.step-card-go-list { margin-top: 4px; display: flex; flex-direction: column; gap: 2px; padding-bottom: 2px; }
 .step-card-go-item {
   display: flex; align-items: center; gap: 8px;
   font-size: var(--text-sm); color: var(--fg-secondary);
+  padding: 4px 0;
 }
 .step-card-go-item[data-done="true"] .step-card-go-name {
   text-decoration: line-through; opacity: 0.55;
 }
-.step-card-go-check { font-size: 13px; color: var(--success); flex-shrink: 0; }
-.step-card-go-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-card-go-btn {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: 50%; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background var(--dur-fast), transform var(--dur-fast);
+}
+.step-card-go-btn[data-state="outline"] {
+  background: transparent;
+  box-shadow: 0 0 0 1.5px var(--line-strong);
+  color: transparent;
+}
+.step-card-go-btn[data-state="done"] {
+  background: var(--success);
+  box-shadow: none;
+  color: #fff;
+}
+.step-card-go-btn:active { transform: scale(0.9); }
+.step-card-go-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SPRINTS
@@ -1468,7 +1486,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 /* Big title row — root screen header (Notes / Goals / Routines / etc.) */
 .big-title-row {
   padding: 6px 20px 18px;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px;
 }
 .big-title {
@@ -1835,7 +1853,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 }
 .navbar.large .row {
   display: flex; align-items: center; gap: 4px;
-  min-height: var(--h-md);
+  min-height: var(--h-xl);
 }
 .navbar.large .row .right-actions { margin-left: auto; }
 .navbar.large .big-title {
@@ -1864,22 +1882,22 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .navbar .right-actions { display: flex; gap: 2px; flex-shrink: 0; }
 
 .back-btn {
-  width: var(--h-lg); height: var(--h-lg);
+  width: var(--h-xl); height: var(--h-xl);
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--r-control); background: transparent; border: 0;
   color: var(--fg-secondary); flex-shrink: 0;
   position: relative;
 }
 .back-btn:active { background: var(--bg-hover); color: var(--fg-primary); }
-.back-btn svg { width: 22px; height: 22px; stroke-width: 2; }
+.back-btn svg { width: 26px; height: 26px; stroke-width: 2; }
 
 .avatar-btn {
-  width: var(--h-lg); height: var(--h-lg);
+  width: var(--h-xl); height: var(--h-xl);
   border-radius: var(--r-pill);
   background: var(--accent-notes-bg); color: var(--accent-notes-fg);
   border: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: var(--text-sm); font-weight: 600;
+  font-size: var(--text-base); font-weight: 600;
   flex-shrink: 0; overflow: hidden;
 }
 .avatar-btn img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
@@ -2220,9 +2238,9 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   .step-card-title { font-size: 14px; }
   .step-card-meta, .step-card-dates { font-size: 11.5px; }
   .step-card-go-toggle { min-height: 44px; padding: 10px 0; font-size: 13px; font-weight: 500; }
-  .step-card-go-item { padding: 8px 0; gap: 10px; }
-  .step-card-go-check { font-size: 16px; }
-  .step-card-go-name { font-size: 13px; white-space: normal; }
+  .step-card-go-item { padding: 10px 0; gap: 12px; }
+  .step-card-go-btn { width: 32px; height: 32px; }
+  .step-card-go-name { font-size: 14px; white-space: normal; }
 
   /* CreateSheet footer — bigger touch targets */
   .create-sheet-footer-row .btn { height: var(--h-lg); padding: 0 20px; font-size: var(--text-base); }
@@ -2248,8 +2266,8 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
     border-bottom: 0.5px solid var(--line);
   }
 
-  /* Mobile Notes: unify editor background so title/tags/content share one tone */
-  .notes-editor-paper { background: transparent; color: var(--fg-primary); }
+  /* Mobile Notes: card background so title/tags/content have paper feel */
+  .notes-editor-paper { background: var(--bg-card); color: var(--fg-primary); border-radius: var(--r-card); }
 
   /* Mobile tab bar: tighten gap */
   .mobile-tab { gap: 2px; }

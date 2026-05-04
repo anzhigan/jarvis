@@ -118,6 +118,7 @@ export interface Task {
   due_date: string | null;
   is_completed: boolean;
   order: number;
+  color: string;
   sprints: Sprint[];
   gos: Go[];
   tags: Tag[];
