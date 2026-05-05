@@ -526,21 +526,24 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
     }
   };
 
-  if (!editor) return null;
-
-  // Centralised dialog opener helpers — passed into <EditorToolbar />.
-  const openLink = () => {
+  // Stable callbacks so the memoised <EditorToolbar /> doesn't re-render
+  // on every parent state change.
+  const openLink = useCallback(() => {
+    if (!editor) return;
     const prev = editor.getAttributes('link').href as string | undefined;
     setDialogExtra({ prevUrl: prev });
     setDialog('link');
-  };
-  const openTable = () => {
+  }, [editor]);
+  const openTable = useCallback(() => {
+    if (!editor) return;
     if (editor.isActive('table')) editor.chain().focus().deleteTable().run();
     else setDialog('table');
-  };
-  const openMath = () => setDialog('math');
-  const openImage = () => fileInputRef.current?.click();
-  const dismissKeyboard = () => editor.commands.blur();
+  }, [editor]);
+  const openMath = useCallback(() => setDialog('math'), []);
+  const openImage = useCallback(() => fileInputRef.current?.click(), []);
+  const dismissKeyboard = useCallback(() => editor?.commands.blur(), [editor]);
+
+  if (!editor) return null;
 
   return (
     <>
@@ -603,7 +606,7 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
       onCancel={() => setDialog(null)}
     />
 
-    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
 
     {!isMobile && (
       <EditorToolbar

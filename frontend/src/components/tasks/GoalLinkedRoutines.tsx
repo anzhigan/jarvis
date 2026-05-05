@@ -61,36 +61,70 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
             const r = link.routine;
             const { done, total, pct } = computeConsistency(link);
             return (
-              <div key={link.id} className={`routine-link-card ${r.is_paused ? 'opacity-60' : ''}`}>
-                <div className="routine-link-row">
-                  <span className="routine-link-stripe" style={{ backgroundColor: r.color }} />
-                  <span className="routine-link-title">{r.title}</span>
-                  <span className="routine-link-meta">{done}/{total}</span>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!confirm(`Unlink "${r.title}" from this goal?`)) return;
-                      try { await routinesApi.deleteLink(link.id); await loadLinks(); }
-                      catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+              <div
+                key={link.id}
+                className="routine-row"
+                style={{ position: 'relative', opacity: r.is_paused ? 0.6 : 1 }}
+              >
+                <div
+                  style={{
+                    position: 'absolute', left: 0, top: 0, bottom: 0,
+                    width: 4, background: r.color,
+                    borderRadius: 'var(--r-card) 0 0 var(--r-card)',
+                    opacity: r.is_paused ? 0.35 : 0.9,
+                  }}
+                />
+                <div className="routine-info">
+                  <div className="routine-title">{r.title}</div>
+                  <div className="routine-sub">
+                    {done}/{total} · {pct}%
+                    {r.is_paused && <> · paused</>}
+                  </div>
+                  <div
+                    style={{
+                      height: 4, marginTop: 6,
+                      background: 'var(--bg-hover)',
+                      borderRadius: 'var(--r-pill)', overflow: 'hidden',
                     }}
-                    aria-label="Unlink routine"
-                    className="icon-btn icon-btn-sm"
-                    title="Unlink"
                   >
-                    <X size={11} />
-                  </button>
+                    <div style={{ width: `${pct}%`, height: '100%', background: r.color }} />
+                  </div>
                 </div>
-                <div className="routine-link-progress">
-                  <div className="routine-link-progress-fill" style={{ width: `${pct}%`, backgroundColor: r.color }} />
-                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm(`Unlink "${r.title}" from this goal?`)) return;
+                    try { await routinesApi.deleteLink(link.id); await loadLinks(); }
+                    catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+                  }}
+                  aria-label="Unlink routine"
+                  className="icon-btn icon-btn-sm"
+                  title="Unlink"
+                >
+                  <X size={13} />
+                </button>
               </div>
             );
           }) : linkedRoutines.map((r) => (
-            <div key={r.id} className={`routine-link-card ${r.is_paused ? 'opacity-60' : ''}`} style={{ padding: '8px 12px' }}>
-              <div className="routine-link-row">
-                <span className="routine-link-stripe" style={{ backgroundColor: r.color }} />
-                <span className="routine-link-title">{r.title}</span>
-                <span className="routine-link-meta" style={{ textTransform: 'capitalize' }}>{r.schedule_type.replace('_', ' ')}</span>
+            <div
+              key={r.id}
+              className="routine-row"
+              style={{ position: 'relative', opacity: r.is_paused ? 0.6 : 1 }}
+            >
+              <div
+                style={{
+                  position: 'absolute', left: 0, top: 0, bottom: 0,
+                  width: 4, background: r.color,
+                  borderRadius: 'var(--r-card) 0 0 var(--r-card)',
+                  opacity: r.is_paused ? 0.35 : 0.9,
+                }}
+              />
+              <div className="routine-info">
+                <div className="routine-title">{r.title}</div>
+                <div className="routine-sub" style={{ textTransform: 'capitalize' }}>
+                  {r.schedule_type.replace('_', ' ')}
+                  {r.is_paused && <> · paused</>}
+                </div>
               </div>
             </div>
           ))}

@@ -1084,10 +1084,12 @@ function MobileHierarchy({
               <div className="big-title-sub">{ways.length} way{ways.length !== 1 ? 's' : ''}</div>
             </div>
             {user && (
-              <button onClick={handleAvatarTap} className="avatar-btn">
-                {user.avatar_url
-                  ? <img src={resolveUrl(user.avatar_url)} alt="" />
-                  : user.username.charAt(0).toUpperCase()}
+              <button onClick={handleAvatarTap} className="profile-btn" title="Profile">
+                {user.avatar_url ? (
+                  <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+                ) : (
+                  <span className="profile-avatar">{user.username.charAt(0).toUpperCase()}</span>
+                )}
               </button>
             )}
           </div>

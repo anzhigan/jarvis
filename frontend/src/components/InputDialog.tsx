@@ -1,4 +1,14 @@
+/**
+ * InputDialog — small modal for collecting one or two text fields.
+ * Visually consistent with CreateSheet / PickerSheet:
+ *   • mobile: bottom sheet that slides up
+ *   • desktop: centered card that fades in
+ * Always rendered through `createPortal(document.body)` so it isn't
+ * trapped by an ancestor `transform` / `overflow`.
+ */
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { X, Check, Loader2 } from 'lucide-react';
 
 export interface InputDialogField {
@@ -32,6 +42,15 @@ export default function InputDialog({
   const [values, setValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  );
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -39,13 +58,21 @@ export default function InputDialog({
       fields.forEach((f) => { initial[f.key] = f.defaultValue ?? ''; });
       setValues(initial);
       setSubmitting(false);
-      // focus after mount
-      setTimeout(() => firstFieldRef.current?.focus(), 50);
+      // Defer focus until after the slide-up animation so iOS doesn't
+      // aggressively scroll the page to bring the input into view.
+      const t = window.setTimeout(() => firstFieldRef.current?.focus(), 320);
+      return () => window.clearTimeout(t);
     }
   }, [open, fields]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onCancel]);
+
   const handleSubmit = async () => {
-    // check required
     for (const f of fields) {
       if (f.required && !values[f.key]?.trim()) return;
     }
@@ -57,102 +84,127 @@ export default function InputDialog({
     }
   };
 
-  if (!open) return null;
+  const sheetMotion = isMobile
+    ? {
+        initial: { y: '100%' } as const,
+        animate: { y: 0 } as const,
+        exit: { y: '100%' } as const,
+        transition: { type: 'tween' as const, duration: 0.28, ease: 'easeOut' as const },
+      }
+    : {
+        initial: { opacity: 0, scale: 0.96 } as const,
+        animate: { opacity: 1, scale: 1 } as const,
+        exit: { opacity: 0, scale: 0.96 } as const,
+        transition: { duration: 0.2 },
+      };
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      onClick={onCancel}
-      onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
-    >
-      <div
-        className="w-full max-w-md bg-background border border-border rounded-xl shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between px-5 pt-4 pb-2">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold">{title}</h3>
-            {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
-          </div>
-          <button
-            onClick={onCancel}
-            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground flex-shrink-0"
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="create-sheet-root"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={onCancel}
+        >
+          <motion.div
+            className="create-sheet"
+            {...sheetMotion}
+            onClick={(e) => e.stopPropagation()}
           >
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-3">
-          {fields.map((f, idx) => (
-            <div key={f.key}>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">{f.label}</label>
-              {f.type === 'textarea' ? (
-                <textarea
-                  ref={idx === 0 ? (firstFieldRef as any) : undefined}
-                  value={values[f.key] ?? ''}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                  placeholder={f.placeholder}
-                  rows={4}
-                  className="w-full px-3 py-2 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring font-mono"
-                />
-              ) : f.type === 'select' ? (
-                <select
-                  ref={idx === 0 ? (firstFieldRef as any) : undefined}
-                  value={values[f.key] ?? ''}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                  className="w-full h-9 px-2 text-sm bg-input-background border border-border rounded-md"
-                >
-                  {f.options?.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  ref={idx === 0 ? (firstFieldRef as any) : undefined}
-                  type={f.type ?? 'text'}
-                  value={values[f.key] ?? ''}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !(e as any).shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                  placeholder={f.placeholder}
-                  className="w-full h-9 px-3 text-sm bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                />
+            <div className="create-sheet-header">
+              <div className="create-sheet-drag-handle" />
+              <div className="create-sheet-header-row">
+                <span className="create-sheet-title">{title}</span>
+                <button aria-label="Close" className="icon-btn" type="button" onClick={onCancel}>
+                  <X size={16} />
+                </button>
+              </div>
+              {description && (
+                <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: 4 }}>{description}</div>
               )}
-              {f.helpText && <p className="text-[11px] text-muted-foreground mt-1">{f.helpText}</p>}
             </div>
-          ))}
-        </div>
 
-        <div className="px-5 py-3 bg-secondary/30 border-t border-border flex items-center justify-end gap-2">
-          {extraActions?.map((a) => (
-            <button
-              key={a.label}
-              onClick={a.onClick}
-              className={`h-9 px-3 rounded-md text-sm font-medium ${
-                a.variant === 'destructive'
-                  ? 'text-destructive hover:bg-destructive/10'
-                  : 'text-muted-foreground hover:bg-secondary'
-              }`}
-            >
-              {a.label}
-            </button>
-          ))}
-          <button
-            onClick={onCancel}
-            className="h-9 px-3 rounded-md text-sm text-muted-foreground hover:bg-secondary"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {submitting && <Loader2 size={13} className="animate-spin" />}
-            {!submitting && <Check size={14} />}
-            {submitLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+            <div className="create-sheet-body">
+              <div className="form-fields">
+                {fields.map((f, idx) => (
+                  <div key={f.key} className="form-field">
+                    <label className="form-field-label">{f.label}</label>
+                    {f.type === 'textarea' ? (
+                      <textarea
+                        ref={idx === 0 ? (firstFieldRef as any) : undefined}
+                        value={values[f.key] ?? ''}
+                        onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                        placeholder={f.placeholder}
+                        rows={4}
+                        className="textarea w-full"
+                        style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+                      />
+                    ) : f.type === 'select' ? (
+                      <select
+                        ref={idx === 0 ? (firstFieldRef as any) : undefined}
+                        value={values[f.key] ?? ''}
+                        onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                        className="select-base w-full"
+                      >
+                        {f.options?.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        ref={idx === 0 ? (firstFieldRef as any) : undefined}
+                        type={f.type ?? 'text'}
+                        value={values[f.key] ?? ''}
+                        onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !(e as any).shiftKey) { e.preventDefault(); handleSubmit(); } }}
+                        placeholder={f.placeholder}
+                        className="input w-full"
+                      />
+                    )}
+                    {f.helpText && (
+                      <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginTop: 4 }}>{f.helpText}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="create-sheet-footer">
+              <div className="create-sheet-footer-row">
+                {extraActions?.map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    onClick={a.onClick}
+                    className="btn"
+                    style={a.variant === 'destructive' ? { color: 'var(--danger)' } : undefined}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+                <button type="button" onClick={onCancel} className="btn btn-secondary">
+                  {cancelLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="btn btn-primary"
+                >
+                  {submitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                  {submitLabel}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body
   );
 }

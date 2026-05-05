@@ -16,8 +16,9 @@
  * - All buttons carry `aria-label` + `aria-pressed`/`aria-disabled` for
  *   screen readers and have focus-visible outlines for keyboard nav.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import {
   Bold, Italic, Underline, Strikethrough, Code, Code2,
@@ -27,6 +28,7 @@ import {
   Link as LinkIcon, Image as ImageIcon, Table as TableIcon, Sigma,
   Undo2, Redo2, Palette, ChevronDown, Loader2,
 } from 'lucide-react';
+// `ChevronDown` is used in BlockTypeSelect; the dismiss-keyboard button was removed.
 
 const TEXT_COLORS: { color: string; name: string }[] = [
   { color: '#5B5BD6', name: 'Indigo' },
@@ -190,7 +192,37 @@ function DesktopBar(props: EditorToolbarProps) {
   const { editor, onInsertLink, onInsertTable, onInsertMath, onInsertImage, uploadingImage } = props;
   const [colorOpen, setColorOpen] = useState(false);
 
-  const is = (name: string, attrs?: Record<string, unknown>) => editor.isActive(name, attrs);
+  // Read every toolbar-affecting flag in one Tiptap subscription.
+  // The toolbar re-renders only when one of these values changes, NOT on
+  // every keystroke (which is what made the previous toolbar feel laggy).
+  const s = useEditorState({
+    editor,
+    selector: (ctx) => {
+      const e = ctx.editor;
+      if (!e) return null;
+      return {
+        canUndo: e.can().undo(),
+        canRedo: e.can().redo(),
+        bold: e.isActive('bold'),
+        italic: e.isActive('italic'),
+        underline: e.isActive('underline'),
+        strike: e.isActive('strike'),
+        code: e.isActive('code'),
+        bulletList: e.isActive('bulletList'),
+        orderedList: e.isActive('orderedList'),
+        taskList: e.isActive('taskList'),
+        blockquote: e.isActive('blockquote'),
+        codeBlock: e.isActive('codeBlock'),
+        link: e.isActive('link'),
+        table: e.isActive('table'),
+        alignLeft: e.isActive({ textAlign: 'left' } as never),
+        alignCenter: e.isActive({ textAlign: 'center' } as never),
+        alignRight: e.isActive({ textAlign: 'right' } as never),
+        textColor: e.getAttributes('textStyle').color as string | undefined,
+      };
+    },
+  });
+  if (!s) return null;
 
   return (
     <div
@@ -206,12 +238,12 @@ function DesktopBar(props: EditorToolbarProps) {
       <Group>
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}
-          disabled={!editor.can().undo()}
+          disabled={!s.canUndo}
           label="Undo (⌘Z)"
         ><Undo2 size={15} /></ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().redo().run()}
-          disabled={!editor.can().redo()}
+          disabled={!s.canRedo}
           label="Redo (⇧⌘Z)"
         ><Redo2 size={15} /></ToolbarButton>
       </Group>
@@ -223,19 +255,19 @@ function DesktopBar(props: EditorToolbarProps) {
       <Divider />
 
       <Group>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={is('bold')} label="Bold (⌘B)">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={s.bold} label="Bold (⌘B)">
           <Bold size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={is('italic')} label="Italic (⌘I)">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={s.italic} label="Italic (⌘I)">
           <Italic size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={is('underline')} label="Underline (⌘U)">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={s.underline} label="Underline (⌘U)">
           <Underline size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={is('strike')} label="Strikethrough">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={s.strike} label="Strikethrough">
           <Strikethrough size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} active={is('code')} label="Inline code">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} active={s.code} label="Inline code">
           <Code size={15} />
         </ToolbarButton>
       </Group>
@@ -252,7 +284,7 @@ function DesktopBar(props: EditorToolbarProps) {
             <Palette size={15} />
             <span
               className="rt-color-bar"
-              style={{ background: (editor.getAttributes('textStyle').color as string | undefined) ?? 'currentColor' }}
+              style={{ background: s.textColor ?? 'currentColor' }}
             />
           </ToolbarButton>
           {colorOpen && <ColorMenu editor={editor} onClose={() => setColorOpen(false)} />}
@@ -262,13 +294,13 @@ function DesktopBar(props: EditorToolbarProps) {
       <Divider />
 
       <Group>
-        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('left').run()} active={is({ textAlign: 'left' } as never)} label="Align left">
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('left').run()} active={s.alignLeft} label="Align left">
           <AlignLeft size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('center').run()} active={is({ textAlign: 'center' } as never)} label="Align center">
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('center').run()} active={s.alignCenter} label="Align center">
           <AlignCenter size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('right').run()} active={is({ textAlign: 'right' } as never)} label="Align right">
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('right').run()} active={s.alignRight} label="Align right">
           <AlignRight size={15} />
         </ToolbarButton>
       </Group>
@@ -276,16 +308,16 @@ function DesktopBar(props: EditorToolbarProps) {
       <Divider />
 
       <Group>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={is('bulletList')} label="Bullet list">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={s.bulletList} label="Bullet list">
           <List size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={is('orderedList')} label="Numbered list">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={s.orderedList} label="Numbered list">
           <ListOrdered size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} active={is('taskList')} label="Task list">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} active={s.taskList} label="Task list">
           <ListChecks size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={is('blockquote')} label="Quote">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={s.blockquote} label="Quote">
           <Quote size={15} />
         </ToolbarButton>
       </Group>
@@ -293,16 +325,16 @@ function DesktopBar(props: EditorToolbarProps) {
       <Divider />
 
       <Group>
-        <ToolbarButton onClick={onInsertLink} active={is('link')} label="Insert/edit link (⌘K)">
+        <ToolbarButton onClick={onInsertLink} active={s.link} label="Insert/edit link (⌘K)">
           <LinkIcon size={15} />
         </ToolbarButton>
         <ToolbarButton onClick={onInsertImage} disabled={uploadingImage} label="Insert image">
           {uploadingImage ? <Loader2 size={15} className="rt-spin" /> : <ImageIcon size={15} />}
         </ToolbarButton>
-        <ToolbarButton onClick={onInsertTable} active={is('table')} label="Insert table">
+        <ToolbarButton onClick={onInsertTable} active={s.table} label="Insert table">
           <TableIcon size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={is('codeBlock')} label="Code block">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={s.codeBlock} label="Code block">
           <Code2 size={15} />
         </ToolbarButton>
         <ToolbarButton onClick={onInsertMath} label="Insert math formula">
@@ -315,8 +347,26 @@ function DesktopBar(props: EditorToolbarProps) {
 
 // ─── Mobile (above keyboard) ─────────────────────────────────────────────────
 function MobileBar(props: EditorToolbarProps) {
-  const { editor, onInsertLink, onInsertImage, onInsertMath, uploadingImage, onDismissKeyboard, bottomOffset } = props;
-  const is = (name: string) => editor.isActive(name);
+  const { editor, onInsertLink, onInsertImage, onInsertMath, uploadingImage, bottomOffset } = props;
+
+  const s = useEditorState({
+    editor,
+    selector: (ctx) => {
+      const e = ctx.editor;
+      if (!e) return null;
+      return {
+        bold: e.isActive('bold'),
+        italic: e.isActive('italic'),
+        underline: e.isActive('underline'),
+        code: e.isActive('code'),
+        h2: e.isActive('heading', { level: 2 }),
+        bulletList: e.isActive('bulletList'),
+        taskList: e.isActive('taskList'),
+        link: e.isActive('link'),
+      };
+    },
+  });
+  if (!s) return null;
 
   return (
     <div
@@ -334,64 +384,63 @@ function MobileBar(props: EditorToolbarProps) {
       }}
     >
       <Group>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={is('bold')} label="Bold">
-          <Bold size={16} />
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={s.bold} label="Bold">
+          <Bold size={18} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={is('italic')} label="Italic">
-          <Italic size={16} />
+        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={s.italic} label="Italic">
+          <Italic size={18} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={is('underline')} label="Underline">
-          <Underline size={16} />
-        </ToolbarButton>
-      </Group>
-
-      <Divider />
-
-      <Group>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} label="Heading 2">
-          <Heading2 size={16} />
-        </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={is('bulletList')} label="Bullet list">
-          <List size={16} />
-        </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} active={is('taskList')} label="Task list">
-          <ListChecks size={16} />
-        </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} active={is('code')} label="Inline code">
-          <Code size={16} />
+        <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={s.underline} label="Underline">
+          <Underline size={18} />
         </ToolbarButton>
       </Group>
 
       <Divider />
 
       <Group>
-        <ToolbarButton onClick={onInsertLink} active={is('link')} label="Link">
-          <LinkIcon size={16} />
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={s.h2} label="Heading 2">
+          <Heading2 size={18} />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={s.bulletList} label="Bullet list">
+          <List size={18} />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} active={s.taskList} label="Task list">
+          <ListChecks size={18} />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} active={s.code} label="Inline code">
+          <Code size={18} />
+        </ToolbarButton>
+      </Group>
+
+      <Divider />
+
+      <Group>
+        <ToolbarButton onClick={onInsertLink} active={s.link} label="Link">
+          <LinkIcon size={18} />
         </ToolbarButton>
         <ToolbarButton onClick={onInsertImage} disabled={uploadingImage} label="Image">
-          {uploadingImage ? <Loader2 size={16} className="rt-spin" /> : <ImageIcon size={16} />}
+          {uploadingImage ? <Loader2 size={18} className="rt-spin" /> : <ImageIcon size={18} />}
         </ToolbarButton>
         <ToolbarButton onClick={onInsertMath} label="Math">
-          <Sigma size={16} />
+          <Sigma size={18} />
         </ToolbarButton>
       </Group>
-
-      <span className="rt-spacer" />
-
-      {onDismissKeyboard && (
-        <ToolbarButton onClick={onDismissKeyboard} label="Dismiss keyboard">
-          <ChevronDown size={16} />
-        </ToolbarButton>
-      )}
     </div>
   );
 }
 
 // ─── Public component ────────────────────────────────────────────────────────
-export default function EditorToolbar(props: EditorToolbarProps) {
+function EditorToolbarComponent(props: EditorToolbarProps) {
   if (props.variant === 'desktop') return <DesktopBar {...props} />;
   // Mobile bar is portaled to the body so it isn't trapped by ancestor
   // `transform`/`overflow` (the whole reason CreateSheet uses portal too).
   if (typeof document === 'undefined') return null;
   return createPortal(<MobileBar {...props} />, document.body);
 }
+/**
+ * Memo prevents the toolbar from re-rendering on every parent state change
+ * (e.g. dialog state, upload progress on a different button). Active states
+ * are computed inside via `useEditorState`, which subscribes to the editor
+ * directly and only re-renders when one of the selected flags changes.
+ */
+export default memo(EditorToolbarComponent);

@@ -1,19 +1,24 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { gosApi, stepsApi } from '../../api/client';
-import type { Task } from '../../api/types';
+import type { Step, Task } from '../../api/types';
 import { useT } from '../../store/i18n';
 import AddItemButton from '../AddItemButton';
+import ConfirmDialog from '../ConfirmDialog';
+import EditStepSheet from './EditStepSheet';
 import AttachItemPicker from './AttachItemPicker';
 import CreateGoForm from './CreateGoForm';
 import CreateStepForm from './CreateStepForm';
 import GoRow from './GoRow';
-import StepBlock from './StepBlock';
+import StepCard from './StepCard';
 
 export default function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<void> }) {
   const t = useT();
   const [pick, setPick] = useState<'step' | 'go' | null>(null);
   const [creatingStep, setCreatingStep] = useState(false);
   const [creatingGo, setCreatingGo] = useState(false);
+  const [editingStep, setEditingStep] = useState<Step | null>(null);
+  const [deletingStep, setDeletingStep] = useState<Step | null>(null);
   const directGos = task.gos;
 
   return (
@@ -26,15 +31,42 @@ export default function TaskExpanded({ task, onReload }: { task: Task; onReload:
         </div>
       )}
 
-      {task.sprints.map((s) => (
-        <StepBlock
-          key={s.id}
-          step={s}
-          allStepsOfTask={task.sprints}
-          onReload={onReload}
-          showMeta={false}
+      {task.sprints.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {task.sprints.map((s) => (
+            <StepCard
+              key={s.id}
+              step={s}
+              showGoalTag={false}
+              onEdit={() => setEditingStep(s)}
+              onDelete={() => setDeletingStep(s)}
+            />
+          ))}
+        </div>
+      )}
+
+      {editingStep && (
+        <EditStepSheet
+          step={editingStep}
+          onClose={() => setEditingStep(null)}
+          onSaved={async () => { setEditingStep(null); await onReload(); }}
         />
-      ))}
+      )}
+
+      {deletingStep && (
+        <ConfirmDialog
+          open
+          title="Delete step?"
+          message={`"${deletingStep.title}" will be removed; attached gos stay.`}
+          onCancel={() => setDeletingStep(null)}
+          onConfirm={async () => {
+            const s = deletingStep;
+            setDeletingStep(null);
+            try { await stepsApi.delete(s.id); await onReload(); }
+            catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+          }}
+        />
+      )}
 
       {directGos.length > 0 && (
         <div>
