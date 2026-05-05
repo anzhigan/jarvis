@@ -27,28 +27,12 @@ import { mergeAttributes, Node } from '@tiptap/core';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github-dark.css';
-import {
-  Image as ImageIcon,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  List,
-  ListOrdered,
-  ListChecks,
-  Quote,
-  Code,
-  Link as LinkIcon,
-  Table as TableIcon,
-  Loader2,
-  Minus,
-  Plus,
-  ChevronDown,
-} from 'lucide-react';
-import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { notesApi, injectImageToken, stripImageToken } from '../api/client';
+import EditorToolbar from './EditorToolbar';
 import InputDialog from './InputDialog';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
 // Register a small set of grammars instead of `common` (~190 languages, ~250 KB).
@@ -400,35 +384,15 @@ interface RichTextEditorProps {
   children?: ReactNode;
 }
 
-const COLORS: { color: string; name: string }[] = [
-  { color: '#5B5BD6', name: 'Indigo' },
-  { color: '#10B981', name: 'Emerald' },
-  { color: '#F59E0B', name: 'Amber' },
-  { color: '#EC4899', name: 'Pink' },
-  { color: '#06B6D4', name: 'Cyan' },
-  { color: '#EF4444', name: 'Red' },
-  { color: '#71717A', name: 'Slate' },
-];
-
-const FONT_SIZES = [
-  { label: 'Small', value: '0.875rem' },
-  { label: 'Normal', value: '1rem' },
-  { label: 'Large', value: '1.25rem' },
-  { label: 'XL', value: '1.5rem' },
-  { label: '2XL', value: '1.875rem' },
-];
-
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 export default function RichTextEditor({ noteId, content, onChange, children }: RichTextEditorProps) {
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [, setShowSizePicker] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
   const [dialogExtra, setDialogExtra] = useState<{ prevUrl?: string }>({});
 
   // Mobile keyboard detection — toolbar shows ONLY when editor is focused AND keyboard is up
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const isMobile = useIsMobile();
   const [editorFocused, setEditorFocused] = useState(false);
   const kbHeight = useKeyboardHeight();
   const blurTimerRef = useRef<number | null>(null);
@@ -449,12 +413,6 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
       blurTimerRef.current = null;
     }, 250);
   };
-
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
 
   const editor = useEditor({
@@ -568,230 +526,21 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
     }
   };
 
-  const setFontSize = (size: string) => {
-    if (!editor) return;
-    (editor.chain().focus() as any).setFontSize(size).run();
-    setShowSizePicker(false);
-  };
-
-  // Close popovers on outside click
-  useEffect(() => {
-    const onClick = () => {
-      setShowColorPicker(false);
-      setShowSizePicker(false);
-    };
-    document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
-  }, []);
-
   if (!editor) return null;
 
-  const getBlockType = () => {
-    if (editor.isActive('heading', { level: 1 })) return 'h1';
-    if (editor.isActive('heading', { level: 2 })) return 'h2';
-    if (editor.isActive('heading', { level: 3 })) return 'h3';
-    if (editor.isActive('blockquote')) return 'quote';
-    if (editor.isActive('codeBlock')) return 'code';
-    return 'paragraph';
+  // Centralised dialog opener helpers — passed into <EditorToolbar />.
+  const openLink = () => {
+    const prev = editor.getAttributes('link').href as string | undefined;
+    setDialogExtra({ prevUrl: prev });
+    setDialog('link');
   };
-
-  const setBlockType = (val: string) => {
-    const chain = editor.chain().focus();
-    if (val === 'paragraph') chain.setParagraph().run();
-    else if (val === 'h1') chain.toggleHeading({ level: 1 }).run();
-    else if (val === 'h2') chain.toggleHeading({ level: 2 }).run();
-    else if (val === 'h3') chain.toggleHeading({ level: 3 }).run();
-    else if (val === 'quote') chain.toggleBlockquote().run();
-    else if (val === 'code') chain.toggleCodeBlock().run();
+  const openTable = () => {
+    if (editor.isActive('table')) editor.chain().focus().deleteTable().run();
+    else setDialog('table');
   };
-
-  const currentFontSizeVal = editor.getAttributes('textStyle').fontSize as string | undefined;
-  const sizeIdx = FONT_SIZES.findIndex((s) => s.value === currentFontSizeVal);
-  const effectiveSizeIdx = sizeIdx === -1 ? 1 : sizeIdx;
-
-  const stepSize = (delta: number) => {
-    const next = Math.max(0, Math.min(FONT_SIZES.length - 1, effectiveSizeIdx + delta));
-    setFontSize(FONT_SIZES[next].value);
-  };
-
-  const currentTextColor = editor.getAttributes('textStyle').color as string | undefined;
-
-  // Mobile keyboard toolbar — shown whenever the editor is focused on mobile.
-  // With interactive-widget=resizes-content the viewport already shrinks when
-  // the keyboard opens, so bottom:0 (kbHeight is always 0 in that mode) places
-  // the toolbar correctly just above the keyboard.
-  const MobileKeyboardToolbar = (isMobile && editorFocused) ? (
-    <div
-      onMouseDown={(e) => e.preventDefault()}
-      onTouchStart={(e) => {
-        const tag = (e.target as HTMLElement).tagName.toLowerCase();
-        if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') e.preventDefault();
-      }}
-      className="keyboard-toolbar"
-      style={{ position: 'fixed', left: 0, right: 0, bottom: kbHeight, zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-    >
-      {/* B / I / U */}
-      <button onClick={() => editor.chain().focus().toggleBold().run()} className={`kb-btn${editor.isActive('bold') ? ' is-active' : ''}`} title="Bold" style={{ fontWeight: 700 }}>B</button>
-      <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`kb-btn${editor.isActive('italic') ? ' is-active' : ''}`} title="Italic" style={{ fontStyle: 'italic' }}>I</button>
-      <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`kb-btn${editor.isActive('underline') ? ' is-active' : ''}`} title="Underline" style={{ textDecoration: 'underline' }}>U</button>
-      <div className="kb-divider" />
-      {/* H2 / bullet / task */}
-      <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`kb-btn${editor.isActive('heading', { level: 2 }) ? ' is-active' : ''}`} title="Heading 2" style={{ fontWeight: 600 }}>H2</button>
-      <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`kb-btn${editor.isActive('bulletList') ? ' is-active' : ''}`} title="Bullet list"><List size={16} /></button>
-      <button onClick={() => editor.chain().focus().toggleTaskList().run()} className={`kb-btn${editor.isActive('taskList') ? ' is-active' : ''}`} title="Task list"><ListChecks size={16} /></button>
-      <div className="kb-divider" />
-      {/* math / code / link / table / image */}
-      <button onClick={() => setDialog('math')} className="kb-btn" title="Insert math" style={{ fontFamily: 'serif', fontStyle: 'italic', fontWeight: 600 }}>∑</button>
-      <button onClick={() => editor.chain().focus().toggleCode().run()} className={`kb-btn${editor.isActive('code') ? ' is-active' : ''}`} title="Inline code"><Code size={16} /></button>
-      <button onClick={() => { const prev = editor.getAttributes('link').href as string | undefined; setDialogExtra({ prevUrl: prev }); setDialog('link'); }} className={`kb-btn${editor.isActive('link') ? ' is-active' : ''}`} title="Link"><LinkIcon size={16} /></button>
-      <button onClick={() => { if (editor.isActive('table')) editor.chain().focus().deleteTable().run(); else setDialog('table'); }} className={`kb-btn${editor.isActive('table') ? ' is-active' : ''}`} title="Table"><TableIcon size={16} /></button>
-      <button onClick={() => fileInputRef.current?.click()} disabled={uploadingImage} className="kb-btn" title="Image">{uploadingImage ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}</button>
-      <div className="kb-divider" style={{ marginLeft: 'auto' }} />
-      <button onMouseDown={(e) => { e.preventDefault(); editor.commands.blur(); }} className="kb-btn" title="Dismiss keyboard"><ChevronDown size={16} /></button>
-    </div>
-  ) : null;
-
-  const Toolbar = (
-    <div
-      onMouseDown={(e) => { if (isMobile) e.preventDefault(); }}
-      onTouchStart={(e) => {
-        if (isMobile) {
-          const tag = (e.target as HTMLElement).tagName.toLowerCase();
-          if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') e.preventDefault();
-        }
-      }}
-      className="toolbar"
-    >
-      {/* Block type */}
-      <div className="tb-group">
-        <select
-          className="tb-select"
-          value={getBlockType()}
-          onChange={(e) => setBlockType(e.target.value)}
-          title="Block type"
-        >
-          <option value="paragraph">Paragraph</option>
-          <option value="h1">Heading 1</option>
-          <option value="h2">Heading 2</option>
-          <option value="h3">Heading 3</option>
-          <option value="quote">Quote</option>
-          <option value="code">Code</option>
-        </select>
-      </div>
-
-      {/* Font size stepper */}
-      <div className="tb-group">
-        <button className="tb-btn" onClick={() => stepSize(-1)} title="Decrease font size"><Minus size={12} /></button>
-        <span className="tb-btn" style={{ cursor: 'default', minWidth: 38 }}>
-          {FONT_SIZES[effectiveSizeIdx].label}
-        </span>
-        <button className="tb-btn" onClick={() => stepSize(1)} title="Increase font size"><Plus size={12} /></button>
-      </div>
-
-      {/* Inline formatting */}
-      <div className="tb-group">
-        <button onClick={() => editor.chain().focus().toggleBold().run()} className={`tb-btn${editor.isActive('bold') ? ' is-active' : ''}`} title="Bold" style={{ fontWeight: 700 }}>B</button>
-        <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`tb-btn${editor.isActive('italic') ? ' is-active' : ''}`} title="Italic" style={{ fontStyle: 'italic' }}>I</button>
-        <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`tb-btn${editor.isActive('underline') ? ' is-active' : ''}`} title="Underline" style={{ textDecoration: 'underline' }}>U</button>
-        <button onClick={() => editor.chain().focus().toggleStrike().run()} className={`tb-btn${editor.isActive('strike') ? ' is-active' : ''}`} title="Strikethrough" style={{ textDecoration: 'line-through' }}>S</button>
-        <button onClick={() => editor.chain().focus().toggleCode().run()} className={`tb-btn${editor.isActive('code') ? ' is-active' : ''}`} title="Inline code" style={{ fontFamily: 'monospace', fontSize: 11 }}>&lt;/&gt;</button>
-      </div>
-
-      {/* Color */}
-      <div className="tb-group" style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-        <button
-          onClick={() => { setShowColorPicker(!showColorPicker); setShowSizePicker(false); }}
-          className="tb-btn"
-          title="Text color"
-        >
-          <span style={{ fontWeight: 700 }}>A</span>
-          <span className="tb-color-swatch" style={{ background: currentTextColor || 'currentColor' }} />
-        </button>
-        {showColorPicker && (
-          <div style={{
-            position: 'absolute', top: 32, left: 0, zIndex: 50,
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--line)',
-            borderRadius: 'var(--r-panel)',
-            boxShadow: 'var(--sh-popover)',
-            padding: 12, minWidth: 180,
-          }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--fg-muted)', marginBottom: 8 }}>Text color</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-              {COLORS.map(({ color, name }) => (
-                <button
-                  key={color}
-                  onClick={() => { editor.chain().focus().setColor(color).run(); setShowColorPicker(false); }}
-                  title={name}
-                  style={{
-                    width: 22, height: 22, borderRadius: 5,
-                    background: color, border: 'none', cursor: 'pointer',
-                    outline: (currentTextColor === color) ? '2px solid var(--accent-notes)' : 'none',
-                    outlineOffset: 1,
-                  }}
-                />
-              ))}
-              <button
-                onClick={() => { editor.chain().focus().unsetColor().run(); setShowColorPicker(false); }}
-                style={{
-                  width: 22, height: 22, borderRadius: 5,
-                  background: 'var(--bg-card)', border: '1px solid var(--line)',
-                  cursor: 'pointer', fontSize: 9, color: 'var(--fg-muted)',
-                }}
-                title="Reset"
-              >✕</button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Alignment */}
-      <div className="tb-group">
-        <button onClick={() => editor.chain().focus().setTextAlign('left').run()} className={`tb-btn${editor.isActive({ textAlign: 'left' }) ? ' is-active' : ''}`} title="Align left"><AlignLeft size={13} /></button>
-        <button onClick={() => editor.chain().focus().setTextAlign('center').run()} className={`tb-btn${editor.isActive({ textAlign: 'center' }) ? ' is-active' : ''}`} title="Align center"><AlignCenter size={13} /></button>
-        <button onClick={() => editor.chain().focus().setTextAlign('right').run()} className={`tb-btn${editor.isActive({ textAlign: 'right' }) ? ' is-active' : ''}`} title="Align right"><AlignRight size={13} /></button>
-      </div>
-
-      {/* Lists */}
-      <div className="tb-group">
-        <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`tb-btn${editor.isActive('bulletList') ? ' is-active' : ''}`} title="Bullet list"><List size={13} /></button>
-        <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={`tb-btn${editor.isActive('orderedList') ? ' is-active' : ''}`} title="Numbered list"><ListOrdered size={13} /></button>
-        <button onClick={() => editor.chain().focus().toggleTaskList().run()} className={`tb-btn${editor.isActive('taskList') ? ' is-active' : ''}`} title="Task list"><ListChecks size={13} /></button>
-        <button onClick={() => editor.chain().focus().toggleBlockquote().run()} className={`tb-btn${editor.isActive('blockquote') ? ' is-active' : ''}`} title="Blockquote"><Quote size={13} /></button>
-      </div>
-
-      {/* Insert */}
-      <div className="tb-group">
-        <button
-          onClick={() => { const prev = editor.getAttributes('link').href as string | undefined; setDialogExtra({ prevUrl: prev }); setDialog('link'); }}
-          className={`tb-btn${editor.isActive('link') ? ' is-active' : ''}`}
-          title="Insert / edit link"
-        ><LinkIcon size={13} /></button>
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploadingImage}
-          className="tb-btn"
-          title="Insert image"
-        >{uploadingImage ? <Loader2 size={13} className="animate-spin" /> : <ImageIcon size={13} />}</button>
-        <button
-          onClick={() => { if (editor.isActive('table')) editor.chain().focus().deleteTable().run(); else setDialog('table'); }}
-          className={`tb-btn${editor.isActive('table') ? ' is-active' : ''}`}
-          title="Insert table"
-        ><TableIcon size={13} /></button>
-        <button
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          className={`tb-btn${editor.isActive('codeBlock') ? ' is-active' : ''}`}
-          title="Code block"
-        ><Code size={13} /></button>
-        <button
-          onClick={() => setDialog('math')}
-          className="tb-btn"
-          title="Insert math formula"
-          style={{ fontFamily: 'serif', fontStyle: 'italic', fontWeight: 600 }}
-        >∑</button>
-      </div>
-    </div>
-  );
+  const openMath = () => setDialog('math');
+  const openImage = () => fileInputRef.current?.click();
+  const dismissKeyboard = () => editor.commands.blur();
 
   return (
     <>
@@ -856,8 +605,30 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
 
     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
 
-    {!isMobile && Toolbar}
-    {MobileKeyboardToolbar && createPortal(MobileKeyboardToolbar, document.body)}
+    {!isMobile && (
+      <EditorToolbar
+        editor={editor}
+        variant="desktop"
+        onInsertLink={openLink}
+        onInsertTable={openTable}
+        onInsertMath={openMath}
+        onInsertImage={openImage}
+        uploadingImage={uploadingImage}
+      />
+    )}
+    {isMobile && editorFocused && (
+      <EditorToolbar
+        editor={editor}
+        variant="mobile"
+        onInsertLink={openLink}
+        onInsertTable={openTable}
+        onInsertMath={openMath}
+        onInsertImage={openImage}
+        uploadingImage={uploadingImage}
+        onDismissKeyboard={dismissKeyboard}
+        bottomOffset={kbHeight}
+      />
+    )}
 
     <div className="notes-editor-paper">
       {children}
