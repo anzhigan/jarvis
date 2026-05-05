@@ -3,16 +3,27 @@ services:
     ports: !reset []
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1G
 
   minio:
     ports: !reset []
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
 
   api:
     ports: !reset []
     environment:
+      APP_ENV: production
       DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/jarvis
       SECRET_KEY: ${SECRET_KEY}
       S3_ENDPOINT_URL: http://minio:9000
@@ -21,7 +32,17 @@ services:
       S3_BUCKET_NAME: jarvis
       S3_PUBLIC_URL: https://jarvnote.ru/s3/jarvis
       ALLOWED_ORIGINS: https://jarvnote.ru,https://www.jarvnote.ru
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
 
   frontend:
     ports: !override
       - "127.0.0.1:8080:80"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M

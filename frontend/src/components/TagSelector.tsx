@@ -335,7 +335,7 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
             <div className="create-sheet-drag-handle" />
             <div className="create-sheet-header-row">
               <span className="create-sheet-title">{t('tags.yourTags')}</span>
-              <button className="icon-btn" type="button" onClick={() => setOpen(false)}>
+              <button aria-label="Close" className="icon-btn" type="button" onClick={() => setOpen(false)}>
                 <X size={16} />
               </button>
             </div>
@@ -362,11 +362,11 @@ export default function TagSelector({ targetId, targetKind = 'note', tags, onCha
           <div className="create-sheet-header">
             <div className="create-sheet-drag-handle" />
             <div className="create-sheet-header-row">
-              <button className="icon-btn" type="button" onClick={() => setMobileView('pick')}>
+              <button aria-label="Back" className="icon-btn" type="button" onClick={() => setMobileView('pick')}>
                 <ChevronLeft size={16} />
               </button>
               <span className="create-sheet-title">New tag</span>
-              <button className="icon-btn" type="button" onClick={() => setOpen(false)}>
+              <button aria-label="Close" className="icon-btn" type="button" onClick={() => setOpen(false)}>
                 <X size={16} />
               </button>
             </div>

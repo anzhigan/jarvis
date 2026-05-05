@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
 import { ApiError } from '../api/client';
-import { useT } from '../store/i18n';
 
 export default function AuthPage() {
-  const t = useT();
   const { login, register, isLoading } = useAuthStore();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');

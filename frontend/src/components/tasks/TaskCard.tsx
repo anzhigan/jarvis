@@ -53,10 +53,10 @@ export default function TaskCard({
               <h4 className="goal-card-title" style={{ margin: 0, flex: 1 }}>{task.title}</h4>
               {!isMobile && (
                 <div className="flex items-center gap-0.5">
-                  <button onClick={(e) => { e.stopPropagation(); startEdit(); }} className="icon-btn icon-btn-sm">
+                  <button aria-label="Edit goal" onClick={(e) => { e.stopPropagation(); startEdit(); }} className="icon-btn icon-btn-sm">
                     <Pencil size={12} />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="icon-btn icon-btn-sm" style={{ color: 'var(--danger)' }}>
+                  <button aria-label="Delete goal" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="icon-btn icon-btn-sm" style={{ color: 'var(--danger)' }}>
                     <X size={13} />
                   </button>
                 </div>

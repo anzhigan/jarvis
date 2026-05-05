@@ -18,7 +18,9 @@ export default defineConfig({
   build: {
     // Target older Safari for iOS compatibility (Capacitor uses WKWebView)
     target: 'es2017',
-    sourcemap: false,
+    // Source maps: opt-in via VITE_SOURCEMAP=1 (default off in prod). 'hidden'
+    // emits .map files but doesn't reference them in JS — safe for prod debugging.
+    sourcemap: process.env.VITE_SOURCEMAP === '1' ? 'hidden' : false,
     // Don't break absolute paths — Capacitor serves from / by default
     assetsDir: 'assets',
   },

@@ -127,8 +127,8 @@ export default function SprintBlock({ sprint, allSprintsOfTask, onReload, onGoLo
                 </button>
                 <span className="text-xs font-semibold text-muted-foreground flex-shrink-0">{sprint.progress}%</span>
                 <div className="hidden md:flex items-center gap-0.5 transition-all">
-                  <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm"><Pencil size={12} /></button>
-                  <button onClick={() => setConfirmDelete(true)} className="icon-btn icon-btn-sm" style={{ '--icon-btn-hover-bg': 'color-mix(in srgb, var(--danger) 10%, transparent)', '--icon-btn-hover-color': 'var(--danger)' } as React.CSSProperties}><Trash2 size={12} /></button>
+                  <button aria-label="Edit step" onClick={() => setEditing(true)} className="icon-btn icon-btn-sm"><Pencil size={12} /></button>
+                  <button aria-label="Delete step" onClick={() => setConfirmDelete(true)} className="icon-btn icon-btn-sm" style={{ '--icon-btn-hover-bg': 'color-mix(in srgb, var(--danger) 10%, transparent)', '--icon-btn-hover-color': 'var(--danger)' } as React.CSSProperties}><Trash2 size={12} /></button>
                 </div>
               </div>
               <div className="text-[11px] text-muted-foreground mb-2">

@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useT } from '../store/i18n';
-import { notifySwipeOpen } from '../hooks/useSwipeRowGroup';
 
 interface Props {
   children: React.ReactNode;

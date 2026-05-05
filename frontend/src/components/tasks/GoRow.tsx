@@ -135,10 +135,10 @@ export default function GoRow({ go, availableSprints, onReload, onLocalUpdate }:
         {subText && <div className="go-sub">{subText}</div>}
       </div>
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm" title="Edit">
+        <button aria-label="Edit go" onClick={() => setEditing(true)} className="icon-btn icon-btn-sm" title="Edit">
           <Pencil size={12} />
         </button>
-        <button onClick={() => setConfirmDelete(true)} className="icon-btn icon-btn-sm">
+        <button aria-label="Delete go" onClick={() => setConfirmDelete(true)} className="icon-btn icon-btn-sm">
           <Trash2 size={12} />
         </button>
       </div>
@@ -170,17 +170,17 @@ export default function GoRow({ go, availableSprints, onReload, onLocalUpdate }:
       }
 
       {go.kind === 'numeric' && !editing && (
-        <div style={{ padding: '2px 16px 10px', marginTop: -6 }}>
+        <div className="go-row-aux">
           {go.target_value && go.target_value > 0 && (
-            <div style={{ height: 3, borderRadius: 'var(--r-pill)', overflow: 'hidden', background: 'rgba(0,0,0,0.06)', marginBottom: 8 }}>
-              <div style={{ height: '100%', width: `${numericPct}%`, backgroundColor: stripeColor, borderRadius: 'inherit' }} />
+            <div className="go-numeric-track">
+              <div className="go-numeric-fill" style={{ width: `${numericPct}%`, backgroundColor: stripeColor }} />
             </div>
           )}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="go-numeric-row">
             <input type="number" inputMode="decimal" placeholder="+value"
               value={numInput} onChange={(e) => setNumInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && logNumeric()}
-              className="input" style={{ width: 80, height: 28 }}
+              className="input go-numeric-input"
             />
             {steps.map((step) => (
               <button key={step} onClick={() => logNumeric(step)} disabled={busy} className="btn btn-secondary btn-sm">+{step}</button>
@@ -191,7 +191,7 @@ export default function GoRow({ go, availableSprints, onReload, onLocalUpdate }:
       )}
 
       {go.kind === 'boolean' && go.recurrence === 'daily' && !editing && (
-        <div style={{ padding: '2px 16px 10px', marginTop: -6 }}>
+        <div className="go-row-aux">
           <DailyStreak go={go} />
         </div>
       )}

@@ -3,6 +3,15 @@
 Revision ID: 010_normalize_statuses
 Revises: 009_routines_and_focus_sprints
 Create Date: 2026-04-28
+
+WARNING: downgrade is LOSSY.
+The forward migration collapses three legacy statuses (`todo`, `background`,
+`in_progress`) onto two new statuses (`backlog`, `active`). Any row that
+was originally `background` becomes indistinguishable from one that was
+`in_progress` after upgrade, so downgrade cannot reconstruct the original
+value. The downgrade restores `todo`/`in_progress` only — `background` is
+permanently lost. If you need a reversible migration, snapshot the column
+to a temporary table before running this.
 """
 from typing import Sequence, Union
 

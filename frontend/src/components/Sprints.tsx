@@ -142,7 +142,7 @@ function AddItemPanel({
       >
         <div className="flex items-center justify-between p-4 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
           <h3 className="text-base font-semibold">Add to focus</h3>
-          <button onClick={onClose} className="icon-btn icon-btn-sm"><X size={18} /></button>
+          <button aria-label="Close" onClick={onClose} className="icon-btn icon-btn-sm"><X size={18} /></button>
         </div>
 
         {/* Type tabs */}
@@ -368,10 +368,10 @@ function SprintDetail({
           <span className="sub">{fmtDate(sprint.start_date)} — {fmtDate(sprint.end_date)}</span>
         </div>
         <div className="top-bar-trailing">
-          <button onClick={() => setEditing(true)} className="icon-btn icon-btn-lg" title="Edit">
+          <button aria-label="Edit sprint" onClick={() => setEditing(true)} className="icon-btn icon-btn-lg" title="Edit">
             <Pencil size={15} />
           </button>
-          <button onClick={removeSprint} className="icon-btn icon-btn-lg" style={{ color: 'var(--danger)' }} title="Delete">
+          <button aria-label="Delete sprint" onClick={removeSprint} className="icon-btn icon-btn-lg" style={{ color: 'var(--danger)' }} title="Delete">
             <Trash2 size={15} />
           </button>
         </div>
@@ -442,7 +442,7 @@ function SprintDetail({
                         {it.color && <span className="flex-shrink-0" style={{ width: 3, height: 20, borderRadius: 'var(--r-pill)', backgroundColor: it.color }} />}
                         <span style={{ color: 'var(--fg-muted)' }}><ItemTypeIcon type={kind} size={12} /></span>
                         <span className="flex-1 truncate" style={{ fontSize: 12.5 }}>{it.title || '(untitled)'}</span>
-                        <button onClick={() => removeItem(it.id)} className="icon-btn icon-btn-sm" style={{ color: 'var(--danger)' }}>
+                        <button aria-label="Remove item" onClick={() => removeItem(it.id)} className="icon-btn icon-btn-sm" style={{ color: 'var(--danger)' }}>
                           <X size={13} />
                         </button>
                       </div>
@@ -596,7 +596,6 @@ function CreateSprintForm({ open, onCreated, onCancel }: { open: boolean; onCrea
 // Main page
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Sprints() {
-  const t = useT();
   const { user } = useAuthStore();
   const [sprints, setSprints] = useState<FocusSprint[]>([]);
   const [loading, setLoading] = useState(true);

@@ -11,6 +11,7 @@ import type {
   GoRecurrence,
   GoalRoutineLink,
   Sprint,
+  Topic,
   User,
   Way,
 } from './types';
@@ -136,9 +137,9 @@ export const waysApi = {
 
 export const topicsApi = {
   create: (wayId: string, name: string, order = 0) =>
-    request<any>(`/ways/${wayId}/topics`, { method: 'POST', body: JSON.stringify({ name, order }) }),
+    request<Topic>(`/ways/${wayId}/topics`, { method: 'POST', body: JSON.stringify({ name, order }) }),
   update: (id: string, data: { name?: string; order?: number }) =>
-    request<any>(`/topics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    request<Topic>(`/topics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/topics/${id}`, { method: 'DELETE' }),
 };
 

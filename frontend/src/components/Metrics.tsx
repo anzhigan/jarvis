@@ -13,7 +13,7 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts';
 import {
-  Loader2, Target as TargetIcon, CheckCircle2, Repeat as RepeatIcon, Zap,
+  Loader2, Target as TargetIcon, Repeat as RepeatIcon, Zap,
   TrendingUp, TrendingDown, Minus, Flame,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -376,8 +376,6 @@ function PeriodComparison({ routines, days }: { routines: Routine[]; days: numbe
       fmt: (v: number) => String(v),
     },
   ];
-
-  const label = { week: 'week', month: 'month', quarter: 'quarter', year: 'year' };
 
   return (
     <div className="chart-card">

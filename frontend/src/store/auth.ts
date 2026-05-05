@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { authApi, ApiError } from '../api/client';
+import { authApi } from '../api/client';
 import type { User } from '../api/types';
 
 const SECURE_REFRESH_KEY = 'jarvnote_refresh_token';

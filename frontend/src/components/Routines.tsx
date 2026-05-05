@@ -346,7 +346,6 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
   onPatchLocal?: (entries: RoutineEntry[]) => void;
   isMobile: boolean;
 }) {
-  const t = useT();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
 
@@ -516,13 +515,14 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
       {/* Desktop-only action buttons */}
       {!isMobile && (
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button onClick={togglePause} className="icon-btn icon-btn-sm" title={routine.is_paused ? 'Resume' : 'Pause'}>
+          <button aria-label={routine.is_paused ? 'Resume routine' : 'Pause routine'} onClick={togglePause} className="icon-btn icon-btn-sm" title={routine.is_paused ? 'Resume' : 'Pause'}>
             {routine.is_paused ? <Play size={13} /> : <Pause size={13} />}
           </button>
-          <button onClick={() => setEditing(true)} className="icon-btn icon-btn-sm" title="Edit">
+          <button aria-label="Edit routine" onClick={() => setEditing(true)} className="icon-btn icon-btn-sm" title="Edit">
             <Pencil size={13} />
           </button>
           <button
+            aria-label="Mark not done today"
             onClick={markSkippedToday}
             disabled={busy || routine.is_paused}
             className="icon-btn icon-btn-sm"
@@ -531,7 +531,7 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
           >
             {busy && isSkippedToday ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
           </button>
-          <button onClick={remove} className="icon-btn icon-btn-sm" title="Delete" style={{ color: 'var(--danger)' }}>
+          <button aria-label="Delete routine" onClick={remove} className="icon-btn icon-btn-sm" title="Delete" style={{ color: 'var(--danger)' }}>
             <Trash2 size={13} />
           </button>
         </div>
@@ -759,7 +759,6 @@ function CreateRoutineForm({ open, onCreated, onCancel, goals }: { open: boolean
 // Main Routines page
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Routines() {
-  const t = useT();
   const { user } = useAuthStore();
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {

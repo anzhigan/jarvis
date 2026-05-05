@@ -130,7 +130,7 @@ export default function CreateSheet({
               <div className="create-sheet-drag-handle" />
               <div className="create-sheet-header-row">
                 <span className="create-sheet-title">{title}</span>
-                <button className="icon-btn" type="button" onClick={onClose}>
+                <button aria-label="Close" className="icon-btn" type="button" onClick={onClose}>
                   <X size={16} />
                 </button>
               </div>

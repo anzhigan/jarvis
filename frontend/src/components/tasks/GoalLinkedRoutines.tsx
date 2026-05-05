@@ -77,6 +77,7 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
                       try { await routinesApi.deleteLink(link.id); await loadLinks(); }
                       catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
                     }}
+                    aria-label="Unlink routine"
                     className="icon-btn icon-btn-sm"
                     title="Unlink"
                   >
@@ -107,7 +108,7 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
           <div className="modal-panel w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 flex items-center justify-between" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
               <h3 className="text-base font-semibold">Link a routine</h3>
-              <button onClick={() => setShowLinkPicker(false)} className="icon-btn icon-btn-sm">✕</button>
+              <button aria-label="Close" onClick={() => setShowLinkPicker(false)} className="icon-btn icon-btn-sm">✕</button>
             </div>
             <div className="p-5 max-h-[60vh] overflow-y-auto">
               {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).length === 0 ? (

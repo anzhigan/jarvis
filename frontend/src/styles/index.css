@@ -2049,6 +2049,17 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 }
 .routine-link-progress-fill { height: 100%; transition: width 500ms; border-radius: inherit; }
 
+/* GoRow inline-style cleanup — see /src/components/tasks/GoRow.tsx */
+.go-row-aux { padding: 2px 16px 10px; margin-top: -6px; }
+.go-numeric-track {
+  height: 3px; border-radius: var(--r-pill);
+  overflow: hidden; margin-bottom: 8px;
+  background: rgba(0, 0, 0, 0.06);
+}
+.go-numeric-fill { height: 100%; border-radius: inherit; }
+.go-numeric-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.go-numeric-input { width: 80px; height: 28px; }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    ADD ITEM BUTTON
    ═══════════════════════════════════════════════════════════════════════════ */

@@ -34,7 +34,7 @@ import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
 import { notesApi, topicsApi, waysApi, resolveUrl } from '../api/client';
 import { useAuthStore } from '../store/auth';
-import type { Note, Topic, Way } from '../api/types';
+import type { Note, Way } from '../api/types';
 import CreateSheet, { FormField } from './CreateSheet';
 
 type Selection =
@@ -63,7 +63,6 @@ type MobileView =
 
 export default function Notes() {
   const t = useT();
-  const { user } = useAuthStore();
   const [ways, setWays] = useState<Way[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

@@ -369,7 +369,7 @@ const FONT_SIZES = [
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 export default function RichTextEditor({ noteId, content, onChange, children }: RichTextEditorProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showSizePicker, setShowSizePicker] = useState(false);
+  const [, setShowSizePicker] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
