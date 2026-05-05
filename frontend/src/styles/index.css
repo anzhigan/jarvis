@@ -43,60 +43,65 @@
   --h-lg: 40px;
   --h-xl: 48px;
 
-  --bg-app:      #E6E3D9;
-  --bg-shell:    #F0EDE5;
-  --bg-sidebar:  #E6E3D9;
-  --bg-card:     #F8F7F3;
-  --bg-elevated: #FFFFFE;
-  --bg-hover:    rgba(0, 0, 0, 0.04);
-  --bg-active:   rgba(0, 0, 0, 0.06);
-  --bg-input:    rgba(0, 0, 0, 0.035);
-  --bg-input-hover: rgba(0, 0, 0, 0.06);
+  /* ── Color system v2 — "Quiet Productivity" ──────────────────────────────
+     Cool zinc neutrals + Indigo brand. Tab accents picked at equal
+     luminosity (Tailwind 500) so the five hues read as a single chord. */
 
-  --fg-primary:   #1F1E1B;
-  --fg-secondary: #4A4843;
-  --fg-tertiary:  #6E6B66;
-  --fg-muted:     #9C9893;
-  --fg-faint:     #C4BFB7;
+  --bg-app:      #F4F4F5;   /* page (zinc-100) */
+  --bg-shell:    #FAFAFA;   /* main panel (zinc-50) */
+  --bg-sidebar:  #F4F4F5;
+  --bg-card:     #FFFFFF;   /* raised card */
+  --bg-elevated: #FFFFFF;   /* sheet / dialog */
+  --bg-hover:    rgba(24, 24, 27, 0.04);
+  --bg-active:   rgba(24, 24, 27, 0.07);
+  --bg-input:    #F4F4F5;
+  --bg-input-hover: #E4E4E7;
 
-  --line:         rgba(0, 0, 0, 0.07);
-  --line-strong:  rgba(0, 0, 0, 0.13);
-  --line-faint:   rgba(0, 0, 0, 0.04);
+  --fg-primary:   #09090B;
+  --fg-secondary: #27272A;
+  --fg-tertiary:  #52525B;
+  --fg-muted:     #71717A;
+  --fg-faint:     #A1A1AA;
 
-  --accent-notes:    #5B53C9;
-  --accent-notes-fg: #3D36A0;
-  --accent-notes-bg: rgba(91, 83, 201, 0.10);
+  --line:         rgba(24, 24, 27, 0.06);
+  --line-strong:  rgba(24, 24, 27, 0.10);
+  --line-faint:   rgba(24, 24, 27, 0.03);
 
-  --accent-goals:    #B97318;
-  --accent-goals-fg: #7A4D0F;
-  --accent-goals-bg: rgba(185, 115, 24, 0.12);
+  /* Tab accents */
+  --accent-notes:    #6366F1;   /* indigo-500 (brand) */
+  --accent-notes-fg: #4338CA;
+  --accent-notes-bg: rgba(99, 102, 241, 0.10);
 
-  --accent-routines:    #1D9E75;
-  --accent-routines-fg: #0E5A43;
-  --accent-routines-bg: rgba(29, 158, 117, 0.12);
+  --accent-goals:    #F59E0B;   /* amber-500 */
+  --accent-goals-fg: #B45309;
+  --accent-goals-bg: rgba(245, 158, 11, 0.12);
 
-  --accent-sprints:    #4DBFB1;
-  --accent-sprints-fg: #2A8D81;
-  --accent-sprints-bg: rgba(77, 191, 177, 0.12);
+  --accent-routines:    #10B981;   /* emerald-500 */
+  --accent-routines-fg: #047857;
+  --accent-routines-bg: rgba(16, 185, 129, 0.12);
 
-  --accent-analysis:    #8B86F0;
-  --accent-analysis-fg: #4A41B5;
-  --accent-analysis-bg: rgba(139, 134, 240, 0.12);
+  --accent-sprints:    #06B6D4;   /* cyan-500 */
+  --accent-sprints-fg: #0E7490;
+  --accent-sprints-bg: rgba(6, 182, 212, 0.12);
+
+  --accent-analysis:    #A855F7;   /* violet-500 */
+  --accent-analysis-fg: #7E22CE;
+  --accent-analysis-bg: rgba(168, 85, 247, 0.10);
 
   --primary:    var(--fg-primary);
   --primary-fg: var(--bg-elevated);
 
-  --success: #1D9E75;
-  --warning: #B97318;
-  --danger:  #BC4A48;
-  --danger-soft: rgba(188, 74, 72, 0.12);
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger:  #EF4444;
+  --danger-soft: rgba(239, 68, 68, 0.10);
 
-  --sh-card: 0 0 0 0.5px var(--line);
-  --sh-card-hover: 0 0 0 0.5px var(--line-strong);
-  --sh-raised: 0 0 0 0.5px var(--line), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --sh-popover: 0 0 0 0.5px var(--line), 0 8px 24px rgba(0, 0, 0, 0.08);
-  --sh-modal: 0 0 0 0.5px var(--line), 0 24px 48px rgba(0, 0, 0, 0.16);
-  --sh-focus: 0 0 0 2px rgba(91, 83, 201, 0.20);
+  --sh-card:        0 0 0 0.5px var(--line), 0 1px 2px rgba(24, 24, 27, 0.04);
+  --sh-card-hover:  0 0 0 0.5px var(--line-strong), 0 4px 12px rgba(24, 24, 27, 0.06);
+  --sh-raised:      0 0 0 0.5px var(--line), 0 1px 2px rgba(24, 24, 27, 0.05);
+  --sh-popover:     0 0 0 0.5px var(--line), 0 12px 32px rgba(24, 24, 27, 0.10);
+  --sh-modal:       0 0 0 0.5px var(--line), 0 24px 64px rgba(24, 24, 27, 0.16);
+  --sh-focus:       0 0 0 3px rgba(99, 102, 241, 0.20);
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -123,7 +128,7 @@
   --accent-foreground: var(--fg-primary);
   --destructive: var(--danger);
   --destructive-foreground: #FFFFFF;
-  --destructive-soft: rgba(188, 74, 72, 0.08);
+  --destructive-soft: rgba(239, 68, 68, 0.10);
   --border: var(--line);
   --input: var(--line);
   --input-background: var(--bg-input);
@@ -146,33 +151,72 @@
 }
 
 .dark {
-  --bg-app:      #0E0D0B;
-  --bg-shell:    #181715;
-  --bg-sidebar:  #0E0D0B;
-  --bg-card:     #2C2A27;
-  --bg-elevated: #353230;
-  --bg-hover:    rgba(255, 255, 255, 0.05);
-  --bg-active:   rgba(255, 255, 255, 0.08);
+  /* ── Dark theme — pure zinc grays (no warm/brown undertone) ─────────────
+     Stronger steps between surfaces so cards lift clearly off the page.
+     Accents shift to Tailwind-400 pastels so they're easy on the eyes
+     against dark backgrounds. */
+
+  --bg-app:      #09090B;   /* page (zinc-950) */
+  --bg-shell:    #131316;   /* main panel */
+  --bg-sidebar:  #09090B;
+  --bg-card:     #1C1C1F;   /* raised card */
+  --bg-elevated: #27272A;   /* sheet / dialog (zinc-800) */
+  --bg-hover:    rgba(255, 255, 255, 0.06);
+  --bg-active:   rgba(255, 255, 255, 0.10);
   --bg-input:    rgba(255, 255, 255, 0.04);
   --bg-input-hover: rgba(255, 255, 255, 0.08);
 
-  --fg-primary:   #F0EDE5;
-  --fg-secondary: #C7C2B9;
-  --fg-tertiary:  #8E8A82;
-  --fg-muted:     #6A655D;
-  --fg-faint:     #4A463F;
+  --fg-primary:   #FAFAFA;
+  --fg-secondary: #D4D4D8;
+  --fg-tertiary:  #A1A1AA;
+  --fg-muted:     #71717A;
+  --fg-faint:     #52525B;
 
   --line:         rgba(255, 255, 255, 0.08);
-  --line-strong:  rgba(255, 255, 255, 0.16);
+  --line-strong:  rgba(255, 255, 255, 0.14);
   --line-faint:   rgba(255, 255, 255, 0.04);
 
+  /* Tab accents — brighter pastels (Tailwind 400) for retina comfort */
+  --accent-notes:    #818AF8;   /* indigo-400 */
+  --accent-notes-fg: #A5ACFC;
+  --accent-notes-bg: rgba(129, 138, 248, 0.16);
+
+  --accent-goals:    #FBBF24;   /* amber-400 */
+  --accent-goals-fg: #FCD34D;
+  --accent-goals-bg: rgba(251, 191, 36, 0.16);
+
+  --accent-routines:    #34D399;   /* emerald-400 */
+  --accent-routines-fg: #6EE7B7;
+  --accent-routines-bg: rgba(52, 211, 153, 0.16);
+
+  --accent-sprints:    #22D3EE;   /* cyan-400 */
+  --accent-sprints-fg: #67E8F9;
+  --accent-sprints-bg: rgba(34, 211, 238, 0.16);
+
+  --accent-analysis:    #C084FC;   /* violet-400 */
+  --accent-analysis-fg: #D8B4FE;
+  --accent-analysis-bg: rgba(192, 132, 252, 0.16);
+
   --primary: var(--fg-primary);
-  --primary-fg: #1C1B18;
+  --primary-fg: #09090B;
+
+  --success: #34D399;
+  --warning: #FBBF24;
+  --danger:  #F87171;
+  --danger-soft: rgba(248, 113, 113, 0.16);
+
+  --sh-card:        0 0 0 0.5px var(--line), 0 1px 2px rgba(0, 0, 0, 0.30);
+  --sh-card-hover:  0 0 0 0.5px var(--line-strong), 0 4px 12px rgba(0, 0, 0, 0.45);
+  --sh-raised:      0 0 0 0.5px var(--line), 0 1px 2px rgba(0, 0, 0, 0.30);
+  --sh-popover:     0 0 0 0.5px var(--line), 0 12px 32px rgba(0, 0, 0, 0.55);
+  --sh-modal:       0 0 0 0.5px var(--line), 0 24px 64px rgba(0, 0, 0, 0.65);
+  --sh-focus:       0 0 0 3px rgba(129, 138, 248, 0.30);
 
   --background: var(--bg-shell);
   --foreground: var(--fg-primary);
   --card: var(--bg-card);
   --popover: var(--bg-elevated);
+  --ring: var(--accent-notes);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -416,14 +460,11 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .btn:focus-visible { box-shadow: var(--sh-focus); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-primary { background: var(--fg-primary); color: var(--bg-elevated); }
-.btn-primary:hover:not(:disabled) { background: #2C2A26; }
-.dark .btn-primary { color: #1C1B18; }
-.dark .btn-primary:hover:not(:disabled) { background: #FFFFFF; }
+.btn-primary { background: var(--fg-primary); color: var(--primary-fg); }
+.btn-primary:hover:not(:disabled) { background: var(--fg-secondary); }
 
 .btn-secondary { background: var(--bg-active); color: var(--fg-primary); }
-.btn-secondary:hover:not(:disabled) { background: rgba(0, 0, 0, 0.10); }
-.dark .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.btn-secondary:hover:not(:disabled) { background: var(--bg-input-hover); }
 
 .btn-ghost {
   background: transparent; color: var(--fg-secondary);
@@ -432,7 +473,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .btn-ghost:hover:not(:disabled) { background: var(--bg-hover); color: var(--fg-primary); }
 
 .btn-destructive { background: var(--danger); color: white; }
-.btn-destructive:hover:not(:disabled) { background: #A53A38; }
+.btn-destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 88%, #000); }
 
 .btn-sm { height: var(--h-sm); padding: 0 11px; font-size: 11.5px; border-radius: 7px; }
 .btn-xs { height: 24px; padding: 0 8px; font-size: 11px; border-radius: 6px; }
@@ -507,7 +548,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .chip[data-active="true"], .pill[data-active="true"] {
   background: var(--fg-primary); color: var(--bg-elevated);
 }
-.dark .chip[data-active="true"], .dark .pill[data-active="true"] { color: #1C1B18; }
+.dark .chip[data-active="true"], .dark .pill[data-active="true"] { color: var(--primary-fg); }
 .chip-count, .pill-count { font-size: 10px; opacity: 0.7; font-variant-numeric: tabular-nums; margin-left: 2px; }
 
 .tag {
