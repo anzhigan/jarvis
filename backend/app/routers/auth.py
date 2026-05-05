@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from jose import JWTError
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.rate_limit import limiter
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -59,13 +60,16 @@ async def _revoke_family(db: AsyncSession, family_id: uuid.UUID) -> None:
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    # Check duplicates
+@limiter.limit("5/hour")
+async def register(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    # Check duplicates — return a generic message either way to prevent
+    # account enumeration. The 409 still tells the legitimate user something
+    # is off, but doesn't disclose which field collided.
     existing = await db.execute(
         select(User).where((User.email == body.email) | (User.username == body.username))
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status.HTTP_409_CONFLICT, "Email or username already taken")
+        raise HTTPException(status.HTTP_409_CONFLICT, "Could not create account")
 
     user = User(
         email=body.email,
@@ -78,7 +82,8 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.hashed_password):
@@ -89,7 +94,8 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def refresh(request: Request, body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     try:
         payload = decode_token(body.refresh_token)
         if payload.get("type") != "refresh":
@@ -193,7 +199,9 @@ async def delete_account(
 
 
 @router.post("/me/avatar", response_model=UserOut)
+@limiter.limit("20/minute")
 async def upload_user_avatar(
+    request: Request,
     file: UploadFile,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -213,7 +221,7 @@ async def delete_user_avatar(
         s3_key = current_user.avatar_url.replace("/api/images/", "", 1)
         if s3_key:
             try:
-                delete_image(s3_key)
+                await delete_image(s3_key)
             except Exception:
                 pass  # don't block avatar removal on S3 cleanup failure
     current_user.avatar_url = None

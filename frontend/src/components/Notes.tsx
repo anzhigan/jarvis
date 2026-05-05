@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ChevronRight,
@@ -22,7 +22,12 @@ import {
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import RichTextEditor from './RichTextEditor';
+// Heavy editor (~280 KB gzip with tiptap+lowlight+katex). Lazy-load only when
+// a note is actually opened so the notes-list view doesn't pay the cost.
+const RichTextEditor = lazy(() => import('./RichTextEditor'));
+const EditorFallback = () => (
+  <div style={{ padding: 24, color: 'var(--fg-muted)', fontSize: 13 }}>Loading editor…</div>
+);
 import SwipeRow from './SwipeRow';
 import LongPressRow from './LongPressRow';
 import TagSelector from './TagSelector';
@@ -548,16 +553,18 @@ export default function Notes() {
               </div>
             </div>
             <div style={{ padding: '0 20px 80px' }}>
-              <RichTextEditor
-                key={currentNote.id}
-                noteId={currentNote.id}
-                content={editorState.content}
-                onChange={(html) => {
-                  const cur = editorStateRef.current;
-                  if (!cur || cur.noteId !== currentNote.id) return;
-                  setEditorState({ noteId: currentNote.id, content: html, dirty: html !== currentNote.content });
-                }}
-              />
+              <Suspense fallback={<EditorFallback />}>
+                <RichTextEditor
+                  key={currentNote.id}
+                  noteId={currentNote.id}
+                  content={editorState.content}
+                  onChange={(html) => {
+                    const cur = editorStateRef.current;
+                    if (!cur || cur.noteId !== currentNote.id) return;
+                    setEditorState({ noteId: currentNote.id, content: html, dirty: html !== currentNote.content });
+                  }}
+                />
+              </Suspense>
             </div>
           </div>
         </div>
@@ -888,6 +895,7 @@ export default function Notes() {
             <div className="notes-editor-and-context">
               <div className="notes-editor-wrap">
                 {/* Toolbar (sticky at top of scroll) + paper: title, tags, body */}
+                <Suspense fallback={<EditorFallback />}>
                 <RichTextEditor
                   key={currentNote.id}
                   noteId={currentNote.id}
@@ -926,6 +934,7 @@ export default function Notes() {
                     <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
                   </div>
                 </RichTextEditor>
+                </Suspense>
               </div>
 
               {/* Right context panel */}

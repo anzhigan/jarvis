@@ -13,7 +13,16 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
-import { common, createLowlight } from 'lowlight';
+import { createLowlight } from 'lowlight';
+import bash from 'highlight.js/lib/languages/bash';
+import css from 'highlight.js/lib/languages/css';
+import javascript from 'highlight.js/lib/languages/javascript';
+import json from 'highlight.js/lib/languages/json';
+import python from 'highlight.js/lib/languages/python';
+import sql from 'highlight.js/lib/languages/sql';
+import typescript from 'highlight.js/lib/languages/typescript';
+import xml from 'highlight.js/lib/languages/xml';
+import yaml from 'highlight.js/lib/languages/yaml';
 import { mergeAttributes, Node } from '@tiptap/core';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -42,7 +51,50 @@ import { notesApi, injectImageToken, stripImageToken } from '../api/client';
 import InputDialog from './InputDialog';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
-const lowlight = createLowlight(common);
+// Register a small set of grammars instead of `common` (~190 languages, ~250 KB).
+// Add more here when actually needed.
+const lowlight = createLowlight();
+lowlight.register({ bash, css, javascript, json, python, sql, typescript, xml, yaml });
+// Aliases for common labels used in code fences.
+lowlight.registerAlias({ javascript: ['js'], typescript: ['ts'], xml: ['html'] });
+
+/**
+ * Downscale an image to `maxDim` (longer side) using a canvas. Preserves aspect
+ * ratio. Returns a JPEG (or PNG if the source was PNG to keep transparency).
+ * Falls back gracefully — caller should `.catch(() => originalFile)`.
+ */
+async function resizeImage(file: File, maxDim = 1600, quality = 0.85): Promise<File> {
+  const dataUrl = await new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result as string);
+    r.onerror = () => rej(new Error('read failed'));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error('decode failed'));
+    i.src = dataUrl;
+  });
+  const longer = Math.max(img.width, img.height);
+  if (longer <= maxDim) return file;
+  const scale = maxDim / longer;
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return file;
+  ctx.drawImage(img, 0, 0, w, h);
+  const isPng = file.type === 'image/png';
+  const blob = await new Promise<Blob | null>((res) =>
+    canvas.toBlob(res, isPng ? 'image/png' : 'image/jpeg', isPng ? undefined : quality)
+  );
+  if (!blob) return file;
+  const ext = isPng ? 'png' : 'jpg';
+  return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.' + ext, { type: blob.type });
+}
 
 // Custom font size extension
 const FontSize = Extension.create({
@@ -496,7 +548,12 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
 
     setUploadingImage(true);
     try {
-      const result = await notesApi.uploadImage(noteId, file);
+      // Client-side resize before upload — phone photos can be 4-10 MB.
+      // Skip GIF (animation) and tiny files.
+      const toUpload = (file.type !== 'image/gif' && file.size > 200 * 1024)
+        ? await resizeImage(file, 1600).catch(() => file)
+        : file;
+      const result = await notesApi.uploadImage(noteId, toUpload);
       editor
         .chain()
         .focus()

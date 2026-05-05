@@ -3,9 +3,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.database import engine
+from app.core.rate_limit import limiter
 from app.models import *  # noqa: F401, F403
 from app.routers import auth, focus_sprints, notes, routines, tags, tasks
 from app.services.s3 import ensure_bucket_exists
@@ -42,6 +45,10 @@ if settings.APP_ENV != "production":
     _cors_kwargs["allow_origin_regex"] = r"^http://localhost(:[0-9]+)?$"
 
 app.add_middleware(CORSMiddleware, **_cors_kwargs)
+
+# Rate-limiting (slowapi). Per-route limits are declared via @limiter.limit decorators.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(notes.router, prefix="/api")

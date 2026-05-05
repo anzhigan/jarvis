@@ -26,7 +26,8 @@ function plusDaysIso(n: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 function fmtDate(iso: string): string {
-  const d = new Date(iso);
+  // YYYY-MM-DD must be parsed as local midnight, otherwise it's UTC and shifts a day.
+  const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 

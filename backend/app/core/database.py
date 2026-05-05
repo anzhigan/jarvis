@@ -10,6 +10,8 @@ engine = create_async_engine(
     echo=settings.APP_ENV == "development",
     pool_size=10,
     max_overflow=20,
+    pool_pre_ping=True,    # validate connection before use — survives Postgres restart
+    pool_recycle=1800,     # recycle connections every 30min (avoids stale TCP)
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)

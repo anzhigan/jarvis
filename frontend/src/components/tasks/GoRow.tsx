@@ -47,6 +47,7 @@ export default function GoRow({ go, availableSteps, onReload, onLocalUpdate }: {
   const toggle = async () => {
     if (go.kind !== 'boolean') return;
     const newValue = todayVal > 0 ? 0 : 1;
+    const snapshot = go;  // for rollback if both upsert and reload fail
     if (onLocalUpdate) {
       const otherEntries = go.entries.filter((e) => e.date !== today);
       const newEntries = newValue === 0
@@ -60,8 +61,10 @@ export default function GoRow({ go, availableSteps, onReload, onLocalUpdate }: {
       await gosApi.upsertEntry(go.id, today, newValue);
       if (!onLocalUpdate) await onReload();
     } catch (e: any) {
+      // Restore original state immediately so the UI never lies about save success.
+      if (onLocalUpdate) onLocalUpdate(snapshot);
       toast.error(e?.detail ?? 'Failed');
-      if (onLocalUpdate) await onReload();
+      try { if (onLocalUpdate) await onReload(); } catch { /* keep snapshot */ }
     } finally { setBusy(false); }
   };
 
@@ -69,6 +72,7 @@ export default function GoRow({ go, availableSteps, onReload, onLocalUpdate }: {
     const v = override !== undefined ? override : parseFloat(numInput);
     if (isNaN(v) || v < 0) return;
     const newValue = todayVal + v;
+    const snapshot = go;
     if (onLocalUpdate) {
       const otherEntries = go.entries.filter((e) => e.date !== today);
       const newEntries = newValue === 0
@@ -83,8 +87,9 @@ export default function GoRow({ go, availableSteps, onReload, onLocalUpdate }: {
       setNumInput('');
       if (!onLocalUpdate) await onReload();
     } catch (e: any) {
+      if (onLocalUpdate) onLocalUpdate(snapshot);
       toast.error(e?.detail ?? 'Failed');
-      if (onLocalUpdate) await onReload();
+      try { if (onLocalUpdate) await onReload(); } catch { /* keep snapshot */ }
     } finally { setBusy(false); }
   };
 

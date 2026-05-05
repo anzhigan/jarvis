@@ -73,4 +73,13 @@ if (typeof window !== 'undefined') {
   window.addEventListener('auth:logout', () => {
     useAuthStore.setState({ user: null });
   });
+
+  // Cross-tab logout: if another tab clears the access token, drop the user
+  // here too. Otherwise the second tab would keep firing requests with a
+  // stale (still locally cached) Authorization header until refresh fails.
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'access_token' && !e.newValue) {
+      useAuthStore.setState({ user: null });
+    }
+  });
 }

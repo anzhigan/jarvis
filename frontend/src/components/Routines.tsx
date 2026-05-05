@@ -38,11 +38,11 @@ function isRoutineDueToday(r: Routine): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (r.start_date) {
-    const s = new Date(r.start_date); s.setHours(0, 0, 0, 0);
+    const s = new Date(r.start_date + 'T00:00:00'); s.setHours(0, 0, 0, 0);
     if (today < s) return false;
   }
   if (r.end_date) {
-    const e = new Date(r.end_date); e.setHours(0, 0, 0, 0);
+    const e = new Date(r.end_date + 'T00:00:00'); e.setHours(0, 0, 0, 0);
     if (today > e) return false;
   }
   switch (r.schedule_type) {
@@ -376,6 +376,7 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
   const toggleToday = async () => {
     if (routine.kind !== 'boolean' || busy) return;
     const newValue = isDoneToday ? 0 : 1;
+    const snapshot = routine.entries;
     const otherEntries = routine.entries.filter((e) => e.date !== today);
     const optimisticEntries = newValue === 0
       ? otherEntries
@@ -387,14 +388,17 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
       else await routinesApi.upsertEntry(routine.id, today, newValue);
       await onReload();
     } catch (e: any) {
+      // Restore snapshot first so the UI can never appear "saved" if everything failed.
+      onPatchLocal?.(snapshot);
       toast.error(e?.detail ?? 'Failed');
-      await onReload();
+      try { await onReload(); } catch { /* keep snapshot */ }
     } finally { setBusy(false); }
   };
 
   const markSkippedToday = async () => {
     if (routine.kind !== 'boolean' || busy) return;
     const newValue = isSkippedToday ? null : 0;
+    const snapshot = routine.entries;
     const otherEntries = routine.entries.filter((e) => e.date !== today);
     const optimisticEntries = newValue === null
       ? otherEntries
@@ -406,8 +410,9 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
       else await routinesApi.upsertEntry(routine.id, today, 0);
       await onReload();
     } catch (e: any) {
+      onPatchLocal?.(snapshot);
       toast.error(e?.detail ?? 'Failed');
-      await onReload();
+      try { await onReload(); } catch { /* keep snapshot */ }
     } finally { setBusy(false); }
   };
 
@@ -834,7 +839,9 @@ export default function Routines() {
   const filterLabels = { today: 'Today', all: 'All active', paused: 'Paused' } as const;
 
   const doneTodayCount = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // Local date as YYYY-MM-DD (toISOString() gives UTC, off-by-one near midnight in non-UTC zones).
+    const _now = new Date();
+    const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
     return routines.filter((r) => {
       if (!isRoutineDueToday(r)) return false;
       return r.entries?.some((e: any) => e.date === todayStr && e.value > 0);

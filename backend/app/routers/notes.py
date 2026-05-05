@@ -6,9 +6,10 @@ Notes hierarchy:
   /notes/{note_id}               — Read / Update / Delete
   /notes/{note_id}/images        — Upload image
 """
+import asyncio
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, status
 from jose import JWTError
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.rate_limit import limiter
 from app.core.security import decode_token
 from app.models.notes import Note, NoteImage, Topic, Way
 from app.models.user import User
@@ -301,16 +303,18 @@ async def delete_note(
     db: AsyncSession = Depends(get_db),
 ):
     note = await _get_note_or_404(note_id, user, db)
-    # Clean up S3 images first (best-effort)
-    for img in note.images:
-        delete_image(img.s3_key)
+    # Clean up S3 images first (best-effort, parallel)
+    if note.images:
+        await asyncio.gather(*(delete_image(img.s3_key) for img in note.images))
     await db.delete(note)
 
 
 # ─── Images ───────────────────────────────────────────────────────────────────
 
 @router.post("/notes/{note_id}/images", response_model=ImageOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("60/minute")
 async def upload_note_image(
+    request: Request,
     note_id: uuid.UUID,
     file: UploadFile,
     user: User = Depends(get_current_user),
@@ -398,7 +402,7 @@ async def serve_image(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
 
     # 3. Stream the bytes.
-    data, content_type = get_image_bytes(s3_key)
+    data, content_type = await get_image_bytes(s3_key)
     return Response(
         content=data,
         media_type=content_type,
@@ -420,5 +424,5 @@ async def delete_note_image(
     img = result.scalar_one_or_none()
     if not img:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
-    delete_image(img.s3_key)
+    await delete_image(img.s3_key)
     await db.delete(img)

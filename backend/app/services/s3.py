@@ -1,3 +1,4 @@
+import asyncio
 import io
 import uuid
 from functools import lru_cache
@@ -77,7 +78,9 @@ async def _upload_validated(file: UploadFile, prefix: str) -> str:
     key = f"{prefix}/{uuid.uuid4()}.{ext}"
 
     client = _get_client()
-    client.put_object(
+    # boto3 is sync; offload to a thread so we don't block the event loop.
+    await asyncio.to_thread(
+        client.put_object,
         Bucket=settings.S3_BUCKET_NAME,
         Key=key,
         Body=clean_bytes,
@@ -86,19 +89,25 @@ async def _upload_validated(file: UploadFile, prefix: str) -> str:
     return key
 
 
-def delete_image(s3_key: str) -> None:
+async def delete_image(s3_key: str) -> None:
     client = _get_client()
     try:
-        client.delete_object(Bucket=settings.S3_BUCKET_NAME, Key=s3_key)
+        await asyncio.to_thread(
+            client.delete_object, Bucket=settings.S3_BUCKET_NAME, Key=s3_key
+        )
     except ClientError:
         pass  # best-effort
 
 
-def get_image_bytes(s3_key: str) -> tuple[bytes, str]:
-    """Fetch image bytes and content-type from S3."""
+async def get_image_bytes(s3_key: str) -> tuple[bytes, str]:
+    """Fetch image bytes and content-type from S3 without blocking the loop."""
     client = _get_client()
-    try:
+
+    def _fetch() -> tuple[bytes, str]:
         resp = client.get_object(Bucket=settings.S3_BUCKET_NAME, Key=s3_key)
         return resp["Body"].read(), resp.get("ContentType", "application/octet-stream")
+
+    try:
+        return await asyncio.to_thread(_fetch)
     except ClientError:
         raise HTTPException(404, "Image not found")

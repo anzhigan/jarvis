@@ -51,7 +51,8 @@ export default function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayLabel = today.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-  const todayIsoStr = today.toISOString().split('T')[0];
+  // Build YYYY-MM-DD from local date components — toISOString() would give a UTC date.
+  const todayIsoStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const completedToday = todayItems.filter((g) => (g.entries.find((e) => e.date === todayIsoStr)?.value ?? 0) > 0).length;
 
   // API field name is `sprints`; on the FE these are Steps.
