@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { tasksApi, routinesApi, sprintsApi, resolveUrl } from '../api/client';
 import type { Task, Routine, Sprint, RoutineScheduleType } from '../api/types';
 import { useT } from '../store/i18n';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useAuthStore } from '../store/auth';
 import PullToRefresh from './PullToRefresh';
 
@@ -874,12 +875,7 @@ export default function Analysis() {
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  const isMobile = useIsMobile();
 
   const load = async () => {
     try {

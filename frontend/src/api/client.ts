@@ -203,7 +203,7 @@ export const tagsApi = {
 export const tasksApi = {
   list: (status?: TaskStatus) =>
     request<Task[]>(`/tasks${status ? `?status_filter=${status}` : ''}`),
-  create: (data: { title: string; description?: string; status?: TaskStatus; priority?: TaskPriority; start_date?: string | null; due_date?: string | null; color?: string }) =>
+  create: (data: { title: string; description?: string; status?: TaskStatus; priority?: TaskPriority; start_date?: string | null; due_date?: string | null; color?: string; tag_ids?: string[] }) =>
     request<Task>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; start_date?: string | null; due_date?: string | null; is_completed?: boolean; order?: number; color?: string }) =>
     request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),

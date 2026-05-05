@@ -125,6 +125,7 @@ class TaskCreate(BaseModel):
     due_date: date | None = None
     order: int = 0
     color: str = "#5B5BD6"
+    tag_ids: list[uuid.UUID] = []
 
 
 class TaskUpdate(BaseModel):

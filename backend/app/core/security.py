@@ -1,3 +1,6 @@
+import base64
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -7,18 +10,41 @@ from jose import jwt
 from app.core.config import settings
 
 
+def _prehash(password: str) -> bytes:
+    """SHA256-prehash before bcrypt to (a) bypass the 72-byte limit and
+    (b) avoid mid-codepoint UTF-8 truncation. Base64-encoded so the result
+    is bcrypt-safe (no NUL bytes, fixed 44-byte length)."""
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    return base64.b64encode(digest)
+
+
 def hash_password(password: str) -> str:
-    # bcrypt has 72-byte limit; truncate
-    pw_bytes = password.encode("utf-8")[:72]
-    return bcrypt.hashpw(pw_bytes, bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(_prehash(password), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    pw_bytes = plain.encode("utf-8")[:72]
+    """Accept both new (SHA256-prehashed) and legacy (raw 72-byte trunc) hashes.
+    Old passwords seamlessly migrate the next time the user changes them."""
+    hashed_bytes = hashed.encode("utf-8")
     try:
-        return bcrypt.checkpw(pw_bytes, hashed.encode("utf-8"))
+        if bcrypt.checkpw(_prehash(plain), hashed_bytes):
+            return True
+        # Legacy fallback for hashes created before SHA256 prehash.
+        legacy = plain.encode("utf-8")[:72]
+        return bcrypt.checkpw(legacy, hashed_bytes)
     except ValueError:
         return False
+
+
+# Dummy bcrypt hash — used by login when the user is not found, so the request
+# spends roughly the same time as a real password check (mitigates timing
+# attacks that distinguish "user exists" from "user doesn't exist").
+_DUMMY_BCRYPT_HASH = bcrypt.hashpw(_prehash(secrets.token_urlsafe(32)), bcrypt.gensalt()).decode("utf-8")
+
+
+def dummy_verify() -> None:
+    """Run a bcrypt check against a throwaway hash — same cost as a real one."""
+    bcrypt.checkpw(_prehash("dummy"), _DUMMY_BCRYPT_HASH.encode("utf-8"))
 
 
 def create_access_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:

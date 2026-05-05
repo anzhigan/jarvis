@@ -6,7 +6,9 @@ import type { Routine, RoutineEntry, RoutineScheduleType } from '../api/types';
 import PullToRefresh from './PullToRefresh';
 import SwipeRow from './SwipeRow';
 import AddItemButton from './AddItemButton';
+import ConfirmDialog from './ConfirmDialog';
 import { useT } from '../store/i18n';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
 import { ENTITY_COLORS } from '../lib/colors';
@@ -350,6 +352,7 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const today = todayIso();
   const todayEntry = routine.entries.find((e) => e.date === today);
@@ -429,8 +432,8 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
     }
   };
 
-  const remove = async () => {
-    if (!confirm(`Delete routine "${routine.title}"?`)) return;
+  const requestDelete = () => setConfirmDelete(true);
+  const confirmDeleteRoutine = async () => {
     setBusy(true);
     try {
       await routinesApi.delete(routine.id);
@@ -439,6 +442,7 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
       toast.error(e?.detail ?? 'Failed');
     } finally {
       setBusy(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -548,7 +552,7 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
           >
             {busy && isSkippedToday ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
           </button>
-          <button aria-label="Delete routine" onClick={remove} className="icon-btn icon-btn-sm" title="Delete" style={{ color: 'var(--danger)' }}>
+          <button aria-label="Delete routine" onClick={requestDelete} className="icon-btn icon-btn-sm" title="Delete" style={{ color: 'var(--danger)' }}>
             <Trash2 size={13} />
           </button>
         </div>
@@ -568,11 +572,18 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
     <>
       <SwipeRow
         onEdit={() => setEditing(true)}
-        onDelete={remove}
+        onDelete={requestDelete}
       >
         {card}
       </SwipeRow>
       {editSheet}
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete routine?"
+        message={`"${routine.title}" and its check-in history will be removed.`}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={confirmDeleteRoutine}
+      />
     </>
   );
 }
@@ -778,12 +789,7 @@ function CreateRoutineForm({ open, onCreated, onCancel, goals }: { open: boolean
 export default function Routines() {
   const t = useT();
   const { user } = useAuthStore();
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  const isMobile = useIsMobile();
 
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [goals, setGoals] = useState<{ id: string; title: string }[]>([]);

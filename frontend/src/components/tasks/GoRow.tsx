@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { gosApi } from '../../api/client';
@@ -11,7 +11,7 @@ import DailyStreak from './DailyStreak';
 import EditGoSheet from './EditGoSheet';
 import { adaptiveSteps, formatDate, goValueToday, STRIPE_COLOR, todayIso } from './helpers';
 
-export default function GoRow({ go, availableSteps, onReload, onLocalUpdate }: {
+function GoRowComponent({ go, availableSteps, onReload, onLocalUpdate }: {
   go: Go;
   availableSteps?: Step[];
   onReload: () => Promise<void>;
@@ -199,3 +199,13 @@ export default function GoRow({ go, availableSteps, onReload, onLocalUpdate }: {
     </>
   );
 }
+
+/**
+ * Skip re-render when the row's own `go` hasn't changed and `availableSteps`
+ * identity is stable. Parent re-renders on every drag/keystroke would
+ * otherwise touch all rows.
+ */
+export default memo(GoRowComponent, (prev, next) =>
+  prev.go === next.go &&
+  prev.availableSteps === next.availableSteps,
+);

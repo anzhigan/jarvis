@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, ChevronDown, ChevronRight, Pencil, Repeat, X, Zap } from 'lucide-react';
 import type { Task, TaskStatus } from '../../api/types';
@@ -18,12 +18,12 @@ const STATUSES: { key: TaskStatus; labelKey: string }[] = [
   { key: 'done', labelKey: 'tasks.status.done' },
 ];
 
-export default function TaskCard({
+function TaskCardComponent({
   task, onUpdate, onDelete, onReload, onDragStart, onDragEnd, isDragging, isMobile,
 }: {
   task: Task;
   onUpdate: (data: Partial<Task>) => Promise<void>;
-  onDelete: () => Promise<void>;
+  onDelete: () => void | Promise<void>;
   onReload: () => Promise<void>;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -191,3 +191,17 @@ export default function TaskCard({
     </>
   );
 }
+
+/**
+ * Memoised: re-renders only when the task itself changed (identity OR
+ * `updated_at` bump from server reload), or when drag/mobile flags toggle.
+ * Skips re-render on parent dragOver/draggingId state changes that don't
+ * touch this particular task.
+ */
+export default memo(TaskCardComponent, (prev, next) =>
+  prev.task === next.task &&
+  prev.task.updated_at === next.task.updated_at &&
+  prev.task.status === next.task.status &&
+  prev.isMobile === next.isMobile &&
+  prev.isDragging === next.isDragging,
+);

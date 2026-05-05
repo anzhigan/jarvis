@@ -14,6 +14,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    dummy_verify,
     hash_password,
     verify_password,
 )
@@ -86,7 +87,12 @@ async def register(request: Request, body: RegisterRequest, db: AsyncSession = D
 async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
-    if not user or not verify_password(body.password, user.hashed_password):
+    if not user:
+        # Spend roughly the same time bcrypt-verifying a throwaway hash so the
+        # response time can't distinguish "no such email" from "wrong password".
+        dummy_verify()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+    if not verify_password(body.password, user.hashed_password):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account is disabled")

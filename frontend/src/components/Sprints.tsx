@@ -8,7 +8,9 @@ import type { Sprint, SprintItem, SprintItemType, Task, Go } from '../api/types'
 import PullToRefresh from './PullToRefresh';
 import SwipeRow from './SwipeRow';
 import AddItemButton from './AddItemButton';
+import ConfirmDialog from './ConfirmDialog';
 import { useT } from '../store/i18n';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
 import PickerSheet from './PickerSheet';
@@ -492,13 +494,9 @@ export default function Sprints() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editingSprintId, setEditingSprintId] = useState<string | null>(null);
+  const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'current' | 'future' | 'past'>('current');
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  const isMobile = useIsMobile();
 
   const load = async () => {
     setLoading(true);
@@ -533,6 +531,23 @@ export default function Sprints() {
           onReload={load}
         />
       )}
+
+      {(() => {
+        const ds = deletingSprintId ? sprints.find((x) => x.id === deletingSprintId) : null;
+        return ds ? (
+          <ConfirmDialog
+            open
+            title="Delete sprint?"
+            message={`"${ds.title}" will be removed.`}
+            onCancel={() => setDeletingSprintId(null)}
+            onConfirm={async () => {
+              try { await sprintsApi.delete(ds.id); await load(); }
+              catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+              finally { setDeletingSprintId(null); }
+            }}
+          />
+        ) : null;
+      })()}
       <PullToRefresh onRefresh={load}>
         {isMobile ? (
           <>
@@ -624,11 +639,7 @@ export default function Sprints() {
                 <SwipeRow
                   key={s.id}
                   onEdit={() => setEditingSprintId(s.id)}
-                  onDelete={async () => {
-                    if (!confirm(`Delete sprint "${s.title}"?`)) return;
-                    try { await sprintsApi.delete(s.id); await load(); }
-                    catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-                  }}
+                  onDelete={() => setDeletingSprintId(s.id)}
                 >
                   <SprintCard sprint={s} onReload={load} onOpen={() => setEditingSprintId(s.id)} />
                 </SwipeRow>

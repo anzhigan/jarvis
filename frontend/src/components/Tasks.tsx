@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { AnimatePresence } from 'motion/react';
 import {
   Loader2,
@@ -35,12 +36,7 @@ const MOBILE_FILTER_ORDER: TaskStatus[] = ['active', 'done', 'paused', 'backlog'
 export default function Tasks() {
   const t = useT();
   const { user } = useAuthStore();
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  const isMobile = useIsMobile();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,20 +100,20 @@ export default function Tasks() {
   }, [tasks]);
 
   const createTask = async () => {
-    const created = await tasksApi.create({
+    // Single round-trip — backend now accepts `tag_ids` in TaskCreate and
+    // bulk-attaches them via one INSERT instead of N attach calls.
+    await tasksApi.create({
       title: newTitle.trim(), priority: newPriority,
       start_date: newStart || null, due_date: newDue || null,
       description: newDescription || '', color: newColor,
+      tag_ids: newTagIds,
     });
-    for (const tagId of newTagIds) {
-      try { await tasksApi.attachTag(created.id, tagId); } catch { /* ignore individual */ }
-    }
     setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription(''); setNewTagIds([]); setNewColor(ENTITY_COLORS[0]);
     setShowCreateForm(false);
     await load();
   };
 
-  const updateTask = async (id: string, data: Partial<Task>) => {
+  const updateTask = useCallback(async (id: string, data: Partial<Task>) => {
     if (data.status === 'done') {
       try {
         const linked: Routine[] = await routinesApi.byGoal(id);
@@ -130,7 +126,7 @@ export default function Tasks() {
     }
     try { await tasksApi.update(id, data); await load(); }
     catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-  };
+  }, []);
 
   const completeGoalWithChoice = async (taskId: string, choice: 'finish_all' | 'keep_active' | 'unlink') => {
     try {
@@ -151,7 +147,7 @@ export default function Tasks() {
     }
   };
 
-  const deleteTask = async (id: string) => {
+  const deleteTask = useCallback((id: string) => {
     setConfirmState({
       title: 'Delete task?',
       message: t('tasks.deleteMsg'),
@@ -160,7 +156,7 @@ export default function Tasks() {
         catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
       },
     });
-  };
+  }, [t]);
 
   if (loading) {
     return <div className="size-full flex items-center justify-center"><Loader2 size={24} className="animate-spin text-muted-foreground" /></div>;

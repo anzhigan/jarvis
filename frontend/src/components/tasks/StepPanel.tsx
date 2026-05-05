@@ -5,6 +5,7 @@ import { gosApi, stepsApi } from '../../api/client';
 import type { Go, Step, Task } from '../../api/types';
 import { useT } from '../../store/i18n';
 import AddItemButton from '../AddItemButton';
+import ConfirmDialog from '../ConfirmDialog';
 import SwipeRow from '../SwipeRow';
 import CreateStepForm from './CreateStepForm';
 import EditStepSheet from './EditStepSheet';
@@ -20,6 +21,7 @@ export default function StepPanel({ tasks, onReload }: { tasks: Task[]; onReload
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [editingStep, setEditingStep] = useState<Step | null>(null);
+  const [deletingStep, setDeletingStep] = useState<Step | null>(null);
   const [expandedGos, setExpandedGos] = useState<Set<string>>(new Set());
   const [busyGos, setBusyGos] = useState<Set<string>>(new Set());
 
@@ -232,11 +234,7 @@ export default function StepPanel({ tasks, onReload }: { tasks: Task[]; onReload
       <SwipeRow
         key={s.id}
         onEdit={() => setEditingStep(s)}
-        onDelete={async () => {
-          if (!confirm(`Delete step "${s.title}"?`)) return;
-          try { await stepsApi.delete(s.id); await reload(); }
-          catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-        }}
+        onDelete={() => setDeletingStep(s)}
       >
         {cardContent}
       </SwipeRow>
@@ -251,6 +249,21 @@ export default function StepPanel({ tasks, onReload }: { tasks: Task[]; onReload
           tasks={tasks}
           onClose={() => setEditingStep(null)}
           onSaved={async () => { setEditingStep(null); await reload(); }}
+        />
+      )}
+
+      {deletingStep && (
+        <ConfirmDialog
+          open
+          title="Delete step?"
+          message={`"${deletingStep.title}" will be removed; attached gos stay.`}
+          onCancel={() => setDeletingStep(null)}
+          onConfirm={async () => {
+            const s = deletingStep;
+            setDeletingStep(null);
+            try { await stepsApi.delete(s.id); await reload(); }
+            catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+          }}
         />
       )}
 

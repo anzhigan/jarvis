@@ -300,6 +300,18 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user), 
     )
     db.add(t)
     await db.flush()
+    # Bulk-attach tags in one round-trip rather than N HTTP calls from the client.
+    if body.tag_ids:
+        from app.models.notes import Tag
+        from app.models.tasks import task_tags
+        valid = (
+            await db.execute(select(Tag.id).where(Tag.id.in_(body.tag_ids), Tag.user_id == user.id))
+        ).scalars().all()
+        if valid:
+            await db.execute(
+                pg_insert(task_tags).values([{"task_id": t.id, "tag_id": tid} for tid in valid])
+                .on_conflict_do_nothing()
+            )
     await db.refresh(t, ["sprints", "gos", "tags"])
     return _task_dict(t)
 

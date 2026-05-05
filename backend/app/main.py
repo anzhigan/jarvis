@@ -1,8 +1,9 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -56,6 +57,15 @@ app.include_router(tags.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(routines.router, prefix="/api")
 app.include_router(focus_sprints.router, prefix="/api")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all so unhandled exceptions never leak stack traces / SQL / paths
+    to the client. The full exception is logged server-side; the client gets
+    a sanitized 500."""
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 @app.get("/health")

@@ -212,17 +212,38 @@ export default function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: 
           <div className="panel-card">
             <div className="panel-head">Last 14 days</div>
             <div style={{ display: 'flex', alignItems: 'flex-end', height: 50, gap: 3, paddingTop: 8 }}>
-              {Array.from({ length: 14 }, (_, i) => {
-                const h = 30 + Math.round(Math.random() * 60);
-                const isToday = i === 13;
-                return (
-                  <div key={i} style={{
-                    flex: 1, height: `${h}%`, borderRadius: 2,
-                    background: isToday ? 'var(--accent-sprints)' : 'var(--success)',
-                    opacity: isToday ? 1 : 0.5 + (h / 200),
-                  }} />
-                );
-              })}
+              {(() => {
+                // Compute % done per day across all gos that existed on that day.
+                const days: { iso: string; pct: number }[] = [];
+                const allGos = [...todayItems, ...pastItems, ...futureItems];
+                for (let offset = 13; offset >= 0; offset--) {
+                  const d = new Date();
+                  d.setHours(0, 0, 0, 0);
+                  d.setDate(d.getDate() - offset);
+                  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                  let done = 0;
+                  let total = 0;
+                  for (const g of allGos) {
+                    const created = new Date(g.created_at); created.setHours(0, 0, 0, 0);
+                    if (created > d) continue;
+                    if (g.due_date && new Date(g.due_date + 'T00:00:00') < d) continue;
+                    total++;
+                    if ((g.entries.find((e) => e.date === iso)?.value ?? 0) > 0) done++;
+                  }
+                  days.push({ iso, pct: total > 0 ? Math.round(100 * done / total) : 0 });
+                }
+                return days.map(({ iso, pct }, i) => {
+                  const h = Math.max(8, pct);
+                  const isToday = i === 13;
+                  return (
+                    <div key={iso} title={`${iso}: ${pct}%`} style={{
+                      flex: 1, height: `${h}%`, borderRadius: 2,
+                      background: isToday ? 'var(--accent-sprints)' : 'var(--success)',
+                      opacity: isToday ? 1 : 0.4 + pct / 200,
+                    }} />
+                  );
+                });
+              })()}
             </div>
             <div style={{ fontSize: 10, color: 'var(--fg-muted)', marginTop: 6, display: 'flex', justifyContent: 'space-between' }}>
               <span>14d ago</span><span>today</span>
