@@ -1,5 +1,6 @@
 import io
 import uuid
+from functools import lru_cache
 
 import boto3
 from botocore.exceptions import ClientError
@@ -11,7 +12,12 @@ from app.core.config import settings
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_SIZE_MB = 10
 
+# Hard cap on decoded pixel count to prevent decompression-bomb DoS.
+# 50M pixels = ~7000x7000 — far above any realistic photo, well below RAM blow-up.
+Image.MAX_IMAGE_PIXELS = 50_000_000
 
+
+@lru_cache(maxsize=1)
 def _get_client():
     return boto3.client(
         "s3",
@@ -27,19 +33,8 @@ def ensure_bucket_exists() -> None:
         client.head_bucket(Bucket=settings.S3_BUCKET_NAME)
     except ClientError:
         client.create_bucket(Bucket=settings.S3_BUCKET_NAME)
-        # Make bucket public-read for MinIO dev setup
-        client.put_bucket_policy(
-            Bucket=settings.S3_BUCKET_NAME,
-            Policy=f"""{{
-                "Version":"2012-10-17",
-                "Statement":[{{
-                    "Effect":"Allow",
-                    "Principal":"*",
-                    "Action":"s3:GetObject",
-                    "Resource":"arn:aws:s3:::{settings.S3_BUCKET_NAME}/*"
-                }}]
-            }}""",
-        )
+        # Bucket is intentionally PRIVATE — images are served through the
+        # authenticated /api/images endpoint (see routers/notes.py).
 
 
 async def upload_image(file: UploadFile, note_id: uuid.UUID) -> tuple[str, str]:
@@ -64,17 +59,21 @@ async def _upload_validated(file: UploadFile, prefix: str) -> str:
 
     try:
         img = Image.open(io.BytesIO(raw))
-        img.verify()
+        img.verify()  # raises DecompressionBombError if MAX_IMAGE_PIXELS exceeded
         img = Image.open(io.BytesIO(raw))  # re-open after verify
-        buf = io.BytesIO()
         fmt = img.format or "JPEG"
+        buf = io.BytesIO()
         img.save(buf, format=fmt)
         buf.seek(0)
         clean_bytes = buf.read()
+    except Image.DecompressionBombError:
+        raise HTTPException(400, "Image too large to process (decoded size exceeds limit)")
     except Exception:
         raise HTTPException(400, "Invalid image file")
 
-    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "jpg"
+    # Trust PIL-detected format for content-type, NOT the client header.
+    detected_ct = Image.MIME.get(fmt) or "application/octet-stream"
+    ext = (fmt or "JPEG").lower().replace("jpeg", "jpg")
     key = f"{prefix}/{uuid.uuid4()}.{ext}"
 
     client = _get_client()
@@ -82,7 +81,7 @@ async def _upload_validated(file: UploadFile, prefix: str) -> str:
         Bucket=settings.S3_BUCKET_NAME,
         Key=key,
         Body=clean_bytes,
-        ContentType=file.content_type,
+        ContentType=detected_ct,
     )
     return key
 

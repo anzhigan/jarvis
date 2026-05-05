@@ -8,13 +8,15 @@ Notes hierarchy:
 """
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, status
+from jose import JWTError
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.security import decode_token
 from app.models.notes import Note, NoteImage, Topic, Way
 from app.models.user import User
 from app.schemas.notes import (
@@ -334,15 +336,73 @@ async def upload_note_image(
 
 
 @router.get("/images/{s3_key:path}")
-async def serve_image(s3_key: str):
-    """Public endpoint that streams image bytes from S3.
-    Exposed without auth so <img src=...> tags work in the browser.
+async def serve_image(
+    s3_key: str,
+    token: str = Query(..., description="Access JWT — passed as query so <img> tags work."),
+    db: AsyncSession = Depends(get_db),
+):
+    """Streams image bytes from S3 after verifying the requester owns the object.
+
+    Auth: a short-lived access JWT is passed as ?token=... because <img> elements
+    cannot send Authorization headers. The token is the same one used for
+    Bearer auth on JSON endpoints. Cache-Control is `private` so shared caches
+    don't store it under the token-bearing URL.
     """
+    # 1. Validate token and resolve the user.
+    try:
+        payload = decode_token(token)
+        user_id = payload.get("sub")
+        token_type = payload.get("type", "access")
+        if not user_id or token_type != "access":
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    except JWTError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+
+    # 2. Authorize: the s3 key must belong to the requesting user.
+    parts = s3_key.split("/", 2)
+    if len(parts) < 2:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
+
+    if parts[0] == "avatars":
+        # avatars/{user_id}/{uuid}.{ext}
+        if parts[1] != str(user_id):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your image")
+    elif parts[0] == "notes":
+        # notes/{note_id}/{uuid}.{ext} — verify the requesting user owns the note.
+        try:
+            note_uuid = uuid.UUID(parts[1])
+        except ValueError:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
+        # Two queries are fine here — small, indexed, on a cached path. Mirrors _get_note_or_404.
+        note_row = (
+            await db.execute(select(Note).where(Note.id == note_uuid))
+        ).scalar_one_or_none()
+        if not note_row:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
+        if note_row.way_id:
+            owns = (
+                await db.execute(
+                    select(Way.id).where(Way.id == note_row.way_id, Way.user_id == user_id)
+                )
+            ).scalar_one_or_none()
+        else:
+            tid = note_row.topic_id or note_row.topic_inline_id
+            owns = (
+                await db.execute(
+                    select(Topic.id).join(Way).where(Topic.id == tid, Way.user_id == user_id)
+                )
+            ).scalar_one_or_none()
+        if not owns:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your image")
+    else:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
+
+    # 3. Stream the bytes.
     data, content_type = get_image_bytes(s3_key)
     return Response(
         content=data,
         media_type=content_type,
-        headers={"Cache-Control": "public, max-age=31536000"},
+        headers={"Cache-Control": "private, max-age=300"},
     )
 
 

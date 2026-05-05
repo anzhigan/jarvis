@@ -25,16 +25,19 @@ def create_access_token(subject: str | Any, expires_delta: timedelta | None = No
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    return jwt.encode({"sub": str(subject), "exp": expire}, settings.SECRET_KEY, settings.ALGORITHM)
-
-
-def create_refresh_token(subject: str | Any) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     return jwt.encode(
-        {"sub": str(subject), "exp": expire, "type": "refresh"},
+        {"sub": str(subject), "exp": expire, "type": "access"},
         settings.SECRET_KEY,
         settings.ALGORITHM,
     )
+
+
+def create_refresh_token(subject: str | Any, jti: str | None = None) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    payload: dict[str, Any] = {"sub": str(subject), "exp": expire, "type": "refresh"}
+    if jti:
+        payload["jti"] = jti
+    return jwt.encode(payload, settings.SECRET_KEY, settings.ALGORITHM)
 
 
 def decode_token(token: str) -> dict:

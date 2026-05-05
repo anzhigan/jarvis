@@ -30,15 +30,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.origins,
-    # Native apps run from capacitor://localhost or http://localhost (WKWebView)
-    allow_origin_regex=r"^(capacitor|ionic)://localhost$|^http://localhost(:[0-9]+)?$",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_cors_kwargs: dict = {
+    "allow_origins": settings.origins,
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+# Allow localhost dev servers only outside production. In prod we only honour
+# the explicit ALLOWED_ORIGINS list to avoid DNS-rebinding / loopback abuse.
+if settings.APP_ENV != "production":
+    _cors_kwargs["allow_origin_regex"] = r"^http://localhost(:[0-9]+)?$"
+
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(notes.router, prefix="/api")

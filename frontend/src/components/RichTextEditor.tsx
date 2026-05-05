@@ -38,7 +38,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { notesApi } from '../api/client';
+import { notesApi, injectImageToken, stripImageToken } from '../api/client';
 import InputDialog from './InputDialog';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
@@ -433,8 +433,8 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
       CodeBlockLowlight.configure({ lowlight, HTMLAttributes: { class: 'editor-code-block' } }),
       InlineMath,
     ],
-    content,
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    content: injectImageToken(content),
+    onUpdate: ({ editor }) => onChange(stripImageToken(editor.getHTML())),
     onFocus: handleEditorFocus,
     onBlur: handleEditorBlur,
     editorProps: {

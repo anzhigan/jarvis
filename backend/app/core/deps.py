@@ -19,8 +19,13 @@ async def get_current_user(
     try:
         payload = decode_token(token)
         user_id: str = payload.get("sub")
+        token_type: str = payload.get("type", "access")
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        # Refresh tokens (and any non-access type) must NOT be accepted as bearer credentials.
+        # Pre-existing access tokens issued before this change have no "type" claim and default to "access".
+        if token_type != "access":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 

@@ -23,11 +23,38 @@ export function resolveUrl(url: string | null | undefined): string {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  let resolved = url;
   if (BASE_URL.startsWith('http')) {
     const origin = BASE_URL.replace(/\/api\/?$/, '');
-    return url.startsWith('/') ? `${origin}${url}` : `${origin}/${url}`;
+    resolved = url.startsWith('/') ? `${origin}${url}` : `${origin}/${url}`;
   }
-  return url;
+  // /api/images/... requires an access token query param so <img> tags
+  // (which can't send Authorization headers) authenticate correctly.
+  if (resolved.includes('/api/images/')) {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (token && !resolved.includes('token=')) {
+      resolved += (resolved.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+    }
+  }
+  return resolved;
+}
+
+/** Strip ?token=... from /api/images/... URLs before persisting (e.g. into Tiptap content). */
+export function stripImageToken(html: string): string {
+  return html.replace(/(\/api\/images\/[^"'\s?]+)\?token=[^"'\s&]+(&[^"'\s]*)?/g, '$1$2');
+}
+
+/** Append ?token=... to /api/images/... URLs in HTML before rendering it. */
+export function injectImageToken(html: string): string {
+  if (typeof localStorage === 'undefined') return html;
+  const token = localStorage.getItem('access_token');
+  if (!token) return html;
+  const enc = encodeURIComponent(token);
+  return html.replace(/(\/api\/images\/[^"'\s?]+)(\?[^"'\s]*)?/g, (_m, path, query) => {
+    if (query && query.includes('token=')) return path + query;
+    if (query) return `${path}${query}&token=${enc}`;
+    return `${path}?token=${enc}`;
+  });
 }
 
 export class ApiError extends Error {
