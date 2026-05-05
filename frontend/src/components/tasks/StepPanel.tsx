@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { gosApi, stepsApi } from '../../api/client';
 import type { Go, Step, Task } from '../../api/types';
@@ -16,7 +16,7 @@ export default function StepPanel({ tasks, onReload }: { tasks: Task[]; onReload
   const [past, setPast] = useState<Step[]>([]);
   const [future, setFuture] = useState<Step[]>([]);
   const [pastDays, setPastDays] = useState(90);
-  const [pastOpen, setPastOpen] = useState(false);
+  const [filter, setFilter] = useState<'past' | 'current' | 'future'>('current');
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [editingStep, setEditingStep] = useState<Step | null>(null);
@@ -254,7 +254,22 @@ export default function StepPanel({ tasks, onReload }: { tasks: Task[]; onReload
         />
       )}
 
-      <AddItemButton label={t('tasks.addStep')} onClick={() => setAdding(true)} />
+      <div className="chips-row chips-row-fill">
+        <button className="chip" data-active={filter === 'past'} onClick={() => setFilter('past')}>
+          Past <span className="chip-count">{past.length}</span>
+        </button>
+        <button className="chip" data-active={filter === 'current'} onClick={() => setFilter('current')}>
+          Current <span className="chip-count">{current.length}</span>
+        </button>
+        <button className="chip" data-active={filter === 'future'} onClick={() => setFilter('future')}>
+          Future <span className="chip-count">{future.length}</span>
+        </button>
+      </div>
+
+      <div className="add-row">
+        <AddItemButton label={t('tasks.addStep')} onClick={() => setAdding(true)} />
+      </div>
+
       <CreateStepForm
         open={adding}
         tasks={tasks}
@@ -287,44 +302,34 @@ export default function StepPanel({ tasks, onReload }: { tasks: Task[]; onReload
 
       <div className="section-row">
         <div style={{ minWidth: 0 }}>
-          <div style={{ marginBottom: 18 }}>
-            <button className="past-bar" onClick={() => setPastOpen(!pastOpen)}>
-              {pastOpen ? <ChevronDown size={11} strokeWidth={2} /> : <ChevronRight size={11} strokeWidth={2} />}
-              <span>Past</span>
-              <span className="past-bar-meta">{past.length} finished · {pastDays}d</span>
-            </button>
-
-            {pastOpen && (
-              <div style={{ marginTop: 8 }}>
-                {past.length === 0 ? (
-                  <div className="py-4 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>{t('step.none_past', { days: pastDays })}</div>
-                ) : past.map((s) => renderStepCard(s, false))}
-                <button onClick={() => setPastDays(pastDays + 90)} className="btn btn-ghost btn-sm w-full">
+          {filter === 'past' && (
+            <section>
+              {past.length === 0 ? (
+                <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('step.none_past', { days: pastDays })}</div>
+              ) : past.map((s) => renderStepCard(s, false))}
+              {past.length > 0 && (
+                <button onClick={() => setPastDays(pastDays + 90)} className="btn btn-ghost btn-sm w-full" style={{ marginTop: 8 }}>
                   {t('go.showOlder', { days: pastDays })}
                 </button>
-              </div>
-            )}
-          </div>
+              )}
+            </section>
+          )}
 
-          <section style={{ marginBottom: 24 }}>
-            <div className="day-head">
-              <h2 className="day-head-title">Current · {current.length} active</h2>
-              <span className="day-head-meta">avg {avgProgress}%</span>
-            </div>
-            {current.length === 0 ? (
-              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('step.none_current')}</div>
-            ) : current.map((s) => renderStepCard(s, false))}
-          </section>
+          {filter === 'current' && (
+            <section>
+              {current.length === 0 ? (
+                <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('step.none_current')}</div>
+              ) : current.map((s) => renderStepCard(s, false))}
+            </section>
+          )}
 
-          <section>
-            <div className="day-head">
-              <h2 className="day-head-title">{t('step.future')}</h2>
-              <span className="day-head-meta">{future.length} scheduled</span>
-            </div>
-            {future.length === 0 ? (
-              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('step.none_future')}</div>
-            ) : future.map((s) => renderStepCard(s, true))}
-          </section>
+          {filter === 'future' && (
+            <section>
+              {future.length === 0 ? (
+                <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('step.none_future')}</div>
+              ) : future.map((s) => renderStepCard(s, true))}
+            </section>
+          )}
         </div>
 
         <aside className="right-panel">

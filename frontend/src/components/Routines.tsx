@@ -5,6 +5,7 @@ import { routinesApi, tasksApi, resolveUrl } from '../api/client';
 import type { Routine, RoutineEntry, RoutineScheduleType } from '../api/types';
 import PullToRefresh from './PullToRefresh';
 import SwipeRow from './SwipeRow';
+import AddItemButton from './AddItemButton';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
@@ -770,6 +771,7 @@ function CreateRoutineForm({ open, onCreated, onCancel, goals }: { open: boolean
 // Main Routines page
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Routines() {
+  const t = useT();
   const { user } = useAuthStore();
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
@@ -866,8 +868,8 @@ export default function Routines() {
               </button>
             </div>
 
-            {/* Filter chips + create CTA */}
-            <div className="chips-row">
+            {/* Filter chips */}
+            <div className="chips-row chips-row-fill">
               {(['today', 'all', 'paused'] as const).map((f) => (
                 <button
                   key={f}
@@ -879,9 +881,10 @@ export default function Routines() {
                   <span className="chip-count">{counts[f]}</span>
                 </button>
               ))}
-              <button onClick={() => setCreating(true)} className="chip" style={{ marginLeft: 'auto' }}>
-                <Plus size={13} /> New
-              </button>
+            </div>
+
+            <div className="add-row">
+              <AddItemButton label={t('tasks.addRoutine')} onClick={() => setCreating(true)} />
             </div>
 
             <div style={{ padding: '0 16px' }}>

@@ -555,16 +555,16 @@ export default function Sprints() {
                 )}
               </button>
             </div>
-            <div className="chips-row">
+            <div className="chips-row chips-row-fill">
               {(['current', 'future', 'past'] as const).map((f) => (
                 <button key={f} onClick={() => setFilter(f)} className="chip" data-active={filter === f}>
                   {f === 'current' ? 'Current' : f === 'future' ? 'Future' : 'Past'}
                   <span className="chip-count">{grouped[f].length}</span>
                 </button>
               ))}
-              <button onClick={() => setCreating(true)} className="chip" style={{ marginLeft: 'auto' }}>
-                <Plus size={13} /> New
-              </button>
+            </div>
+            <div className="add-row">
+              <AddItemButton label="Add sprint" onClick={() => setCreating(true)} />
             </div>
           </>
         ) : null}

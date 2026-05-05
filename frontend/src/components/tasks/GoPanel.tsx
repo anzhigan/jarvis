@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { gosApi } from '../../api/client';
 import type { Go, Step, Task } from '../../api/types';
@@ -14,7 +14,7 @@ export default function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: 
   const [pastItems, setPastItems] = useState<Go[]>([]);
   const [futureItems, setFutureItems] = useState<Go[]>([]);
   const [pastDays, setPastDays] = useState(30);
-  const [pastOpen, setPastOpen] = useState(false);
+  const [filter, setFilter] = useState<'past' | 'today' | 'future'>('today');
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
 
@@ -89,7 +89,21 @@ export default function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: 
 
   return (
     <>
-      {!adding && <AddItemButton label={t('tasks.addGo')} onClick={() => setAdding(true)} />}
+      <div className="chips-row chips-row-fill">
+        <button className="chip" data-active={filter === 'past'} onClick={() => setFilter('past')}>
+          Past <span className="chip-count">{pastItems.length}</span>
+        </button>
+        <button className="chip" data-active={filter === 'today'} onClick={() => setFilter('today')}>
+          Today <span className="chip-count">{todayItems.length}</span>
+        </button>
+        <button className="chip" data-active={filter === 'future'} onClick={() => setFilter('future')}>
+          Future <span className="chip-count">{futureItems.length}</span>
+        </button>
+      </div>
+
+      <div className="add-row">
+        <AddItemButton label={t('tasks.addGo')} onClick={() => setAdding(true)} />
+      </div>
 
       <CreateGoForm
         open={adding}
@@ -127,64 +141,58 @@ export default function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: 
 
       <div className="section-row">
         <div style={{ minWidth: 0 }}>
-          <div style={{ marginBottom: 18 }}>
-            <button className="past-bar" onClick={() => setPastOpen(!pastOpen)}>
-              {pastOpen ? <ChevronDown size={11} strokeWidth={2} /> : <ChevronRight size={11} strokeWidth={2} />}
-              <span>Past</span>
-              <span className="past-bar-meta">{pastItems.length} items · {pastDays}d</span>
-            </button>
-
-            {pastOpen && (
-              <div style={{ marginTop: 8 }}>
-                {pastItems.length === 0 ? (
-                  <div className="py-4 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>{t('go.nothingPast', { days: pastDays })}</div>
-                ) : pastItems.map((g) => (
-                  <GoRow key={g.id} go={g}
-                    availableSteps={g.task_id ? stepsByTask.get(g.task_id) : undefined}
-                    onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
-                ))}
-                <button onClick={() => setPastDays(pastDays + 30)} className="btn btn-ghost btn-sm w-full">
+          {filter === 'past' && (
+            <section>
+              {pastItems.length === 0 ? (
+                <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('go.nothingPast', { days: pastDays })}</div>
+              ) : pastItems.map((g) => (
+                <GoRow key={g.id} go={g}
+                  availableSteps={g.task_id ? stepsByTask.get(g.task_id) : undefined}
+                  onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
+              ))}
+              {pastItems.length > 0 && (
+                <button onClick={() => setPastDays(pastDays + 30)} className="btn btn-ghost btn-sm w-full" style={{ marginTop: 8 }}>
                   {t('go.showOlder', { days: pastDays })}
                 </button>
+              )}
+            </section>
+          )}
+
+          {filter === 'today' && (
+            <section>
+              <div className="day-head">
+                <h2 className="day-head-title">{todayLabel}</h2>
+                <span className="day-head-meta">{completedToday} of {todayItems.length} done</span>
               </div>
-            )}
-          </div>
+              {todayItems.length === 0 ? (
+                <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('go.nothingToday')}</div>
+              ) : todayItems.map((g) => (
+                <GoRow key={g.id} go={g}
+                  availableSteps={g.task_id ? stepsByTask.get(g.task_id) : undefined}
+                  onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
+              ))}
+            </section>
+          )}
 
-          <section style={{ marginBottom: 24 }}>
-            <div className="day-head">
-              <h2 className="day-head-title">{t('go.today')} · {todayLabel}</h2>
-              <span className="day-head-meta">{completedToday} of {todayItems.length} done</span>
-            </div>
-            {todayItems.length === 0 ? (
-              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('go.nothingToday')}</div>
-            ) : todayItems.map((g) => (
-              <GoRow key={g.id} go={g}
-                availableSteps={g.task_id ? stepsByTask.get(g.task_id) : undefined}
-                onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
-            ))}
-          </section>
-
-          <section>
-            <div className="day-head">
-              <h2 className="day-head-title">{t('go.future')}</h2>
-              <span className="day-head-meta">{futureItems.length} upcoming</span>
-            </div>
-            {futureGroups.length === 0 ? (
-              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('go.noFuture')}</div>
-            ) : futureGroups.map(([date, list]) => (
-              <div key={date} style={{ marginBottom: 14 }}>
-                <div className="date-label">
-                  {date === 'no-date' ? 'No date' :
-                    new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+          {filter === 'future' && (
+            <section>
+              {futureGroups.length === 0 ? (
+                <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('go.noFuture')}</div>
+              ) : futureGroups.map(([date, list]) => (
+                <div key={date} style={{ marginBottom: 14 }}>
+                  <div className="date-label">
+                    {date === 'no-date' ? 'No date' :
+                      new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </div>
+                  {list.map((g) => (
+                    <GoRow key={g.id} go={g}
+                      availableSteps={g.task_id ? stepsByTask.get(g.task_id) : undefined}
+                      onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
+                  ))}
                 </div>
-                {list.map((g) => (
-                  <GoRow key={g.id} go={g}
-                    availableSteps={g.task_id ? stepsByTask.get(g.task_id) : undefined}
-                    onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
-                ))}
-              </div>
-            ))}
-          </section>
+              ))}
+            </section>
+          )}
         </div>
 
         <aside className="right-panel">
