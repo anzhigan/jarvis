@@ -8,7 +8,6 @@ import AddItemButton from '../AddItemButton';
 import SwipeRow from '../SwipeRow';
 import CreateStepForm from './CreateStepForm';
 import EditStepSheet from './EditStepSheet';
-import StepBlock from './StepBlock';
 import { formatDate, todayIso } from './helpers';
 
 export default function StepPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<void> }) {
@@ -299,10 +298,7 @@ export default function StepPanel({ tasks, onReload }: { tasks: Task[]; onReload
               <div style={{ marginTop: 8 }}>
                 {past.length === 0 ? (
                   <div className="py-4 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>{t('step.none_past', { days: pastDays })}</div>
-                ) : past.map((s) => {
-                  const taskSteps = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
-                  return <StepBlock key={s.id} step={s} allStepsOfTask={taskSteps} onReload={reload} onGoLocalUpdate={patchGoInStep} />;
-                })}
+                ) : past.map((s) => renderStepCard(s, false))}
                 <button onClick={() => setPastDays(pastDays + 90)} className="btn btn-ghost btn-sm w-full">
                   {t('go.showOlder', { days: pastDays })}
                 </button>

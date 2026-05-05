@@ -1995,7 +1995,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .task-expanded {
   padding: 12px;
   display: flex; flex-direction: column; gap: 10px;
-  background: var(--bg-hover);
+  background: transparent;
   border-top: 0.5px solid var(--line);
   border-radius: 0 0 var(--r-card) var(--r-card);
 }

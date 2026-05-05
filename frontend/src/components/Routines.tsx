@@ -348,6 +348,7 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
 }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
 
   const today = todayIso();
   const todayEntry = routine.entries.find((e) => e.date === today);
@@ -501,6 +502,16 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
         <div className="routine-title" style={{ opacity: routine.is_paused ? 0.6 : 1 }}>
           {routine.title}
         </div>
+        {routine.description && routine.description.trim() && (
+          <p
+            className="goal-card-desc"
+            data-open={descOpen ? 'true' : undefined}
+            onClick={(e) => { e.stopPropagation(); setDescOpen((v) => !v); }}
+            title={descOpen ? 'Свернуть' : 'Развернуть описание'}
+          >
+            {routine.description}
+          </p>
+        )}
         <div className="routine-sub">
           {scheduleLabel(routine, 'en')}
           {routine.is_paused && <> · paused</>}
