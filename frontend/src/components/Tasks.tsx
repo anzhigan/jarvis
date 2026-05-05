@@ -360,13 +360,13 @@ export default function Tasks() {
                   : (tasksByStatus[mobileStatusFilter] ?? []);
                 if (flat.length === 0) {
                   return (
-                    <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: 13, color: 'var(--fg-muted)' }}>
+                    <div style={{ padding: '24px 16px', textAlign: 'center', fontSize: 13, color: 'var(--fg-muted)' }}>
                       {t('tasks.noTasks')}
                     </div>
                   );
                 }
                 return (
-                  <div style={{ padding: '8px 0' }}>
+                  <div style={{ padding: '8px 16px' }}>
                     <AnimatePresence>
                       {flat.map((task) => (
                         <TaskCard key={task.id} task={task}

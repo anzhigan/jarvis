@@ -3,10 +3,11 @@ import {
   Loader2, Plus, X, Target, ListChecks, Repeat as RepeatIcon, CircleDot,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { sprintsApi, tasksApi, routinesApi, gosApi, resolveUrl } from '../api/client';
-import type { Sprint, SprintItem, SprintItemType, Task, Routine, Go } from '../api/types';
+import { sprintsApi, tasksApi, gosApi, resolveUrl } from '../api/client';
+import type { Sprint, SprintItem, SprintItemType, Task, Go } from '../api/types';
 import PullToRefresh from './PullToRefresh';
 import SwipeRow from './SwipeRow';
+import AddItemButton from './AddItemButton';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
@@ -49,18 +50,17 @@ function itemTypeLabel(type: SprintItemType): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AddItemPanel — picker to add Goal/Step/Go/Routine to a sprint
+// AddItemPanel — picker to add Step or Go to a sprint
 // ═══════════════════════════════════════════════════════════════════════════
 function AddItemPanel({
-  sprint, onClose, onAdded,
+  sprint, kind, onClose, onAdded,
 }: {
   sprint: Sprint;
+  kind: 'step' | 'go';
   onClose: () => void;
   onAdded: () => Promise<void>;
 }) {
-  const [tab, setTab] = useState<SprintItemType>('goal');
   const [goals, setGoals] = useState<Task[]>([]);
-  const [routines, setRoutines] = useState<Routine[]>([]);
   const [gos, setGos] = useState<Go[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -69,38 +69,32 @@ function AddItemPanel({
     (async () => {
       setLoading(true);
       try {
-        const [g, r, gosData] = await Promise.all([
-          tasksApi.list(),
-          routinesApi.list(),
-          gosApi.list(),
-        ]);
-        setGoals(g);
-        setRoutines(r);
-        setGos(gosData);
+        if (kind === 'step') {
+          const g = await tasksApi.list();
+          setGoals(g);
+        } else {
+          const gosData = await gosApi.list();
+          setGos(gosData);
+        }
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [kind]);
 
   const existingIds = useMemo(() => {
-    const ids = { goal: new Set<string>(), step: new Set<string>(), go: new Set<string>(), routine: new Set<string>() };
+    const ids = { step: new Set<string>(), go: new Set<string>() };
     for (const it of sprint.items) {
-      if (it.item_type === 'goal' && it.goal_id) ids.goal.add(it.goal_id);
       if (it.item_type === 'step' && it.step_id) ids.step.add(it.step_id);
       if (it.item_type === 'go' && it.go_id) ids.go.add(it.go_id);
-      if (it.item_type === 'routine' && it.routine_id) ids.routine.add(it.routine_id);
     }
     return ids;
   }, [sprint.items]);
 
   const filteredOptions = useMemo(() => {
     const s = search.trim().toLowerCase();
-    const match = (t: string) => !s || t.toLowerCase().includes(s);
-    if (tab === 'goal') {
-      return goals.filter((g) => !existingIds.goal.has(g.id) && match(g.title));
-    }
-    if (tab === 'step') {
+    const match = (txt: string) => !s || txt.toLowerCase().includes(s);
+    if (kind === 'step') {
       const items: { id: string; title: string; goalTitle: string; color: string }[] = [];
       for (const g of goals) {
         for (const sp of g.sprints || []) {
@@ -111,20 +105,15 @@ function AddItemPanel({
       }
       return items;
     }
-    if (tab === 'go') {
-      return gos.filter((g) => !existingIds.go.has(g.id) && match(g.title));
-    }
-    return routines.filter((r) => !existingIds.routine.has(r.id) && match(r.title));
-  }, [tab, goals, routines, gos, existingIds, search]);
+    return gos.filter((g) => !existingIds.go.has(g.id) && match(g.title));
+  }, [kind, goals, gos, existingIds, search]);
 
-  const add = async (kind: SprintItemType, id: string) => {
+  const add = async (id: string) => {
     try {
       await sprintsApi.addItem(sprint.id, {
         item_type: kind,
-        goal_id: kind === 'goal' ? id : null,
         step_id: kind === 'step' ? id : null,
         go_id: kind === 'go' ? id : null,
-        routine_id: kind === 'routine' ? id : null,
       });
       await onAdded();
     } catch (e: any) {
@@ -132,40 +121,24 @@ function AddItemPanel({
     }
   };
 
+  const title = kind === 'step' ? 'Add step' : 'Add go';
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end md:items-center justify-center" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
         className="modal-panel w-full md:max-w-lg rounded-t-[var(--r-shell)] md:rounded-[var(--r-shell)] flex flex-col max-h-[85vh] md:max-h-[80vh]"
         style={{ boxShadow: 'var(--sh-popover)' }}
       >
         <div className="flex items-center justify-between p-4 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-          <h3 className="text-base font-semibold">Add to focus</h3>
+          <h3 className="text-base font-semibold">{title}</h3>
           <button aria-label="Close" onClick={onClose} className="icon-btn icon-btn-sm"><X size={18} /></button>
         </div>
 
-        {/* Type tabs */}
-        <div className="flex gap-1 p-3 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-          {(['goal', 'step', 'go', 'routine'] as const).map((k) => (
-            <button key={k} onClick={() => setTab(k)}
-              className="flex-1 h-9 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
-              style={{
-                borderRadius: 'var(--r-control)',
-                ...(tab === k ? { background: 'var(--accent-primary)', color: '#fff' } : { background: 'var(--bg-hover)', color: 'var(--fg-secondary)' }),
-              }}
-            >
-              <ItemTypeIcon type={k} size={13} />
-              {itemTypeLabel(k)}
-            </button>
-          ))}
-        </div>
-
-        {/* Search */}
         <div className="px-3 pt-3 flex-shrink-0">
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="input w-full" />
         </div>
 
-        {/* List */}
         <div className="flex-1 overflow-y-auto p-3">
           {loading ? (
             <div className="flex items-center justify-center py-8" style={{ color: 'var(--fg-muted)' }}>
@@ -175,16 +148,8 @@ function AddItemPanel({
             <p className="text-center text-sm py-8" style={{ color: 'var(--fg-muted)' }}>No items.</p>
           ) : (
             <div className="space-y-1.5">
-              {tab === 'goal' && (filteredOptions as Task[]).map((g) => (
-                <button key={g.id} onClick={() => add('goal', g.id)}
-                  className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
-                  <Target size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
-                  <span className="text-sm flex-1 truncate">{g.title}</span>
-                  <span className="text-[10px] capitalize" style={{ color: 'var(--fg-muted)' }}>{g.status}</span>
-                </button>
-              ))}
-              {tab === 'step' && (filteredOptions as { id: string; title: string; goalTitle: string; color: string }[]).map((s) => (
-                <button key={s.id} onClick={() => add('step', s.id)}
+              {kind === 'step' && (filteredOptions as { id: string; title: string; goalTitle: string; color: string }[]).map((s) => (
+                <button key={s.id} onClick={() => add(s.id)}
                   className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
                   <span className="w-1 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
                   <ListChecks size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
@@ -194,22 +159,13 @@ function AddItemPanel({
                   </div>
                 </button>
               ))}
-              {tab === 'go' && (filteredOptions as Go[]).map((g) => (
-                <button key={g.id} onClick={() => add('go', g.id)}
+              {kind === 'go' && (filteredOptions as Go[]).map((g) => (
+                <button key={g.id} onClick={() => add(g.id)}
                   className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
                   <span className="w-1 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: g.color }} />
                   <CircleDot size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
                   <span className="text-sm flex-1 truncate">{g.title}</span>
                   {g.due_date && <span className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>{fmtDate(g.due_date)}</span>}
-                </button>
-              ))}
-              {tab === 'routine' && (filteredOptions as Routine[]).map((r) => (
-                <button key={r.id} onClick={() => add('routine', r.id)}
-                  className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
-                  <span className="w-1 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
-                  <RepeatIcon size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
-                  <span className="text-sm flex-1 truncate">{r.title}</span>
-                  <span className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>{r.schedule_type}</span>
                 </button>
               ))}
             </div>
@@ -288,12 +244,11 @@ function SprintCard({
 // Replaces the old full-page SprintDetail.
 // ═══════════════════════════════════════════════════════════════════════════
 function EditSprintSheet({
-  sprint, onClose, onReload, onDelete,
+  sprint, onClose, onReload,
 }: {
   sprint: Sprint;
   onClose: () => void;
   onReload: () => Promise<void>;
-  onDelete: () => Promise<void>;
 }) {
   const t = useT();
   const [title, setTitle] = useState(sprint.title);
@@ -301,7 +256,7 @@ function EditSprintSheet({
   const [start, setStart] = useState(sprint.start_date);
   const [end, setEnd] = useState(sprint.end_date);
   const [color, setColor] = useState(sprint.color);
-  const [adding, setAdding] = useState(false);
+  const [addingKind, setAddingKind] = useState<'step' | 'go' | null>(null);
 
   const canSubmit = !!title.trim();
 
@@ -375,7 +330,7 @@ function EditSprintSheet({
         <FormField label="In focus">
           {sprint.items.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--fg-muted)', padding: '6px 0' }}>
-              Empty. Add Goals, Steps, Gos or Routines.
+              Empty. Add steps and gos to focus on this period.
             </div>
           ) : (
             <div className="space-y-3">
@@ -406,37 +361,19 @@ function EditSprintSheet({
               })}
             </div>
           )}
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="btn btn-ghost w-full"
-            style={{ marginTop: 10, justifyContent: 'center' }}
-          >
-            <Plus size={15} /> Add to focus
-          </button>
+          <div style={{ marginTop: 8 }}>
+            <AddItemButton label={t('tasks.addStep')} onClick={() => setAddingKind('step')} />
+            <AddItemButton label={t('tasks.addGo')} onClick={() => setAddingKind('go')} />
+          </div>
         </FormField>
-
-        <div style={{ marginTop: 14, paddingTop: 14, boxShadow: 'inset 0 0.5px 0 var(--line)' }}>
-          <button
-            type="button"
-            onClick={async () => {
-              if (!confirm(`Delete sprint "${sprint.title}"?`)) return;
-              await onDelete();
-              onClose();
-            }}
-            className="btn w-full"
-            style={{ color: 'var(--danger)', justifyContent: 'center' }}
-          >
-            Delete sprint
-          </button>
-        </div>
       </CreateSheet>
 
-      {adding && (
+      {addingKind && (
         <AddItemPanel
           sprint={sprint}
-          onClose={() => setAdding(false)}
-          onAdded={async () => { setAdding(false); await onReload(); }}
+          kind={addingKind}
+          onClose={() => setAddingKind(null)}
+          onAdded={async () => { setAddingKind(null); await onReload(); }}
         />
       )}
     </>
@@ -603,10 +540,6 @@ export default function Sprints() {
           sprint={editingSprint}
           onClose={() => setEditingSprintId(null)}
           onReload={load}
-          onDelete={async () => {
-            try { await sprintsApi.delete(editingSprint.id); await load(); }
-            catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-          }}
         />
       )}
       <PullToRefresh onRefresh={load}>
