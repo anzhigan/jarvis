@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { gosApi } from '../../api/client';
 import type { Go, Step } from '../../api/types';
 import { useT } from '../../store/i18n';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import ConfirmDialog from '../ConfirmDialog';
 import SwipeRow from '../SwipeRow';
 import DailyStreak from './DailyStreak';
@@ -19,12 +20,7 @@ export default function GoRow({ go, availableSteps, onReload, onLocalUpdate }: {
 }) {
   // useT kept for potential i18n inside this component
   useT();
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  const isMobile = useIsMobile();
   const [busy, setBusy] = useState(false);
   const [numInput, setNumInput] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);

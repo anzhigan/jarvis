@@ -34,6 +34,20 @@ services:
       timeout: 5s
       retries: 3
 
+  # One-shot migration runner. Blocks `api` from starting until migrations
+  # complete, so a rolling restart never serves traffic against a half-migrated DB.
+  migrator:
+    build: ./backend
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:password@db:5432/jarvis
+    volumes:
+      - ./backend/alembic/versions:/app/alembic/versions
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
     build: ./backend
     restart: unless-stopped
@@ -56,14 +70,22 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
 
   frontend:
     build: ./frontend
     restart: unless-stopped
     ports:
       - "80:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:

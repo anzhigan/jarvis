@@ -237,7 +237,7 @@ export default function Notes() {
       if (cur && cur.noteId === snapshot.noteId && cur.content === snapshot.content && cur.dirty) {
         saveCurrentEditor();
       }
-    }, 1000);
+    }, 2500);
     return () => clearTimeout(timer);
   }, [editorState?.noteId, editorState?.content, editorState?.dirty]);
 

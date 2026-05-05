@@ -78,31 +78,28 @@ async def _get_topic_or_404(topic_id: uuid.UUID, user: User, db: AsyncSession) -
 
 
 async def _get_note_or_404(note_id: uuid.UUID, user: User, db: AsyncSession) -> Note:
-    """Verify note belongs to user through its parent way/topic."""
-    result = await db.execute(
+    """Verify note belongs to user through its parent way/topic.
+
+    One query: outer-joins both possible parents (Way directly, or Way via Topic)
+    and filters on user ownership in WHERE. Hot path on every autosave PATCH.
+    """
+    topic_alias = Topic.__table__.alias("t")
+    way_alias = Way.__table__.alias("w")
+
+    stmt = (
         select(Note)
+        .outerjoin(topic_alias, topic_alias.c.id == Note.topic_id)
+        .outerjoin(
+            way_alias,
+            (way_alias.c.id == Note.way_id) | (way_alias.c.id == topic_alias.c.way_id),
+        )
         .where(Note.id == note_id)
+        .where(way_alias.c.user_id == user.id)
         .options(selectinload(Note.images), selectinload(Note.tags))
     )
-    note = result.scalar_one_or_none()
+    note = (await db.execute(stmt)).scalar_one_or_none()
     if not note:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
-
-    # Check ownership via parent
-    if note.way_id:
-        way_check = await db.execute(
-            select(Way).where(Way.id == note.way_id, Way.user_id == user.id)
-        )
-        if not way_check.scalar_one_or_none():
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
-    else:
-        topic_id = note.topic_id or note.topic_inline_id
-        topic_check = await db.execute(
-            select(Topic).join(Way).where(Topic.id == topic_id, Way.user_id == user.id)
-        )
-        if not topic_check.scalar_one_or_none():
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
-
     return note
 
 

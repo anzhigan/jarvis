@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { gosApi, stepsApi } from '../../api/client';
@@ -31,12 +32,7 @@ export default function StepBlock({ step, allStepsOfTask, onReload, onGoLocalUpd
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addingGo, setAddingGo] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  const isMobile = useIsMobile();
 
   const save = async () => {
     if (!editTitle.trim()) return;
