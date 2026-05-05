@@ -28,47 +28,61 @@ router = APIRouter(prefix="/focus-sprints", tags=["focus-sprints"])
 VALID_ITEM_TYPES = {"goal", "step", "go", "routine"}
 
 
-async def _hydrate_item(it: FocusSprintItem, db: AsyncSession) -> dict:
-    """Fetch title and color of the referenced entity for client display."""
-    title = None
-    color = None
-    if it.item_type == "goal" and it.goal_id:
-        res = await db.execute(select(Task).where(Task.id == it.goal_id))
-        t = res.scalar_one_or_none()
-        if t:
-            title = t.title
-    elif it.item_type == "step" and it.step_id:
-        res = await db.execute(select(Sprint).where(Sprint.id == it.step_id))
-        s = res.scalar_one_or_none()
-        if s:
-            title = s.title
-            color = s.color
-    elif it.item_type == "go" and it.go_id:
-        res = await db.execute(select(Go).where(Go.id == it.go_id))
-        g = res.scalar_one_or_none()
-        if g:
-            title = g.title
-            color = g.color
-    elif it.item_type == "routine" and it.routine_id:
-        res = await db.execute(select(Routine).where(Routine.id == it.routine_id))
-        r = res.scalar_one_or_none()
-        if r:
-            title = r.title
-            color = r.color
-    return {
-        "id": it.id,
-        "item_type": it.item_type,
-        "goal_id": it.goal_id,
-        "step_id": it.step_id,
-        "go_id": it.go_id,
-        "routine_id": it.routine_id,
-        "title": title,
-        "color": color,
-    }
+async def _hydrate_items(items: list[FocusSprintItem], db: AsyncSession) -> list[dict]:
+    """Batch-fetch referenced entities (Task/Sprint/Go/Routine) by type
+    so we don't fire one query per item."""
+    goal_ids = [it.goal_id for it in items if it.item_type == "goal" and it.goal_id]
+    step_ids = [it.step_id for it in items if it.item_type == "step" and it.step_id]
+    go_ids = [it.go_id for it in items if it.item_type == "go" and it.go_id]
+    routine_ids = [it.routine_id for it in items if it.item_type == "routine" and it.routine_id]
+
+    goals: dict = {}
+    steps: dict = {}
+    gos: dict = {}
+    routines: dict = {}
+    if goal_ids:
+        res = await db.execute(select(Task).where(Task.id.in_(goal_ids)))
+        goals = {t.id: t for t in res.scalars()}
+    if step_ids:
+        res = await db.execute(select(Sprint).where(Sprint.id.in_(step_ids)))
+        steps = {s.id: s for s in res.scalars()}
+    if go_ids:
+        res = await db.execute(select(Go).where(Go.id.in_(go_ids)))
+        gos = {g.id: g for g in res.scalars()}
+    if routine_ids:
+        res = await db.execute(select(Routine).where(Routine.id.in_(routine_ids)))
+        routines = {r.id: r for r in res.scalars()}
+
+    out: list[dict] = []
+    for it in items:
+        title = None
+        color = None
+        if it.item_type == "goal" and it.goal_id in goals:
+            title = goals[it.goal_id].title
+        elif it.item_type == "step" and it.step_id in steps:
+            s = steps[it.step_id]
+            title, color = s.title, s.color
+        elif it.item_type == "go" and it.go_id in gos:
+            g = gos[it.go_id]
+            title, color = g.title, g.color
+        elif it.item_type == "routine" and it.routine_id in routines:
+            r = routines[it.routine_id]
+            title, color = r.title, r.color
+        out.append({
+            "id": it.id,
+            "item_type": it.item_type,
+            "goal_id": it.goal_id,
+            "step_id": it.step_id,
+            "go_id": it.go_id,
+            "routine_id": it.routine_id,
+            "title": title,
+            "color": color,
+        })
+    return out
 
 
 async def _focus_sprint_dict(fs: FocusSprint, db: AsyncSession) -> dict:
-    items = [await _hydrate_item(it, db) for it in fs.items]
+    items = await _hydrate_items(list(fs.items), db)
     return {
         "id": fs.id,
         "user_id": fs.user_id,
@@ -129,7 +143,7 @@ async def create_focus_sprint(
         color=body.color,
     )
     db.add(fs)
-    await db.commit()
+    await db.flush()
     await db.refresh(fs, ["items"])
     return await _focus_sprint_dict(fs, db)
 
@@ -149,7 +163,7 @@ async def update_focus_sprint(
         setattr(fs, k, v)
     if fs.end_date < fs.start_date:
         raise HTTPException(400, "end_date must be >= start_date")
-    await db.commit()
+    await db.flush()
     await db.refresh(fs, ["items"])
     return await _focus_sprint_dict(fs, db)
 
@@ -162,7 +176,6 @@ async def delete_focus_sprint(
 ):
     fs = await _get_focus_sprint(focus_sprint_id, user, db)
     await db.delete(fs)
-    await db.commit()
 
 
 # ─── Items: add / remove ──────────────────────────────────────────────────────
@@ -214,7 +227,7 @@ async def add_item(
         routine_id=body.routine_id,
     )
     db.add(item)
-    await db.commit()
+    await db.flush()
     await db.refresh(fs, ["items"])
     return await _focus_sprint_dict(fs, db)
 
@@ -230,4 +243,3 @@ async def remove_item(
     item = next((i for i in fs.items if i.id == item_id), None)
     if item:
         await db.delete(item)
-        await db.commit()

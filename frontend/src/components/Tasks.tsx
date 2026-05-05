@@ -2283,7 +2283,7 @@ export default function Tasks() {
       description: newDescription || '', color: newColor,
     });
     for (const tagId of newTagIds) {
-      try { await tagsApi.attachTag(created.id, tagId); } catch { /* ignore individual */ }
+      try { await tasksApi.attachTag(created.id, tagId); } catch { /* ignore individual */ }
     }
     setNewTitle(''); setNewPriority('medium'); setNewStart(''); setNewDue(''); setNewDescription(''); setNewTagIds([]); setNewColor(ENTITY_COLORS[0]);
     setShowCreateForm(false);
@@ -2393,8 +2393,8 @@ export default function Tasks() {
                 <div>
                   <div className="big-title">Goals</div>
                   <div className="big-title-sub">
-                    {tasks.filter((tk) => tk.status === 'in_progress').length} active
-                    {tasks.filter((tk) => tk.status === 'on_hold').length > 0 && ` · ${tasks.filter((tk) => tk.status === 'on_hold').length} paused`}
+                    {tasks.filter((tk) => tk.status === 'active').length} active
+                    {tasks.filter((tk) => tk.status === 'paused').length > 0 && ` · ${tasks.filter((tk) => tk.status === 'paused').length} paused`}
                   </div>
                 </div>
                 <button

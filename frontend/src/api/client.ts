@@ -9,6 +9,7 @@ import type {
   GoEntry,
   GoKind,
   GoRecurrence,
+  GoalRoutineLink,
   Sprint,
   User,
   Way,

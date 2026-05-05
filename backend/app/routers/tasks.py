@@ -2,7 +2,8 @@ import uuid
 from datetime import date as date_cls, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -149,15 +150,6 @@ def _go_completion_ratio(g: Go, period_start: date_cls | None = None, period_end
             if e.value > 0 and start <= e.date <= end
         )
         ratio = min(1.0, done_days / possible_days)
-        # Debug log
-        import logging
-        log = logging.getLogger("go_ratio")
-        entries_summary = [(str(e.date), e.value) for e in g.entries]
-        log.warning(
-            f"GO[{g.title}] ratio={ratio:.3f} | created={g.created_at} | "
-            f"window=[{start} → {end}] possible={possible_days} done={done_days} | "
-            f"entries={entries_summary}"
-        )
         return ratio
 
     # Non-recurring boolean
@@ -424,7 +416,8 @@ async def create_go(body: GoCreate, user: User = Depends(get_current_user), db: 
         user_id=user.id,
         task_id=task.id if task else None,
         sprint_id=sprint.id if sprint else None,
-        title=body.title, kind=body.kind, unit=body.unit, target_value=body.target_value,
+        title=body.title, description=body.description, kind=body.kind, unit=body.unit,
+        target_value=body.target_value,
         recurrence=body.recurrence, start_date=body.start_date, due_date=body.due_date,
         color=body.color,
     )
@@ -471,19 +464,22 @@ async def delete_go(go_id: uuid.UUID, user: User = Depends(get_current_user), db
 @router.post("/gos/{go_id}/entries", response_model=GoEntryOut)
 async def upsert_go_entry(go_id: uuid.UUID, body: GoEntryUpsert, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     g = await _get_go(go_id, user, db)
-    rr = await db.execute(select(GoEntry).where(GoEntry.go_id == g.id, GoEntry.date == body.date))
-    e = rr.scalar_one_or_none()
-    if body.value == 0 and e:
-        await db.delete(e)
+    if body.value == 0:
+        await db.execute(
+            sa_delete(GoEntry).where(GoEntry.go_id == g.id, GoEntry.date == body.date)
+        )
         await db.flush()
-        return GoEntryOut(id=e.id, go_id=g.id, date=body.date, value=0.0)
-    if e:
-        e.value = body.value
-    else:
-        e = GoEntry(go_id=g.id, date=body.date, value=body.value)
-        db.add(e)
+        return GoEntryOut(id=uuid.uuid4(), go_id=g.id, date=body.date, value=0.0)
+    # Race-safe upsert via Postgres ON CONFLICT
+    stmt = pg_insert(GoEntry).values(go_id=g.id, date=body.date, value=body.value)
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_go_entries_go_date",
+        set_={"value": stmt.excluded.value},
+    ).returning(GoEntry.id)
+    rr = await db.execute(stmt)
+    entry_id = rr.scalar_one()
     await db.flush()
-    return GoEntryOut(id=e.id, go_id=g.id, date=body.date, value=e.value)
+    return GoEntryOut(id=entry_id, go_id=g.id, date=body.date, value=body.value)
 
 
 @router.get("/gos", response_model=list[GoOut])

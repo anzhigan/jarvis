@@ -100,7 +100,7 @@ export default function CreateSheet({
         initial: { y: '100%' } as const,
         animate: { y: 0 } as const,
         exit: { y: '100%' } as const,
-        transition: { type: 'tween' as const, duration: 0.28, ease: [0, 0, 0.2, 1] },
+        transition: { type: 'tween' as const, duration: 0.28, ease: 'easeOut' as const },
       }
     : {
         initial: { opacity: 0, scale: 0.96 } as const,

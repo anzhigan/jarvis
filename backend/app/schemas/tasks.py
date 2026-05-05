@@ -185,6 +185,7 @@ class RoutineCreate(BaseModel):
     schedule_period: str = "week"  # week | month
     start_date: date | None = None
     end_date: date | None = None
+    is_paused: bool = False
     kind: str = "boolean"  # boolean | numeric
     unit: str = ""
     target_value: float | None = None

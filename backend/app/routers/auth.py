@@ -22,7 +22,7 @@ from app.schemas.auth import (
     UpdateProfileRequest,
     UserOut,
 )
-from app.services.s3 import upload_avatar
+from app.services.s3 import delete_image, upload_avatar
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -154,6 +154,13 @@ async def delete_user_avatar(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if current_user.avatar_url:
+        s3_key = current_user.avatar_url.replace("/api/images/", "", 1)
+        if s3_key:
+            try:
+                delete_image(s3_key)
+            except Exception:
+                pass  # don't block avatar removal on S3 cleanup failure
     current_user.avatar_url = None
     await db.flush()
     return current_user

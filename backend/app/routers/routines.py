@@ -4,7 +4,8 @@ from datetime import date as date_cls
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -125,7 +126,7 @@ async def create_routine(
         target_value=body.target_value,
     )
     db.add(r)
-    await db.commit()
+    await db.flush()
     await db.refresh(r, ["entries"])
     return _routine_dict(r)
 
@@ -147,7 +148,7 @@ async def update_routine(
         raise HTTPException(400, "Invalid kind")
     for k, v in data.items():
         setattr(r, k, v)
-    await db.commit()
+    await db.flush()
     await db.refresh(r, ["entries"])
     return _routine_dict(r)
 
@@ -160,7 +161,6 @@ async def delete_routine(
 ):
     r = await _get_routine(routine_id, user, db)
     await db.delete(r)
-    await db.commit()
 
 
 # ─── Entries: upsert (set value for a date) and delete ────────────────────────
@@ -173,18 +173,16 @@ async def upsert_entry(
     user: User = Depends(get_current_user),
 ):
     r = await _get_routine(routine_id, user, db)
-    # Find existing entry for this date
-    existing = next((e for e in r.entries if e.date == body.date), None)
-    if existing:
-        existing.value = body.value
-        await db.commit()
-        await db.refresh(existing)
-        return {"id": existing.id, "routine_id": existing.routine_id, "date": existing.date, "value": existing.value}
-    e = RoutineEntry(routine_id=r.id, date=body.date, value=body.value)
-    db.add(e)
-    await db.commit()
-    await db.refresh(e)
-    return {"id": e.id, "routine_id": e.routine_id, "date": e.date, "value": e.value}
+    # Race-safe upsert via Postgres ON CONFLICT
+    stmt = pg_insert(RoutineEntry).values(routine_id=r.id, date=body.date, value=body.value)
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_routine_entries_routine_date",
+        set_={"value": stmt.excluded.value},
+    ).returning(RoutineEntry.id)
+    res = await db.execute(stmt)
+    entry_id = res.scalar_one()
+    await db.flush()
+    return {"id": entry_id, "routine_id": r.id, "date": body.date, "value": body.value}
 
 
 @router.delete("/{routine_id}/entries/{entry_date}", status_code=204)
@@ -195,10 +193,9 @@ async def delete_entry(
     user: User = Depends(get_current_user),
 ):
     r = await _get_routine(routine_id, user, db)
-    entry = next((e for e in r.entries if e.date == entry_date), None)
-    if entry:
-        await db.delete(entry)
-        await db.commit()
+    await db.execute(
+        sa_delete(RoutineEntry).where(RoutineEntry.routine_id == r.id, RoutineEntry.date == entry_date)
+    )
 
 
 # ─── Agenda — what is due today / future / past for routines ───────────────────
@@ -341,7 +338,7 @@ async def create_link(
         target_count=body.target_count,
     )
     db.add(link)
-    await db.commit()
+    await db.flush()
     await db.refresh(link)
     return {
         "id": link.id,
@@ -370,7 +367,6 @@ async def delete_link(
     if not link:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Link not found")
     await db.delete(link)
-    await db.commit()
 
 
 @router.get("/links/by-goal/{goal_id}", response_model=list[GoalRoutineLinkOut])
@@ -385,29 +381,30 @@ async def links_by_goal(
     if not g_res.scalar_one_or_none():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found")
     res = await db.execute(
-        select(GoalRoutineLink)
-        .where(GoalRoutineLink.goal_id == goal_id)
-        .options(selectinload(GoalRoutineLink.routine_id))  # routine_id is column, this won't work
+        select(GoalRoutineLink).where(GoalRoutineLink.goal_id == goal_id)
     )
     links = list(res.scalars().all())
-    # Fetch routines manually
-    out = []
-    for link in links:
-        r_res = await db.execute(
-            select(Routine)
-            .where(Routine.id == link.routine_id, Routine.user_id == user.id)
-            .options(selectinload(Routine.entries))
-        )
-        r = r_res.scalar_one_or_none()
-        if r:
-            out.append({
-                "id": link.id,
-                "goal_id": link.goal_id,
-                "routine_id": link.routine_id,
-                "start_date": link.start_date,
-                "end_date": link.end_date,
-                "target_count": link.target_count,
-                "routine": _routine_dict(r),
-            })
-    return out
+    if not links:
+        return []
+    # Single query for all routines
+    routine_ids = [link.routine_id for link in links]
+    r_res = await db.execute(
+        select(Routine)
+        .where(Routine.id.in_(routine_ids), Routine.user_id == user.id)
+        .options(selectinload(Routine.entries))
+    )
+    routines_map = {r.id: r for r in r_res.scalars()}
+    return [
+        {
+            "id": link.id,
+            "goal_id": link.goal_id,
+            "routine_id": link.routine_id,
+            "start_date": link.start_date,
+            "end_date": link.end_date,
+            "target_count": link.target_count,
+            "routine": _routine_dict(routines_map[link.routine_id]),
+        }
+        for link in links
+        if link.routine_id in routines_map
+    ]
 

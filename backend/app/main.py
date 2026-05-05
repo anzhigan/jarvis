@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,13 +10,15 @@ from app.models import *  # noqa: F401, F403
 from app.routers import auth, focus_sprints, notes, routines, tags, tasks
 from app.services.s3 import ensure_bucket_exists
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         ensure_bucket_exists()
     except Exception as e:
-        print(f"[S3] Warning: could not ensure bucket exists: {e}")
+        logger.warning("S3 bucket check failed: %s", e)
     yield
     await engine.dispose()
 

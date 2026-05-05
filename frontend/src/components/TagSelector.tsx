@@ -48,7 +48,7 @@ function MobileSheet({ open, onClose, children }: { open: boolean; onClose: () =
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            transition={{ type: 'tween', duration: 0.28, ease: [0, 0, 0.2, 1] }}
+            transition={{ type: 'tween', duration: 0.28, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
           >
             {children}
