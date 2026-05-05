@@ -1,7 +1,7 @@
 # ─── Builder ──────────────────────────────────────────────────────────────────
 # Build stage installs deps with gcc/libpq-dev present, then we copy only the
 # resulting site-packages into a clean runtime image — no compiler in prod.
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir --prefix=/install -e .
 
 
 # ─── Runtime ──────────────────────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 WORKDIR /app
 
