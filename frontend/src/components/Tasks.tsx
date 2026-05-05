@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import {
-  ChevronDown, ChevronRight, Loader2,
+  Loader2,
   ListTodo, Target as TargetIcon, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -66,14 +66,6 @@ export default function Tasks() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
   const [mobileStatusFilter, setMobileStatusFilter] = useState<TaskStatus | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<TaskStatus>>(new Set());
-  const toggleCollapsed = (s: TaskStatus) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(s)) next.delete(s); else next.add(s);
-      return next;
-    });
-  };
 
   const [confirmState, setConfirmState] = useState<{ title: string; message?: string; onConfirm: () => void } | null>(null);
   const [goalCompletion, setGoalCompletion] = useState<{ taskId: string; routines: Routine[] } | null>(null);
@@ -362,39 +354,59 @@ export default function Tasks() {
                 </div>
               </CreateSheet>
 
-              <div className="kanban-grid">
-                {STATUSES.filter(({ key }) => !isMobile || mobileStatusFilter === null || mobileStatusFilter === key).map(({ key, labelKey }) => {
-                  const list = tasksByStatus[key] ?? [];
-                  const isDropTarget = dragOverStatus === key;
-                  const label = t(labelKey);
+              {isMobile ? (() => {
+                const flat = mobileStatusFilter === null
+                  ? MOBILE_FILTER_ORDER.flatMap((key) => tasksByStatus[key] ?? [])
+                  : (tasksByStatus[mobileStatusFilter] ?? []);
+                if (flat.length === 0) {
                   return (
-                    <div key={key}
-                      onDragOver={(e) => { if (!draggingId) return; e.preventDefault(); setDragOverStatus(key); }}
-                      onDragLeave={() => setDragOverStatus((p) => p === key ? null : p)}
-                      onDrop={(e) => {
-                        if (!draggingId) return;
-                        e.preventDefault();
-                        const id = e.dataTransfer.getData('text/plain');
-                        setDragOverStatus(null); setDraggingId(null);
-                        if (id) {
-                          updateTask(id, { status: key });
-                        }
-                      }}
-                      className="kanban-column"
-                      style={isDropTarget ? { background: 'var(--accent-notes-bg)', boxShadow: 'inset 0 0 0 1.5px var(--accent-notes)', borderRadius: 'var(--r-card)' } : undefined}
-                    >
-                      <button
-                        onClick={() => isMobile && toggleCollapsed(key)}
-                        className="kanban-column-head"
-                        style={{ width: '100%', cursor: isMobile ? 'pointer' : 'default', justifyContent: 'space-between' }}
+                    <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: 13, color: 'var(--fg-muted)' }}>
+                      {t('tasks.noTasks')}
+                    </div>
+                  );
+                }
+                return (
+                  <div style={{ padding: '8px 0' }}>
+                    <AnimatePresence>
+                      {flat.map((task) => (
+                        <TaskCard key={task.id} task={task}
+                          onUpdate={(data) => updateTask(task.id, data)}
+                          onDelete={() => deleteTask(task.id)}
+                          onReload={load}
+                          onDragStart={() => {}}
+                          onDragEnd={() => {}}
+                          isDragging={false}
+                          isMobile />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                );
+              })() : (
+                <div className="kanban-grid">
+                  {STATUSES.map(({ key, labelKey }) => {
+                    const list = tasksByStatus[key] ?? [];
+                    const isDropTarget = dragOverStatus === key;
+                    const label = t(labelKey);
+                    return (
+                      <div key={key}
+                        onDragOver={(e) => { if (!draggingId) return; e.preventDefault(); setDragOverStatus(key); }}
+                        onDragLeave={() => setDragOverStatus((p) => p === key ? null : p)}
+                        onDrop={(e) => {
+                          if (!draggingId) return;
+                          e.preventDefault();
+                          const id = e.dataTransfer.getData('text/plain');
+                          setDragOverStatus(null); setDraggingId(null);
+                          if (id) {
+                            updateTask(id, { status: key });
+                          }
+                        }}
+                        className="kanban-column"
+                        style={isDropTarget ? { background: 'var(--accent-notes-bg)', boxShadow: 'inset 0 0 0 1.5px var(--accent-notes)', borderRadius: 'var(--r-card)' } : undefined}
                       >
-                        <span className="kanban-column-name">{label}</span>
-                        <span className="kanban-column-count">{list.length}</span>
-                        {isMobile && (collapsed.has(key)
-                          ? <ChevronRight size={14} style={{ color: 'var(--fg-muted)', marginLeft: 'auto' }} />
-                          : <ChevronDown size={14} style={{ color: 'var(--fg-muted)', marginLeft: 'auto' }} />)}
-                      </button>
-                      {(!isMobile || !collapsed.has(key)) && (
+                        <div className="kanban-column-head" style={{ justifyContent: 'space-between' }}>
+                          <span className="kanban-column-name">{label}</span>
+                          <span className="kanban-column-count">{list.length}</span>
+                        </div>
                         <div style={{ padding: 8, minHeight: 80 }}>
                           <AnimatePresence>
                             {list.map((task) => (
@@ -405,7 +417,7 @@ export default function Tasks() {
                                 onDragStart={() => setDraggingId(task.id)}
                                 onDragEnd={() => { setDraggingId(null); setDragOverStatus(null); }}
                                 isDragging={draggingId === task.id}
-                                isMobile={isMobile} />
+                                isMobile={false} />
                             ))}
                           </AnimatePresence>
                           {list.length === 0 && !isDropTarget && (
@@ -414,11 +426,11 @@ export default function Tasks() {
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
           </div>

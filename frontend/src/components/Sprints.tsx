@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Loader2, Plus, Pencil, Trash2, X, Target, ListChecks, Repeat as RepeatIcon, CircleDot, ArrowLeft,
+  Loader2, Plus, X, Target, ListChecks, Repeat as RepeatIcon, CircleDot,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { sprintsApi, tasksApi, routinesApi, gosApi, resolveUrl } from '../api/client';
 import type { Sprint, SprintItem, SprintItemType, Task, Routine, Go } from '../api/types';
 import PullToRefresh from './PullToRefresh';
 import SwipeRow from './SwipeRow';
-import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
@@ -285,29 +284,38 @@ function SprintCard({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SprintDetail — full view with items and add/remove
+// EditSprintSheet — bottom sheet (like EditGoSheet) with fields + items list
+// Replaces the old full-page SprintDetail.
 // ═══════════════════════════════════════════════════════════════════════════
-function SprintDetail({
-  sprint, onBack, onReload,
+function EditSprintSheet({
+  sprint, onClose, onReload, onDelete,
 }: {
   sprint: Sprint;
-  onBack: () => void;
+  onClose: () => void;
   onReload: () => Promise<void>;
+  onDelete: () => Promise<void>;
 }) {
   const t = useT();
-  const [editing, setEditing] = useState(false);
-
-  // Native iOS swipe-back gesture
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  useSwipeBack({ onBack, enabled: isMobile && !editing });
-
+  const [title, setTitle] = useState(sprint.title);
+  const [desc, setDesc] = useState(sprint.description);
+  const [start, setStart] = useState(sprint.start_date);
+  const [end, setEnd] = useState(sprint.end_date);
+  const [color, setColor] = useState(sprint.color);
   const [adding, setAdding] = useState(false);
-  const [editTitle, setEditTitle] = useState(sprint.title);
-  const [editDesc, setEditDesc] = useState(sprint.description);
-  const [editStart, setEditStart] = useState(sprint.start_date);
-  const [editEnd, setEditEnd] = useState(sprint.end_date);
-  const [editColor, setEditColor] = useState(sprint.color);
-  const [saving, setSaving] = useState(false);
+
+  const canSubmit = !!title.trim();
+
+  const save = async () => {
+    await sprintsApi.update(sprint.id, {
+      title: title.trim() || sprint.title,
+      description: desc,
+      start_date: start,
+      end_date: end,
+      color,
+    } as any);
+    await onReload();
+    onClose();
+  };
 
   const removeItem = async (itemId: string) => {
     try {
@@ -318,36 +326,6 @@ function SprintDetail({
     }
   };
 
-  const removeSprint = async () => {
-    if (!confirm(`Delete sprint "${sprint.title}"?`)) return;
-    try {
-      await sprintsApi.delete(sprint.id);
-      await onReload();
-      onBack();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed');
-    }
-  };
-
-  const saveEdit = async () => {
-    setSaving(true);
-    try {
-      await sprintsApi.update(sprint.id, {
-        title: editTitle.trim() || sprint.title,
-        description: editDesc,
-        start_date: editStart,
-        end_date: editEnd,
-        color: editColor,
-      } as any);
-      setEditing(false);
-      await onReload();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const itemsByType = useMemo(() => {
     const byType: Record<SprintItemType, SprintItem[]> = { goal: [], step: [], go: [], routine: [] };
     for (const it of sprint.items) byType[it.item_type].push(it);
@@ -355,50 +333,29 @@ function SprintDetail({
   }, [sprint.items]);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="top-bar">
-        <div className="top-bar-leading">
-          <button onClick={onBack} className="top-bar-back" title="Back">
-            <ArrowLeft size={18} />
-            Sprints
-          </button>
-        </div>
-        <div className="top-bar-title">
-          {sprint.title}
-          <span className="sub">{fmtDate(sprint.start_date)} — {fmtDate(sprint.end_date)}</span>
-        </div>
-        <div className="top-bar-trailing">
-          <button aria-label="Edit sprint" onClick={() => setEditing(true)} className="icon-btn icon-btn-lg" title="Edit">
-            <Pencil size={15} />
-          </button>
-          <button aria-label="Delete sprint" onClick={removeSprint} className="icon-btn icon-btn-lg" style={{ color: 'var(--danger)' }} title="Delete">
-            <Trash2 size={15} />
-          </button>
-        </div>
-      </div>
-
+    <>
       <CreateSheet
-        open={editing}
-        onClose={() => { setEditing(false); setEditTitle(sprint.title); setEditDesc(sprint.description); setEditStart(sprint.start_date); setEditEnd(sprint.end_date); setEditColor(sprint.color); }}
+        open
+        onClose={onClose}
         title="Edit sprint"
         primaryLabel={t('common.save') || 'Save'}
-        canSubmit={!!editTitle.trim() && !saving}
-        onSubmit={saveEdit}
+        canSubmit={canSubmit}
+        onSubmit={save}
       >
         <FormField label="Title">
-          <input type="text" className="input w-full" value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)} autoFocus />
+          <input type="text" className="input w-full" value={title}
+            onChange={(e) => setTitle(e.target.value)} />
         </FormField>
         <FormField label="Description">
-          <textarea className="textarea w-full" value={editDesc}
-            onChange={(e) => setEditDesc(e.target.value)} rows={3} placeholder={t('tasks.descriptionPh')} />
+          <textarea className="textarea w-full" value={desc}
+            onChange={(e) => setDesc(e.target.value)} rows={3} placeholder={t('tasks.descriptionPh')} />
         </FormField>
         <div className="form-row-2col">
           <FormField label="Start date">
-            <input type="date" className="input w-full" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
+            <input type="date" className="input w-full" value={start} onChange={(e) => setStart(e.target.value)} />
           </FormField>
           <FormField label="End date">
-            <input type="date" className="input w-full" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
+            <input type="date" className="input w-full" value={end} onChange={(e) => setEnd(e.target.value)} />
           </FormField>
         </div>
         <FormField label="Color">
@@ -407,67 +364,73 @@ function SprintDetail({
               <button
                 key={c}
                 type="button"
-                onClick={(e) => { e.preventDefault(); setEditColor(c); }}
+                onClick={(e) => { e.preventDefault(); setColor(c); }}
                 className="w-9 h-9 rounded-full transition-all active:scale-90"
-                style={{ backgroundColor: c, boxShadow: editColor === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }}
+                style={{ backgroundColor: c, boxShadow: color === c ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${c}` : 'none' }}
               />
             ))}
           </div>
         </FormField>
-      </CreateSheet>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
-        <div className="max-w-[1100px] mx-auto w-full">
-          {sprint.description && (
-            <div style={{ marginBottom: 16, padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 'var(--r-card)', fontSize: 13, whiteSpace: 'pre-wrap', color: 'var(--fg-secondary)' }}>
-              {sprint.description}
+        <FormField label="In focus">
+          {sprint.items.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--fg-muted)', padding: '6px 0' }}>
+              Empty. Add Goals, Steps, Gos or Routines.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(['goal', 'step', 'go', 'routine'] as const).map((kind) => {
+                const items = itemsByType[kind];
+                if (items.length === 0) return null;
+                return (
+                  <div key={kind}>
+                    <div className="flex items-center gap-1.5 mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      <ItemTypeIcon type={kind} size={12} />
+                      {itemTypeLabel(kind)}s
+                      <span className="opacity-60 normal-case font-normal">({items.length})</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {items.map((it) => (
+                        <div key={it.id} className="goal-card" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 0 }}>
+                          {it.color && <span className="flex-shrink-0" style={{ width: 3, height: 20, borderRadius: 'var(--r-pill)', backgroundColor: it.color }} />}
+                          <span style={{ color: 'var(--fg-muted)' }}><ItemTypeIcon type={kind} size={12} /></span>
+                          <span className="flex-1 truncate" style={{ fontSize: 12.5 }}>{it.title || '(untitled)'}</span>
+                          <button type="button" aria-label="Remove item" onClick={() => removeItem(it.id)} className="icon-btn icon-btn-sm" style={{ color: 'var(--danger)' }}>
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-
-          {/* Items in focus, grouped by type */}
-          <div className="space-y-4">
-            {(['goal', 'step', 'go', 'routine'] as const).map((kind) => {
-              const items = itemsByType[kind];
-              if (items.length === 0) return null;
-              return (
-                <div key={kind}>
-                  <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    <ItemTypeIcon type={kind} size={12} />
-                    {itemTypeLabel(kind)}s
-                    <span className="opacity-60 normal-case font-normal">({items.length})</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {items.map((it) => (
-                      <div key={it.id} className="goal-card" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 0 }}>
-                        {it.color && <span className="flex-shrink-0" style={{ width: 3, height: 20, borderRadius: 'var(--r-pill)', backgroundColor: it.color }} />}
-                        <span style={{ color: 'var(--fg-muted)' }}><ItemTypeIcon type={kind} size={12} /></span>
-                        <span className="flex-1 truncate" style={{ fontSize: 12.5 }}>{it.title || '(untitled)'}</span>
-                        <button aria-label="Remove item" onClick={() => removeItem(it.id)} className="icon-btn icon-btn-sm" style={{ color: 'var(--danger)' }}>
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
           <button
+            type="button"
             onClick={() => setAdding(true)}
             className="btn btn-ghost w-full"
-            style={{ marginTop: 16, justifyContent: 'center' }}
+            style={{ marginTop: 10, justifyContent: 'center' }}
           >
             <Plus size={15} /> Add to focus
           </button>
+        </FormField>
 
-          {sprint.items.length === 0 && (
-            <div className="text-center text-muted-foreground py-8">
-              <p className="text-sm">Empty sprint. Add Goals, Steps, Gos or Routines to focus on this period.</p>
-            </div>
-          )}
+        <div style={{ marginTop: 14, paddingTop: 14, boxShadow: 'inset 0 0.5px 0 var(--line)' }}>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm(`Delete sprint "${sprint.title}"?`)) return;
+              await onDelete();
+              onClose();
+            }}
+            className="btn w-full"
+            style={{ color: 'var(--danger)', justifyContent: 'center' }}
+          >
+            Delete sprint
+          </button>
         </div>
-      </div>
+      </CreateSheet>
 
       {adding && (
         <AddItemPanel
@@ -476,7 +439,7 @@ function SprintDetail({
           onAdded={async () => { setAdding(false); await onReload(); }}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -600,7 +563,7 @@ export default function Sprints() {
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [openSprintId, setOpenSprintId] = useState<string | null>(null);
+  const [editingSprintId, setEditingSprintId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'current' | 'future' | 'past'>('current');
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
@@ -631,14 +594,21 @@ export default function Sprints() {
 
   const visible = grouped[filter];
 
-  const openSprint = openSprintId ? sprints.find((s) => s.id === openSprintId) : null;
-
-  if (openSprint) {
-    return <SprintDetail sprint={openSprint} onBack={() => setOpenSprintId(null)} onReload={load} />;
-  }
+  const editingSprint = editingSprintId ? sprints.find((s) => s.id === editingSprintId) : null;
 
   return (
     <div className="size-full overflow-y-auto">
+      {editingSprint && (
+        <EditSprintSheet
+          sprint={editingSprint}
+          onClose={() => setEditingSprintId(null)}
+          onReload={load}
+          onDelete={async () => {
+            try { await sprintsApi.delete(editingSprint.id); await load(); }
+            catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+          }}
+        />
+      )}
       <PullToRefresh onRefresh={load}>
         {isMobile ? (
           <>
@@ -729,14 +699,14 @@ export default function Sprints() {
               {visible.map((s) => (
                 <SwipeRow
                   key={s.id}
-                  onEdit={() => setOpenSprintId(s.id)}
+                  onEdit={() => setEditingSprintId(s.id)}
                   onDelete={async () => {
                     if (!confirm(`Delete sprint "${s.title}"?`)) return;
                     try { await sprintsApi.delete(s.id); await load(); }
                     catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
                   }}
                 >
-                  <SprintCard sprint={s} onReload={load} onOpen={() => setOpenSprintId(s.id)} />
+                  <SprintCard sprint={s} onReload={load} onOpen={() => setEditingSprintId(s.id)} />
                 </SwipeRow>
               ))}
             </div>

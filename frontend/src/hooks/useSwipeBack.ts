@@ -1,14 +1,8 @@
 /**
- * useSwipeBack — hook for iOS-native edge-swipe-to-go-back gesture.
+ * useSwipeBack — left-edge swipe-to-go-back gesture for mobile web.
  *
- * Usage:
- *   useSwipeBack(() => navigate('back'));
- *
- * Detects swipes starting from the LEFT edge of the screen (within 25px).
- * Triggers callback when swiped > 50% of screen width with > 100px velocity.
- *
- * Visual indication: returns currentDx (0..1) so consumer can offset the
- * sliding screen during the gesture for natural feel.
+ * Tracks touchstart within 25px of the left edge; calls onBack when
+ * dragged past triggerThreshold of screen width.
  */
 import { useEffect, useState, useRef } from 'react';
 
