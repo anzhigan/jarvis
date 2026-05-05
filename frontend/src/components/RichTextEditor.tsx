@@ -31,7 +31,9 @@ import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { notesApi, injectImageToken, stripImageToken } from '../api/client';
 import EditorToolbar from './EditorToolbar';
-import InputDialog from './InputDialog';
+import LinkInsertSheet from './editor/LinkInsertSheet';
+import MathInsertSheet from './editor/MathInsertSheet';
+import TableInsertSheet from './editor/TableInsertSheet';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
@@ -547,66 +549,49 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
 
   return (
     <>
-    <InputDialog
+    <LinkInsertSheet
       open={dialog === 'link'}
-      title="Insert link"
-      description="External URL or internal reference to another note (#note:<id>)"
-      fields={[
-        { key: 'url', label: 'URL', type: 'url', placeholder: 'https://example.com', defaultValue: dialogExtra.prevUrl ?? '', autoFocus: true, required: true, helpText: 'Tip: use #note:<note-id> to link to another note. Hold Ctrl/Cmd + click to open.' },
-      ]}
-      submitLabel="Insert"
-      extraActions={editor.isActive('link') ? [{
-        label: 'Remove link',
-        variant: 'destructive',
-        onClick: () => { editor.chain().focus().extendMarkRange('link').unsetLink().run(); setDialog(null); },
-      }] : undefined}
-      onSubmit={(v) => {
-        const url = v.url.trim();
+      initialUrl={dialogExtra.prevUrl ?? ''}
+      isEditingExisting={editor.isActive('link')}
+      onCancel={() => setDialog(null)}
+      onInsert={(url) => {
         if (url) editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
         setDialog(null);
       }}
-      onCancel={() => setDialog(null)}
-    />
-
-    <InputDialog
-      open={dialog === 'table'}
-      title="Insert table"
-      description="Create a new table with specified dimensions"
-      fields={[
-        { key: 'rows', label: 'Rows', type: 'number', defaultValue: '3', autoFocus: true, required: true },
-        { key: 'cols', label: 'Columns', type: 'number', defaultValue: '3', required: true },
-        { key: 'header', label: 'Include header row', type: 'select', defaultValue: 'yes', options: [
-          { value: 'yes', label: 'Yes' },
-          { value: 'no', label: 'No' },
-        ]},
-      ]}
-      submitLabel="Insert table"
-      onSubmit={(v) => {
-        const rows = Math.max(1, Math.min(20, parseInt(v.rows, 10) || 3));
-        const cols = Math.max(1, Math.min(10, parseInt(v.cols, 10) || 3));
-        editor.chain().focus().insertTable({ rows, cols, withHeaderRow: v.header === 'yes' }).run();
+      onRemove={() => {
+        editor.chain().focus().extendMarkRange('link').unsetLink().run();
         setDialog(null);
       }}
-      onCancel={() => setDialog(null)}
     />
 
-    <InputDialog
+    <TableInsertSheet
+      open={dialog === 'table'}
+      onCancel={() => setDialog(null)}
+      onInsert={(rows, cols, withHeader) => {
+        editor.chain().focus().insertTable({ rows, cols, withHeaderRow: withHeader }).run();
+        setDialog(null);
+      }}
+    />
+
+    <MathInsertSheet
       open={dialog === 'math'}
-      title="Insert formula"
-      description="Enter a LaTeX expression"
-      fields={[
-        { key: 'latex', label: 'LaTeX', type: 'textarea', placeholder: 'x^2 + y^2 = z^2', defaultValue: 'x^2 + y^2 = z^2', autoFocus: true, required: true, helpText: 'Examples: \\frac{a}{b}, \\sqrt{x}, \\sum_{i=0}^{n}, \\int_a^b f(x)dx' },
-      ]}
-      submitLabel="Insert"
-      onSubmit={(v) => {
-        const latex = v.latex.trim();
+      onCancel={() => setDialog(null)}
+      onInsert={(latex) => {
         if (latex) (editor.chain().focus() as any).insertInlineMath(latex).run();
         setDialog(null);
       }}
-      onCancel={() => setDialog(null)}
     />
 
-    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+    {/* Visually hidden but pointer-reachable (display:none breaks .click() on iOS Safari).
+        Toolbar button uses htmlFor="rt-image-upload" — bypasses the .click() API entirely. */}
+    <input
+      id="rt-image-upload"
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      onChange={handleImageUpload}
+      style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}
+    />
 
     {!isMobile && (
       <EditorToolbar

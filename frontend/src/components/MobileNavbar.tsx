@@ -15,10 +15,12 @@ interface Props {
 
 export default function MobileNavbar({ variant, title, crumb, user, onBack, onAvatarTap, rightSlot, children }: Props) {
   const Avatar = onAvatarTap ? (
-    <button className="avatar-btn" onClick={onAvatarTap}>
-      {user.avatar_url
-        ? <img src={resolveUrl(user.avatar_url)} alt="" />
-        : user.username.charAt(0).toUpperCase()}
+    <button className="profile-btn" onClick={onAvatarTap} title="Profile">
+      {user.avatar_url ? (
+        <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+      ) : (
+        <span className="profile-avatar">{user.username.charAt(0).toUpperCase()}</span>
+      )}
     </button>
   ) : null;
 

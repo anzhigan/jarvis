@@ -1210,6 +1210,105 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 @keyframes rt-spin { to { transform: rotate(360deg); } }
 .rt-spin { animation: rt-spin 1s linear infinite; }
 
+/* ── Math insert sheet ── */
+.math-preview {
+  min-height: 50px;
+  padding: 14px 12px;
+  background: var(--bg-hover);
+  border-radius: var(--r-control);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--fg-primary);
+  overflow-x: auto;
+}
+.math-keyboard {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.math-keyboard-row {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.math-key {
+  min-width: 44px; height: 40px;
+  padding: 0 10px;
+  background: var(--bg-hover);
+  border: 0; border-radius: 8px;
+  color: var(--fg-primary);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.math-key:hover { background: var(--bg-input-hover); }
+.math-key:active { transform: scale(0.96); }
+.math-key .katex { font-size: 1em; }
+
+/* ── Table insert sheet ── */
+.table-grid {
+  display: inline-flex; flex-direction: column; gap: 3px;
+  padding: 6px; background: var(--bg-hover);
+  border-radius: 8px; user-select: none;
+}
+.table-grid-row { display: flex; gap: 3px; }
+.table-grid-cell {
+  width: 22px; height: 22px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: pointer; padding: 0;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.table-grid-cell[data-active="true"] {
+  background: var(--accent-notes-bg);
+  border-color: var(--accent-notes);
+}
+@media (max-width: 768px) {
+  .table-grid-cell { width: 26px; height: 26px; }
+}
+
+/* ── Link insert sheet ── */
+.link-tabs {
+  display: flex; gap: 4px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  padding: 3px;
+}
+.link-tab {
+  flex: 1;
+  height: 32px;
+  background: transparent; border: 0;
+  border-radius: 6px;
+  font: inherit; font-size: 13px; font-weight: 500;
+  color: var(--fg-secondary); cursor: pointer;
+}
+.link-tab[data-active="true"] {
+  background: var(--bg-card);
+  color: var(--fg-primary);
+  box-shadow: var(--sh-sm, 0 1px 2px rgba(0,0,0,0.06));
+}
+.link-note-list {
+  display: flex; flex-direction: column;
+  max-height: 320px; overflow-y: auto;
+  border-radius: var(--r-control);
+  box-shadow: 0 0 0 0.5px var(--line);
+}
+.link-note-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: transparent; border: 0; cursor: pointer;
+  text-align: left;
+  box-shadow: inset 0 -0.5px 0 var(--line-faint);
+}
+.link-note-row:hover { background: var(--bg-hover); }
+.link-note-row:last-child { box-shadow: none; }
+.link-note-title {
+  display: block;
+  font-size: 13px; font-weight: 500; color: var(--fg-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.link-note-sub {
+  display: block;
+  font-size: 11px; color: var(--fg-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
 .notes-editor-actions {
   position: absolute; top: 14px; right: 16px;
   display: flex; gap: 4px; align-items: center; z-index: 2;

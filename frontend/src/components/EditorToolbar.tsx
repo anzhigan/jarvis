@@ -43,13 +43,34 @@ const TEXT_COLORS: { color: string; name: string }[] = [
 // ─── Building blocks ─────────────────────────────────────────────────────────
 
 interface ToolbarButtonProps {
-  onClick: () => void;
+  onClick?: () => void;
   active?: boolean;
   disabled?: boolean;
   label: string;
   children: ReactNode;
+  /** Render as <label htmlFor="..."> instead of <button>. Use for the image
+   * upload button — clicking the label triggers the associated <input type="file">
+   * directly, which iOS Safari treats as a real user gesture (button.click() does not). */
+  htmlFor?: string;
 }
-function ToolbarButton({ onClick, active, disabled, label, children }: ToolbarButtonProps) {
+function ToolbarButton({ onClick, active, disabled, label, children, htmlFor }: ToolbarButtonProps) {
+  if (htmlFor && !disabled) {
+    return (
+      <label
+        htmlFor={htmlFor}
+        aria-label={label}
+        title={label}
+        className="rt-btn"
+        data-active={active ? 'true' : undefined}
+        // The toolbar root preventDefault's mousedown to keep the editor focused.
+        // We don't want that for the file label — it must reach the input.
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+      >
+        {children}
+      </label>
+    );
+  }
   return (
     <button
       type="button"
@@ -328,7 +349,7 @@ function DesktopBar(props: EditorToolbarProps) {
         <ToolbarButton onClick={onInsertLink} active={s.link} label="Insert/edit link (⌘K)">
           <LinkIcon size={15} />
         </ToolbarButton>
-        <ToolbarButton onClick={onInsertImage} disabled={uploadingImage} label="Insert image">
+        <ToolbarButton htmlFor="rt-image-upload" onClick={onInsertImage} disabled={uploadingImage} label="Insert image">
           {uploadingImage ? <Loader2 size={15} className="rt-spin" /> : <ImageIcon size={15} />}
         </ToolbarButton>
         <ToolbarButton onClick={onInsertTable} active={s.table} label="Insert table">
@@ -418,7 +439,7 @@ function MobileBar(props: EditorToolbarProps) {
         <ToolbarButton onClick={onInsertLink} active={s.link} label="Link">
           <LinkIcon size={18} />
         </ToolbarButton>
-        <ToolbarButton onClick={onInsertImage} disabled={uploadingImage} label="Image">
+        <ToolbarButton htmlFor="rt-image-upload" onClick={onInsertImage} disabled={uploadingImage} label="Image">
           {uploadingImage ? <Loader2 size={18} className="rt-spin" /> : <ImageIcon size={18} />}
         </ToolbarButton>
         <ToolbarButton onClick={onInsertMath} label="Math">

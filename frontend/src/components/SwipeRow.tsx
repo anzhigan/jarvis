@@ -38,6 +38,10 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
   }, [id]);
 
   const onTouchStart = (e: React.TouchEvent) => {
+    // Stop the event from bubbling to a parent SwipeRow — prevents an
+    // outer Goal-card from following the swipe when the user is actually
+    // swiping a nested Step/Go/Routine row.
+    e.stopPropagation();
     startX.current = e.touches[0].clientX;
     startY.current = e.touches[0].clientY;
     startOffset.current = offset;
@@ -48,6 +52,7 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
 
   const onTouchMove = (e: React.TouchEvent) => {
     if (!active.current) return;
+    e.stopPropagation();
     const dx = e.touches[0].clientX - startX.current;
     const dy = e.touches[0].clientY - startY.current;
 
@@ -66,7 +71,8 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
     setOffset(next);
   };
 
-  const onTouchEnd = () => {
+  const onTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation();
     active.current = false;
     setDragging(false);
     const snap = offset < -ACTIONS_W / 2 ? -ACTIONS_W : 0;
