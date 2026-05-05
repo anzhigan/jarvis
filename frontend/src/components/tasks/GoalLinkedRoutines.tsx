@@ -1,11 +1,65 @@
-import { useEffect, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+/**
+ * GoalLinkedRoutines — list of routines linked to a Goal, rendered with the
+ * same `.routine-row` visual the standalone Routines page uses (color stripe,
+ * title + sub line, 7-day completion strip).
+ *
+ * Swipe actions (mobile):
+ *   • Edit  — navigates to the Routines tab where full editing happens.
+ *   • Unlink — removes the routine ↔ goal link (orange, NOT delete).
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Link2Off } from 'lucide-react';
 import { toast } from 'sonner';
 import { routinesApi } from '../../api/client';
 import type { GoalRoutineLink, Routine, Task } from '../../api/types';
 import AddItemButton from '../AddItemButton';
 import PickerSheet from '../PickerSheet';
+import SwipeRow from '../SwipeRow';
 import { useT } from '../../store/i18n';
+
+const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function StreakStrip({ routine }: { routine: Routine }) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const created = new Date(routine.created_at); created.setHours(0, 0, 0, 0);
+  const entries = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of routine.entries) m.set(e.date, e.value);
+    return m;
+  }, [routine.entries]);
+  const has = useMemo(() => new Set(routine.entries.map((e) => e.date)), [routine.entries]);
+
+  const cells: { date: string; state: 'done' | 'fail' | 'today' | 'empty'; dayInitial: string }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const key = isoDate(d);
+    const before = d < created;
+    const v = entries.get(key) ?? 0;
+    let state: 'done' | 'fail' | 'today' | 'empty';
+    if (i === 0) {
+      state = v > 0 ? 'done' : has.has(key) ? 'fail' : 'today';
+    } else if (before) state = 'empty';
+    else if (v > 0) state = 'done';
+    else if (has.has(key)) state = 'fail';
+    else state = 'empty';
+    cells.push({ date: key, state, dayInitial: DAY_INITIALS[d.getDay()] });
+  }
+
+  return (
+    <div className="streak-strip-row">
+      <span className="streak-strip-label">7d</span>
+      <div className="streak-strip">
+        {cells.map((c) => (
+          <span key={c.date} className="streak-dot" data-state={c.state} title={c.date} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task: Task; onReload: () => Promise<void> }) {
   const t = useT();
@@ -20,33 +74,63 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
       setRoutineLinks(links);
       setLinkedRoutines(links.map((l) => l.routine));
     } catch {
-      try { const r = await routinesApi.byGoal(task.id); setLinkedRoutines(r); } catch {}
+      try { const r = await routinesApi.byGoal(task.id); setLinkedRoutines(r); } catch { /* */ }
     }
   };
 
   useEffect(() => { loadLinks(); }, [task.id, task.updated_at]);
 
-  const computeConsistency = (link: GoalRoutineLink): { done: number; total: number; pct: number } => {
-    const r = link.routine;
-    const start = new Date(link.start_date);
-    const end = link.end_date ? new Date(link.end_date) : new Date();
-    let total = link.target_count ?? 0;
-    let done = 0;
-    for (const e of r.entries) {
-      const d = new Date(e.date);
-      if (d >= start && d <= end && e.value > 0) done += 1;
-    }
-    if (!link.target_count) {
-      const dayMs = 86400000;
-      total = Math.max(1, Math.floor((end.getTime() - start.getTime()) / dayMs) + 1);
-    }
-    const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
-    return { done, total, pct };
+  const openPicker = async () => {
+    try { const all = await routinesApi.list(); setAllRoutines(all); } catch { /* */ }
+    setShowLinkPicker(true);
   };
 
-  const openPicker = async () => {
-    try { const all = await routinesApi.list(); setAllRoutines(all); } catch {}
-    setShowLinkPicker(true);
+  const renderRow = (r: Routine, linkId?: string) => {
+    const card = (
+      <div
+        className="routine-row"
+        style={{ position: 'relative', opacity: r.is_paused ? 0.6 : 1, paddingLeft: 14 }}
+      >
+        <div
+          style={{
+            position: 'absolute', left: 0, top: 0, bottom: 0,
+            width: 4, background: r.color,
+            borderRadius: 'var(--r-card) 0 0 var(--r-card)',
+            opacity: r.is_paused ? 0.35 : 0.9,
+          }}
+        />
+        <div className="routine-info">
+          <div className="routine-title">{r.title}</div>
+          <div className="routine-sub" style={{ textTransform: 'capitalize' }}>
+            {r.schedule_type.replace('_', ' ')}
+            {r.is_paused && <> · paused</>}
+          </div>
+          <StreakStrip routine={r} />
+        </div>
+      </div>
+    );
+
+    return (
+      <SwipeRow
+        key={linkId ?? r.id}
+        onEdit={() => {
+          // Editing a routine happens on the Routines tab — switch to it.
+          window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'routines' }));
+        }}
+        onDelete={async () => {
+          if (!linkId) return;
+          try { await routinesApi.deleteLink(linkId); await loadLinks(); }
+          catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+        }}
+        secondaryAction={{
+          icon: <Link2Off size={20} color="#fff" strokeWidth={2} />,
+          label: 'Unlink',
+          color: 'var(--accent-routines, #d97706)',
+        }}
+      >
+        {card}
+      </SwipeRow>
+    );
   };
 
   return (
@@ -56,78 +140,10 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
       )}
 
       {linkedRoutines.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {routineLinks.length > 0 ? routineLinks.map((link) => {
-            const r = link.routine;
-            const { done, total, pct } = computeConsistency(link);
-            return (
-              <div
-                key={link.id}
-                className="routine-row"
-                style={{ position: 'relative', opacity: r.is_paused ? 0.6 : 1 }}
-              >
-                <div
-                  style={{
-                    position: 'absolute', left: 0, top: 0, bottom: 0,
-                    width: 4, background: r.color,
-                    borderRadius: 'var(--r-card) 0 0 var(--r-card)',
-                    opacity: r.is_paused ? 0.35 : 0.9,
-                  }}
-                />
-                <div className="routine-info">
-                  <div className="routine-title">{r.title}</div>
-                  <div className="routine-sub">
-                    {done}/{total} · {pct}%
-                    {r.is_paused && <> · paused</>}
-                  </div>
-                  <div
-                    style={{
-                      height: 4, marginTop: 6,
-                      background: 'var(--bg-hover)',
-                      borderRadius: 'var(--r-pill)', overflow: 'hidden',
-                    }}
-                  >
-                    <div style={{ width: `${pct}%`, height: '100%', background: r.color }} />
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!confirm(`Unlink "${r.title}" from this goal?`)) return;
-                    try { await routinesApi.deleteLink(link.id); await loadLinks(); }
-                    catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-                  }}
-                  aria-label="Unlink routine"
-                  className="icon-btn icon-btn-sm"
-                  title="Unlink"
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            );
-          }) : linkedRoutines.map((r) => (
-            <div
-              key={r.id}
-              className="routine-row"
-              style={{ position: 'relative', opacity: r.is_paused ? 0.6 : 1 }}
-            >
-              <div
-                style={{
-                  position: 'absolute', left: 0, top: 0, bottom: 0,
-                  width: 4, background: r.color,
-                  borderRadius: 'var(--r-card) 0 0 var(--r-card)',
-                  opacity: r.is_paused ? 0.35 : 0.9,
-                }}
-              />
-              <div className="routine-info">
-                <div className="routine-title">{r.title}</div>
-                <div className="routine-sub" style={{ textTransform: 'capitalize' }}>
-                  {r.schedule_type.replace('_', ' ')}
-                  {r.is_paused && <> · paused</>}
-                </div>
-              </div>
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {routineLinks.length > 0
+            ? routineLinks.map((link) => renderRow(link.routine, link.id))
+            : linkedRoutines.map((r) => renderRow(r))}
         </div>
       )}
 
@@ -162,7 +178,8 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
                 key={r.id}
                 type="button"
                 onClick={async () => {
-                  const today = new Date().toISOString().slice(0, 10);
+                  const _now = new Date();
+                  const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
                   try {
                     await routinesApi.createLink({
                       goal_id: task.id,

@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Link2Off, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { gosApi } from '../../api/client';
 import type { Go, Step } from '../../api/types';
@@ -11,12 +11,16 @@ import DailyStreak from './DailyStreak';
 import EditGoSheet from './EditGoSheet';
 import { adaptiveSteps, formatDate, goValueToday, STRIPE_COLOR, todayIso } from './helpers';
 
-function GoRowComponent({ go, availableSteps, onReload, onLocalUpdate }: {
+function GoRowComponent({ go, availableSteps, onReload, onLocalUpdate, swipeSecondary = 'delete', onUnlink }: {
   go: Go;
   availableSteps?: Step[];
   onReload: () => Promise<void>;
   onLocalUpdate?: (patched: Go) => void;
   showMeta?: boolean;
+  /** 'delete' (red, default) or 'unlink' (orange, used inside Goal card). */
+  swipeSecondary?: 'delete' | 'unlink';
+  /** Called when the user picks the swipe-Unlink action. Required if `swipeSecondary='unlink'`. */
+  onUnlink?: () => Promise<void> | void;
 }) {
   // useT kept for potential i18n inside this component
   useT();
@@ -166,7 +170,16 @@ function GoRowComponent({ go, availableSteps, onReload, onLocalUpdate }: {
       )}
 
       {isMobile
-        ? <SwipeRow enabled={!editing} onEdit={() => setEditing(true)} onDelete={() => setConfirmDelete(true)}>{goRowEl}</SwipeRow>
+        ? <SwipeRow
+            enabled={!editing}
+            onEdit={() => setEditing(true)}
+            onDelete={swipeSecondary === 'unlink' && onUnlink ? () => { void onUnlink(); } : () => setConfirmDelete(true)}
+            secondaryAction={swipeSecondary === 'unlink' ? {
+              icon: <Link2Off size={20} color="#fff" strokeWidth={2} />,
+              label: 'Unlink',
+              color: 'var(--accent-routines, #d97706)',
+            } : undefined}
+          >{goRowEl}</SwipeRow>
         : goRowEl
       }
 
@@ -207,5 +220,6 @@ function GoRowComponent({ go, availableSteps, onReload, onLocalUpdate }: {
  */
 export default memo(GoRowComponent, (prev, next) =>
   prev.go === next.go &&
-  prev.availableSteps === next.availableSteps,
+  prev.availableSteps === next.availableSteps &&
+  prev.swipeSecondary === next.swipeSecondary,
 );

@@ -7,9 +7,11 @@
  *
  * Behavior:
  *   • Click anywhere on the card → triggers `onEdit` (parent opens edit sheet).
- *   • Mobile: wrapped in <SwipeRow> for swipe-to-edit / swipe-to-delete.
+ *   • Mobile: wrapped in <SwipeRow> for swipe-to-edit / swipe-to-secondary.
+ *   • `swipeSecondary` = 'delete' (default) or 'unlink'.
  */
 import { memo } from 'react';
+import { Link2Off } from 'lucide-react';
 import type { Step } from '../../api/types';
 import SwipeRow from '../SwipeRow';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -23,10 +25,13 @@ export interface StepCardProps {
   /** Future steps render slightly faded and skip progress bar / checkpoints. */
   isFuture?: boolean;
   onEdit: () => void;
+  /** Swipe-action handler. The label/color depends on `swipeSecondary`. */
   onDelete?: () => void;
+  /** 'delete' (red, default) or 'unlink' (orange, used inside Goal card). */
+  swipeSecondary?: 'delete' | 'unlink';
 }
 
-function StepCardComponent({ step, showGoalTag = true, isFuture = false, onEdit, onDelete }: StepCardProps) {
+function StepCardComponent({ step, showGoalTag = true, isFuture = false, onEdit, onDelete, swipeSecondary = 'delete' }: StepCardProps) {
   const isMobile = useIsMobile();
   const tagBg = step.color ? step.color + '20' : 'var(--accent-notes-bg)';
   const tagFg = step.color || 'var(--accent-notes-fg)';
@@ -89,7 +94,20 @@ function StepCardComponent({ step, showGoalTag = true, isFuture = false, onEdit,
   );
 
   if (isMobile && onDelete) {
-    return <SwipeRow onEdit={onEdit} onDelete={onDelete}>{card}</SwipeRow>;
+    const isUnlink = swipeSecondary === 'unlink';
+    return (
+      <SwipeRow
+        onEdit={onEdit}
+        onDelete={onDelete}
+        secondaryAction={isUnlink ? {
+          icon: <Link2Off size={20} color="#fff" strokeWidth={2} />,
+          label: 'Unlink',
+          color: 'var(--accent-routines, #d97706)',
+        } : undefined}
+      >
+        {card}
+      </SwipeRow>
+    );
   }
   return card;
 }

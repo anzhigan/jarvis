@@ -1,11 +1,19 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useT } from '../store/i18n';
 
 interface Props {
-  children: React.ReactNode;
+  children: ReactNode;
   onEdit?: () => void;
+  /** Action revealed by swiping the row left. Defaults to "Delete" (red).
+   *  Pass `secondaryAction` to override icon/label/color (e.g. "Unlink"). */
   onDelete: () => void;
+  secondaryAction?: {
+    icon?: ReactNode;
+    label?: string;
+    /** CSS color for the action button background. */
+    color?: string;
+  };
   enabled?: boolean;
 }
 
@@ -15,7 +23,7 @@ const BTN_W = 72;
 // Module-level set so any SwipeRow can tell others to close
 const closeCallbacks = new Map<string, () => void>();
 
-export default function SwipeRow({ children, onEdit, onDelete, enabled = true }: Props) {
+export default function SwipeRow({ children, onEdit, onDelete, secondaryAction, enabled = true }: Props) {
   const t = useT();
   const id = useId();
   const [offset, setOffset] = useState(0);
@@ -171,18 +179,18 @@ export default function SwipeRow({ children, onEdit, onDelete, enabled = true }:
             display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center', gap: 4,
           }}
-          aria-label={t('common.delete')}
+          aria-label={secondaryAction?.label ?? t('common.delete')}
         >
           <div style={{
             flex: 1, width: '100%',
             borderRadius: 'var(--r-card)',
-            background: 'var(--danger)',
+            background: secondaryAction?.color ?? 'var(--danger)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Trash2 size={20} color="#fff" strokeWidth={2} />
+            {secondaryAction?.icon ?? <Trash2 size={20} color="#fff" strokeWidth={2} />}
           </div>
           <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--fg-secondary)', lineHeight: 1 }}>
-            {t('common.delete')}
+            {secondaryAction?.label ?? t('common.delete')}
           </span>
         </button>
       </div>

@@ -39,7 +39,13 @@ export default function TaskExpanded({ task, onReload }: { task: Task; onReload:
               step={s}
               showGoalTag={false}
               onEdit={() => setEditingStep(s)}
-              onDelete={() => setDeletingStep(s)}
+              swipeSecondary="unlink"
+              // "Unlink" inside a Goal card detaches the step from the goal
+              // (it becomes standalone), it doesn't actually delete the step.
+              onDelete={async () => {
+                try { await stepsApi.update(s.id, { task_id: null }); await onReload(); }
+                catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+              }}
             />
           ))}
         </div>
@@ -53,6 +59,8 @@ export default function TaskExpanded({ task, onReload }: { task: Task; onReload:
         />
       )}
 
+      {/* deletingStep state is unused — kept here intentionally as null;
+          delete from inside the Goal happens through the EditStepSheet. */}
       {deletingStep && (
         <ConfirmDialog
           open
@@ -73,7 +81,17 @@ export default function TaskExpanded({ task, onReload }: { task: Task; onReload:
           <div className="task-expanded-section-label">{t('tasks.directGos')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {directGos.map((g) => (
-              <GoRow key={g.id} go={g} availableSteps={task.sprints} onReload={onReload} />
+              <GoRow
+                key={g.id}
+                go={g}
+                availableSteps={task.sprints}
+                onReload={onReload}
+                swipeSecondary="unlink"
+                onUnlink={async () => {
+                  try { await gosApi.update(g.id, { task_id: null }); await onReload(); }
+                  catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+                }}
+              />
             ))}
           </div>
         </div>

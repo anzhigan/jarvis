@@ -368,7 +368,7 @@ function DesktopBar(props: EditorToolbarProps) {
 
 // ─── Mobile (above keyboard) ─────────────────────────────────────────────────
 function MobileBar(props: EditorToolbarProps) {
-  const { editor, onInsertLink, onInsertImage, onInsertMath, uploadingImage, bottomOffset } = props;
+  const { editor, onInsertLink, onInsertImage, onInsertTable, onInsertMath, uploadingImage, bottomOffset } = props;
 
   const s = useEditorState({
     editor,
@@ -384,6 +384,7 @@ function MobileBar(props: EditorToolbarProps) {
         bulletList: e.isActive('bulletList'),
         taskList: e.isActive('taskList'),
         link: e.isActive('link'),
+        table: e.isActive('table'),
       };
     },
   });
@@ -441,6 +442,9 @@ function MobileBar(props: EditorToolbarProps) {
         </ToolbarButton>
         <ToolbarButton htmlFor="rt-image-upload" onClick={onInsertImage} disabled={uploadingImage} label="Image">
           {uploadingImage ? <Loader2 size={18} className="rt-spin" /> : <ImageIcon size={18} />}
+        </ToolbarButton>
+        <ToolbarButton onClick={onInsertTable} active={s.table} label="Table">
+          <TableIcon size={18} />
         </ToolbarButton>
         <ToolbarButton onClick={onInsertMath} label="Math">
           <Sigma size={18} />

@@ -163,6 +163,17 @@ export default function Notes() {
         if (st?.dirty) {
           try { await notesApi.update(st.noteId, { content: st.content }); } catch {}
         }
+        // Restore the hierarchy view to the note's parent. Without this,
+        // mobileView stays at { kind: 'note' } while currentNote becomes null,
+        // and MobileHierarchy has no matching branch → blank screen, requiring
+        // a second swipe to climb out.
+        if (selection.parentType === 'topic') {
+          setMobileView({ kind: 'topic', topicId: selection.parentId });
+        } else if (selection.parentType === 'way') {
+          setMobileView({ kind: 'way', wayId: selection.parentId });
+        } else {
+          setMobileView({ kind: 'root' });
+        }
         setSelection(null);
       }
     },
@@ -1054,6 +1065,16 @@ function MobileHierarchy({
   const goBack = () => {
     if (view.kind === 'way') setView({ kind: 'root' });
     else if (view.kind === 'topic' && parentWayOfTopic) setView({ kind: 'way', wayId: parentWayOfTopic.id });
+    else if (view.kind === 'note') {
+      // Find the note's parent and step out one level.
+      for (const w of ways) {
+        if (w.notes?.some((n) => n.id === view.noteId)) { setView({ kind: 'way', wayId: w.id }); return; }
+        for (const tp of w.topics ?? []) {
+          if (tp.notes?.some((n) => n.id === view.noteId)) { setView({ kind: 'topic', topicId: tp.id }); return; }
+        }
+      }
+      setView({ kind: 'root' });
+    }
     else setView({ kind: 'root' });
   };
 
