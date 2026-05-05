@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { routinesApi } from '../../api/client';
 import type { GoalRoutineLink, Routine, Task } from '../../api/types';
 import AddItemButton from '../AddItemButton';
+import PickerSheet from '../PickerSheet';
 import { useT } from '../../store/i18n';
 
 export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task: Task; onReload: () => Promise<void> }) {
@@ -100,70 +101,60 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
         <AddItemButton label={t('tasks.addRoutine')} onClick={openPicker} />
       </div>
 
-      {showLinkPicker && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-end md:items-center justify-center" onClick={() => setShowLinkPicker(false)}>
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="modal-panel w-full md:max-w-lg rounded-t-[var(--r-shell)] md:rounded-[var(--r-shell)] flex flex-col max-h-[85vh] md:max-h-[80vh]"
-            style={{ boxShadow: 'var(--sh-popover)' }}
+      <PickerSheet
+        open={showLinkPicker}
+        onClose={() => setShowLinkPicker(false)}
+        title="Attach routine"
+        footer={
+          <button
+            type="button"
+            onClick={() => {
+              setShowLinkPicker(false);
+              window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'routines' }));
+            }}
+            className="add-item-btn"
+            style={{ width: '100%', margin: 0 }}
           >
-            <div className="flex items-center justify-between p-4 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-              <h3 className="text-base font-semibold">Attach routine</h3>
-              <button aria-label="Close" type="button" onClick={() => setShowLinkPicker(false)} className="icon-btn icon-btn-sm"><X size={18} /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3">
-              {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).length === 0 ? (
-                <p className="text-center text-sm py-8" style={{ color: 'var(--fg-muted)' }}>No routines to attach.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={async () => {
-                        const today = new Date().toISOString().slice(0, 10);
-                        try {
-                          await routinesApi.createLink({
-                            goal_id: task.id,
-                            routine_id: r.id,
-                            start_date: task.start_date ?? today,
-                            end_date: task.due_date ?? null,
-                            target_count: null,
-                          });
-                          await loadLinks();
-                          setShowLinkPicker(false);
-                          toast.success(`Linked "${r.title}"`);
-                        } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
-                      }}
-                      className="routine-link-card"
-                      style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
-                    >
-                      <div className="routine-link-row">
-                        <span className="routine-link-stripe" style={{ backgroundColor: r.color }} />
-                        <span className="routine-link-title">{r.title}</span>
-                        <span className="routine-link-meta" style={{ textTransform: 'capitalize' }}>{r.schedule_type.replace('_', ' ')}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div style={{ padding: '10px 12px 12px', boxShadow: 'inset 0 0.5px 0 var(--line)' }}>
+            <Plus size={14} /> Create new routine
+          </button>
+        }
+      >
+        {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).length === 0 ? (
+          <p className="text-center text-sm py-8" style={{ color: 'var(--fg-muted)' }}>No routines to attach.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).map((r) => (
               <button
+                key={r.id}
                 type="button"
-                onClick={() => {
-                  setShowLinkPicker(false);
-                  window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'routines' }));
+                onClick={async () => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  try {
+                    await routinesApi.createLink({
+                      goal_id: task.id,
+                      routine_id: r.id,
+                      start_date: task.start_date ?? today,
+                      end_date: task.due_date ?? null,
+                      target_count: null,
+                    });
+                    await loadLinks();
+                    setShowLinkPicker(false);
+                    toast.success(`Linked "${r.title}"`);
+                  } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
                 }}
-                className="add-item-btn"
-                style={{ width: '100%', margin: 0 }}
+                className="routine-link-card"
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
               >
-                <Plus size={14} /> Create new routine
+                <div className="routine-link-row">
+                  <span className="routine-link-stripe" style={{ backgroundColor: r.color }} />
+                  <span className="routine-link-title">{r.title}</span>
+                  <span className="routine-link-meta" style={{ textTransform: 'capitalize' }}>{r.schedule_type.replace('_', ' ')}</span>
+                </div>
               </button>
-            </div>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </PickerSheet>
     </div>
   );
 }

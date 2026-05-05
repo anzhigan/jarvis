@@ -11,6 +11,7 @@ import AddItemButton from './AddItemButton';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
+import PickerSheet from './PickerSheet';
 import { ENTITY_COLORS } from '../lib/colors';
 
 const SPRINT_COLORS = ENTITY_COLORS;
@@ -124,61 +125,48 @@ function AddItemPanel({
   const title = kind === 'step' ? 'Add step' : 'Add go';
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end md:items-center justify-center" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="modal-panel w-full md:max-w-lg rounded-t-[var(--r-shell)] md:rounded-[var(--r-shell)] flex flex-col max-h-[85vh] md:max-h-[80vh]"
-        style={{ boxShadow: 'var(--sh-popover)' }}
-      >
-        <div className="flex items-center justify-between p-4 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-          <h3 className="text-base font-semibold">{title}</h3>
-          <button aria-label="Close" onClick={onClose} className="icon-btn icon-btn-sm"><X size={18} /></button>
-        </div>
-
-        <div className="px-3 pt-3 flex-shrink-0">
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="input w-full" />
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3">
-          {loading ? (
-            <div className="flex items-center justify-center py-8" style={{ color: 'var(--fg-muted)' }}>
-              <Loader2 size={18} className="animate-spin" />
-            </div>
-          ) : filteredOptions.length === 0 ? (
-            <p className="text-center text-sm py-8" style={{ color: 'var(--fg-muted)' }}>No items.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: kind === 'step' ? 8 : 4 }}>
-              {kind === 'step' && (filteredOptions as { id: string; title: string; goalTitle: string; color: string }[]).map((s) => {
-                const tagBg = s.color ? s.color + '20' : 'var(--accent-notes-bg)';
-                const tagFg = s.color || 'var(--accent-notes-fg)';
-                return (
-                  <button key={s.id} type="button" onClick={() => add(s.id)}
-                    className="step-card" style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-                    <div className="step-card-head">
-                      <span className="step-card-tag" style={{ background: tagBg, color: tagFg }}>{s.goalTitle}</span>
-                    </div>
-                    <div className="step-card-title">{s.title}</div>
-                  </button>
-                );
-              })}
-              {kind === 'go' && (filteredOptions as Go[]).map((g) => (
-                <button key={g.id} type="button" onClick={() => add(g.id)}
-                  className="go-row" style={{ width: '100%', textAlign: 'left', cursor: 'pointer', background: 'var(--bg-elevated)' }}>
-                  <span className="check-circle" data-state="outline" style={{ pointerEvents: 'none' }} />
-                  <div className="go-info">
-                    <div className="go-title">{g.title}</div>
-                    <div className="go-sub">
-                      {g.task_title ?? 'Standalone'}
-                      {g.due_date ? ` · ${fmtDate(g.due_date)}` : ''}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+    <PickerSheet open onClose={onClose} title={title}>
+      <div style={{ marginBottom: 10 }}>
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="input w-full" />
       </div>
-    </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8" style={{ color: 'var(--fg-muted)' }}>
+          <Loader2 size={18} className="animate-spin" />
+        </div>
+      ) : filteredOptions.length === 0 ? (
+        <p className="text-center text-sm py-8" style={{ color: 'var(--fg-muted)' }}>No items.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: kind === 'step' ? 8 : 4 }}>
+          {kind === 'step' && (filteredOptions as { id: string; title: string; goalTitle: string; color: string }[]).map((s) => {
+            const tagBg = s.color ? s.color + '20' : 'var(--accent-notes-bg)';
+            const tagFg = s.color || 'var(--accent-notes-fg)';
+            return (
+              <button key={s.id} type="button" onClick={() => add(s.id)}
+                className="step-card" style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+                <div className="step-card-head">
+                  <span className="step-card-tag" style={{ background: tagBg, color: tagFg }}>{s.goalTitle}</span>
+                </div>
+                <div className="step-card-title">{s.title}</div>
+              </button>
+            );
+          })}
+          {kind === 'go' && (filteredOptions as Go[]).map((g) => (
+            <button key={g.id} type="button" onClick={() => add(g.id)}
+              className="go-row" style={{ width: '100%', textAlign: 'left', cursor: 'pointer', background: 'var(--bg-elevated)' }}>
+              <span className="check-circle" data-state="outline" style={{ pointerEvents: 'none' }} />
+              <div className="go-info">
+                <div className="go-title">{g.title}</div>
+                <div className="go-sub">
+                  {g.task_title ?? 'Standalone'}
+                  {g.due_date ? ` · ${fmtDate(g.due_date)}` : ''}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </PickerSheet>
   );
 }
 
