@@ -2088,6 +2088,10 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .add-item-btn svg { width: 14px; height: 14px; }
 .go-step-panel .add-item-btn { width: 100%; margin-left: 0; margin-right: 0; }
 
+/* Pair of "Add X / Add Y" buttons side-by-side */
+.add-row { display: flex; gap: 8px; padding: 0 12px; margin: 4px 0 12px; }
+.add-row .add-item-btn { width: 100%; margin: 0; }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    KEYBOARD TOOLBAR
    ═══════════════════════════════════════════════════════════════════════════ */

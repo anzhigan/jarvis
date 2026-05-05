@@ -3,8 +3,11 @@ import { Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { routinesApi } from '../../api/client';
 import type { GoalRoutineLink, Routine, Task } from '../../api/types';
+import AddItemButton from '../AddItemButton';
+import { useT } from '../../store/i18n';
 
 export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task: Task; onReload: () => Promise<void> }) {
+  const t = useT();
   const [linkedRoutines, setLinkedRoutines] = useState<Routine[]>([]);
   const [routineLinks, setRoutineLinks] = useState<GoalRoutineLink[]>([]);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
@@ -40,24 +43,16 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
     return { done, total, pct };
   };
 
+  const openPicker = async () => {
+    try { const all = await routinesApi.list(); setAllRoutines(all); } catch {}
+    setShowLinkPicker(true);
+  };
+
   return (
     <div className="task-expanded">
-      <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
-        <div className="task-expanded-section-label" style={{ marginBottom: 0 }}>
-          {linkedRoutines.length > 0 ? `${linkedRoutines.length} linked` : 'No routines linked'}
-        </div>
-        <button
-          type="button"
-          onClick={async () => {
-            try { const all = await routinesApi.list(); setAllRoutines(all); } catch {}
-            setShowLinkPicker(true);
-          }}
-          className="add-link"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 500, color: 'var(--accent-goals, var(--primary))', background: 'none', border: 0, cursor: 'pointer', padding: '2px 6px', borderRadius: 'var(--r-control)' }}
-        >
-          <Plus size={11} /> Link routine
-        </button>
-      </div>
+      {linkedRoutines.length > 0 && (
+        <div className="task-expanded-section-label">{linkedRoutines.length} linked</div>
+      )}
 
       {linkedRoutines.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -101,25 +96,30 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
         </div>
       )}
 
+      <div className="add-row">
+        <AddItemButton label={t('tasks.addRoutine')} onClick={openPicker} />
+      </div>
+
       {showLinkPicker && (
-        <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4"
-          style={{ backdropFilter: 'blur(4px)' }}
-          onClick={() => setShowLinkPicker(false)}>
-          <div className="modal-panel w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 flex items-center justify-between" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
-              <h3 className="text-base font-semibold">Link a routine</h3>
-              <button aria-label="Close" onClick={() => setShowLinkPicker(false)} className="icon-btn icon-btn-sm">✕</button>
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-end md:items-center justify-center" onClick={() => setShowLinkPicker(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="modal-panel w-full md:max-w-lg rounded-t-[var(--r-shell)] md:rounded-[var(--r-shell)] flex flex-col max-h-[85vh] md:max-h-[80vh]"
+            style={{ boxShadow: 'var(--sh-popover)' }}
+          >
+            <div className="flex items-center justify-between p-4 flex-shrink-0" style={{ boxShadow: 'inset 0 -0.5px 0 var(--line)' }}>
+              <h3 className="text-base font-semibold">Attach routine</h3>
+              <button aria-label="Close" type="button" onClick={() => setShowLinkPicker(false)} className="icon-btn icon-btn-sm"><X size={18} /></button>
             </div>
-            <div className="p-5 max-h-[60vh] overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-3">
               {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).length === 0 ? (
-                <div style={{ fontSize: 13, textAlign: 'center', padding: '24px 0', color: 'var(--fg-muted)' }}>
-                  No more routines to link. Create one in the Routines section first.
-                </div>
+                <p className="text-center text-sm py-8" style={{ color: 'var(--fg-muted)' }}>No routines to attach.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {allRoutines.filter((r) => !linkedRoutines.find((lr) => lr.id === r.id)).map((r) => (
                     <button
                       key={r.id}
+                      type="button"
                       onClick={async () => {
                         const today = new Date().toISOString().slice(0, 10);
                         try {
@@ -135,18 +135,31 @@ export default function GoalLinkedRoutines({ task, onReload: _onReload }: { task
                           toast.success(`Linked "${r.title}"`);
                         } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
                       }}
-                      className="goal-card"
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', cursor: 'pointer' }}
+                      className="routine-link-card"
+                      style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
                     >
-                      <span style={{ width: 6, height: 24, borderRadius: 3, flexShrink: 0, backgroundColor: r.color }} />
-                      <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
-                        <div style={{ fontSize: 11, color: 'var(--fg-muted)', textTransform: 'capitalize' }}>{r.schedule_type.replace('_', ' ')}</div>
+                      <div className="routine-link-row">
+                        <span className="routine-link-stripe" style={{ backgroundColor: r.color }} />
+                        <span className="routine-link-title">{r.title}</span>
+                        <span className="routine-link-meta" style={{ textTransform: 'capitalize' }}>{r.schedule_type.replace('_', ' ')}</span>
                       </div>
                     </button>
                   ))}
                 </div>
               )}
+            </div>
+            <div style={{ padding: '10px 12px 12px', boxShadow: 'inset 0 0.5px 0 var(--line)' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLinkPicker(false);
+                  window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'routines' }));
+                }}
+                className="add-item-btn"
+                style={{ width: '100%', margin: 0 }}
+              >
+                <Plus size={14} /> Create new routine
+              </button>
             </div>
           </div>
         </div>

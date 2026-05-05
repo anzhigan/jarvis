@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { gosApi } from '../../api/client';
+import { gosApi, stepsApi } from '../../api/client';
 import type { Task } from '../../api/types';
 import { useT } from '../../store/i18n';
 import AddItemButton from '../AddItemButton';
+import AttachItemPicker from './AttachItemPicker';
 import CreateGoForm from './CreateGoForm';
 import CreateStepForm from './CreateStepForm';
 import GoRow from './GoRow';
@@ -10,8 +11,9 @@ import StepBlock from './StepBlock';
 
 export default function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<void> }) {
   const t = useT();
-  const [addingStep, setAddingStep] = useState(false);
-  const [addingGo, setAddingGo] = useState(false);
+  const [pick, setPick] = useState<'step' | 'go' | null>(null);
+  const [creatingStep, setCreatingStep] = useState(false);
+  const [creatingGo, setCreatingGo] = useState(false);
   const directGos = task.gos;
 
   return (
@@ -34,15 +36,6 @@ export default function TaskExpanded({ task, onReload }: { task: Task; onReload:
         />
       ))}
 
-      <AddItemButton label={t('tasks.addStep')} onClick={() => setAddingStep(true)} />
-      <CreateStepForm
-        open={addingStep}
-        taskId={task.id}
-        availableGos={directGos.filter((g) => !g.sprint_id)}
-        onCancel={() => setAddingStep(false)}
-        onCreate={async () => { setAddingStep(false); await onReload(); }}
-      />
-
       {directGos.length > 0 && (
         <div>
           <div className="task-expanded-section-label">{t('tasks.directGos')}</div>
@@ -54,15 +47,52 @@ export default function TaskExpanded({ task, onReload }: { task: Task; onReload:
         </div>
       )}
 
-      <AddItemButton label={t('tasks.addGo')} onClick={() => setAddingGo(true)} />
+      <div className="add-row">
+        <AddItemButton label={t('tasks.addStep')} onClick={() => setPick('step')} />
+        <AddItemButton label={t('tasks.addGo')} onClick={() => setPick('go')} />
+      </div>
+
+      {pick === 'step' && (
+        <AttachItemPicker
+          kind="step"
+          excludeTaskId={task.id}
+          onClose={() => setPick(null)}
+          onAttach={async (id) => {
+            try { await stepsApi.update(id, { task_id: task.id }); await onReload(); setPick(null); }
+            catch { setPick(null); }
+          }}
+          onCreateNew={() => { setPick(null); setCreatingStep(true); }}
+        />
+      )}
+      {pick === 'go' && (
+        <AttachItemPicker
+          kind="go"
+          excludeTaskId={task.id}
+          onClose={() => setPick(null)}
+          onAttach={async (id) => {
+            try { await gosApi.update(id, { task_id: task.id }); await onReload(); setPick(null); }
+            catch { setPick(null); }
+          }}
+          onCreateNew={() => { setPick(null); setCreatingGo(true); }}
+        />
+      )}
+
+      <CreateStepForm
+        open={creatingStep}
+        taskId={task.id}
+        availableGos={directGos.filter((g) => !g.sprint_id)}
+        onCancel={() => setCreatingStep(false)}
+        onCreate={async () => { setCreatingStep(false); await onReload(); }}
+      />
+
       <CreateGoForm
-        open={addingGo}
+        open={creatingGo}
         defaultTaskId={task.id}
         availableSteps={task.sprints}
-        onCancel={() => setAddingGo(false)}
+        onCancel={() => setCreatingGo(false)}
         onCreate={async (data) => {
           await gosApi.create({ ...data, task_id: task.id });
-          setAddingGo(false);
+          setCreatingGo(false);
           await onReload();
         }}
       />

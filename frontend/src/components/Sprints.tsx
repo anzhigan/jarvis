@@ -147,25 +147,31 @@ function AddItemPanel({
           ) : filteredOptions.length === 0 ? (
             <p className="text-center text-sm py-8" style={{ color: 'var(--fg-muted)' }}>No items.</p>
           ) : (
-            <div className="space-y-1.5">
-              {kind === 'step' && (filteredOptions as { id: string; title: string; goalTitle: string; color: string }[]).map((s) => (
-                <button key={s.id} onClick={() => add(s.id)}
-                  className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
-                  <span className="w-1 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                  <ListChecks size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm truncate">{s.title}</div>
-                    <div className="text-[10px] truncate" style={{ color: 'var(--fg-muted)' }}>↳ {s.goalTitle}</div>
-                  </div>
-                </button>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: kind === 'step' ? 8 : 4 }}>
+              {kind === 'step' && (filteredOptions as { id: string; title: string; goalTitle: string; color: string }[]).map((s) => {
+                const tagBg = s.color ? s.color + '20' : 'var(--accent-notes-bg)';
+                const tagFg = s.color || 'var(--accent-notes-fg)';
+                return (
+                  <button key={s.id} type="button" onClick={() => add(s.id)}
+                    className="step-card" style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+                    <div className="step-card-head">
+                      <span className="step-card-tag" style={{ background: tagBg, color: tagFg }}>{s.goalTitle}</span>
+                    </div>
+                    <div className="step-card-title">{s.title}</div>
+                  </button>
+                );
+              })}
               {kind === 'go' && (filteredOptions as Go[]).map((g) => (
-                <button key={g.id} onClick={() => add(g.id)}
-                  className="goal-card w-full text-left p-2.5 hover:bg-secondary transition-colors flex items-center gap-2">
-                  <span className="w-1 h-6 rounded-full flex-shrink-0" style={{ backgroundColor: g.color }} />
-                  <CircleDot size={14} style={{ color: 'var(--fg-muted)' }} className="flex-shrink-0" />
-                  <span className="text-sm flex-1 truncate">{g.title}</span>
-                  {g.due_date && <span className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>{fmtDate(g.due_date)}</span>}
+                <button key={g.id} type="button" onClick={() => add(g.id)}
+                  className="go-row" style={{ width: '100%', textAlign: 'left', cursor: 'pointer', background: 'var(--bg-elevated)' }}>
+                  <span className="check-circle" data-state="outline" style={{ pointerEvents: 'none' }} />
+                  <div className="go-info">
+                    <div className="go-title">{g.title}</div>
+                    <div className="go-sub">
+                      {g.task_title ?? 'Standalone'}
+                      {g.due_date ? ` · ${fmtDate(g.due_date)}` : ''}
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
@@ -328,12 +334,8 @@ function EditSprintSheet({
         </FormField>
 
         <FormField label="In focus">
-          {sprint.items.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'var(--fg-muted)', padding: '6px 0' }}>
-              Empty. Add steps and gos to focus on this period.
-            </div>
-          ) : (
-            <div className="space-y-3">
+          {sprint.items.length > 0 && (
+            <div className="space-y-3" style={{ marginBottom: 6 }}>
               {(['goal', 'step', 'go', 'routine'] as const).map((kind) => {
                 const items = itemsByType[kind];
                 if (items.length === 0) return null;
@@ -361,7 +363,7 @@ function EditSprintSheet({
               })}
             </div>
           )}
-          <div style={{ marginTop: 8 }}>
+          <div className="add-row">
             <AddItemButton label={t('tasks.addStep')} onClick={() => setAddingKind('step')} />
             <AddItemButton label={t('tasks.addGo')} onClick={() => setAddingKind('go')} />
           </div>
