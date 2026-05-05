@@ -114,17 +114,6 @@ class WayOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Reorder ───────────────────────────────────────────────────────────────────
-
-class ReorderItem(BaseModel):
-    id: uuid.UUID
-    order: int
-
-
-class ReorderRequest(BaseModel):
-    items: list[ReorderItem]
-
-
 # ── Image ─────────────────────────────────────────────────────────────────────
 
 class ImageOut(BaseModel):

@@ -8,7 +8,7 @@ import SwipeRow from './SwipeRow';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
-import { ENTITY_COLORS } from './Tasks';
+import { ENTITY_COLORS } from '../lib/colors';
 
 const ROUTINE_COLORS = ENTITY_COLORS;
 
@@ -414,7 +414,7 @@ function RoutineCard({ routine, onReload, onPatchLocal, isMobile }: {
     if (busy) return;
     setBusy(true);
     try {
-      await routinesApi.update(routine.id, { is_paused: !routine.is_paused } as any);
+      await routinesApi.update(routine.id, { is_paused: !routine.is_paused });
       await onReload();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed');
@@ -589,7 +589,7 @@ function RoutineEditForm({
       schedule_type: scheduleType,
       schedule_days: scheduleDays.join(','),
       schedule_count_per_period: scheduleCount,
-    } as any);
+    });
     await onSaved();
   };
 

@@ -11,7 +11,7 @@ import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
 import CreateSheet, { FormField } from './CreateSheet';
-import { ENTITY_COLORS } from './Tasks';
+import { ENTITY_COLORS } from '../lib/colors';
 
 const SPRINT_COLORS = ENTITY_COLORS;
 

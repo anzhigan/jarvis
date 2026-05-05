@@ -1,20 +1,31 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
 import {
   Loader2, Moon, Sun, BookOpen, BarChart3, Repeat, Zap,
   PanelLeftClose, PanelLeftOpen, Search, Target,
 } from 'lucide-react';
-import Notes from '../components/Notes';
-import Tasks from '../components/Tasks';
-import Routines from '../components/Routines';
-import Sprints from '../components/Sprints';
-import Dashboard from '../components/Metrics';
-import Profile from '../components/Profile';
 import AuthPage from '../components/AuthPage';
 import MobileDrawer from '../components/MobileDrawer';
 import { resolveUrl } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import { useT } from '../store/i18n';
+
+// Lazy-load heavy tab components so each tab is a separate chunk.
+// Tiptap (~100KB), motion (~50KB), recharts etc. now only load when needed.
+const Notes = lazy(() => import('../components/Notes'));
+const Tasks = lazy(() => import('../components/Tasks'));
+const Routines = lazy(() => import('../components/Routines'));
+const Sprints = lazy(() => import('../components/Sprints'));
+const Dashboard = lazy(() => import('../components/Metrics'));
+const Profile = lazy(() => import('../components/Profile'));
+
+function TabFallback() {
+  return (
+    <div className="size-full flex items-center justify-center">
+      <Loader2 size={24} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
+    </div>
+  );
+}
 
 type Tab = 'notes' | 'tasks' | 'routines' | 'sprints' | 'analysis' | 'profile';
 
@@ -35,6 +46,13 @@ export default function App() {
     if (saved && TABS.some((tt) => tt.key === saved)) return saved as Tab;
     return 'notes';
   });
+  // Track which tabs have been opened — once visited, they stay mounted so
+  // state (scroll, edits, etc.) is preserved when switching back. First visit
+  // pays the lazy-import cost; subsequent visits are free.
+  const [visited, setVisited] = useState<Set<Tab>>(() => new Set([tab]));
+  useEffect(() => {
+    setVisited((prev) => prev.has(tab) ? prev : new Set([...prev, tab]));
+  }, [tab]);
 
   const [dark, setDark] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -167,12 +185,14 @@ export default function App() {
           )}
 
           <main className="app-main">
-            <div className="app-page" data-visible={tab === 'notes'}><Notes /></div>
-            <div className="app-page" data-visible={tab === 'tasks'}><Tasks /></div>
-            <div className="app-page" data-visible={tab === 'routines'}><Routines /></div>
-            <div className="app-page" data-visible={tab === 'sprints'}><Sprints /></div>
-            <div className="app-page" data-visible={tab === 'analysis'}><Dashboard /></div>
-            <div className="app-page" data-visible={tab === 'profile'}><Profile /></div>
+            <Suspense fallback={<TabFallback />}>
+              {visited.has('notes')    && <div className="app-page" data-visible={tab === 'notes'}><Notes /></div>}
+              {visited.has('tasks')    && <div className="app-page" data-visible={tab === 'tasks'}><Tasks /></div>}
+              {visited.has('routines') && <div className="app-page" data-visible={tab === 'routines'}><Routines /></div>}
+              {visited.has('sprints')  && <div className="app-page" data-visible={tab === 'sprints'}><Sprints /></div>}
+              {visited.has('analysis') && <div className="app-page" data-visible={tab === 'analysis'}><Dashboard /></div>}
+              {visited.has('profile')  && <div className="app-page" data-visible={tab === 'profile'}><Profile /></div>}
+            </Suspense>
           </main>
 
           <nav className="mobile-tabbar app-only-mobile">

@@ -11,7 +11,7 @@ Tag management — user-scoped tags + note-tag attachment.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -87,11 +87,13 @@ async def create_tag(
 
     # Case-insensitive dup check
     existing = await db.execute(
-        select(Tag).where(Tag.user_id == user.id)
+        select(Tag.id).where(
+            Tag.user_id == user.id,
+            func.lower(Tag.name) == name.lower(),
+        )
     )
-    for t in existing.scalars().all():
-        if t.name.lower() == name.lower():
-            raise HTTPException(409, "Tag with this name already exists")
+    if existing.scalar_one_or_none():
+        raise HTTPException(409, "Tag with this name already exists")
 
     tag = Tag(user_id=user.id, name=name, color=body.color)
     db.add(tag)
@@ -113,11 +115,14 @@ async def update_tag(
         new_name = data["name"].strip()
         if new_name.lower() != tag.name.lower():
             existing = await db.execute(
-                select(Tag).where(Tag.user_id == user.id, Tag.id != tag.id)
+                select(Tag.id).where(
+                    Tag.user_id == user.id,
+                    Tag.id != tag.id,
+                    func.lower(Tag.name) == new_name.lower(),
+                )
             )
-            for t in existing.scalars().all():
-                if t.name.lower() == new_name.lower():
-                    raise HTTPException(409, "Tag with this name already exists")
+            if existing.scalar_one_or_none():
+                raise HTTPException(409, "Tag with this name already exists")
         data["name"] = new_name
 
     for field, value in data.items():

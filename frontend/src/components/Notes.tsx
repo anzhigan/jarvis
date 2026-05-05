@@ -243,12 +243,22 @@ export default function Notes() {
       if (st && st.dirty) {
         const token = localStorage.getItem('access_token');
         if (token) {
-          fetch(`${import.meta.env.VITE_API_URL ?? '/api'}/notes/${st.noteId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ content: st.content }),
-            keepalive: true,
-          });
+          // Use sendBeacon when available — guaranteed to fire on unload
+          // and doesn't trigger CORS preflight. Fall back to keepalive fetch.
+          const url = `${import.meta.env.VITE_API_URL ?? '/api'}/notes/${st.noteId}`;
+          const body = JSON.stringify({ content: st.content });
+          try {
+            fetch(url, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body,
+              keepalive: true,
+            }).catch((err) => {
+              console.warn('[Notes] keepalive save failed', err);
+            });
+          } catch (err) {
+            console.warn('[Notes] keepalive save threw', err);
+          }
         }
       }
     };
@@ -257,7 +267,8 @@ export default function Notes() {
       window.removeEventListener('beforeunload', onBeforeUnload);
       const st = editorStateRef.current;
       if (st && st.dirty) {
-        notesApi.update(st.noteId, { content: st.content }).catch(() => {});
+        notesApi.update(st.noteId, { content: st.content })
+          .catch((err) => console.warn('[Notes] cleanup save failed', err));
       }
     };
   }, []);

@@ -23,7 +23,6 @@ from app.schemas.notes import (
     NoteOut,
     NoteReparent,
     NoteUpdate,
-    ReorderRequest,
     TopicCreate,
     TopicOut,
     TopicUpdate,
@@ -163,20 +162,6 @@ async def delete_way(
 ):
     way = await _get_way_or_404(way_id, user, db)
     await db.delete(way)
-
-
-@router.post("/ways/reorder", status_code=status.HTTP_204_NO_CONTENT)
-async def reorder_ways(
-    body: ReorderRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    ids = [item.id for item in body.items]
-    result = await db.execute(select(Way).where(Way.id.in_(ids), Way.user_id == user.id))
-    ways_map = {w.id: w for w in result.scalars()}
-    for item in body.items:
-        if item.id in ways_map:
-            ways_map[item.id].order = item.order
 
 
 # ─── Topics ───────────────────────────────────────────────────────────────────
