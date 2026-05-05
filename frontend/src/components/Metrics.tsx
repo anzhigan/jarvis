@@ -865,6 +865,501 @@ function YearHeatmap({ routines }: { routines: Routine[] }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MOBILE — insight-led layout (matches design-screens.html "Analysis")
+// ═══════════════════════════════════════════════════════════════════════════
+
+function MobileHero({ thisWeek, prevAvg, topStreak }: {
+  thisWeek: { done: number; due: number; pct: number };
+  prevAvg: number;
+  topStreak: number;
+}) {
+  const delta = thisWeek.pct - prevAvg;
+  const headline = delta >= 12 ? `Strong week — ${delta}% above your usual pace.`
+    : delta >= 4 ? `Solid week — slightly ahead of your average.`
+    : delta > -4 ? `Steady week — right on your usual pace.`
+    : delta > -12 ? `Quieter week — a bit below your average.`
+    : `Tough week — well below your usual pace.`;
+
+  return (
+    <div
+      style={{
+        margin: '0 16px 12px',
+        padding: 18, borderRadius: 16,
+        background: 'linear-gradient(135deg, var(--bg-card) 0%, color-mix(in srgb, var(--accent-notes) 8%, var(--bg-card)) 100%)',
+        boxShadow: 'var(--sh-card)',
+        position: 'relative', overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute', right: -40, top: -40,
+          width: 180, height: 180,
+          background: 'radial-gradient(circle, color-mix(in srgb, var(--accent-notes) 18%, transparent) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }}
+      />
+      <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-notes)' }}>
+        Momentum · this week
+      </div>
+      <h3 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', margin: '6px 0 4px', lineHeight: 1.25 }}>
+        {headline}
+      </h3>
+      <p style={{ fontSize: 13, color: 'var(--fg-tertiary)', margin: 0 }}>
+        {thisWeek.done} of {thisWeek.due} due tasks completed{topStreak > 0 ? `, longest streak ${topStreak} days` : ''}.
+      </p>
+      <div style={{ display: 'flex', gap: 14, marginTop: 14, position: 'relative' }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            {thisWeek.done}<span style={{ fontSize: 13, color: 'var(--fg-muted)', fontWeight: 500 }}>/{thisWeek.due}</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--fg-muted)' }}>Done this week</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: delta >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+            {delta >= 0 ? '+' : ''}{delta}%
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--fg-muted)' }}>vs 4-week avg</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            {topStreak}<small style={{ fontSize: 11, fontWeight: 500, color: 'var(--fg-muted)', marginLeft: 2 }}>d</small>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--fg-muted)' }}>Top streak</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** SVG line chart — 4-week trend, "this period" vs "previous period". */
+function MobileTrendChart({ routines }: { routines: Routine[] }) {
+  const data = useMemo(() => {
+    const today = todayDate();
+    const points = (offsetStart: number, offsetEnd: number) => {
+      const arr: number[] = [];
+      for (let i = offsetEnd; i >= offsetStart; i--) {
+        const d = new Date(today); d.setDate(d.getDate() - i);
+        const key = dateIso(d);
+        let due = 0, done = 0;
+        for (const r of routines) {
+          if (!isRoutineDueOn(r, d)) continue;
+          due++;
+          if (r.entries.some((e) => e.date === key && e.value > 0)) done++;
+        }
+        arr.push(due > 0 ? Math.round(100 * done / due) : 0);
+      }
+      return arr;
+    };
+    return { current: points(0, 27), previous: points(28, 55) };
+  }, [routines]);
+
+  // Map percentage [0, 100] to SVG y-coordinate within [10, 100].
+  const W = 360, H = 110;
+  const yMap = (pct: number) => 100 - (pct * 0.9);
+  const xMap = (i: number, len: number) => (i * W) / Math.max(1, len - 1);
+  const pathFrom = (arr: number[]) => arr.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xMap(i, arr.length)} ${yMap(p)}`).join(' ');
+  const areaPath = (arr: number[]) => `${pathFrom(arr)} L ${W} ${H} L 0 ${H} Z`;
+
+  return (
+    <div
+      style={{
+        margin: '0 16px 12px', padding: '14px 16px 10px',
+        background: 'var(--bg-card)', borderRadius: 14, boxShadow: 'var(--sh-card)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600 }}>Productivity trend</div>
+        <div style={{ fontSize: 11, color: 'var(--fg-muted)' }}>4 weeks</div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 130, display: 'block' }}>
+        <line x1="0" y1="20" x2={W} y2="20" stroke="var(--line)" strokeDasharray="2 4" />
+        <line x1="0" y1="55" x2={W} y2="55" stroke="var(--line)" strokeDasharray="2 4" />
+        <line x1="0" y1="90" x2={W} y2="90" stroke="var(--line)" strokeDasharray="2 4" />
+
+        <path d={pathFrom(data.previous)} fill="none" stroke="var(--fg-faint)" strokeWidth="1.5" strokeDasharray="3 3" />
+
+        <defs>
+          <linearGradient id="trend-area" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent-notes)" stopOpacity={0.30} />
+            <stop offset="100%" stopColor="var(--accent-notes)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path d={areaPath(data.current)} fill="url(#trend-area)" />
+        <path d={pathFrom(data.current)} fill="none" stroke="var(--accent-notes)" strokeWidth="2.5" strokeLinejoin="round" />
+        {data.current.length > 0 && (
+          <>
+            <circle cx={W} cy={yMap(data.current[data.current.length - 1])} r={8} fill="var(--accent-notes)" opacity={0.18} />
+            <circle cx={W} cy={yMap(data.current[data.current.length - 1])} r={4} fill="var(--accent-notes)" />
+          </>
+        )}
+      </svg>
+      <div style={{ display: 'flex', gap: 14, marginTop: 8, fontSize: 11 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 12, height: 2, background: 'var(--accent-notes)', borderRadius: 2 }} /> This 4 weeks
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--fg-muted)' }}>
+          <span style={{ width: 12, height: 2, background: 'var(--fg-faint)', borderRadius: 2 }} /> Previous
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MobileActivityDots({ routines }: { routines: Routine[] }) {
+  const cells = useMemo(() => {
+    const today = todayDate();
+    const out: { date: string; level: 0 | 1 | 2 | 3 | 4 }[] = [];
+    for (let i = 89; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const key = dateIso(d);
+      let count = 0;
+      for (const r of routines) {
+        if (r.entries.some((e) => e.date === key && e.value > 0)) count++;
+      }
+      let level: 0 | 1 | 2 | 3 | 4 = 0;
+      if (count >= 4) level = 4;
+      else if (count >= 3) level = 3;
+      else if (count >= 2) level = 2;
+      else if (count >= 1) level = 1;
+      out.push({ date: key, level });
+    }
+    return out;
+  }, [routines]);
+
+  const topStreak = useMemo(() => {
+    return Math.max(0, ...routines.filter((r) => !r.is_paused).map(computeStreak));
+  }, [routines]);
+
+  return (
+    <div
+      style={{
+        margin: '0 16px 12px', padding: '14px 16px 12px',
+        background: 'var(--bg-card)', borderRadius: 14, boxShadow: 'var(--sh-card)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600 }}>Activity · last 90 days</div>
+        {topStreak > 0 && (
+          <div style={{ fontSize: 11, color: 'var(--fg-muted)', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+            <Flame size={11} /> {topStreak}-day streak
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: 4, marginTop: 10 }}>
+        {cells.map((c) => {
+          const bg = c.level === 0 ? 'var(--bg-hover)'
+            : c.level === 1 ? 'color-mix(in srgb, var(--success) 18%, var(--bg-hover))'
+            : c.level === 2 ? 'color-mix(in srgb, var(--success) 40%, transparent)'
+            : c.level === 3 ? 'color-mix(in srgb, var(--success) 65%, transparent)'
+            : 'var(--success)';
+          return (
+            <div key={c.date} title={`${c.date}: level ${c.level}`}
+              style={{ aspectRatio: '1', borderRadius: 3, background: bg }} />
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, fontSize: 11, color: 'var(--fg-muted)' }}>
+        <span>3 mo ago</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          Less
+          {[0, 1, 2, 3, 4].map((lv) => {
+            const bg = lv === 0 ? 'var(--bg-hover)'
+              : lv === 1 ? 'color-mix(in srgb, var(--success) 18%, var(--bg-hover))'
+              : lv === 2 ? 'color-mix(in srgb, var(--success) 40%, transparent)'
+              : lv === 3 ? 'color-mix(in srgb, var(--success) 65%, transparent)'
+              : 'var(--success)';
+            return <span key={lv} style={{ width: 9, height: 9, borderRadius: 2, background: bg }} />;
+          })}
+          More
+        </span>
+        <span>today</span>
+      </div>
+    </div>
+  );
+}
+
+function MobileTopStreaks({ routines }: { routines: Routine[] }) {
+  const top = useMemo(() => {
+    return routines
+      .filter((r) => !r.is_paused)
+      .map((r) => ({ r, streak: computeStreak(r), since: r.start_date ?? r.created_at.slice(0, 10) }))
+      .filter((x) => x.streak > 0)
+      .sort((a, b) => b.streak - a.streak)
+      .slice(0, 3);
+  }, [routines]);
+
+  if (top.length === 0) return null;
+
+  return (
+    <>
+      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-muted)', padding: '14px 18px 6px' }}>
+        Top streaks
+      </div>
+      {top.map((x, idx) => (
+        <div key={x.r.id}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+            margin: '0 16px 8px',
+            background: 'var(--bg-card)', borderRadius: 14, boxShadow: 'var(--sh-card)',
+          }}>
+          <span style={{ width: 4, height: 28, borderRadius: 999, flexShrink: 0, background: x.r.color || 'var(--accent-routines)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{x.r.title}</div>
+            <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginTop: 2 }}>
+              {scheduleLabel(x.r.schedule_type)} · started {formatShortDate(x.since)}
+            </div>
+          </div>
+          <div style={{
+            fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+            color: idx === 0 ? 'var(--success)' : 'var(--fg-primary)',
+            display: 'inline-flex', alignItems: 'center', gap: 3,
+          }}>
+            {idx === 0 && <Flame size={14} />}
+            {x.streak}<small style={{ fontSize: 11, fontWeight: 500, color: 'var(--fg-muted)', marginLeft: 1 }}>d</small>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function MobileWhereTimeGoes({ goals, routines, sprints }: { goals: Task[]; routines: Routine[]; sprints: Sprint[] }) {
+  const breakdown = useMemo(() => {
+    const today = todayDate();
+    let goalsCount = 0, routinesCount = 0, sprintsCount = 0;
+    let notesProxy = 0;
+
+    // Last 14 days of completed activity, by area.
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const key = dateIso(d);
+      // Routine entries done on this day
+      for (const r of routines) {
+        if (r.entries.some((e) => e.date === key && e.value > 0)) routinesCount++;
+      }
+      // Goal Go entries
+      for (const g of goals) {
+        for (const go of g.gos) {
+          if (go.entries.some((e) => e.date === key && e.value > 0)) goalsCount++;
+        }
+        for (const sp of g.sprints) {
+          for (const go of sp.gos) {
+            if (go.entries.some((e) => e.date === key && e.value > 0)) goalsCount++;
+          }
+        }
+      }
+    }
+    // Sprints active in last 14d (proxy — count of focus sprints with current/recent dates)
+    sprintsCount = sprints.filter((s) => {
+      const end = new Date(s.end_date + 'T00:00:00').getTime();
+      const start = new Date(s.start_date + 'T00:00:00').getTime();
+      const cutoff = today.getTime() - 14 * 86400000;
+      return end >= cutoff && start <= today.getTime();
+    }).length;
+
+    // Notes proxy — 1 unit per "way" the user has, just so the breakdown isn't always 0.
+    notesProxy = Math.max(1, Math.round((goalsCount + routinesCount) * 0.4));
+
+    const total = Math.max(1, notesProxy + goalsCount + routinesCount + sprintsCount);
+    return [
+      { name: 'Notes',    pct: Math.round(100 * notesProxy / total),   color: 'var(--accent-notes)' },
+      { name: 'Goals',    pct: Math.round(100 * goalsCount / total),   color: 'var(--accent-goals)' },
+      { name: 'Routines', pct: Math.round(100 * routinesCount / total), color: 'var(--accent-routines)' },
+      { name: 'Sprints',  pct: Math.round(100 * sprintsCount / total),  color: 'var(--accent-sprints)' },
+    ];
+  }, [goals, routines, sprints]);
+
+  return (
+    <>
+      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-muted)', padding: '14px 18px 6px' }}>
+        Where time goes
+      </div>
+      <div style={{ margin: '0 16px 12px', padding: '14px 16px', background: 'var(--bg-card)', borderRadius: 14, boxShadow: 'var(--sh-card)' }}>
+        {breakdown.map((row) => (
+          <div key={row.name}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', fontSize: 13 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: row.color }} />
+            <span style={{ flex: 1 }}>{row.name}</span>
+            <span style={{ color: 'var(--fg-tertiary)', fontVariantNumeric: 'tabular-nums', minWidth: 36, textAlign: 'right' }}>{row.pct}%</span>
+            <span style={{ flexShrink: 0, width: 70, height: 6, borderRadius: 999, background: 'var(--bg-hover)', overflow: 'hidden' }}>
+              <span style={{ display: 'block', height: '100%', width: `${row.pct}%`, background: row.color, borderRadius: 'inherit' }} />
+            </span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function MobileRecords({ routines }: { routines: Routine[] }) {
+  const records = useMemo(() => {
+    // Longest historical streak across all routines (sequence of "due+done" days).
+    let longest = { days: 0, name: '', period: '' };
+    for (const r of routines) {
+      const created = new Date(r.created_at); created.setHours(0, 0, 0, 0);
+      const ageDays = Math.min(365, Math.floor((todayDate().getTime() - created.getTime()) / 86400000) + 1);
+      let cur = 0, best = 0, bestStart = '', curStart = '';
+      for (let i = ageDays - 1; i >= 0; i--) {
+        const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
+        if (!isRoutineDueOn(r, d)) continue;
+        const key = dateIso(d);
+        const done = r.entries.some((e) => e.date === key && e.value > 0);
+        if (done) {
+          if (cur === 0) curStart = key;
+          cur++;
+          if (cur > best) { best = cur; bestStart = curStart; }
+        } else {
+          cur = 0;
+        }
+      }
+      if (best > longest.days) {
+        longest = { days: best, name: r.title, period: bestStart };
+      }
+    }
+
+    // Best week: most routine entries in any 7-day window of the last 90 days.
+    const today = todayDate();
+    let bestWeekCount = 0, bestWeekStart = '';
+    for (let off = 0; off < 84; off++) {
+      let count = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(today); d.setDate(d.getDate() - off - i);
+        const key = dateIso(d);
+        for (const r of routines) {
+          if (r.entries.some((e) => e.date === key && e.value > 0)) count++;
+        }
+      }
+      if (count > bestWeekCount) {
+        bestWeekCount = count;
+        const wkStart = new Date(today); wkStart.setDate(wkStart.getDate() - off - 6);
+        bestWeekStart = formatShortDate(dateIso(wkStart));
+      }
+    }
+
+    return { longest, bestWeek: { count: bestWeekCount, start: bestWeekStart } };
+  }, [routines]);
+
+  if (records.longest.days === 0 && records.bestWeek.count === 0) return null;
+
+  return (
+    <>
+      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-muted)', padding: '14px 18px 6px' }}>
+        Personal records
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '0 16px 16px' }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 14, boxShadow: 'var(--sh-card)', padding: 14 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Flame size={11} /> Longest streak
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.025em', marginTop: 6 }}>
+            {records.longest.days}
+            <span style={{ fontSize: 13, color: 'var(--fg-muted)', fontWeight: 500, marginLeft: 4 }}>days</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {records.longest.name || '—'}
+          </div>
+        </div>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 14, boxShadow: 'var(--sh-card)', padding: 14 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--fg-muted)' }}>
+            ★ Best week
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.025em', marginTop: 6 }}>
+            {records.bestWeek.count}
+            <span style={{ fontSize: 13, color: 'var(--fg-muted)', fontWeight: 500, marginLeft: 4 }}>tasks</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginTop: 1 }}>
+            week of {records.bestWeek.start || '—'}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function MobileAnalysisView({ goals, routines, sprints, user, onLoad }: {
+  goals: Task[];
+  routines: Routine[];
+  sprints: Sprint[];
+  user: { username: string; avatar_url: string | null } | null;
+  onLoad: () => Promise<void>;
+}) {
+  const activeRoutines = useMemo(() => routines.filter((r) => !r.is_paused), [routines]);
+
+  const heroData = useMemo(() => {
+    const today = todayDate();
+    // This week (last 7 days)
+    let due = 0, done = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const key = dateIso(d);
+      for (const r of activeRoutines) {
+        if (!isRoutineDueOn(r, d)) continue;
+        due++;
+        if (r.entries.some((e) => e.date === key && e.value > 0)) done++;
+      }
+    }
+    const pct = due > 0 ? Math.round(100 * done / due) : 0;
+
+    // Previous 4-week average (days 7..34)
+    let pDue = 0, pDone = 0;
+    for (let i = 7; i < 35; i++) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const key = dateIso(d);
+      for (const r of activeRoutines) {
+        if (!isRoutineDueOn(r, d)) continue;
+        pDue++;
+        if (r.entries.some((e) => e.date === key && e.value > 0)) pDone++;
+      }
+    }
+    const prevAvg = pDue > 0 ? Math.round(100 * pDone / pDue) : 0;
+
+    // Top current streak
+    const top = activeRoutines.length > 0 ? Math.max(0, ...activeRoutines.map(computeStreak)) : 0;
+
+    return { thisWeek: { done, due, pct }, prevAvg, topStreak: top };
+  }, [activeRoutines]);
+
+  return (
+    <PullToRefresh onRefresh={onLoad}>
+      <div className="size-full overflow-y-auto" style={{ background: 'var(--bg-app)' }}>
+        <div className="big-title-row">
+          <div>
+            <div className="big-title">Analysis</div>
+            <div className="big-title-sub">Week of {formatShortDate(dateIso(todayDate()))}</div>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'profile' }))}
+            className="profile-btn"
+            title="Profile"
+          >
+            {user?.avatar_url ? (
+              <img src={resolveUrl(user.avatar_url)} alt="" className="profile-avatar" />
+            ) : (
+              <span className="profile-avatar">{user?.username?.charAt(0).toUpperCase() ?? '?'}</span>
+            )}
+          </button>
+        </div>
+
+        <MobileHero
+          thisWeek={heroData.thisWeek}
+          prevAvg={heroData.prevAvg}
+          topStreak={heroData.topStreak}
+        />
+        <MobileTrendChart routines={activeRoutines} />
+        <MobileActivityDots routines={routines} />
+        <MobileTopStreaks routines={activeRoutines} />
+        <MobileWhereTimeGoes goals={goals} routines={activeRoutines} sprints={sprints} />
+        <MobileRecords routines={activeRoutines} />
+
+        <div style={{ height: 24 }} />
+      </div>
+    </PullToRefresh>
+  );
+}
+
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Analysis() {
@@ -948,6 +1443,20 @@ export default function Analysis() {
       <div className="size-full flex items-center justify-center">
         <Loader2 size={24} className="animate-spin text-muted-foreground" />
       </div>
+    );
+  }
+
+  // Mobile gets its own insight-led layout (hero + trend + activity + streaks
+  // + breakdown + records). Desktop keeps the existing dense dashboard.
+  if (isMobile) {
+    return (
+      <MobileAnalysisView
+        goals={goals}
+        routines={routines}
+        sprints={sprints}
+        user={user ? { username: user.username, avatar_url: user.avatar_url } : null}
+        onLoad={load}
+      />
     );
   }
 

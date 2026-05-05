@@ -1449,11 +1449,11 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   padding-bottom: env(safe-area-inset-bottom, 0px);
   display: flex; flex-shrink: 0;
   box-shadow: inset 0 0.5px 0 var(--line);
-  background: rgba(245, 243, 238, 0.92);
+  background: rgba(250, 250, 250, 0.85);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
-.dark .mobile-tabbar { background: rgba(19, 18, 16, 0.92); }
+.dark .mobile-tabbar { background: rgba(19, 19, 22, 0.85); }
 
 .mobile-tab {
   flex: 1; display: flex; flex-direction: column;

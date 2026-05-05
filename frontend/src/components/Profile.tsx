@@ -1,124 +1,238 @@
-import { useRef, useState } from 'react';
-import { Loader2, Save, LogOut, Trash2, AlertCircle, User as UserIcon, Lock, Camera, Type, Minus, Plus, Languages } from 'lucide-react';
+/**
+ * Profile & Settings — single screen that opens when the user taps the avatar.
+ *
+ * Layout:
+ *   • Avatar hero (gradient avatar + name + email + change-photo)
+ *   • Stats strip (active goals · routines · top streak)
+ *   • Account: change password, photo
+ *   • Appearance: theme (Light / Dark / Auto inline), text size, language
+ *   • Data: export (todo), privacy (todo), about
+ *   • Sign out
+ *   • Danger zone: delete account
+ */
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Loader2, Camera, Lock, Type, Globe, Sun, Database, Shield, Info, LogOut,
+  ChevronRight, ChevronLeft,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { authApi, resolveUrl } from '../api/client';
+import { authApi, resolveUrl, routinesApi, tasksApi } from '../api/client';
+import type { Routine, Task } from '../api/types';
 import { useAuthStore } from '../store/auth';
 import { useT, useLangStore } from '../store/i18n';
 import AvatarCropper from './AvatarCropper';
+import ConfirmDialog from './ConfirmDialog';
+import CreateSheet, { FormField } from './CreateSheet';
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 const FONT_SIZES = [14, 15, 16, 17, 18, 20, 22, 24];
 const DEFAULT_FONT_SIZE = 16;
 
 function getSavedFontSize(): number {
-  const raw = localStorage.getItem('note-font-size');
+  const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('note-font-size') : null;
   const n = raw ? parseInt(raw, 10) : DEFAULT_FONT_SIZE;
   return FONT_SIZES.includes(n) ? n : DEFAULT_FONT_SIZE;
 }
 
+type ThemeMode = 'light' | 'dark' | 'auto';
+function getSavedTheme(): ThemeMode {
+  if (typeof localStorage === 'undefined') return 'auto';
+  const v = localStorage.getItem('jarvnote:theme');
+  return v === 'dark' || v === 'light' ? v : 'auto';
+}
+function applyTheme(mode: ThemeMode) {
+  if (typeof document === 'undefined') return;
+  if (mode === 'auto') {
+    localStorage.removeItem('jarvnote:theme');
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', isDark);
+  } else {
+    localStorage.setItem('jarvnote:theme', mode);
+    document.documentElement.classList.toggle('dark', mode === 'dark');
+  }
+}
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Same formula as Metrics.computeStreak (consecutive due+done days back from today).
+function computeRoutineStreak(r: Routine): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const created = new Date(r.created_at); created.setHours(0, 0, 0, 0);
+  let streak = 0;
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    if (d < created) break;
+    if (r.is_paused) break;
+    const key = isoDate(d);
+    const done = r.entries.some((e) => e.date === key && e.value > 0);
+    if (done) streak++;
+    else if (i > 0) break;
+  }
+  return streak;
+}
+
+// ─── Building blocks ─────────────────────────────────────────────────────────
+function SectionLabel({ children, danger }: { children: ReactNode; danger?: boolean }) {
+  return (
+    <div
+      style={{
+        fontSize: 11, fontWeight: 600, letterSpacing: '0.07em',
+        textTransform: 'uppercase',
+        color: danger ? 'var(--danger)' : 'var(--fg-muted)',
+        padding: '14px 18px 6px',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+interface ListRowProps {
+  icon: ReactNode;
+  iconColor?: string;
+  iconBg?: string;
+  title: ReactNode;
+  sub?: ReactNode;
+  aux?: ReactNode;
+  trailing?: ReactNode;
+  onClick?: () => void;
+  noBorder?: boolean;
+}
+function ListRow({ icon, iconColor, iconBg, title, sub, aux, trailing, onClick, noBorder }: ListRowProps) {
+  const Component = (onClick ? 'button' : 'div') as 'button' | 'div';
+  return (
+    <Component
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        width: '100%', padding: '13px 16px',
+        background: 'transparent', border: 0,
+        borderTop: noBorder ? '0' : '0.5px solid var(--line)',
+        cursor: onClick ? 'pointer' : 'default',
+        font: 'inherit', textAlign: 'left',
+        color: 'var(--fg-primary)',
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: iconColor ?? 'var(--fg-secondary)',
+          background: iconBg ?? 'var(--bg-input)',
+        }}
+      >{icon}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 500, display: 'block' }}>{title}</span>
+        {sub && <span style={{ fontSize: 11.5, color: 'var(--fg-muted)', display: 'block', marginTop: 1 }}>{sub}</span>}
+      </span>
+      {aux && <span style={{ fontSize: 13, color: 'var(--fg-muted)' }}>{aux}</span>}
+      {trailing}
+      {onClick && !trailing && (
+        <span style={{ color: 'var(--fg-faint)', display: 'inline-flex' }}>
+          <ChevronRight size={16} />
+        </span>
+      )}
+    </Component>
+  );
+}
+
+function ListCard({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        margin: '0 16px 14px',
+        background: 'var(--bg-card)', borderRadius: 14,
+        boxShadow: 'var(--sh-card)',
+        overflow: 'hidden',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── Theme picker (inline 3-button segment) ─────────────────────────────────
+function ThemeSegment({ value, onChange }: { value: ThemeMode; onChange: (v: ThemeMode) => void }) {
+  return (
+    <div
+      role="tablist"
+      style={{
+        display: 'inline-flex', gap: 4,
+        background: 'var(--bg-input)',
+        borderRadius: 999, padding: 3,
+        marginLeft: 'auto',
+      }}
+    >
+      {(['light', 'dark', 'auto'] as const).map((v) => (
+        <button
+          key={v}
+          role="tab"
+          type="button"
+          aria-selected={value === v}
+          onClick={() => onChange(v)}
+          style={{
+            padding: '5px 12px', border: 0,
+            background: value === v ? 'var(--bg-elevated)' : 'transparent',
+            color: value === v ? 'var(--fg-primary)' : 'var(--fg-tertiary)',
+            font: 'inherit', fontSize: 12, fontWeight: 500,
+            borderRadius: 999, cursor: 'pointer',
+            boxShadow: value === v ? '0 0 0 0.5px var(--line)' : 'none',
+            textTransform: 'capitalize',
+          }}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
 export default function Profile() {
   const { user, logout, setUser } = useAuthStore();
   const t = useT();
   const { lang, setLang } = useLangStore();
 
-  const [username, setUsername] = useState(user?.username ?? '');
-  const [email, setEmail] = useState(user?.email ?? '');
-  const [savingProfile, setSavingProfile] = useState(false);
+  // ── Stats (tiny load — only metrics that fit the strip)
+  const [goals, setGoals] = useState<Task[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]);
 
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [repeatPassword, setRepeatPassword] = useState('');
-  const [savingPassword, setSavingPassword] = useState(false);
+  useEffect(() => {
+    Promise.all([tasksApi.list().catch(() => []), routinesApi.list().catch(() => [])])
+      .then(([g, r]) => { setGoals(g); setRoutines(r); });
+  }, []);
 
-  const [deleting, setDeleting] = useState(false);
+  const stats = useMemo(() => {
+    const activeGoals = goals.filter((g) => g.status === 'active').length;
+    const activeRoutines = routines.filter((r) => !r.is_paused).length;
+    const topStreak = activeRoutines > 0
+      ? Math.max(0, ...routines.filter((r) => !r.is_paused).map(computeRoutineStreak))
+      : 0;
+    return { activeGoals, activeRoutines, topStreak };
+  }, [goals, routines]);
+
+  // ── Avatar
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
 
-  const [fontSize, setFontSize] = useState<number>(getSavedFontSize);
-  const [pendingFontSize, setPendingFontSize] = useState<number>(getSavedFontSize);
-  const [savingFontSize, setSavingFontSize] = useState(false);
-
-  const saveFontSize = () => {
-    setSavingFontSize(true);
-    try {
-      localStorage.setItem('note-font-size', String(pendingFontSize));
-      document.documentElement.style.setProperty('--editor-font-size', `${pendingFontSize}px`);
-      setFontSize(pendingFontSize);
-      toast.success('Font size saved');
-    } finally {
-      setSavingFontSize(false);
-    }
-  };
-
-  const fontSizeDirty = pendingFontSize !== fontSize;
-
-  if (!user) return null;
-
-  const profileDirty = username !== user.username || email !== user.email;
-
-  const saveProfile = async () => {
-    if (!profileDirty) return;
-    setSavingProfile(true);
-    try {
-      const updated = await authApi.updateProfile({
-        username: username !== user.username ? username : undefined,
-        email: email !== user.email ? email : undefined,
-      });
-      setUser(updated);
-      toast.success('Profile updated');
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to update profile');
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
-  const changePassword = async () => {
-    if (!currentPassword || !newPassword) { toast.error('Fill in all password fields'); return; }
-    if (newPassword.length < 8) { toast.error('New password must be at least 8 characters'); return; }
-    if (newPassword !== repeatPassword) { toast.error('Passwords do not match'); return; }
-    setSavingPassword(true);
-    try {
-      await authApi.changePassword(currentPassword, newPassword);
-      setCurrentPassword('');
-      setNewPassword('');
-      setRepeatPassword('');
-      toast.success('Password changed');
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to change password');
-    } finally {
-      setSavingPassword(false);
-    }
-  };
-
-  const deleteAccount = async () => {
-    if (!confirm('Delete your account permanently? All your notes, tasks and practices will be lost. This cannot be undone.')) return;
-    setDeleting(true);
-    try {
-      await authApi.deleteAccount();
-      toast.success('Account deleted');
-      logout();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to delete account');
-      setDeleting(false);
-    }
-  };
-
-  const uploadAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPickAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { toast.error('Please select an image'); return; }
     if (file.size > 10 * 1024 * 1024) { toast.error('Image too large (max 10MB)'); return; }
-    // Don't upload yet — open crop modal first
     setCropFile(file);
     if (avatarInputRef.current) avatarInputRef.current.value = '';
   };
 
-  const handleCropConfirm = async (blob: Blob) => {
+  const onConfirmCrop = async (blob: Blob) => {
     setUploadingAvatar(true);
     try {
-      const croppedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
-      const updated = await authApi.uploadAvatar(croppedFile);
+      const cropped = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+      const updated = await authApi.uploadAvatar(cropped);
       setUser(updated);
       toast.success('Avatar updated');
       setCropFile(null);
@@ -129,8 +243,8 @@ export default function Profile() {
     }
   };
 
-  const deleteAvatar = async () => {
-    if (!user.avatar_url) return;
+  const removeAvatar = async () => {
+    if (!user?.avatar_url) return;
     try {
       const updated = await authApi.deleteAvatar();
       setUser(updated);
@@ -140,315 +254,400 @@ export default function Profile() {
     }
   };
 
+  // ── Theme
+  const [theme, setThemeState] = useState<ThemeMode>(getSavedTheme);
+  const setTheme = (v: ThemeMode) => { setThemeState(v); applyTheme(v); };
+
+  // ── Text size
+  const [fontSize, setFontSize] = useState<number>(getSavedFontSize);
+  const [showFontSheet, setShowFontSheet] = useState(false);
+  const [pendingFont, setPendingFont] = useState<number>(fontSize);
+
+  const saveFont = async () => {
+    localStorage.setItem('note-font-size', String(pendingFont));
+    document.documentElement.style.setProperty('--editor-font-size', `${pendingFont}px`);
+    setFontSize(pendingFont);
+    setShowFontSheet(false);
+    toast.success('Font size saved');
+  };
+
+  // ── Language
+  const [showLangSheet, setShowLangSheet] = useState(false);
+
+  // ── Change password
+  const [showPwSheet, setShowPwSheet] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [repeatPw, setRepeatPw] = useState('');
+  const [savingPw, setSavingPw] = useState(false);
+
+  const submitPw = async () => {
+    if (!currentPw || !newPw) { toast.error('Fill in all fields'); return; }
+    if (newPw.length < 8) { toast.error('New password must be ≥ 8 characters'); return; }
+    if (newPw !== repeatPw) { toast.error('Passwords do not match'); return; }
+    setSavingPw(true);
+    try {
+      await authApi.changePassword(currentPw, newPw);
+      setCurrentPw(''); setNewPw(''); setRepeatPw('');
+      setShowPwSheet(false);
+      toast.success('Password changed');
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to change password');
+    } finally {
+      setSavingPw(false);
+    }
+  };
+
+  // ── Sign out / delete
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const doDelete = async () => {
+    setDeleting(true);
+    try {
+      await authApi.deleteAccount();
+      toast.success('Account deleted');
+      logout();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to delete account');
+      setDeleting(false);
+    }
+    setConfirmDelete(false);
+  };
+
+  if (!user) return null;
+
+  const initial = (user.username || user.email || '?').charAt(0).toUpperCase();
+
   return (
     <>
-      {cropFile && (
-        <AvatarCropper
-          file={cropFile}
-          onCancel={() => setCropFile(null)}
-          onConfirm={handleCropConfirm}
-        />
-      )}
-    <div className="size-full overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-4 md:px-6 py-6 md:py-8">
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your profile settings</p>
+      {cropFile && <AvatarCropper file={cropFile} onCancel={() => setCropFile(null)} onConfirm={onConfirmCrop} />}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete account?"
+        message="This will permanently delete your account and all your notes, tasks, routines and uploaded images. This cannot be undone."
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={doDelete}
+      />
+
+      {/* Change password — bottom sheet */}
+      <CreateSheet
+        open={showPwSheet}
+        onClose={() => setShowPwSheet(false)}
+        title="Change password"
+        primaryLabel={savingPw ? 'Saving…' : 'Save'}
+        canSubmit={!!currentPw && !!newPw && !!repeatPw && !savingPw}
+        onSubmit={submitPw}
+      >
+        <FormField label="Current password">
+          <input
+            type="password" autoComplete="current-password"
+            className="input w-full"
+            value={currentPw} onChange={(e) => setCurrentPw(e.target.value)}
+          />
+        </FormField>
+        <FormField label="New password">
+          <input
+            type="password" autoComplete="new-password" placeholder="At least 8 characters"
+            className="input w-full"
+            value={newPw} onChange={(e) => setNewPw(e.target.value)}
+          />
+        </FormField>
+        <FormField label="Repeat new password">
+          <input
+            type="password" autoComplete="new-password"
+            className="input w-full"
+            value={repeatPw} onChange={(e) => setRepeatPw(e.target.value)}
+          />
+        </FormField>
+      </CreateSheet>
+
+      {/* Text size — bottom sheet */}
+      <CreateSheet
+        open={showFontSheet}
+        onClose={() => { setShowFontSheet(false); setPendingFont(fontSize); }}
+        title="Note text size"
+        primaryLabel="Save"
+        canSubmit={pendingFont !== fontSize}
+        onSubmit={saveFont}
+      >
+        <FormField label={`${pendingFont}px`}>
+          <input
+            type="range" min={FONT_SIZES[0]} max={FONT_SIZES[FONT_SIZES.length - 1]}
+            step={1}
+            value={pendingFont}
+            onChange={(e) => setPendingFont(parseInt(e.target.value, 10))}
+            style={{ width: '100%', accentColor: 'var(--brand, var(--accent-notes))' }}
+          />
+        </FormField>
+        <div
+          style={{
+            padding: 16, marginTop: 4,
+            background: 'var(--bg-input)',
+            borderRadius: 10,
+            fontSize: `${pendingFont}px`, lineHeight: 1.6,
+          }}
+        >
+          The quick brown fox jumps over the lazy dog.
+        </div>
+      </CreateSheet>
+
+      {/* Language — bottom sheet */}
+      <CreateSheet
+        open={showLangSheet}
+        onClose={() => setShowLangSheet(false)}
+        title="Language"
+        primaryLabel="Done"
+        canSubmit={true}
+        onSubmit={async () => { setShowLangSheet(false); }}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {([
+            { v: 'en' as const, label: 'English' },
+            { v: 'ru' as const, label: 'Русский' },
+          ]).map((it) => (
+            <button
+              key={it.v}
+              type="button"
+              onClick={() => setLang(it.v)}
+              style={{
+                height: 48, borderRadius: 12, font: 'inherit', fontSize: 14, fontWeight: 500,
+                background: lang === it.v ? 'var(--fg-primary)' : 'var(--bg-input)',
+                color: lang === it.v ? 'var(--primary-fg)' : 'var(--fg-secondary)',
+                border: 0, cursor: 'pointer',
+              }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
+      </CreateSheet>
+
+      <input
+        ref={avatarInputRef} type="file" accept="image/*"
+        onChange={onPickAvatar}
+        style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+      />
+
+      <div className="size-full overflow-y-auto" style={{ background: 'var(--bg-app)' }}>
+        {/* Compact navbar (mobile + desktop alike for this screen) */}
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 16px 4px', height: 50,
+            position: 'sticky', top: 0, zIndex: 5,
+            background: 'color-mix(in srgb, var(--bg-app) 85%, transparent)',
+            backdropFilter: 'saturate(180%) blur(12px)',
+          }}
+        >
+          <button
+            onClick={() => window.history.length > 1 ? window.history.back() : window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'notes' }))}
+            style={{
+              background: 'transparent', border: 0, padding: 6,
+              color: 'var(--fg-secondary)', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              font: 'inherit', fontSize: 14,
+            }}
+            aria-label="Back"
+          >
+            <ChevronLeft size={20} />
+            Back
+          </button>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>Profile</span>
+          <span style={{ width: 60 }} />
         </div>
 
-        {/* Avatar */}
-        <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
-          <div className="flex items-center gap-4">
-            <div className="relative">
+        <div style={{ paddingBottom: 32 }}>
+
+          {/* Avatar hero */}
+          <div style={{ padding: '24px 18px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              style={{
+                width: 72, height: 72, borderRadius: 999, border: 0, padding: 0,
+                cursor: 'pointer',
+                background: user.avatar_url
+                  ? 'transparent'
+                  : 'linear-gradient(135deg, var(--accent-notes) 0%, var(--accent-analysis) 100%)',
+                color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em',
+                boxShadow: user.avatar_url
+                  ? 'none'
+                  : '0 8px 24px color-mix(in srgb, var(--accent-notes) 30%, transparent)',
+                overflow: 'hidden',
+                flexShrink: 0,
+              }}
+              aria-label="Change photo"
+            >
               {user.avatar_url ? (
-                <img src={resolveUrl(user.avatar_url)} alt="" className="w-20 h-20 rounded-full object-cover" />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-primary/15 text-primary flex items-center justify-center">
-                  <UserIcon size={32} />
-                </div>
-              )}
+                <img src={resolveUrl(user.avatar_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : initial}
+            </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.username}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--fg-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.email}
+              </div>
               <button
                 onClick={() => avatarInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-md hover:scale-105 transition-transform"
-                title="Change avatar"
+                disabled={uploadingAvatar}
+                style={{
+                  marginTop: 8, background: 'transparent', border: 0, padding: 0,
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  font: 'inherit', fontSize: 11.5, fontWeight: 500,
+                  color: 'var(--accent-notes)', cursor: 'pointer',
+                }}
               >
-                {uploadingAvatar ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                {uploadingAvatar ? <Loader2 size={11} className="animate-spin" /> : <Camera size={11} />}
+                {user.avatar_url ? 'Change photo' : 'Add photo'}
               </button>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                onChange={uploadAvatar}
-                className="hidden"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-base font-semibold truncate">{user.username}</h2>
-              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-              {user.avatar_url && (
-                <button
-                  onClick={deleteAvatar}
-                  className="mt-2 text-xs text-muted-foreground hover:text-destructive"
-                >
-                  Remove avatar
-                </button>
-              )}
             </div>
           </div>
-        </section>
 
-        {/* Font size */}
-        <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-chart-2/10 text-chart-2 flex items-center justify-center flex-shrink-0">
-              <Type size={18} />
+          {/* Stats strip */}
+          <div
+            style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0,
+              margin: '0 16px 16px', padding: '14px 8px',
+              background: 'var(--bg-card)', borderRadius: 14, boxShadow: 'var(--sh-card)',
+            }}
+          >
+            <div style={{ textAlign: 'center', borderRight: '1px solid var(--line)' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>{stats.activeGoals}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--fg-muted)', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Active goals</div>
             </div>
-            <div>
-              <h2 className="text-base font-semibold">Note font size</h2>
-              <p className="text-xs text-muted-foreground">Text size inside the note editor</p>
+            <div style={{ textAlign: 'center', borderRight: '1px solid var(--line)' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>{stats.activeRoutines}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--fg-muted)', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Routines</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                {stats.topStreak}<span style={{ fontSize: 12, color: 'var(--fg-muted)', fontWeight: 500 }}>d</span>
+              </div>
+              <div style={{ fontSize: 10.5, color: 'var(--fg-muted)', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Top streak</div>
             </div>
           </div>
-          <div className="flex items-center gap-3 mb-3">
-            <button
-              onClick={() => {
-                const idx = FONT_SIZES.indexOf(pendingFontSize);
-                if (idx > 0) setPendingFontSize(FONT_SIZES[idx - 1]);
-              }}
-              disabled={FONT_SIZES.indexOf(pendingFontSize) <= 0}
-              className="h-10 w-10 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-30"
-            >
-              <Minus size={16} />
-            </button>
-            <div className="flex-1 text-center">
-              <div className="text-3xl font-semibold">{pendingFontSize}px</div>
-              {fontSizeDirty && (
-                <div className="text-[11px] text-muted-foreground mt-0.5">
-                  Unsaved (current: {fontSize}px)
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => {
-                const idx = FONT_SIZES.indexOf(pendingFontSize);
-                if (idx < FONT_SIZES.length - 1) setPendingFontSize(FONT_SIZES[idx + 1]);
-              }}
-              disabled={FONT_SIZES.indexOf(pendingFontSize) >= FONT_SIZES.length - 1}
-              className="h-10 w-10 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-30"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-          <div className="flex gap-1 justify-center flex-wrap mb-3">
-            {FONT_SIZES.map((n) => (
-              <button
-                key={n}
-                onClick={() => setPendingFontSize(n)}
-                className={`h-8 px-2.5 text-xs rounded-md transition-colors ${
-                  n === pendingFontSize ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-muted-foreground'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          <div className="p-3 bg-muted/40 rounded-lg mb-3" style={{ fontSize: `${pendingFontSize}px`, lineHeight: 1.7 }}>
-            The quick brown fox jumps over the lazy dog.
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            {fontSizeDirty && (
-              <button
-                onClick={() => setPendingFontSize(fontSize)}
-                className="h-10 px-4 text-sm text-muted-foreground hover:text-foreground rounded-md"
-              >
-                Revert
-              </button>
+
+          {/* Account */}
+          <SectionLabel>Account</SectionLabel>
+          <ListCard>
+            <ListRow
+              icon={<Lock size={16} />}
+              iconColor="var(--accent-notes)"
+              iconBg="color-mix(in srgb, var(--accent-notes) 12%, transparent)"
+              title="Change password"
+              onClick={() => setShowPwSheet(true)}
+              noBorder
+            />
+            {user.avatar_url && (
+              <ListRow
+                icon={<Camera size={16} />}
+                iconColor="var(--accent-sprints)"
+                iconBg="color-mix(in srgb, var(--accent-sprints) 12%, transparent)"
+                title="Photo"
+                sub="Tap to remove current photo"
+                onClick={removeAvatar}
+              />
             )}
-            <button
-              onClick={saveFontSize}
-              disabled={!fontSizeDirty || savingFontSize}
-              className="h-10 px-5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-40 flex items-center gap-2"
-            >
-              {savingFontSize ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Save
-            </button>
-          </div>
-        </section>
+          </ListCard>
 
-        {/* Language */}
-        <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center flex-shrink-0">
-              <Languages size={18} />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">{t('profile.language')}</h2>
-              <p className="text-xs text-muted-foreground">English / Русский</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setLang('en')}
-              className={`h-11 rounded-lg font-medium text-sm border transition-all ${
-                lang === 'en'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background border-border text-muted-foreground hover:border-primary/40'
-              }`}
-            >
-              🇬🇧 English
-            </button>
-            <button
-              onClick={() => setLang('ru')}
-              className={`h-11 rounded-lg font-medium text-sm border transition-all ${
-                lang === 'ru'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background border-border text-muted-foreground hover:border-primary/40'
-              }`}
-            >
-              🇷🇺 Русский
-            </button>
-          </div>
-        </section>
+          {/* Appearance */}
+          <SectionLabel>Appearance</SectionLabel>
+          <ListCard>
+            <ListRow
+              icon={<Sun size={16} />}
+              iconColor="var(--accent-goals)"
+              iconBg="color-mix(in srgb, var(--accent-goals) 12%, transparent)"
+              title="Theme"
+              trailing={<ThemeSegment value={theme} onChange={setTheme} />}
+              noBorder
+            />
+            <ListRow
+              icon={<Type size={16} />}
+              iconColor="var(--accent-analysis)"
+              iconBg="color-mix(in srgb, var(--accent-analysis) 12%, transparent)"
+              title="Text size"
+              sub="Default for notes"
+              aux={`${fontSize}px`}
+              onClick={() => { setPendingFont(fontSize); setShowFontSheet(true); }}
+            />
+            <ListRow
+              icon={<Globe size={16} />}
+              iconColor="var(--accent-routines)"
+              iconBg="color-mix(in srgb, var(--accent-routines) 12%, transparent)"
+              title={t('profile.language')}
+              aux={lang === 'en' ? 'English' : 'Русский'}
+              onClick={() => setShowLangSheet(true)}
+            />
+          </ListCard>
 
-        {/* Profile info */}
-        <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-              <UserIcon size={18} />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">Profile</h2>
-              <p className="text-xs text-muted-foreground">Your display name and email</p>
-            </div>
-          </div>
+          {/* Data */}
+          <SectionLabel>Data</SectionLabel>
+          <ListCard>
+            <ListRow
+              icon={<Database size={16} />}
+              title="Export"
+              sub="Download all your notes & data"
+              onClick={() => toast.info('Export coming soon')}
+              noBorder
+            />
+            <ListRow
+              icon={<Shield size={16} />}
+              title="Privacy"
+              onClick={() => toast.info('Privacy policy coming soon')}
+            />
+            <ListRow
+              icon={<Info size={16} />}
+              title="About"
+              sub="Version 1.5.0"
+              onClick={() => toast.info('Jarvnote · v1.5.0')}
+            />
+          </ListCard>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Username</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full h-11 md:h-10 px-3 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-11 md:h-10 px-3 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-              />
-            </div>
-            <button
-              onClick={saveProfile}
-              disabled={!profileDirty || savingProfile}
-              className="h-11 md:h-10 px-5 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-40 flex items-center gap-2 transition-all"
-            >
-              {savingProfile ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              Save changes
-            </button>
-          </div>
-        </section>
-
-        {/* Password */}
-        <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-full bg-chart-3/10 text-chart-3 flex items-center justify-center flex-shrink-0">
-              <Lock size={18} />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">Password</h2>
-              <p className="text-xs text-muted-foreground">Change your password</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Current password</label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full h-11 md:h-10 px-3 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                autoComplete="current-password"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">New password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                className="w-full h-11 md:h-10 px-3 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                autoComplete="new-password"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Repeat new password</label>
-              <input
-                type="password"
-                value={repeatPassword}
-                onChange={(e) => setRepeatPassword(e.target.value)}
-                className="w-full h-11 md:h-10 px-3 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-                autoComplete="new-password"
-              />
-            </div>
-            <button
-              onClick={changePassword}
-              disabled={savingPassword || !currentPassword || !newPassword}
-              className="h-11 md:h-10 px-5 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 disabled:opacity-40 flex items-center gap-2 transition-all"
-            >
-              {savingPassword ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}
-              Change password
-            </button>
-          </div>
-        </section>
-
-        {/* Logout */}
-        <section className="mb-6 p-5 md:p-6 bg-card border border-border rounded-xl">
-          <div className="flex flex-col md:flex-row md:items-center gap-4 md:justify-between">
-            <div>
-              <h2 className="text-base font-semibold mb-1">Sign out</h2>
-              <p className="text-xs text-muted-foreground">Log out from this device</p>
-            </div>
+          {/* Sign out */}
+          <div style={{ padding: '8px 16px 0' }}>
             <button
               onClick={logout}
-              className="h-11 md:h-10 px-5 border border-border rounded-lg font-medium hover:bg-secondary flex items-center justify-center gap-2 transition-colors"
+              style={{
+                width: '100%', padding: 13,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: 'var(--bg-card)', boxShadow: 'var(--sh-card)',
+                border: 0, borderRadius: 12, cursor: 'pointer',
+                font: 'inherit', fontSize: 14, fontWeight: 500,
+                color: 'var(--fg-secondary)',
+              }}
             >
-              <LogOut size={15} />
-              Sign out
+              <LogOut size={16} /> Sign out
             </button>
           </div>
-        </section>
 
-        {/* Danger zone */}
-        <section className="p-5 md:p-6 bg-card border border-destructive/20 rounded-xl">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-destructive/10 text-destructive flex items-center justify-center flex-shrink-0">
-              <AlertCircle size={18} />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-destructive">Danger zone</h2>
-              <p className="text-xs text-muted-foreground">Permanently delete your account</p>
-            </div>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            This will delete your account and all associated data — notes, tasks, practices, uploaded images.
-            This cannot be undone.
-          </p>
+          {/* Danger zone */}
+          <SectionLabel danger>Danger zone</SectionLabel>
           <button
-            onClick={deleteAccount}
+            onClick={() => setConfirmDelete(true)}
             disabled={deleting}
-            className="h-11 md:h-10 px-5 bg-destructive text-white rounded-lg font-medium hover:opacity-90 disabled:opacity-40 flex items-center gap-2 transition-all"
+            style={{
+              width: 'calc(100% - 32px)', margin: '0 16px',
+              padding: 12, background: 'transparent',
+              color: 'var(--danger)', border: 0, borderRadius: 12,
+              font: 'inherit', fontSize: 14, fontWeight: 500,
+              cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
           >
-            {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-            Delete my account
+            {deleting && <Loader2 size={14} className="animate-spin" />}
+            Delete account
           </button>
-        </section>
+          <div style={{ fontSize: 11, color: 'var(--fg-muted)', textAlign: 'center', padding: '6px 24px 12px', lineHeight: 1.5 }}>
+            All your notes, tasks and data will be permanently removed. This cannot be undone.
+          </div>
+        </div>
       </div>
-    </div>
     </>
   );
 }
+

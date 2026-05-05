@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1180, initial-scale=1" />
+  <title>Jarvnote — Analysis & Profile redesign</title>
+
+  <style>
+    /* ─── Tokens (synced with src/styles/index.css v2) ───────────────────── */
+    :root, [data-theme="light"] {
+      --bg-app: #F4F4F5; --bg-shell: #FAFAFA; --bg-card: #FFFFFF; --bg-elevated: #FFFFFF;
+      --bg-hover: rgba(24,24,27,0.04); --bg-active: rgba(24,24,27,0.07);
+      --bg-input: #F4F4F5;
+      --fg-primary:#09090B; --fg-secondary:#27272A; --fg-tertiary:#52525B;
+      --fg-muted:#71717A; --fg-faint:#A1A1AA;
+      --line: rgba(24,24,27,0.06); --line-strong: rgba(24,24,27,0.10);
+      --brand: #6366F1; --brand-soft: rgba(99,102,241,0.10);
+      --accent-notes:#6366F1; --accent-goals:#F59E0B; --accent-routines:#10B981;
+      --accent-sprints:#06B6D4; --accent-analysis:#A855F7;
+      --success:#10B981; --warning:#F59E0B; --danger:#EF4444; --info:#06B6D4;
+      --sh-card: 0 0 0 0.5px var(--line), 0 1px 2px rgba(24,24,27,0.04);
+      --sh-popover: 0 0 0 0.5px var(--line), 0 12px 32px rgba(24,24,27,0.10);
+    }
+    [data-theme="dark"] {
+      --bg-app:#09090B; --bg-shell:#131316; --bg-card:#1C1C1F; --bg-elevated:#27272A;
+      --bg-hover: rgba(255,255,255,0.06); --bg-active: rgba(255,255,255,0.10);
+      --bg-input: rgba(255,255,255,0.04);
+      --fg-primary:#FAFAFA; --fg-secondary:#D4D4D8; --fg-tertiary:#A1A1AA;
+      --fg-muted:#71717A; --fg-faint:#52525B;
+      --line: rgba(255,255,255,0.08); --line-strong: rgba(255,255,255,0.14);
+      --brand:#818AF8; --brand-soft: rgba(129,138,248,0.16);
+      --accent-notes:#818AF8; --accent-goals:#FBBF24; --accent-routines:#34D399;
+      --accent-sprints:#22D3EE; --accent-analysis:#C084FC;
+      --success:#34D399; --warning:#FBBF24; --danger:#F87171; --info:#22D3EE;
+      --sh-card: 0 0 0 0.5px var(--line), 0 1px 2px rgba(0,0,0,0.30);
+      --sh-popover: 0 0 0 0.5px var(--line), 0 12px 32px rgba(0,0,0,0.55);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg-app);
+      color: var(--fg-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+      font-size: 14px;
+      transition: background 200ms ease, color 200ms ease;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px 80px; }
+
+    .header {
+      position: sticky; top: 0; z-index: 50;
+      background: color-mix(in srgb, var(--bg-app) 80%, transparent);
+      backdrop-filter: saturate(180%) blur(12px);
+      border-bottom: 1px solid var(--line);
+      margin: -28px -24px 28px;
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.015em; margin: 0; }
+    .theme-toggle {
+      display: inline-flex; gap: 4px; background: var(--bg-card); border: 1px solid var(--line);
+      border-radius: 999px; padding: 3px;
+    }
+    .theme-toggle button {
+      background: transparent; border: 0; cursor: pointer;
+      padding: 6px 14px; border-radius: 999px;
+      font: inherit; font-size: 13px; font-weight: 500; color: var(--fg-tertiary);
+    }
+    .theme-toggle button[data-active="true"] {
+      background: var(--bg-elevated); color: var(--fg-primary); box-shadow: var(--sh-card);
+    }
+
+    h2.group-title {
+      font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 4px;
+    }
+    p.lede { color: var(--fg-tertiary); font-size: 14.5px; margin: 0 0 22px; max-width: 720px; }
+
+    .screens {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    /* Phone frame */
+    .phone {
+      width: 393px; height: 852px;
+      background: var(--bg-app);
+      border-radius: 53px;
+      box-shadow: 0 0 0 12px #18181B, 0 0 0 14px #27272A, 0 30px 60px -30px rgba(0,0,0,0.4);
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+      display: flex; flex-direction: column;
+      margin: 0 auto;
+    }
+    .phone::before {
+      content: ""; position: absolute;
+      top: 11px; left: 50%; transform: translateX(-50%);
+      width: 120px; height: 36px; background: #000;
+      border-radius: 22px; z-index: 100;
+    }
+    .phone::after {
+      content: ""; position: absolute;
+      bottom: 8px; left: 50%; transform: translateX(-50%);
+      width: 134px; height: 5px; background: #18181B;
+      border-radius: 3px; opacity: 0.85; z-index: 100;
+    }
+    .status-bar {
+      flex-shrink: 0; height: 54px;
+      display: flex; align-items: flex-end; justify-content: space-between;
+      padding: 0 28px 6px;
+      font-size: 14px; font-weight: 600;
+      color: var(--fg-primary);
+    }
+    .battery-icon {
+      width: 24px; height: 12px; border: 1px solid currentColor;
+      border-radius: 3px; padding: 1px; position: relative;
+    }
+    .battery-icon::after {
+      content: ""; position: absolute; top: 3px; right: -3px;
+      width: 2px; height: 4px; background: currentColor; border-radius: 0 1px 1px 0;
+    }
+    .battery-icon::before {
+      content: ""; display: block; height: 100%;
+      background: currentColor; border-radius: 1px; width: 80%;
+    }
+    .screen {
+      flex: 1; min-height: 0; overflow: hidden;
+      display: flex; flex-direction: column;
+      background: var(--bg-app);
+      position: relative;
+    }
+
+    /* Big-title row */
+    .big-title-row {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      padding: 14px 18px 12px;
+    }
+    .big-title { font-size: 30px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.05; }
+    .big-title-sub { font-size: 13px; color: var(--fg-muted); margin-top: 2px; }
+    .profile-btn {
+      width: 40px; height: 40px; border-radius: 999px; border: 0;
+      background: transparent; padding: 0; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .profile-avatar {
+      width: 32px; height: 32px; border-radius: 999px;
+      background: var(--brand-soft); color: var(--brand);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 13px;
+    }
+
+    /* Bottom nav */
+    .nav-bar {
+      flex-shrink: 0; display: flex; gap: 0;
+      box-shadow: inset 0 0.5px 0 var(--line);
+      background: color-mix(in srgb, var(--bg-shell) 85%, transparent);
+      backdrop-filter: blur(20px) saturate(180%);
+      padding: 4px 0 24px;
+    }
+    .nav-tab {
+      flex: 1; display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 8px 4px;
+      border: 0; background: transparent; cursor: pointer;
+      color: var(--fg-tertiary); font-family: inherit;
+    }
+    .nav-tab[data-active="true"] { color: var(--fg-primary); }
+    .nav-tab[data-active="true"][data-acc="notes"] svg { color: var(--accent-notes); }
+    .nav-tab[data-active="true"][data-acc="goals"] svg { color: var(--accent-goals); }
+    .nav-tab[data-active="true"][data-acc="routines"] svg { color: var(--accent-routines); }
+    .nav-tab[data-active="true"][data-acc="sprints"] svg { color: var(--accent-sprints); }
+    .nav-tab[data-active="true"][data-acc="analysis"] svg { color: var(--accent-analysis); }
+    .nav-tab .label { font-size: 10.5px; font-weight: 500; }
+    .nav-tab svg { width: 22px; height: 22px; stroke-width: 1.7; }
+
+    /* Card primitives */
+    .card { background: var(--bg-card); border-radius: 14px; box-shadow: var(--sh-card); }
+    .scroll-y { overflow-y: auto; }
+
+    /* ANALYSIS ─── Hero card */
+    .hero-card {
+      background: linear-gradient(135deg, var(--bg-card) 0%, color-mix(in srgb, var(--brand) 8%, var(--bg-card)) 100%);
+      border-radius: 16px; padding: 18px;
+      box-shadow: var(--sh-card);
+      margin: 0 16px 12px;
+      position: relative; overflow: hidden;
+    }
+    .hero-card::after {
+      content: ""; position: absolute;
+      right: -40px; top: -40px;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, color-mix(in srgb, var(--brand) 18%, transparent) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-label {
+      font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--brand);
+    }
+    .hero-headline {
+      font-size: 22px; font-weight: 600; letter-spacing: -0.02em;
+      margin: 6px 0 4px; line-height: 1.25;
+    }
+    .hero-sub { font-size: 13px; color: var(--fg-tertiary); margin: 0; }
+    .hero-meta {
+      display: flex; gap: 14px; margin-top: 14px;
+      position: relative;
+    }
+    .hero-meta-item .num { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+    .hero-meta-item .lbl { font-size: 11px; color: var(--fg-muted); }
+
+    /* Trend chart */
+    .trend-card {
+      margin: 0 16px 12px;
+      padding: 14px 16px 10px;
+      background: var(--bg-card); border-radius: 14px;
+      box-shadow: var(--sh-card);
+    }
+    .trend-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .trend-title { font-size: 13.5px; font-weight: 600; }
+    .trend-toggle {
+      display: inline-flex; gap: 0; padding: 2px;
+      background: var(--bg-hover); border-radius: 999px;
+    }
+    .trend-toggle button {
+      padding: 4px 10px;
+      border: 0; background: transparent;
+      font: inherit; font-size: 11px; font-weight: 500;
+      color: var(--fg-tertiary);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .trend-toggle button[data-active="true"] {
+      background: var(--bg-elevated); color: var(--fg-primary);
+      box-shadow: 0 0 0 0.5px var(--line);
+    }
+    .trend-svg { width: 100%; display: block; }
+
+    /* Streaks list */
+    .section-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--fg-muted); padding: 14px 18px 6px;
+    }
+    .streak-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg-card); border-radius: 14px;
+      box-shadow: var(--sh-card);
+      margin: 0 16px 8px;
+    }
+    .streak-stripe { width: 4px; height: 28px; border-radius: 999px; flex-shrink: 0; }
+    .streak-info { flex: 1; min-width: 0; }
+    .streak-title { font-size: 14px; font-weight: 500; color: var(--fg-primary); }
+    .streak-sub { font-size: 11px; color: var(--fg-muted); margin-top: 2px; }
+    .streak-num {
+      font-size: 17px; font-weight: 700; letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .streak-num small { font-size: 11px; font-weight: 500; color: var(--fg-muted); margin-left: 2px; }
+
+    /* Activity dots */
+    .activity-card {
+      margin: 0 16px 12px;
+      padding: 14px 16px 12px;
+      background: var(--bg-card); border-radius: 14px;
+      box-shadow: var(--sh-card);
+    }
+    .dots-grid {
+      display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px;
+      margin-top: 10px;
+    }
+    .dot-cell {
+      aspect-ratio: 1; border-radius: 3px;
+      background: var(--bg-hover);
+    }
+    .dot-cell[data-l="1"] { background: color-mix(in srgb, var(--success) 18%, var(--bg-hover)); }
+    .dot-cell[data-l="2"] { background: color-mix(in srgb, var(--success) 40%, transparent); }
+    .dot-cell[data-l="3"] { background: color-mix(in srgb, var(--success) 65%, transparent); }
+    .dot-cell[data-l="4"] { background: var(--success); }
+    .activity-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 10px;
+      font-size: 11px; color: var(--fg-muted);
+    }
+    .activity-legend {
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .activity-legend span {
+      width: 9px; height: 9px; border-radius: 2px;
+      background: var(--bg-hover);
+    }
+    .activity-legend span[data-l="1"] { background: color-mix(in srgb, var(--success) 18%, var(--bg-hover)); }
+    .activity-legend span[data-l="2"] { background: color-mix(in srgb, var(--success) 40%, transparent); }
+    .activity-legend span[data-l="3"] { background: color-mix(in srgb, var(--success) 65%, transparent); }
+    .activity-legend span[data-l="4"] { background: var(--success); }
+
+    /* Pie / breakdown */
+    .breakdown-card {
+      margin: 0 16px 12px;
+      padding: 14px 16px;
+      background: var(--bg-card); border-radius: 14px;
+      box-shadow: var(--sh-card);
+    }
+    .breakdown-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 0;
+      font-size: 13px;
+    }
+    .breakdown-row .swatch {
+      width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+    }
+    .breakdown-row .num { color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
+    .breakdown-row .bar {
+      flex: 1; height: 6px; border-radius: 999px; background: var(--bg-hover);
+      overflow: hidden;
+    }
+    .breakdown-row .bar > div { height: 100%; border-radius: inherit; }
+
+    /* PROFILE ─── Avatar hero */
+    .avatar-hero {
+      padding: 24px 18px 16px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .avatar-large {
+      width: 72px; height: 72px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--accent-analysis) 100%);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 600; letter-spacing: -0.02em;
+      box-shadow: 0 8px 24px color-mix(in srgb, var(--brand) 30%, transparent);
+    }
+    .avatar-info { flex: 1; min-width: 0; }
+    .avatar-name { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+    .avatar-mail { font-size: 13px; color: var(--fg-muted); margin-top: 1px; }
+    .avatar-edit {
+      margin-top: 8px;
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11.5px; font-weight: 500; color: var(--brand);
+      text-decoration: none; cursor: pointer;
+    }
+
+    .stats-row {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      margin: 0 16px 16px;
+      background: var(--bg-card); border-radius: 14px;
+      box-shadow: var(--sh-card);
+      padding: 14px 8px;
+    }
+    .stat-cell { text-align: center; }
+    .stat-cell .v { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+    .stat-cell .l { font-size: 10.5px; color: var(--fg-muted); margin-top: 2px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .stat-cell + .stat-cell { border-left: 1px solid var(--line); }
+
+    /* Section list */
+    .list-card {
+      margin: 0 16px 14px;
+      background: var(--bg-card); border-radius: 14px;
+      box-shadow: var(--sh-card);
+      overflow: hidden;
+    }
+    .list-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px;
+      border-top: 0.5px solid var(--line);
+      cursor: pointer;
+    }
+    .list-row:first-child { border-top: 0; }
+    .list-icon {
+      width: 30px; height: 30px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .list-text { flex: 1; min-width: 0; }
+    .list-title { font-size: 14px; font-weight: 500; }
+    .list-sub { font-size: 11.5px; color: var(--fg-muted); margin-top: 1px; }
+    .list-aux { font-size: 13px; color: var(--fg-muted); }
+    .list-chev svg { color: var(--fg-faint); }
+
+    .seg-row {
+      display: flex; gap: 4px;
+      background: var(--bg-input);
+      border-radius: 999px; padding: 3px;
+      margin-left: auto;
+    }
+    .seg-row button {
+      padding: 5px 12px; border: 0;
+      background: transparent;
+      font: inherit; font-size: 12px; font-weight: 500;
+      color: var(--fg-tertiary);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .seg-row button[data-active="true"] {
+      background: var(--bg-elevated); color: var(--fg-primary);
+      box-shadow: 0 0 0 0.5px var(--line);
+    }
+
+    .danger-btn {
+      width: calc(100% - 32px);
+      margin: 8px 16px 0;
+      padding: 12px;
+      background: transparent;
+      color: var(--danger);
+      border: 0;
+      border-radius: 12px;
+      font-size: 14px; font-weight: 500;
+      cursor: pointer;
+    }
+    .danger-btn:hover { background: color-mix(in srgb, var(--danger) 8%, transparent); }
+
+    .footer-note {
+      margin-top: 48px; padding-top: 18px;
+      border-top: 1px solid var(--line);
+      font-size: 12px; color: var(--fg-muted); text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header class="header">
+    <h1>Jarvnote — Analysis & Profile redesign</h1>
+    <div class="theme-toggle">
+      <button id="t-light" data-active="true">Light</button>
+      <button id="t-dark">Dark</button>
+    </div>
+  </header>
+
+  <h2 class="group-title">Two screens</h2>
+  <p class="lede">
+    On the left — a fresh Analysis screen that leads with a personal insight,
+    keeps the activity timeline, and adds streak / breakdown context. On the
+    right — the unified screen that opens when you tap your avatar: profile,
+    stats, settings, and danger zone in one place.
+  </p>
+
+<!-- ── Icon defs ───────────────────────────────────────────────────────── -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+    <symbol id="i-bar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+    <symbol id="i-chev-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></symbol>
+    <symbol id="i-type" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+  </defs>
+</svg>
+
+
+<div class="screens">
+
+  <!-- ──────────────────────────────────────────────────────────────────────
+       A) ANALYSIS — redesign
+       ────────────────────────────────────────────────────────────────────── -->
+  <div>
+    <h2 class="group-title" style="font-size: 16px;">A. Analysis</h2>
+    <p class="lede" style="font-size: 13px;">
+      Insight-led: the hero card frames how the week is going in plain words,
+      not just a number. The trend line is preserved (you asked) but redrawn
+      with this/last-week comparison. Below: top streaks, 90-day activity
+      band, breakdown of where time goes.
+    </p>
+
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span class="battery-icon"></span></div>
+      <div class="screen">
+
+        <div class="big-title-row">
+          <div>
+            <div class="big-title">Analysis</div>
+            <div class="big-title-sub">Week of May 5</div>
+          </div>
+          <button class="profile-btn" title="Profile"><span class="profile-avatar">D</span></button>
+        </div>
+
+        <div class="scroll-y" style="flex: 1; padding-bottom: 12px;">
+
+          <!-- HERO -->
+          <div class="hero-card">
+            <div class="hero-label">Momentum · this week</div>
+            <h3 class="hero-headline">Strong week — 12% above your usual pace.</h3>
+            <p class="hero-sub">14 of 18 daily tasks completed, longest streak 23 days.</p>
+            <div class="hero-meta">
+              <div class="hero-meta-item">
+                <div class="num">14<span style="font-size: 13px; color: var(--fg-muted); font-weight: 500;">/18</span></div>
+                <div class="lbl">Done this week</div>
+              </div>
+              <div class="hero-meta-item">
+                <div class="num" style="color: var(--success);">+12%</div>
+                <div class="lbl">vs 4-week avg</div>
+              </div>
+              <div class="hero-meta-item">
+                <div class="num">23<small>d</small></div>
+                <div class="lbl">Top streak</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TREND CHART -->
+          <div class="trend-card">
+            <div class="trend-head">
+              <div class="trend-title">Productivity trend</div>
+              <div class="trend-toggle">
+                <button>1W</button>
+                <button data-active="true">4W</button>
+                <button>3M</button>
+                <button>1Y</button>
+              </div>
+            </div>
+            <svg class="trend-svg" viewBox="0 0 360 110" preserveAspectRatio="none" style="height: 130px;">
+              <!-- gridlines -->
+              <line x1="0" y1="20"  x2="360" y2="20"  stroke="var(--line)" stroke-dasharray="2 4" />
+              <line x1="0" y1="55"  x2="360" y2="55"  stroke="var(--line)" stroke-dasharray="2 4" />
+              <line x1="0" y1="90"  x2="360" y2="90"  stroke="var(--line)" stroke-dasharray="2 4" />
+
+              <!-- previous-period line (faded) -->
+              <path
+                d="M 0 75 L 30 70 L 60 80 L 90 65 L 120 72 L 150 60 L 180 68 L 210 55 L 240 60 L 270 50 L 300 58 L 330 50 L 360 55"
+                fill="none"
+                stroke="var(--fg-faint)"
+                stroke-width="1.5"
+                stroke-dasharray="3 3"
+              />
+
+              <!-- this-period area -->
+              <defs>
+                <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"  stop-color="var(--brand)" stop-opacity="0.30" />
+                  <stop offset="100%" stop-color="var(--brand)" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M 0 80 L 30 65 L 60 70 L 90 50 L 120 55 L 150 40 L 180 48 L 210 35 L 240 42 L 270 28 L 300 34 L 330 22 L 360 28 L 360 110 L 0 110 Z"
+                fill="url(#area-grad)"
+              />
+              <!-- this-period line -->
+              <path
+                d="M 0 80 L 30 65 L 60 70 L 90 50 L 120 55 L 150 40 L 180 48 L 210 35 L 240 42 L 270 28 L 300 34 L 330 22 L 360 28"
+                fill="none"
+                stroke="var(--brand)"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+              />
+              <!-- last point dot -->
+              <circle cx="360" cy="28" r="4" fill="var(--brand)" />
+              <circle cx="360" cy="28" r="8" fill="var(--brand)" opacity="0.18" />
+            </svg>
+            <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--fg-muted); margin-top: 4px;">
+              <span>Apr 7</span><span>Apr 14</span><span>Apr 21</span><span>Apr 28</span><span>May 5</span>
+            </div>
+            <div style="display: flex; gap: 14px; margin-top: 8px; font-size: 11px;">
+              <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 2px; background: var(--brand); border-radius: 2px;"></span> This 4 weeks</span>
+              <span style="display: inline-flex; align-items: center; gap: 5px; color: var(--fg-muted);"><span style="width: 12px; height: 2px; background: var(--fg-faint); border-radius: 2px; border: 1px dashed transparent;"></span> Previous</span>
+            </div>
+          </div>
+
+          <!-- ACTIVITY BAND -->
+          <div class="activity-card">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div class="trend-title">Activity · last 90 days</div>
+              <div style="font-size: 11px; color: var(--fg-muted); display: inline-flex; gap: 4px; align-items: center;">
+                <svg width="11" height="11"><use href="#i-flame"/></svg> 23-day streak
+              </div>
+            </div>
+            <div class="dots-grid" id="dots-grid"></div>
+            <div class="activity-foot">
+              <span>3 mo ago</span>
+              <span class="activity-legend">
+                Less
+                <span data-l="0"></span>
+                <span data-l="1"></span>
+                <span data-l="2"></span>
+                <span data-l="3"></span>
+                <span data-l="4"></span>
+                More
+              </span>
+              <span>today</span>
+            </div>
+          </div>
+
+          <!-- STREAKS -->
+          <div class="section-label">Top streaks</div>
+          <div class="streak-row">
+            <span class="streak-stripe" style="background: var(--accent-routines);"></span>
+            <div class="streak-info">
+              <div class="streak-title">Read 30 min</div>
+              <div class="streak-sub">Daily · started Apr 12</div>
+            </div>
+            <div class="streak-num" style="color: var(--success);"><svg width="14" height="14" style="vertical-align: -1px;"><use href="#i-flame"/></svg> 23<small>d</small></div>
+          </div>
+          <div class="streak-row">
+            <span class="streak-stripe" style="background: var(--accent-goals);"></span>
+            <div class="streak-info">
+              <div class="streak-title">Stretching 10 min</div>
+              <div class="streak-sub">Daily · started Apr 18</div>
+            </div>
+            <div class="streak-num">17<small>d</small></div>
+          </div>
+          <div class="streak-row">
+            <span class="streak-stripe" style="background: var(--accent-sprints);"></span>
+            <div class="streak-info">
+              <div class="streak-title">Run 5km</div>
+              <div class="streak-sub">3× per week · started Apr 1</div>
+            </div>
+            <div class="streak-num">9<small>d</small></div>
+          </div>
+
+          <!-- BREAKDOWN -->
+          <div class="section-label">Where time goes</div>
+          <div class="breakdown-card">
+            <div class="breakdown-row">
+              <span class="swatch" style="background: var(--accent-notes);"></span>
+              <span style="flex: 1;">Notes</span>
+              <span class="num">38%</span>
+              <div class="bar" style="max-width: 70px;"><div style="width: 38%; background: var(--accent-notes);"></div></div>
+            </div>
+            <div class="breakdown-row">
+              <span class="swatch" style="background: var(--accent-goals);"></span>
+              <span style="flex: 1;">Goals</span>
+              <span class="num">26%</span>
+              <div class="bar" style="max-width: 70px;"><div style="width: 26%; background: var(--accent-goals);"></div></div>
+            </div>
+            <div class="breakdown-row">
+              <span class="swatch" style="background: var(--accent-routines);"></span>
+              <span style="flex: 1;">Routines</span>
+              <span class="num">22%</span>
+              <div class="bar" style="max-width: 70px;"><div style="width: 22%; background: var(--accent-routines);"></div></div>
+            </div>
+            <div class="breakdown-row">
+              <span class="swatch" style="background: var(--accent-sprints);"></span>
+              <span style="flex: 1;">Sprints</span>
+              <span class="num">14%</span>
+              <div class="bar" style="max-width: 70px;"><div style="width: 14%; background: var(--accent-sprints);"></div></div>
+            </div>
+          </div>
+
+          <!-- RECORDS -->
+          <div class="section-label">Personal records</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 16px 12px;">
+            <div class="card" style="padding: 14px;">
+              <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--fg-muted);"><svg width="11" height="11" style="vertical-align: -1px;"><use href="#i-trophy"/></svg> Longest streak</div>
+              <div style="font-size: 24px; font-weight: 700; letter-spacing: -0.025em; margin-top: 6px;">38 <span style="font-size: 13px; color: var(--fg-muted); font-weight: 500;">days</span></div>
+              <div style="font-size: 11px; color: var(--fg-muted); margin-top: 1px;">Read · Feb 14 – Mar 24</div>
+            </div>
+            <div class="card" style="padding: 14px;">
+              <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--fg-muted);"><svg width="11" height="11" style="vertical-align: -1px;"><use href="#i-calendar"/></svg> Best week</div>
+              <div style="font-size: 24px; font-weight: 700; letter-spacing: -0.025em; margin-top: 6px;">21 <span style="font-size: 13px; color: var(--fg-muted); font-weight: 500;">tasks</span></div>
+              <div style="font-size: 11px; color: var(--fg-muted); margin-top: 1px;">Apr 14 – Apr 20</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- bottom nav -->
+        <div class="nav-bar">
+          <button class="nav-tab" data-acc="notes"><svg><use href="#i-book"/></svg><span class="label">Notes</span></button>
+          <button class="nav-tab" data-acc="goals"><svg><use href="#i-target"/></svg><span class="label">Goals</span></button>
+          <button class="nav-tab" data-acc="routines"><svg><use href="#i-repeat"/></svg><span class="label">Routines</span></button>
+          <button class="nav-tab" data-acc="sprints"><svg><use href="#i-zap"/></svg><span class="label">Sprints</span></button>
+          <button class="nav-tab" data-acc="analysis" data-active="true"><svg><use href="#i-bar"/></svg><span class="label">Analysis</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────────────────────────
+       B) PROFILE & SETTINGS — combined
+       ────────────────────────────────────────────────────────────────────── -->
+  <div>
+    <h2 class="group-title" style="font-size: 16px;">B. Profile & Settings</h2>
+    <p class="lede" style="font-size: 13px;">
+      One screen on tapping the avatar. Top: identity (avatar + name + email +
+      change-photo). Strip of vital stats. Then sections grouped by purpose
+      with native iOS-style settings rows. Sign out near the bottom, delete
+      account in a clearly separated danger zone.
+    </p>
+
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span class="battery-icon"></span></div>
+      <div class="screen">
+
+        <!-- Compact navbar -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 4px; height: 50px;">
+          <button style="background: transparent; border: 0; padding: 6px; color: var(--fg-secondary); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 14px;">
+            <svg width="20" height="20"><use href="#i-chev-l"/></svg>
+            Back
+          </button>
+          <span style="font-size: 14px; font-weight: 600;">Profile</span>
+          <span style="width: 60px;"></span>
+        </div>
+
+        <div class="scroll-y" style="flex: 1; padding-bottom: 16px;">
+
+          <!-- AVATAR HERO -->
+          <div class="avatar-hero">
+            <div class="avatar-large">D</div>
+            <div class="avatar-info">
+              <div class="avatar-name">Dima Anzhiganov</div>
+              <div class="avatar-mail">dima@example.com</div>
+              <span class="avatar-edit"><svg width="11" height="11"><use href="#i-camera"/></svg> Change photo</span>
+            </div>
+          </div>
+
+          <!-- STATS -->
+          <div class="stats-row">
+            <div class="stat-cell">
+              <div class="v">11</div>
+              <div class="l">Active goals</div>
+            </div>
+            <div class="stat-cell">
+              <div class="v">8</div>
+              <div class="l">Routines</div>
+            </div>
+            <div class="stat-cell">
+              <div class="v">23<span style="font-size: 12px; color: var(--fg-muted);">d</span></div>
+              <div class="l">Top streak</div>
+            </div>
+          </div>
+
+          <!-- ACCOUNT -->
+          <div class="section-label">Account</div>
+          <div class="list-card">
+            <div class="list-row">
+              <span class="list-icon" style="background: var(--brand-soft); color: var(--brand);"><svg width="16" height="16"><use href="#i-key"/></svg></span>
+              <div class="list-text">
+                <div class="list-title">Change password</div>
+              </div>
+              <span class="list-chev"><svg width="16" height="16"><use href="#i-chev-r"/></svg></span>
+            </div>
+            <div class="list-row">
+              <span class="list-icon" style="background: color-mix(in srgb, var(--accent-sprints) 12%, transparent); color: var(--accent-sprints);"><svg width="16" height="16"><use href="#i-camera"/></svg></span>
+              <div class="list-text">
+                <div class="list-title">Photo</div>
+                <div class="list-sub">Change or remove</div>
+              </div>
+              <span class="list-chev"><svg width="16" height="16"><use href="#i-chev-r"/></svg></span>
+            </div>
+          </div>
+
+          <!-- APPEARANCE -->
+          <div class="section-label">Appearance</div>
+          <div class="list-card">
+            <div class="list-row">
+              <span class="list-icon" style="background: color-mix(in srgb, var(--accent-goals) 12%, transparent); color: var(--accent-goals);"><svg width="16" height="16"><use href="#i-sun"/></svg></span>
+              <div class="list-text">
+                <div class="list-title">Theme</div>
+              </div>
+              <div class="seg-row">
+                <button>Light</button>
+                <button>Dark</button>
+                <button data-active="true">Auto</button>
+              </div>
+            </div>
+            <div class="list-row">
+              <span class="list-icon" style="background: color-mix(in srgb, var(--accent-analysis) 12%, transparent); color: var(--accent-analysis);"><svg width="16" height="16"><use href="#i-type"/></svg></span>
+              <div class="list-text">
+                <div class="list-title">Text size</div>
+                <div class="list-sub">Default for notes</div>
+              </div>
+              <span class="list-aux">100%</span>
+              <span class="list-chev"><svg width="16" height="16"><use href="#i-chev-r"/></svg></span>
+            </div>
+            <div class="list-row">
+              <span class="list-icon" style="background: color-mix(in srgb, var(--accent-routines) 12%, transparent); color: var(--accent-routines);"><svg width="16" height="16"><use href="#i-globe"/></svg></span>
+              <div class="list-text">
+                <div class="list-title">Language</div>
+              </div>
+              <span class="list-aux">English</span>
+              <span class="list-chev"><svg width="16" height="16"><use href="#i-chev-r"/></svg></span>
+            </div>
+          </div>
+
+          <!-- DATA -->
+          <div class="section-label">Data</div>
+          <div class="list-card">
+            <div class="list-row">
+              <span class="list-icon" style="background: var(--bg-input); color: var(--fg-secondary);"><svg width="16" height="16"><use href="#i-database"/></svg></span>
+              <div class="list-text">
+                <div class="list-title">Export</div>
+                <div class="list-sub">Download all your notes & data</div>
+              </div>
+              <span class="list-chev"><svg width="16" height="16"><use href="#i-chev-r"/></svg></span>
+            </div>
+            <div class="list-row">
+              <span class="list-icon" style="background: var(--bg-input); color: var(--fg-secondary);"><svg width="16" height="16"><use href="#i-shield"/></svg></span>
+              <div class="list-text">
+                <div class="list-title">Privacy</div>
+              </div>
+              <span class="list-chev"><svg width="16" height="16"><use href="#i-chev-r"/></svg></span>
+            </div>
+            <div class="list-row">
+              <span class="list-icon" style="background: var(--bg-input); color: var(--fg-secondary);"><svg width="16" height="16"><use href="#i-info"/></svg></span>
+              <div class="list-text">
+                <div class="list-title">About</div>
+                <div class="list-sub">Version 1.4.2</div>
+              </div>
+              <span class="list-chev"><svg width="16" height="16"><use href="#i-chev-r"/></svg></span>
+            </div>
+          </div>
+
+          <!-- SIGN OUT -->
+          <div style="padding: 8px 16px 0;">
+            <button class="card" style="width: 100%; padding: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--bg-card); border: 0; cursor: pointer; font: inherit; font-size: 14px; font-weight: 500; color: var(--fg-secondary);">
+              <svg width="16" height="16"><use href="#i-logout"/></svg> Sign out
+            </button>
+          </div>
+
+          <!-- DANGER ZONE -->
+          <div class="section-label" style="color: var(--danger); margin-top: 22px;">Danger zone</div>
+          <button class="danger-btn">Delete account</button>
+          <div style="font-size: 11px; color: var(--fg-muted); text-align: center; padding: 6px 24px 12px; line-height: 1.5;">
+            All your notes, tasks and data will be permanently removed. This cannot be undone.
+          </div>
+
+        </div>
+
+        <!-- bottom nav (still visible — profile lives "above" the tabbed app) -->
+        <div class="nav-bar">
+          <button class="nav-tab" data-acc="notes"><svg><use href="#i-book"/></svg><span class="label">Notes</span></button>
+          <button class="nav-tab" data-acc="goals"><svg><use href="#i-target"/></svg><span class="label">Goals</span></button>
+          <button class="nav-tab" data-acc="routines"><svg><use href="#i-repeat"/></svg><span class="label">Routines</span></button>
+          <button class="nav-tab" data-acc="sprints"><svg><use href="#i-zap"/></svg><span class="label">Sprints</span></button>
+          <button class="nav-tab" data-acc="analysis"><svg><use href="#i-bar"/></svg><span class="label">Analysis</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="footer-note">
+  Click theme toggle in the header to preview both light and dark.
+</p>
+</div>
+
+<script>
+  // Theme toggle
+  const root = document.documentElement;
+  document.getElementById('t-light').addEventListener('click', () => { root.dataset.theme = 'light'; refreshActive(); });
+  document.getElementById('t-dark').addEventListener('click', () => { root.dataset.theme = 'dark'; refreshActive(); });
+  function refreshActive() {
+    document.getElementById('t-light').dataset.active = root.dataset.theme === 'light';
+    document.getElementById('t-dark').dataset.active = root.dataset.theme === 'dark';
+  }
+
+  // Populate dot grid (90 cells, deterministic levels)
+  (() => {
+    const root = document.getElementById('dots-grid');
+    if (!root) return;
+    const seed = [3,1,2,0,4,2,3,1,0,2,3,4,3,2,1,0,1,2,3,2,1,4,3,2,1,0,2,1,3,4,3,2,1,2,3,4,2,1,0,1,2,3,1,2,1,0,1,2,3,4,2,1,0,2,3,2,1,4,3,2,3,2,1,0,2,3,4,2,1,0,1,3,2,1,0,2,1,3,4,2,3,2,1,2,3,1,0,2,4,3];
+    seed.forEach((l) => {
+      const c = document.createElement('div');
+      c.className = 'dot-cell';
+      c.dataset.l = String(l);
+      root.appendChild(c);
+    });
+  })();
+</script>
+</body>
+</html>
