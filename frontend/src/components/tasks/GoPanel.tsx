@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { gosApi } from '../../api/client';
-import type { Go, Sprint, Task } from '../../api/types';
+import type { Go, Step, Task } from '../../api/types';
 import { useT } from '../../store/i18n';
 import AddItemButton from '../AddItemButton';
 import CreateGoForm from './CreateGoForm';
@@ -54,8 +54,9 @@ export default function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: 
   const todayIsoStr = today.toISOString().split('T')[0];
   const completedToday = todayItems.filter((g) => (g.entries.find((e) => e.date === todayIsoStr)?.value ?? 0) > 0).length;
 
-  const sprintsByTask = useMemo(() => {
-    const m = new Map<string, Sprint[]>();
+  // API field name is `sprints`; on the FE these are Steps.
+  const stepsByTask = useMemo(() => {
+    const m = new Map<string, Step[]>();
     tasks.forEach((tk) => m.set(tk.id, tk.sprints));
     return m;
   }, [tasks]);
@@ -139,7 +140,7 @@ export default function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: 
                   <div className="py-4 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>{t('go.nothingPast', { days: pastDays })}</div>
                 ) : pastItems.map((g) => (
                   <GoRow key={g.id} go={g}
-                    availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
+                    availableSteps={g.task_id ? stepsByTask.get(g.task_id) : undefined}
                     onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
                 ))}
                 <button onClick={() => setPastDays(pastDays + 30)} className="btn btn-ghost btn-sm w-full">
@@ -158,7 +159,7 @@ export default function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: 
               <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('go.nothingToday')}</div>
             ) : todayItems.map((g) => (
               <GoRow key={g.id} go={g}
-                availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
+                availableSteps={g.task_id ? stepsByTask.get(g.task_id) : undefined}
                 onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
             ))}
           </section>
@@ -178,7 +179,7 @@ export default function GoPanel({ tasks, onReload }: { tasks: Task[]; onReload: 
                 </div>
                 {list.map((g) => (
                   <GoRow key={g.id} go={g}
-                    availableSprints={g.task_id ? sprintsByTask.get(g.task_id) : undefined}
+                    availableSteps={g.task_id ? stepsByTask.get(g.task_id) : undefined}
                     onReload={reload} onLocalUpdate={patchGoLocal} showMeta />
                 ))}
               </div>

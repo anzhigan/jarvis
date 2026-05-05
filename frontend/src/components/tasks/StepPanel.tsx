@@ -1,26 +1,26 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { gosApi, sprintsApi } from '../../api/client';
-import type { Go, Sprint, Task } from '../../api/types';
+import { gosApi, stepsApi } from '../../api/client';
+import type { Go, Step, Task } from '../../api/types';
 import { useT } from '../../store/i18n';
 import AddItemButton from '../AddItemButton';
 import SwipeRow from '../SwipeRow';
-import CreateSprintForm from './CreateSprintForm';
-import EditSprintSheet from './EditSprintSheet';
-import SprintBlock from './SprintBlock';
+import CreateStepForm from './CreateStepForm';
+import EditStepSheet from './EditStepSheet';
+import StepBlock from './StepBlock';
 import { formatDate, todayIso } from './helpers';
 
-export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<void> }) {
+export default function StepPanel({ tasks, onReload }: { tasks: Task[]; onReload: () => Promise<void> }) {
   const t = useT();
-  const [current, setCurrent] = useState<Sprint[]>([]);
-  const [past, setPast] = useState<Sprint[]>([]);
-  const [future, setFuture] = useState<Sprint[]>([]);
+  const [current, setCurrent] = useState<Step[]>([]);
+  const [past, setPast] = useState<Step[]>([]);
+  const [future, setFuture] = useState<Step[]>([]);
   const [pastDays, setPastDays] = useState(90);
   const [pastOpen, setPastOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [editingStep, setEditingStep] = useState<Sprint | null>(null);
+  const [editingStep, setEditingStep] = useState<Step | null>(null);
   const [expandedGos, setExpandedGos] = useState<Set<string>>(new Set());
   const [busyGos, setBusyGos] = useState<Set<string>>(new Set());
 
@@ -28,9 +28,9 @@ export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onRelo
     setLoading(true);
     try {
       const [cur, p, f] = await Promise.all([
-        sprintsApi.agenda('current'),
-        sprintsApi.agenda('past', pastDays),
-        sprintsApi.agenda('future'),
+        stepsApi.agenda('current'),
+        stepsApi.agenda('past', pastDays),
+        stepsApi.agenda('future'),
       ]);
       setCurrent(cur); setPast(p); setFuture(f);
     } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
@@ -41,8 +41,8 @@ export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onRelo
 
   const reload = async () => { await load(); await onReload(); };
 
-  const patchGoInSprint = (patched: Go) => {
-    const updSprint = (s: Sprint): Sprint => {
+  const patchGoInStep = (patched: Go) => {
+    const updStep = (s: Step): Step => {
       if (!s.gos.some((g) => g.id === patched.id)) return s;
       const newGos = s.gos.map((g) => g.id === patched.id ? patched : g);
       const today = new Date();
@@ -83,7 +83,7 @@ export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onRelo
       const progress = newGos.length > 0 ? Math.round(100 * totalRatio / newGos.length) : 0;
       return { ...s, gos: newGos, progress };
     };
-    const upd = (list: Sprint[]) => list.map(updSprint);
+    const upd = (list: Step[]) => list.map(updStep);
     setCurrent(upd);
     setPast(upd);
     setFuture(upd);
@@ -118,7 +118,7 @@ export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onRelo
     return s.progress < expectedPct - 10;
   });
 
-  const renderStepCard = (s: Sprint, isFuture = false) => {
+  const renderStepCard = (s: Step, isFuture = false) => {
     const endMs = new Date(s.end_date + 'T00:00:00').getTime();
     const startMs = new Date(s.start_date + 'T00:00:00').getTime();
     const daysLeft = Math.ceil((endMs - nowMs) / 86400000);
@@ -141,7 +141,7 @@ export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onRelo
         await gosApi.upsertEntry(g.id, today, newVal);
         const otherEntries = g.entries.filter((e) => e.date !== today);
         const newEntries = newVal === 0 ? otherEntries : [...otherEntries, { id: `tmp`, go_id: g.id, date: today, value: newVal }];
-        patchGoInSprint({ ...g, entries: newEntries, total_value: newEntries.reduce((sum, e) => sum + e.value, 0) });
+        patchGoInStep({ ...g, entries: newEntries, total_value: newEntries.reduce((sum, e) => sum + e.value, 0) });
       } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
       finally { setBusyGos((prev) => { const n = new Set(prev); n.delete(g.id); return n; }); }
     };
@@ -235,7 +235,7 @@ export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onRelo
         onEdit={() => setEditingStep(s)}
         onDelete={async () => {
           if (!confirm(`Delete step "${s.title}"?`)) return;
-          try { await sprintsApi.delete(s.id); await reload(); }
+          try { await stepsApi.delete(s.id); await reload(); }
           catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
         }}
       >
@@ -247,16 +247,16 @@ export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onRelo
   return (
     <>
       {editingStep && (
-        <EditSprintSheet
-          sprint={editingStep}
+        <EditStepSheet
+          step={editingStep}
           tasks={tasks}
           onClose={() => setEditingStep(null)}
           onSaved={async () => { setEditingStep(null); await reload(); }}
         />
       )}
 
-      <AddItemButton label={t('tasks.addSprint')} onClick={() => setAdding(true)} />
-      <CreateSprintForm
+      <AddItemButton label={t('tasks.addStep')} onClick={() => setAdding(true)} />
+      <CreateStepForm
         open={adding}
         tasks={tasks}
         onCancel={() => setAdding(false)}
@@ -298,10 +298,10 @@ export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onRelo
             {pastOpen && (
               <div style={{ marginTop: 8 }}>
                 {past.length === 0 ? (
-                  <div className="py-4 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>{t('sprint.none_past', { days: pastDays })}</div>
+                  <div className="py-4 text-center text-xs" style={{ color: 'var(--fg-muted)' }}>{t('step.none_past', { days: pastDays })}</div>
                 ) : past.map((s) => {
-                  const taskSprints = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
-                  return <SprintBlock key={s.id} sprint={s} allSprintsOfTask={taskSprints} onReload={reload} onGoLocalUpdate={patchGoInSprint} />;
+                  const taskSteps = tasks.find((tk) => tk.id === s.task_id)?.sprints ?? [];
+                  return <StepBlock key={s.id} step={s} allStepsOfTask={taskSteps} onReload={reload} onGoLocalUpdate={patchGoInStep} />;
                 })}
                 <button onClick={() => setPastDays(pastDays + 90)} className="btn btn-ghost btn-sm w-full">
                   {t('go.showOlder', { days: pastDays })}
@@ -316,17 +316,17 @@ export default function SprintPanel({ tasks, onReload }: { tasks: Task[]; onRelo
               <span className="day-head-meta">avg {avgProgress}%</span>
             </div>
             {current.length === 0 ? (
-              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('sprint.none_current')}</div>
+              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('step.none_current')}</div>
             ) : current.map((s) => renderStepCard(s, false))}
           </section>
 
           <section>
             <div className="day-head">
-              <h2 className="day-head-title">{t('sprint.future')}</h2>
+              <h2 className="day-head-title">{t('step.future')}</h2>
               <span className="day-head-meta">{future.length} scheduled</span>
             </div>
             {future.length === 0 ? (
-              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('sprint.none_future')}</div>
+              <div className="py-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>{t('step.none_future')}</div>
             ) : future.map((s) => renderStepCard(s, true))}
           </section>
         </div>

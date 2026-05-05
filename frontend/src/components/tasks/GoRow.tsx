@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { gosApi } from '../../api/client';
-import type { Go, Sprint } from '../../api/types';
+import type { Go, Step } from '../../api/types';
 import { useT } from '../../store/i18n';
 import ConfirmDialog from '../ConfirmDialog';
 import SwipeRow from '../SwipeRow';
@@ -10,9 +10,9 @@ import DailyStreak from './DailyStreak';
 import EditGoSheet from './EditGoSheet';
 import { adaptiveSteps, formatDate, goValueToday, STRIPE_COLOR, todayIso } from './helpers';
 
-export default function GoRow({ go, availableSprints, onReload, onLocalUpdate }: {
+export default function GoRow({ go, availableSteps, onReload, onLocalUpdate }: {
   go: Go;
-  availableSprints?: Sprint[];
+  availableSteps?: Step[];
   onReload: () => Promise<void>;
   onLocalUpdate?: (patched: Go) => void;
   showMeta?: boolean;
@@ -158,7 +158,7 @@ export default function GoRow({ go, availableSprints, onReload, onLocalUpdate }:
       {editing && (
         <EditGoSheet
           go={go}
-          availableSprints={availableSprints}
+          availableSteps={availableSteps}
           onClose={() => setEditing(false)}
           onSaved={async () => { setEditing(false); await onReload(); }}
         />

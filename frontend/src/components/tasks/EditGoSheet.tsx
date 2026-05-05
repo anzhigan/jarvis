@@ -1,20 +1,20 @@
 import { useState } from 'react';
 import { gosApi } from '../../api/client';
-import type { Go, Sprint } from '../../api/types';
+import type { Go, Step } from '../../api/types';
 import { ENTITY_COLORS } from '../../lib/colors';
 import { useT } from '../../store/i18n';
 import CreateSheet, { FormField } from '../CreateSheet';
 
-export default function EditGoSheet({ go, availableSprints, onClose, onSaved }: {
+export default function EditGoSheet({ go, availableSteps, onClose, onSaved }: {
   go: Go;
-  availableSprints?: Sprint[];
+  availableSteps?: Step[];
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
   const t = useT();
   const [editTitle, setEditTitle] = useState(go.title);
   const [editDescription, setEditDescription] = useState(go.description ?? '');
-  const [editSprintId, setEditSprintId] = useState<string>(go.sprint_id ?? '');
+  const [editStepId, setEditStepId] = useState<string>(go.sprint_id ?? '');
   const [editStart, setEditStart] = useState(go.start_date ?? '');
   const [editDue, setEditDue] = useState(go.due_date ?? '');
   const [editColor, setEditColor] = useState(go.color);
@@ -25,7 +25,7 @@ export default function EditGoSheet({ go, availableSprints, onClose, onSaved }: 
     await gosApi.update(go.id, {
       title: editTitle.trim() || go.title,
       description: editDescription,
-      sprint_id: editSprintId || null,
+      sprint_id: editStepId || null,
       start_date: editStart || null,
       due_date: editDue || null,
       color: editColor,
@@ -48,11 +48,11 @@ export default function EditGoSheet({ go, availableSprints, onClose, onSaved }: 
       <FormField label="Description">
         <textarea className="textarea w-full" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder={t('tasks.descriptionPh')} rows={3} />
       </FormField>
-      {availableSprints && availableSprints.length > 0 && (
+      {availableSteps && availableSteps.length > 0 && (
         <FormField label="Attach to step">
-          <select value={editSprintId} onChange={(e) => setEditSprintId(e.target.value)} className="select-base w-full">
+          <select value={editStepId} onChange={(e) => setEditStepId(e.target.value)} className="select-base w-full">
             <option value="">— No step —</option>
-            {availableSprints.map((s) => <option key={s.id} value={s.id}>↳ {s.title}</option>)}
+            {availableSteps.map((s) => <option key={s.id} value={s.id}>↳ {s.title}</option>)}
           </select>
         </FormField>
       )}

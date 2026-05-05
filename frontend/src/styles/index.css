@@ -696,6 +696,11 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .goal-card-bar-fill { height: 100%; border-radius: var(--r-pill); }
 .goal-card-pct { font-size: 10px; font-weight: 500; color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
 .goal-card-meta { font-size: 10px; color: var(--fg-muted); margin-top: 7px; display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.goal-card-desc {
+  display: block; margin: 4px 0 6px; line-height: 1.5; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.goal-card-desc[data-open="true"] { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
 .goal-card-checks { display: flex; gap: 3px; margin-top: 7px; }
 
 .checkpoint { width: 6px; height: 6px; border-radius: var(--r-pill); }
@@ -2081,7 +2086,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   color: var(--fg-secondary);
 }
 .add-item-btn svg { width: 14px; height: 14px; }
-.go-sprint-panel .add-item-btn { width: 100%; margin-left: 0; margin-right: 0; }
+.go-step-panel .add-item-btn { width: 100%; margin-left: 0; margin-right: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    KEYBOARD TOOLBAR
@@ -2304,6 +2309,11 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   .chip-count, .pill-count { font-size: 11px; }
   .chips-row { padding: 0 20px 14px; gap: 8px; }
   .chips-row .chip { height: 40px; padding: 0 18px; font-size: 14px; }
+
+  /* Roomier filter chips (Goals tab) — bigger touch target + extra leading inset */
+  .chips-row-lg { padding-left: 28px; gap: 10px; }
+  .chips-row-lg .chip { height: 46px; padding: 0 22px; font-size: 15px; border-radius: 999px; }
+  .chips-row-lg .chip-count { font-size: 12px; }
 
   /* Segmented */
   .segmented { padding: 4px; }

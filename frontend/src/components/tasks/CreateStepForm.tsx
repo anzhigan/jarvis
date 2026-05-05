@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { sprintsApi } from '../../api/client';
+import { stepsApi } from '../../api/client';
 import type { Go, Task } from '../../api/types';
 import { ENTITY_COLORS } from '../../lib/colors';
 import { useT } from '../../store/i18n';
 import CreateSheet, { FormField } from '../CreateSheet';
 import { formatDate, todayIso } from './helpers';
 
-export default function CreateSprintForm({
+export default function CreateStepForm({
   open, taskId, tasks, availableGos, onCreate, onCancel,
 }: {
   open: boolean;
@@ -43,8 +43,8 @@ export default function CreateSprintForm({
 
   const handleSubmit = async () => {
     if (!effectiveTaskId) throw new Error('Please select a goal first');
-    const sprint = await sprintsApi.create({ task_id: effectiveTaskId, title: title.trim(), description, start_date: start, end_date: end, color });
-    for (const goId of toAttach) await sprintsApi.attachGo(sprint.id, goId);
+    const step = await stepsApi.create({ task_id: effectiveTaskId, title: title.trim(), description, start_date: start, end_date: end, color });
+    for (const goId of toAttach) await stepsApi.attachGo(step.id, goId);
     onCancel();
     await onCreate();
   };
@@ -61,24 +61,24 @@ export default function CreateSprintForm({
       {tasks && (
         <FormField label="Goal">
           <select value={selectedTaskId} onChange={(e) => { setSelectedTaskId(e.target.value); setToAttach(new Set()); }} className="select-base">
-            <option value="">{t('sprint.pickTask')}</option>
+            <option value="">{t('step.pickTask')}</option>
             {tasks.map((tk) => (<option key={tk.id} value={tk.id}>{tk.title}</option>))}
           </select>
         </FormField>
       )}
       <FormField label="Title">
         <input type="text" className="input w-full" value={title}
-          onChange={(e) => setTitle(e.target.value)} placeholder={t('sprint.titlePh')} />
+          onChange={(e) => setTitle(e.target.value)} placeholder={t('step.titlePh')} />
       </FormField>
       <FormField label="Description">
         <textarea className="textarea w-full" value={description}
-          onChange={(e) => setDescription(e.target.value)} placeholder={t('sprint.notesPh')} rows={2} />
+          onChange={(e) => setDescription(e.target.value)} placeholder={t('step.notesPh')} rows={2} />
       </FormField>
       <div className="form-row-2col">
-        <FormField label={t('tasks.start')}>
+        <FormField label="Start date">
           <input type="date" className="input w-full" value={start} onChange={(e) => setStart(e.target.value)} />
         </FormField>
-        <FormField label={t('sprint.end')}>
+        <FormField label="End date">
           <input type="date" className="input w-full" value={end} onChange={(e) => setEnd(e.target.value)} />
         </FormField>
       </div>

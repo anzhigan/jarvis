@@ -3,8 +3,8 @@ import {
   Loader2, Plus, Pencil, Trash2, X, Target, ListChecks, Repeat as RepeatIcon, CircleDot, ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { focusSprintsApi, tasksApi, routinesApi, gosApi, resolveUrl } from '../api/client';
-import type { FocusSprint, FocusSprintItem, FocusSprintItemType, Task, Routine, Go } from '../api/types';
+import { sprintsApi, tasksApi, routinesApi, gosApi, resolveUrl } from '../api/client';
+import type { Sprint, SprintItem, SprintItemType, Task, Routine, Go } from '../api/types';
 import PullToRefresh from './PullToRefresh';
 import SwipeRow from './SwipeRow';
 import { useSwipeBack } from '../hooks/useSwipeBack';
@@ -29,14 +29,14 @@ function fmtDate(iso: string): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function classifySprint(s: FocusSprint): 'current' | 'future' | 'past' {
+function classifySprint(s: Sprint): 'current' | 'future' | 'past' {
   const today = todayIso();
   if (s.end_date < today) return 'past';
   if (s.start_date > today) return 'future';
   return 'current';
 }
 
-function ItemTypeIcon({ type, size = 13 }: { type: FocusSprintItemType; size?: number }) {
+function ItemTypeIcon({ type, size = 13 }: { type: SprintItemType; size?: number }) {
   switch (type) {
     case 'goal': return <Target size={size} />;
     case 'step': return <ListChecks size={size} />;
@@ -45,7 +45,7 @@ function ItemTypeIcon({ type, size = 13 }: { type: FocusSprintItemType; size?: n
   }
 }
 
-function itemTypeLabel(type: FocusSprintItemType): string {
+function itemTypeLabel(type: SprintItemType): string {
   return { goal: 'Goal', step: 'Step', go: 'Go', routine: 'Routine' }[type];
 }
 
@@ -55,11 +55,11 @@ function itemTypeLabel(type: FocusSprintItemType): string {
 function AddItemPanel({
   sprint, onClose, onAdded,
 }: {
-  sprint: FocusSprint;
+  sprint: Sprint;
   onClose: () => void;
   onAdded: () => Promise<void>;
 }) {
-  const [tab, setTab] = useState<FocusSprintItemType>('goal');
+  const [tab, setTab] = useState<SprintItemType>('goal');
   const [goals, setGoals] = useState<Task[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [gos, setGos] = useState<Go[]>([]);
@@ -118,9 +118,9 @@ function AddItemPanel({
     return routines.filter((r) => !existingIds.routine.has(r.id) && match(r.title));
   }, [tab, goals, routines, gos, existingIds, search]);
 
-  const add = async (kind: FocusSprintItemType, id: string) => {
+  const add = async (kind: SprintItemType, id: string) => {
     try {
-      await focusSprintsApi.addItem(sprint.id, {
+      await sprintsApi.addItem(sprint.id, {
         item_type: kind,
         goal_id: kind === 'goal' ? id : null,
         step_id: kind === 'step' ? id : null,
@@ -227,12 +227,12 @@ function AddItemPanel({
 function SprintCard({
   sprint, onReload, onOpen,
 }: {
-  sprint: FocusSprint;
+  sprint: Sprint;
   onReload: () => Promise<void>;
   onOpen: () => void;
 }) {
   const itemsByType = useMemo(() => {
-    const byType: Record<FocusSprintItemType, FocusSprintItem[]> = { goal: [], step: [], go: [], routine: [] };
+    const byType: Record<SprintItemType, SprintItem[]> = { goal: [], step: [], go: [], routine: [] };
     for (const it of sprint.items) byType[it.item_type].push(it);
     return byType;
   }, [sprint.items]);
@@ -290,7 +290,7 @@ function SprintCard({
 function SprintDetail({
   sprint, onBack, onReload,
 }: {
-  sprint: FocusSprint;
+  sprint: Sprint;
   onBack: () => void;
   onReload: () => Promise<void>;
 }) {
@@ -311,7 +311,7 @@ function SprintDetail({
 
   const removeItem = async (itemId: string) => {
     try {
-      await focusSprintsApi.removeItem(sprint.id, itemId);
+      await sprintsApi.removeItem(sprint.id, itemId);
       await onReload();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed');
@@ -321,7 +321,7 @@ function SprintDetail({
   const removeSprint = async () => {
     if (!confirm(`Delete sprint "${sprint.title}"?`)) return;
     try {
-      await focusSprintsApi.delete(sprint.id);
+      await sprintsApi.delete(sprint.id);
       await onReload();
       onBack();
     } catch (e: any) {
@@ -332,7 +332,7 @@ function SprintDetail({
   const saveEdit = async () => {
     setSaving(true);
     try {
-      await focusSprintsApi.update(sprint.id, {
+      await sprintsApi.update(sprint.id, {
         title: editTitle.trim() || sprint.title,
         description: editDesc,
         start_date: editStart,
@@ -349,7 +349,7 @@ function SprintDetail({
   };
 
   const itemsByType = useMemo(() => {
-    const byType: Record<FocusSprintItemType, FocusSprintItem[]> = { goal: [], step: [], go: [], routine: [] };
+    const byType: Record<SprintItemType, SprintItem[]> = { goal: [], step: [], go: [], routine: [] };
     for (const it of sprint.items) byType[it.item_type].push(it);
     return byType;
   }, [sprint.items]);
@@ -391,13 +391,13 @@ function SprintDetail({
         </FormField>
         <FormField label="Description">
           <textarea className="textarea w-full" value={editDesc}
-            onChange={(e) => setEditDesc(e.target.value)} rows={2} placeholder="Description…" />
+            onChange={(e) => setEditDesc(e.target.value)} rows={3} placeholder={t('tasks.descriptionPh')} />
         </FormField>
         <div className="form-row-2col">
-          <FormField label="Start">
+          <FormField label="Start date">
             <input type="date" className="input w-full" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
           </FormField>
-          <FormField label="End">
+          <FormField label="End date">
             <input type="date" className="input w-full" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
           </FormField>
         </div>
@@ -511,9 +511,9 @@ function CreateSprintForm({ open, onCreated, onCancel }: { open: boolean; onCrea
   };
 
   const handleSubmit = async () => {
-    const created = await focusSprintsApi.create({ title: title.trim(), description: description.trim(), start_date: start, end_date: end, color });
+    const created = await sprintsApi.create({ title: title.trim(), description: description.trim(), start_date: start, end_date: end, color });
     for (const goId of selectedGoIds) {
-      try { await focusSprintsApi.addItem(created.id, { item_type: 'go', go_id: goId }); } catch { /* ignore */ }
+      try { await sprintsApi.addItem(created.id, { item_type: 'go', go_id: goId }); } catch { /* ignore */ }
     }
     onCancel();
     await onCreated();
@@ -597,7 +597,7 @@ function CreateSprintForm({ open, onCreated, onCancel }: { open: boolean; onCrea
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Sprints() {
   const { user } = useAuthStore();
-  const [sprints, setSprints] = useState<FocusSprint[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [openSprintId, setOpenSprintId] = useState<string | null>(null);
@@ -612,7 +612,7 @@ export default function Sprints() {
   const load = async () => {
     setLoading(true);
     try {
-      const list = await focusSprintsApi.list();
+      const list = await sprintsApi.list();
       setSprints(list);
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to load sprints');
@@ -732,7 +732,7 @@ export default function Sprints() {
                   onEdit={() => setOpenSprintId(s.id)}
                   onDelete={async () => {
                     if (!confirm(`Delete sprint "${s.title}"?`)) return;
-                    try { await focusSprintsApi.delete(s.id); await load(); }
+                    try { await sprintsApi.delete(s.id); await load(); }
                     catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
                   }}
                 >

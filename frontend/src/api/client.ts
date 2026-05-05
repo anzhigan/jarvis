@@ -10,7 +10,7 @@ import type {
   GoKind,
   GoRecurrence,
   GoalRoutineLink,
-  Sprint,
+  Step,
   Topic,
   User,
   Way,
@@ -231,7 +231,10 @@ export const gosApi = {
     request<Go[]>(`/gos/agenda?section=${section}&days_back=${daysBack}`),
 };
 
-export const sprintsApi = {
+// Steps API — period-bound milestones inside a Goal/Task.
+// Backend model is named "Sprint" (table: sprints, URL: /api/sprints/*) for legacy reasons;
+// on the frontend this entity is called Step.
+export const stepsApi = {
   create: (data: {
     task_id: string;
     title: string;
@@ -239,7 +242,7 @@ export const sprintsApi = {
     start_date: string;
     end_date: string;
     color?: string;
-  }) => request<Sprint>('/sprints', { method: 'POST', body: JSON.stringify(data) }),
+  }) => request<Step>('/sprints', { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id: string, data: {
     title?: string;
@@ -249,18 +252,18 @@ export const sprintsApi = {
     is_completed?: boolean;
     color?: string;
     task_id?: string | null;
-  }) => request<Sprint>(`/sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  }) => request<Step>(`/sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   delete: (id: string) => request<void>(`/sprints/${id}`, { method: 'DELETE' }),
 
-  attachGo: (sprintId: string, goId: string) =>
-    request<Go>(`/sprints/${sprintId}/attach/${goId}`, { method: 'POST' }),
+  attachGo: (stepId: string, goId: string) =>
+    request<Go>(`/sprints/${stepId}/attach/${goId}`, { method: 'POST' }),
 
-  detachGo: (sprintId: string, goId: string) =>
-    request<Go>(`/sprints/${sprintId}/detach/${goId}`, { method: 'POST' }),
+  detachGo: (stepId: string, goId: string) =>
+    request<Go>(`/sprints/${stepId}/detach/${goId}`, { method: 'POST' }),
 
   agenda: (section: 'current' | 'future' | 'past', daysBack = 90) =>
-    request<Sprint[]>(`/sprints/agenda?section=${section}&days_back=${daysBack}`),
+    request<Step[]>(`/sprints/agenda?section=${section}&days_back=${daysBack}`),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -325,12 +328,13 @@ export const routinesApi = {
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FocusSprints API — new Sprint (temporal focus, NOT a step inside Goal)
+// Sprints API — temporal focus collection (NOT a Step inside a Goal).
+// Backend model is FocusSprint (URL: /api/focus-sprints/*) for legacy reasons.
 // ═══════════════════════════════════════════════════════════════════════════
-import type { FocusSprint, FocusSprintItemType } from './types';
+import type { Sprint, SprintItemType } from './types';
 
-export const focusSprintsApi = {
-  list: () => request<FocusSprint[]>('/focus-sprints'),
+export const sprintsApi = {
+  list: () => request<Sprint[]>('/focus-sprints'),
 
   create: (data: {
     title: string;
@@ -338,20 +342,20 @@ export const focusSprintsApi = {
     start_date: string;
     end_date: string;
     color?: string;
-  }) => request<FocusSprint>('/focus-sprints', { method: 'POST', body: JSON.stringify(data) }),
+  }) => request<Sprint>('/focus-sprints', { method: 'POST', body: JSON.stringify(data) }),
 
-  update: (id: string, data: Partial<FocusSprint>) =>
-    request<FocusSprint>(`/focus-sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<Sprint>) =>
+    request<Sprint>(`/focus-sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   delete: (id: string) => request<void>(`/focus-sprints/${id}`, { method: 'DELETE' }),
 
   addItem: (id: string, item: {
-    item_type: FocusSprintItemType;
+    item_type: SprintItemType;
     goal_id?: string | null;
     step_id?: string | null;
     go_id?: string | null;
     routine_id?: string | null;
-  }) => request<FocusSprint>(`/focus-sprints/${id}/items`, {
+  }) => request<Sprint>(`/focus-sprints/${id}/items`, {
     method: 'POST',
     body: JSON.stringify(item),
   }),

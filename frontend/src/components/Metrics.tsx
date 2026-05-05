@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { tasksApi, routinesApi, focusSprintsApi, resolveUrl } from '../api/client';
-import type { Task, Routine, FocusSprint, RoutineScheduleType } from '../api/types';
+import { tasksApi, routinesApi, sprintsApi, resolveUrl } from '../api/client';
+import type { Task, Routine, Sprint, RoutineScheduleType } from '../api/types';
 import { useT } from '../store/i18n';
 import { useAuthStore } from '../store/auth';
 import PullToRefresh from './PullToRefresh';
@@ -651,7 +651,7 @@ function PerRoutineGrid({ routines }: { routines: Routine[] }) {
 
 // ─── Active timeline ──────────────────────────────────────────────────────────
 
-function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprint[] }) {
+function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: Sprint[] }) {
   const today = todayDate();
   const activeGoals = goals.filter((g) => g.status === 'active' && (g.start_date || g.due_date));
   const activeSprints = sprints.filter((s) => {
@@ -730,7 +730,7 @@ function ActiveTimeline({ goals, sprints }: { goals: Task[]; sprints: FocusSprin
 
 // ─── Active sprints list ──────────────────────────────────────────────────────
 
-function ActiveSprintsCard({ sprints }: { sprints: FocusSprint[] }) {
+function ActiveSprintsCard({ sprints }: { sprints: Sprint[] }) {
   const today = dateIso(todayDate());
   const active = useMemo(
     () => sprints.filter((s) => s.start_date <= today && s.end_date >= today),
@@ -872,7 +872,7 @@ export default function Analysis() {
   const [period, setPeriod] = useState<Period>('month');
   const [goals, setGoals] = useState<Task[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
-  const [sprints, setSprints] = useState<FocusSprint[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
@@ -886,7 +886,7 @@ export default function Analysis() {
       const [g, r, s] = await Promise.all([
         tasksApi.list(),
         routinesApi.list(),
-        focusSprintsApi.list(),
+        sprintsApi.list(),
       ]);
       setGoals(g);
       setRoutines(r);

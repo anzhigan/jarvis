@@ -11,7 +11,7 @@ import CreateSheet, { FormField } from './CreateSheet';
 import PullToRefresh from './PullToRefresh';
 import DeferredTagPicker from './tasks/DeferredTagPicker';
 import GoPanel from './tasks/GoPanel';
-import SprintPanel from './tasks/SprintPanel';
+import StepPanel from './tasks/StepPanel';
 import TaskCard from './tasks/TaskCard';
 import { tasksApi, tagsApi, routinesApi, resolveUrl } from '../api/client';
 import type { Routine, Task, TaskPriority, TaskStatus } from '../api/types';
@@ -29,6 +29,9 @@ const STATUSES: { key: TaskStatus; labelKey: string }[] = [
   { key: 'done', labelKey: 'tasks.status.done' },
 ];
 
+// Order for the mobile chip filter row only — kanban columns keep canonical order.
+const MOBILE_FILTER_ORDER: TaskStatus[] = ['active', 'done', 'paused', 'backlog'];
+
 export default function Tasks() {
   const t = useT();
   const { user } = useAuthStore();
@@ -41,9 +44,11 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'tasks' | 'go' | 'sprint'>(() => {
+  const [view, setView] = useState<'tasks' | 'go' | 'step'>(() => {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('tasks:view') : null;
-    return (saved === 'tasks' || saved === 'go' || saved === 'sprint') ? saved : 'tasks';
+    if (saved === 'tasks' || saved === 'go' || saved === 'step') return saved;
+    if (saved === 'sprint') return 'step'; // legacy migration
+    return 'tasks';
   });
   useEffect(() => {
     localStorage.setItem('tasks:view', view);
@@ -237,15 +242,15 @@ export default function Tasks() {
                 <div className="segmented" style={{ width: '100%' }}>
                   <button onClick={() => setView('tasks')} className="segmented-item" data-active={view === 'tasks'} style={{ flex: 1 }}>Goals</button>
                   <button onClick={() => setView('go')} className="segmented-item" data-active={view === 'go'} style={{ flex: 1 }}>Go</button>
-                  <button onClick={() => setView('sprint')} className="segmented-item" data-active={view === 'sprint'} style={{ flex: 1 }}>Step</button>
+                  <button onClick={() => setView('step')} className="segmented-item" data-active={view === 'step'} style={{ flex: 1 }}>Step</button>
                 </div>
               </div>
               {view === 'tasks' && (
-                <div className="chips-row">
+                <div className="chips-row chips-row-lg">
                   <button className="chip" data-active={mobileStatusFilter === null} onClick={() => setMobileStatusFilter(null)}>
                     All <span className="chip-count">{tasks.length}</span>
                   </button>
-                  {STATUSES.map(({ key }) => (
+                  {MOBILE_FILTER_ORDER.map((key) => (
                     <button key={key} className="chip" data-active={mobileStatusFilter === key} onClick={() => setMobileStatusFilter(key)}>
                       {key.charAt(0).toUpperCase() + key.slice(1)}
                       <span className="chip-count">{tasksByStatus[key]?.length ?? 0}</span>
@@ -264,7 +269,7 @@ export default function Tasks() {
               <div className="subtabs" style={{ marginTop: 12 }}>
                 <button onClick={() => setView('tasks')} className="subtab" data-active={view === 'tasks'}>Goals</button>
                 <button onClick={() => setView('go')} className="subtab" data-active={view === 'go'}>Go</button>
-                <button onClick={() => setView('sprint')} className="subtab" data-active={view === 'sprint'}>Step</button>
+                <button onClick={() => setView('step')} className="subtab" data-active={view === 'step'}>Step</button>
               </div>
             </div>
           </div>
@@ -275,7 +280,7 @@ export default function Tasks() {
               {([
                 { v: 'tasks', Icon: TargetIcon, label: t('tasks.tasksTab') },
                 { v: 'go', Icon: ListTodo, label: t('tasks.goTab') },
-                { v: 'sprint', Icon: Zap, label: t('tasks.sprintTab') },
+                { v: 'step', Icon: Zap, label: t('tasks.stepTab') },
               ] as const).map(({ v, Icon, label }) => (
                 <button key={v} onClick={() => setView(v)}
                   className="px-3 h-8 flex items-center gap-1.5"
@@ -291,12 +296,12 @@ export default function Tasks() {
           </div>
 
           {view === 'go' ? (
-            <div className="go-sprint-panel" style={{ padding: '0 12px' }}>
+            <div className="go-step-panel" style={{ padding: '0 12px' }}>
               <GoPanel tasks={tasks} onReload={load} />
             </div>
-          ) : view === 'sprint' ? (
-            <div className="go-sprint-panel" style={{ padding: '0 12px' }}>
-              <SprintPanel tasks={tasks} onReload={load} />
+          ) : view === 'step' ? (
+            <div className="go-step-panel" style={{ padding: '0 12px' }}>
+              <StepPanel tasks={tasks} onReload={load} />
             </div>
           ) : (
             <>

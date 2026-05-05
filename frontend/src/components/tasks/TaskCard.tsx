@@ -34,6 +34,7 @@ export default function TaskCard({
   const [expanded, setExpanded] = useState(false);
   const [showLinked, setShowLinked] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
 
   const isOverdue = task.status !== 'done' && task.due_date &&
     new Date(task.due_date) < new Date(new Date().setHours(0, 0, 0, 0));
@@ -50,7 +51,19 @@ export default function TaskCard({
     <>
       <div style={{ padding: '12px 13px' }}>
             <div className="flex items-start gap-2" style={{ marginBottom: 6 }}>
-              <h4 className="goal-card-title" style={{ margin: 0, flex: 1 }}>{task.title}</h4>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h4 className="goal-card-title" style={{ margin: 0 }}>{task.title}</h4>
+                {task.description && task.description.trim() && (
+                  <p
+                    className="goal-card-meta goal-card-desc"
+                    data-open={descOpen ? 'true' : undefined}
+                    onClick={(e) => { e.stopPropagation(); setDescOpen((v) => !v); }}
+                    title={descOpen ? 'Свернуть' : 'Развернуть описание'}
+                  >
+                    {task.description}
+                  </p>
+                )}
+              </div>
               {!isMobile && (
                 <div className="flex items-center gap-0.5">
                   <button aria-label="Edit goal" onClick={(e) => { e.stopPropagation(); startEdit(); }} className="icon-btn icon-btn-sm">
@@ -62,9 +75,6 @@ export default function TaskCard({
                 </div>
               )}
             </div>
-            {task.description && task.description.trim() && (
-              <p className="goal-card-meta" style={{ marginBottom: 6, whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{task.description}</p>
-            )}
 
             <div style={{ marginBottom: 8 }}>
               <TagSelector targetId={task.id} targetKind="task" tags={task.tags ?? []} onChange={onReload} compact={!isMobile} />
@@ -96,7 +106,7 @@ export default function TaskCard({
           <button onClick={() => setExpanded(!expanded)} className="task-toggle-row" type="button">
             {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             <Zap size={12} />
-            <span>{t('tasks.sprintsAndGos')}</span>
+            <span>{t('tasks.stepsAndGos')}</span>
             <span className="badge">{task.sprints.length + task.gos.length}</span>
           </button>
 

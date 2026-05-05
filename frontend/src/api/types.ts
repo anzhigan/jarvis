@@ -70,6 +70,8 @@ export interface GoEntry {
   value: number;
 }
 
+// API field naming note: backend exposes sprint_id/sprint_title (model name is Sprint).
+// On the frontend this entity is called "Step" — see Step interface below.
 export interface Go {
   id: string;
   user_id: string;
@@ -92,7 +94,9 @@ export interface Go {
   created_at: string;
 }
 
-export interface Sprint {
+// Step — period-bound milestone inside a Goal/Task (backend model: Sprint, table: sprints).
+// API endpoints: /api/sprints/* — field names task_id/task_title come from the API shape.
+export interface Step {
   id: string;
   task_id: string;
   user_id: string;
@@ -120,7 +124,8 @@ export interface Task {
   is_completed: boolean;
   order: number;
   color: string;
-  sprints: Sprint[];
+  // API field name is "sprints" (backend model = Sprint); on the FE this is a list of Steps.
+  sprints: Step[];
   gos: Go[];
   tags: Tag[];
   progress: number;
@@ -181,14 +186,15 @@ export interface GoalRoutineLink {
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FocusSprint — temporal focus collection (NEW Sprint, separate from Step)
+// Sprint — temporal focus collection (backend model: FocusSprint, NOT a Step inside Goal)
+// API endpoints: /api/focus-sprints/*
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type FocusSprintItemType = 'goal' | 'step' | 'go' | 'routine';
+export type SprintItemType = 'goal' | 'step' | 'go' | 'routine';
 
-export interface FocusSprintItem {
+export interface SprintItem {
   id: string;
-  item_type: FocusSprintItemType;
+  item_type: SprintItemType;
   goal_id: string | null;
   step_id: string | null;
   go_id: string | null;
@@ -198,7 +204,7 @@ export interface FocusSprintItem {
   color: string | null;
 }
 
-export interface FocusSprint {
+export interface Sprint {
   id: string;
   user_id: string;
   title: string;
@@ -207,7 +213,7 @@ export interface FocusSprint {
   end_date: string;
   color: string;
   is_archived: boolean;
-  items: FocusSprintItem[];
+  items: SprintItem[];
   created_at: string;
   updated_at: string;
 }

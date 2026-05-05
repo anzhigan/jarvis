@@ -4,13 +4,13 @@ import type { Task } from '../../api/types';
 import { useT } from '../../store/i18n';
 import AddItemButton from '../AddItemButton';
 import CreateGoForm from './CreateGoForm';
-import CreateSprintForm from './CreateSprintForm';
+import CreateStepForm from './CreateStepForm';
 import GoRow from './GoRow';
-import SprintBlock from './SprintBlock';
+import StepBlock from './StepBlock';
 
 export default function TaskExpanded({ task, onReload }: { task: Task; onReload: () => Promise<void> }) {
   const t = useT();
-  const [addingSprint, setAddingSprint] = useState(false);
+  const [addingStep, setAddingStep] = useState(false);
   const [addingGo, setAddingGo] = useState(false);
   const directGos = task.gos;
 
@@ -25,30 +25,30 @@ export default function TaskExpanded({ task, onReload }: { task: Task; onReload:
       )}
 
       {task.sprints.map((s) => (
-        <SprintBlock
+        <StepBlock
           key={s.id}
-          sprint={s}
-          allSprintsOfTask={task.sprints}
+          step={s}
+          allStepsOfTask={task.sprints}
           onReload={onReload}
           showMeta={false}
         />
       ))}
 
-      <AddItemButton label={t('tasks.addSprint')} onClick={() => setAddingSprint(true)} />
-      <CreateSprintForm
-        open={addingSprint}
+      <AddItemButton label={t('tasks.addStep')} onClick={() => setAddingStep(true)} />
+      <CreateStepForm
+        open={addingStep}
         taskId={task.id}
         availableGos={directGos.filter((g) => !g.sprint_id)}
-        onCancel={() => setAddingSprint(false)}
-        onCreate={async () => { setAddingSprint(false); await onReload(); }}
+        onCancel={() => setAddingStep(false)}
+        onCreate={async () => { setAddingStep(false); await onReload(); }}
       />
 
       {directGos.length > 0 && (
         <div>
-          <div className="task-expanded-section-label">Direct gos</div>
+          <div className="task-expanded-section-label">{t('tasks.directGos')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {directGos.map((g) => (
-              <GoRow key={g.id} go={g} availableSprints={task.sprints} onReload={onReload} />
+              <GoRow key={g.id} go={g} availableSteps={task.sprints} onReload={onReload} />
             ))}
           </div>
         </div>
@@ -58,7 +58,7 @@ export default function TaskExpanded({ task, onReload }: { task: Task; onReload:
       <CreateGoForm
         open={addingGo}
         defaultTaskId={task.id}
-        availableSprints={task.sprints}
+        availableSteps={task.sprints}
         onCancel={() => setAddingGo(false)}
         onCreate={async (data) => {
           await gosApi.create({ ...data, task_id: task.id });

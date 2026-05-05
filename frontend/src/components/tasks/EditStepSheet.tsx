@@ -1,26 +1,26 @@
 import { useState } from 'react';
-import { sprintsApi } from '../../api/client';
-import type { Sprint, Task } from '../../api/types';
+import { stepsApi } from '../../api/client';
+import type { Step, Task } from '../../api/types';
 import { ENTITY_COLORS } from '../../lib/colors';
 import { useT } from '../../store/i18n';
 import CreateSheet, { FormField } from '../CreateSheet';
 
-export default function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { sprint: Sprint; tasks?: Task[]; onClose: () => void; onSaved: () => Promise<void> }) {
+export default function EditStepSheet({ step, tasks, onClose, onSaved }: { step: Step; tasks?: Task[]; onClose: () => void; onSaved: () => Promise<void> }) {
   const t = useT();
-  const [title, setTitle] = useState(sprint.title);
-  const [startDate, setStartDate] = useState(sprint.start_date);
-  const [endDate, setEndDate] = useState(sprint.end_date);
-  const [description, setDescription] = useState(sprint.description ?? '');
-  const [color, setColor] = useState(sprint.color);
-  const [selectedTaskId, setSelectedTaskId] = useState(sprint.task_id ?? '');
+  const [title, setTitle] = useState(step.title);
+  const [startDate, setStartDate] = useState(step.start_date);
+  const [endDate, setEndDate] = useState(step.end_date);
+  const [description, setDescription] = useState(step.description ?? '');
+  const [color, setColor] = useState(step.color);
+  const [selectedTaskId, setSelectedTaskId] = useState(step.task_id ?? '');
   const [goAttachIds, setGoAttachIds] = useState<Set<string>>(
-    new Set(sprint.gos.map((g) => g.id))
+    new Set(step.gos.map((g) => g.id))
   );
 
   const canSave = title.trim().length > 0;
 
-  const taskForGos = tasks?.find((tk) => tk.id === (selectedTaskId || (sprint.task_id ?? '')));
-  const allTaskGos = taskForGos?.gos ?? sprint.gos;
+  const taskForGos = tasks?.find((tk) => tk.id === (selectedTaskId || (step.task_id ?? '')));
+  const allTaskGos = taskForGos?.gos ?? step.gos;
 
   const toggleGoAttach = (goId: string) => {
     setGoAttachIds((prev) => {
@@ -31,21 +31,21 @@ export default function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { s
   };
 
   const handleSave = async () => {
-    const payload: Parameters<typeof sprintsApi.update>[1] = {
+    const payload: Parameters<typeof stepsApi.update>[1] = {
       title: title.trim(),
       start_date: startDate,
       end_date: endDate,
       description,
       color,
     };
-    if (selectedTaskId !== (sprint.task_id ?? '')) {
+    if (selectedTaskId !== (step.task_id ?? '')) {
       payload.task_id = selectedTaskId || null;
     }
-    await sprintsApi.update(sprint.id, payload);
-    const originalIds = new Set(sprint.gos.map((g) => g.id));
+    await stepsApi.update(step.id, payload);
+    const originalIds = new Set(step.gos.map((g) => g.id));
     await Promise.all([
-      ...[...originalIds].filter((id) => !goAttachIds.has(id)).map((id) => sprintsApi.detachGo(sprint.id, id)),
-      ...[...goAttachIds].filter((id) => !originalIds.has(id)).map((id) => sprintsApi.attachGo(sprint.id, id)),
+      ...[...originalIds].filter((id) => !goAttachIds.has(id)).map((id) => stepsApi.detachGo(step.id, id)),
+      ...[...goAttachIds].filter((id) => !originalIds.has(id)).map((id) => stepsApi.attachGo(step.id, id)),
     ]);
     await onSaved();
   };
@@ -66,7 +66,7 @@ export default function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { s
             {tasks.map((tk) => <option key={tk.id} value={tk.id}>{tk.title}</option>)}
           </select>
         ) : (
-          <div className="input" style={{ color: 'var(--fg-muted)' }}>{sprint.task_title ?? '—'}</div>
+          <div className="input" style={{ color: 'var(--fg-muted)' }}>{step.task_title ?? '—'}</div>
         )}
       </FormField>
       <FormField label="Title">
@@ -78,11 +78,11 @@ export default function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { s
           placeholder="Step title"
         />
       </FormField>
-      <div style={{ display: 'flex', gap: 10 }}>
-        <FormField label={t('tasks.start') || 'Start'}>
+      <div className="form-row-2col">
+        <FormField label="Start date">
           <input type="date" className="input w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </FormField>
-        <FormField label={t('tasks.due') || 'End'}>
+        <FormField label="End date">
           <input type="date" className="input w-full" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </FormField>
       </div>
@@ -100,7 +100,7 @@ export default function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { s
           className="textarea w-full"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Notes, context…"
+          placeholder={t('tasks.descriptionPh')}
           rows={3}
         />
       </FormField>
@@ -121,8 +121,8 @@ export default function EditSprintSheet({ sprint, tasks, onClose, onSaved }: { s
                   <span style={{ fontSize: 13, flex: 1, color: checked ? 'var(--fg-primary)' : 'var(--fg-secondary)', textDecoration: checked ? 'none' : undefined }}>
                     {g.title}
                   </span>
-                  {g.sprint_id && g.sprint_id !== sprint.id && (
-                    <span style={{ fontSize: 10, color: 'var(--fg-muted)' }}>other sprint</span>
+                  {g.sprint_id && g.sprint_id !== step.id && (
+                    <span style={{ fontSize: 10, color: 'var(--fg-muted)' }}>other step</span>
                   )}
                 </label>
               );

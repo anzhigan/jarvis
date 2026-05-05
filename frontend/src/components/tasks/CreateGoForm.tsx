@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { GoKind, GoRecurrence, Sprint, Task } from '../../api/types';
+import type { GoKind, GoRecurrence, Step, Task } from '../../api/types';
 import { ENTITY_COLORS } from '../../lib/colors';
 import { useT } from '../../store/i18n';
 import CreateSheet, { FormField } from '../CreateSheet';
@@ -7,12 +7,12 @@ import CreateSheet, { FormField } from '../CreateSheet';
 const GO_COLORS = ENTITY_COLORS;
 
 export default function CreateGoForm({
-  open, defaultTaskId, defaultSprintId, availableSprints, tasks, onCreate, onCancel,
+  open, defaultTaskId, defaultStepId, availableSteps, tasks, onCreate, onCancel,
 }: {
   open: boolean;
   defaultTaskId?: string | null;
-  defaultSprintId?: string | null;
-  availableSprints?: Sprint[];
+  defaultStepId?: string | null;
+  availableSteps?: Step[];
   tasks?: Task[];
   onCreate: (data: {
     title: string; description: string; kind: GoKind; unit: string; target_value: number | null;
@@ -31,21 +31,22 @@ export default function CreateGoForm({
   const [start, setStart] = useState('');
   const [due, setDue] = useState('');
   const [color, setColor] = useState(GO_COLORS[0]);
-  const [sprintId, setSprintId] = useState<string>(defaultSprintId ?? '');
+  const [stepId, setStepId] = useState<string>(defaultStepId ?? '');
   const [selectedTaskId, setSelectedTaskId] = useState<string>(defaultTaskId ?? '');
 
   useEffect(() => {
     if (!open) {
       setTitle(''); setDescription(''); setKind('boolean');
       setUnit(''); setTarget(''); setStart(''); setDue(''); setColor(GO_COLORS[0]);
-      setSprintId(defaultSprintId ?? ''); setSelectedTaskId(defaultTaskId ?? '');
+      setStepId(defaultStepId ?? ''); setSelectedTaskId(defaultTaskId ?? '');
     }
-  }, [open, defaultSprintId, defaultTaskId]);
+  }, [open, defaultStepId, defaultTaskId]);
 
   const effectiveTaskId = tasks ? selectedTaskId : (defaultTaskId ?? null);
-  const derivedSprints = tasks
+  // API field name is `sprints` (backend model = Sprint); on FE this is the list of Steps.
+  const derivedSteps = tasks
     ? (tasks.find((tk) => tk.id === selectedTaskId)?.sprints ?? [])
-    : (availableSprints ?? []);
+    : (availableSteps ?? []);
 
   const handleSubmit = async () => {
     await onCreate({
@@ -53,7 +54,7 @@ export default function CreateGoForm({
       target_value: target ? parseFloat(target) : null,
       recurrence, start_date: start || null, due_date: due || null, color,
       task_id: effectiveTaskId || null,
-      sprint_id: sprintId || null,
+      sprint_id: stepId || null,
     });
   };
 
@@ -68,7 +69,7 @@ export default function CreateGoForm({
     >
       {tasks && (
         <FormField label="Goal">
-          <select value={selectedTaskId} onChange={(e) => { setSelectedTaskId(e.target.value); setSprintId(''); }} className="select-base">
+          <select value={selectedTaskId} onChange={(e) => { setSelectedTaskId(e.target.value); setStepId(''); }} className="select-base">
             <option value="">{t('go.standalone')}</option>
             {tasks.map((tk) => (<option key={tk.id} value={tk.id}>{tk.title}</option>))}
           </select>
@@ -107,11 +108,11 @@ export default function CreateGoForm({
           <input type="date" className="input w-full" value={due} onChange={(e) => setDue(e.target.value)} />
         </FormField>
       </div>
-      {derivedSprints.length > 0 && !defaultSprintId && (
-        <FormField label="Sprint">
-          <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="select-base">
-            <option value="">No sprint</option>
-            {derivedSprints.map((s) => (<option key={s.id} value={s.id}>↳ {s.title}</option>))}
+      {derivedSteps.length > 0 && !defaultStepId && (
+        <FormField label="Step">
+          <select value={stepId} onChange={(e) => setStepId(e.target.value)} className="select-base">
+            <option value="">{t('go.noStep')}</option>
+            {derivedSteps.map((s) => (<option key={s.id} value={s.id}>↳ {s.title}</option>))}
           </select>
         </FormField>
       )}
