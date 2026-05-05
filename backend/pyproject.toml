@@ -32,6 +32,12 @@ dev = [
     "ruff>=0.4.0",
 ]
 
+[tool.setuptools]
+# Without this, setuptools' auto-discovery sees both `app/` and `alembic/`
+# at the top level and refuses to build. We only ship `app/` as a package;
+# `alembic/` is migration scripts run via the alembic CLI, not importable code.
+packages = ["app"]
+
 [tool.ruff]
 line-length = 100
 
