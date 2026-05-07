@@ -75,11 +75,15 @@
   --library-w:        260px;
   --right-panel-w:    300px;
   --topbar-h:         48px;
+  /* Desktop v3 (gallery) — Rail + Pane + Content */
+  --rail-w:           48px;
+  --pane-w:           280px;
 
   /* ── Surfaces (light) ────────────────────────────────────────────────── */
   --bg-app:         #F4F4F5;   /* page (zinc-100) */
   --bg-shell:       #FAFAFA;   /* main panel (zinc-50) */
   --bg-sidebar:     #F4F4F5;
+  --bg-rail:        #E4E4E7;   /* zinc-200, vertical icon rail */
   --bg-card:        #FFFFFF;   /* raised card */
   --bg-elevated:    #FFFFFF;   /* sheets, dialogs */
   --bg-hover:       rgba(24, 24, 27, 0.04);
@@ -207,10 +211,11 @@
    Accents shift to Tailwind-400 pastels for retina comfort.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.dark {
+[data-theme="dark"] {
   --bg-app:         #09090B;   /* page (zinc-950) */
   --bg-shell:       #131316;   /* main panel */
   --bg-sidebar:     #09090B;
+  --bg-rail:        #09090B;   /* same as app — rail recedes into bg in dark */
   --bg-card:        #1C1C1F;   /* raised card */
   --bg-elevated:    #27272A;   /* sheet / dialog (zinc-800) */
   --bg-hover:       rgba(255, 255, 255, 0.06);

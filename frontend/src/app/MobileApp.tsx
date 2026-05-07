@@ -3,6 +3,9 @@ import { Loader2, BookOpen, BarChart3, Repeat, Zap, Target } from 'lucide-react'
 import MobileDrawer from '../components/MobileDrawer';
 import { useAuthStore } from '../store/auth';
 import { useT } from '../store/i18n';
+import type { Tab } from './tabs';
+
+export type { Tab };
 
 const Notes     = lazy(() => import('../components/Notes'));
 const Tasks     = lazy(() => import('../components/Tasks'));
@@ -10,8 +13,6 @@ const Routines  = lazy(() => import('../components/Routines'));
 const Sprints   = lazy(() => import('../components/Sprints'));
 const Dashboard = lazy(() => import('../components/Metrics'));
 const Profile   = lazy(() => import('../components/Profile'));
-
-export type Tab = 'notes' | 'tasks' | 'routines' | 'sprints' | 'analysis' | 'profile';
 
 const TABS: { key: Tab; labelKey: string; icon: React.ElementType; acc: string }[] = [
   { key: 'notes',    labelKey: 'nav.notes',    icon: BookOpen,  acc: 'notes' },

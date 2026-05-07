@@ -16,8 +16,16 @@ import type {
   Way,
 } from './types';
 
-// API base URL. No env var → relative /api proxied by nginx. VITE_API_URL overrides for dev.
-const BASE_URL: string = import.meta.env.VITE_API_URL || '/api';
+// API base URL. No env var → relative /api/v1 proxied by nginx. VITE_API_URL overrides for dev.
+const BASE_URL: string = import.meta.env.VITE_API_URL || '/api/v1';
+
+/** Strip the API prefix (/api or /api/v1) from BASE_URL when it's absolute,
+ *  to recover the bare origin for asset URL resolution. */
+function originOf(base: string): string {
+  return base.replace(/\/api(?:\/v\d+)?\/?$/, '');
+}
+
+const IMAGE_PATH_RE = /\/api(?:\/v\d+)?\/images\//;
 
 export function resolveUrl(url: string | null | undefined): string {
   if (!url) return '';
@@ -25,12 +33,12 @@ export function resolveUrl(url: string | null | undefined): string {
   if (url.startsWith('data:') || url.startsWith('blob:')) return url;
   let resolved = url;
   if (BASE_URL.startsWith('http')) {
-    const origin = BASE_URL.replace(/\/api\/?$/, '');
+    const origin = originOf(BASE_URL);
     resolved = url.startsWith('/') ? `${origin}${url}` : `${origin}/${url}`;
   }
-  // /api/images/... requires an access token query param so <img> tags
-  // (which can't send Authorization headers) authenticate correctly.
-  if (resolved.includes('/api/images/')) {
+  // /api/images/... and /api/v1/images/... both require an access token query
+  // param so <img> tags (which can't send Authorization headers) authenticate.
+  if (IMAGE_PATH_RE.test(resolved)) {
     const token = typeof localStorage !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (token && !resolved.includes('token=')) {
       resolved += (resolved.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
@@ -39,18 +47,18 @@ export function resolveUrl(url: string | null | undefined): string {
   return resolved;
 }
 
-/** Strip ?token=... from /api/images/... URLs before persisting (e.g. into Tiptap content). */
+/** Strip ?token=... from /api/images/... and /api/v1/images/... URLs before persisting. */
 export function stripImageToken(html: string): string {
-  return html.replace(/(\/api\/images\/[^"'\s?]+)\?token=[^"'\s&]+(&[^"'\s]*)?/g, '$1$2');
+  return html.replace(/(\/api(?:\/v\d+)?\/images\/[^"'\s?]+)\?token=[^"'\s&]+(&[^"'\s]*)?/g, '$1$2');
 }
 
-/** Append ?token=... to /api/images/... URLs in HTML before rendering it. */
+/** Append ?token=... to /api/images/... and /api/v1/images/... URLs in HTML before rendering. */
 export function injectImageToken(html: string): string {
   if (typeof localStorage === 'undefined') return html;
   const token = localStorage.getItem('access_token');
   if (!token) return html;
   const enc = encodeURIComponent(token);
-  return html.replace(/(\/api\/images\/[^"'\s?]+)(\?[^"'\s]*)?/g, (_m, path, query) => {
+  return html.replace(/(\/api(?:\/v\d+)?\/images\/[^"'\s?]+)(\?[^"'\s]*)?/g, (_m, path, query) => {
     if (query && query.includes('token=')) return path + query;
     if (query) return `${path}${query}&token=${enc}`;
     return `${path}?token=${enc}`;

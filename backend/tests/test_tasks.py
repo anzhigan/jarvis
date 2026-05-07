@@ -7,7 +7,7 @@ from tests.conftest import register_and_login
 @pytest.mark.asyncio
 async def test_create_task(client: AsyncClient):
     headers = await register_and_login(client)
-    resp = await client.post("/api/tasks", json={
+    resp = await client.post("/api/v1/tasks", json={
         "title": "Write unit tests",
         "priority": "high",
         "status": "todo",
@@ -21,20 +21,20 @@ async def test_create_task(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_list_tasks_with_filter(client: AsyncClient):
     headers = await register_and_login(client)
-    await client.post("/api/tasks", json={"title": "Task A", "status": "todo"}, headers=headers)
-    await client.post("/api/tasks", json={"title": "Task B", "status": "done"}, headers=headers)
+    await client.post("/api/v1/tasks", json={"title": "Task A", "status": "todo"}, headers=headers)
+    await client.post("/api/v1/tasks", json={"title": "Task B", "status": "done"}, headers=headers)
 
-    resp = await client.get("/api/tasks?status_filter=todo", headers=headers)
+    resp = await client.get("/api/v1/tasks?status_filter=todo", headers=headers)
     assert all(t["status"] == "todo" for t in resp.json())
 
 
 @pytest.mark.asyncio
 async def test_update_task_to_done(client: AsyncClient):
     headers = await register_and_login(client)
-    resp = await client.post("/api/tasks", json={"title": "Finish it"}, headers=headers)
+    resp = await client.post("/api/v1/tasks", json={"title": "Finish it"}, headers=headers)
     task_id = resp.json()["id"]
 
-    resp = await client.patch(f"/api/tasks/{task_id}", json={"status": "done"}, headers=headers)
+    resp = await client.patch(f"/api/v1/tasks/{task_id}", json={"status": "done"}, headers=headers)
     assert resp.status_code == 200
     assert resp.json()["is_completed"] is True
 
@@ -42,17 +42,17 @@ async def test_update_task_to_done(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_delete_task(client: AsyncClient):
     headers = await register_and_login(client)
-    resp = await client.post("/api/tasks", json={"title": "Delete me"}, headers=headers)
+    resp = await client.post("/api/v1/tasks", json={"title": "Delete me"}, headers=headers)
     task_id = resp.json()["id"]
 
-    resp = await client.delete(f"/api/tasks/{task_id}", headers=headers)
+    resp = await client.delete(f"/api/v1/tasks/{task_id}", headers=headers)
     assert resp.status_code == 204
 
 
 @pytest.mark.asyncio
 async def test_invalid_status(client: AsyncClient):
     headers = await register_and_login(client)
-    resp = await client.post("/api/tasks", json={"title": "Bad", "status": "invalid"}, headers=headers)
+    resp = await client.post("/api/v1/tasks", json={"title": "Bad", "status": "invalid"}, headers=headers)
     assert resp.status_code == 400
 
 
@@ -61,8 +61,8 @@ async def test_task_isolation(client: AsyncClient):
     headers1 = await register_and_login(client, "t1")
     headers2 = await register_and_login(client, "t2")
 
-    resp = await client.post("/api/tasks", json={"title": "Secret task"}, headers=headers1)
+    resp = await client.post("/api/v1/tasks", json={"title": "Secret task"}, headers=headers1)
     task_id = resp.json()["id"]
 
-    resp = await client.get(f"/api/tasks/{task_id}", headers=headers2)
+    resp = await client.get(f"/api/v1/tasks/{task_id}", headers=headers2)
     assert resp.status_code == 404

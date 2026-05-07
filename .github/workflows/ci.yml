@@ -34,18 +34,29 @@ jobs:
       - name: Lint (ruff)
         working-directory: backend
         run: ruff check app/
+      - name: Static security scan (bandit)
+        working-directory: backend
+        # -ll = report only Medium+ severity. Tweak baseline as the codebase grows.
+        run: bandit -r app/ -ll
+      - name: Dependency CVE scan (pip-audit)
+        working-directory: backend
+        # Audit the locked transitive set, excluding our own editable install
+        # (pip-audit can't query unpublished packages on PyPI).
+        run: |
+          pip freeze --exclude-editable > /tmp/audit-deps.txt
+          pip-audit --strict --progress-spinner off -r /tmp/audit-deps.txt
       - name: Run migrations against ephemeral postgres
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/jarvis_test
           SECRET_KEY: test-secret-key-please-do-not-use-in-production-32chars
         run: alembic upgrade head
-      - name: Run tests
+      - name: Run tests with coverage gate
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/jarvis_test
           SECRET_KEY: test-secret-key-please-do-not-use-in-production-32chars
-        run: pytest tests/ -v
+        run: pytest tests/ -v --cov=app --cov-report=term --cov-fail-under=60
 
   frontend:
     runs-on: ubuntu-latest
@@ -59,15 +70,21 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+      - name: Dependency CVE scan (npm audit)
+        working-directory: frontend
+        # Fail on high+critical only — moderate findings clutter the signal.
+        run: npm audit --audit-level=high
       - name: Type check
         working-directory: frontend
         run: npx tsc --noEmit
       - name: Lint
         working-directory: frontend
         run: npm run lint
-      - name: Test
+      - name: Test with coverage gate
         working-directory: frontend
-        run: npm test
+        # Threshold starts intentionally low (40%) — raise as features/* hooks
+        # gain unit tests in follow-up phases.
+        run: npm run test:coverage
       - name: Build
         working-directory: frontend
         run: npm run build

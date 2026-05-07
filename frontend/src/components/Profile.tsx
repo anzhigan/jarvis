@@ -20,6 +20,7 @@ import { authApi, resolveUrl, routinesApi, tasksApi } from '../api/client';
 import type { Routine, Task } from '../api/types';
 import { useAuthStore } from '../store/auth';
 import { useT, useLangStore } from '../store/i18n';
+import { applyTheme, type ThemeMode } from '../lib/theme';
 import AvatarCropper from './AvatarCropper';
 import ConfirmDialog from './ConfirmDialog';
 import CreateSheet, { FormField } from './CreateSheet';
@@ -34,22 +35,10 @@ function getSavedFontSize(): number {
   return FONT_SIZES.includes(n) ? n : DEFAULT_FONT_SIZE;
 }
 
-type ThemeMode = 'light' | 'dark' | 'auto';
 function getSavedTheme(): ThemeMode {
   if (typeof localStorage === 'undefined') return 'auto';
   const v = localStorage.getItem('jarvnote:theme');
   return v === 'dark' || v === 'light' ? v : 'auto';
-}
-function applyTheme(mode: ThemeMode) {
-  if (typeof document === 'undefined') return;
-  if (mode === 'auto') {
-    localStorage.removeItem('jarvnote:theme');
-    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.classList.toggle('dark', isDark);
-  } else {
-    localStorage.setItem('jarvnote:theme', mode);
-    document.documentElement.classList.toggle('dark', mode === 'dark');
-  }
 }
 
 function isoDate(d: Date): string {

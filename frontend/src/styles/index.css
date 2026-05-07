@@ -14,7 +14,7 @@
 @import './editor.css';
 @import './desktop.css';
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 /* All design tokens live in tokens.css. Anything that needs to override or
    extend them belongs in a feature CSS file (desktop.css, editor.css). */
@@ -55,8 +55,8 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.08); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.16); background-clip: padding-box; }
-.dark ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); background-clip: padding-box; }
-.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.16); background-clip: padding-box; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); background-clip: padding-box; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.16); background-clip: padding-box; }
 @media (max-width: 768px) {
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-thumb { border: 0; }
@@ -208,7 +208,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   box-shadow: var(--sh-card);
 }
-.dark .float-sidebar-toggle { background: rgba(255, 255, 255, 0.06); }
+[data-theme="dark"] .float-sidebar-toggle { background: rgba(255, 255, 255, 0.06); }
 
 .app-main { flex: 1; overflow: hidden; position: relative; min-width: 0; display: flex; }
 
@@ -348,7 +348,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .chip[data-active="true"], .pill[data-active="true"] {
   background: var(--fg-primary); color: var(--bg-elevated);
 }
-.dark .chip[data-active="true"], .dark .pill[data-active="true"] { color: var(--primary-fg); }
+[data-theme="dark"] .chip[data-active="true"], [data-theme="dark"] .pill[data-active="true"] { color: var(--primary-fg); }
 .chip-count, .pill-count { font-size: 10px; opacity: 0.7; font-variant-numeric: tabular-nums; margin-left: 2px; }
 
 .tag {
@@ -430,7 +430,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   font-family: var(--font-mono);
   margin-left: auto; letter-spacing: 0;
 }
-.dark .kbd { background: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .kbd { background: rgba(255, 255, 255, 0.08); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    KPI CARDS
@@ -533,7 +533,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 }
 .goal-card-progress { display: flex; align-items: center; gap: 6px; }
 .goal-card-bar { flex: 1; height: 6px; background: rgba(0, 0, 0, 0.06); border-radius: var(--r-pill); overflow: hidden; }
-.dark .goal-card-bar { background: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .goal-card-bar { background: rgba(255, 255, 255, 0.08); }
 .goal-card-bar-fill { height: 100%; border-radius: var(--r-pill); }
 .goal-card-pct { font-size: 10px; font-weight: 500; color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
 .goal-card-meta { font-size: 10px; color: var(--fg-muted); margin-top: 7px; display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
@@ -589,7 +589,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   border: 0; padding: 0;
   transition: transform var(--dur-fast) var(--ease);
 }
-.dark .streak-dot { background: rgba(255, 255, 255, 0.06); }
+[data-theme="dark"] .streak-dot { background: rgba(255, 255, 255, 0.06); }
 .streak-dot:hover { transform: scale(1.18); }
 .streak-dot[data-state="done"] { background: var(--success); }
 .streak-dot[data-state="fail"] { background: rgba(188, 74, 72, 0.35); }
@@ -599,7 +599,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .heatmap { display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; }
 @media (max-width: 768px) { .heatmap { grid-template-columns: repeat(14, 1fr); } }
 .heatmap-cell { aspect-ratio: 1; border-radius: 3px; background: rgba(0, 0, 0, 0.05); }
-.dark .heatmap-cell { background: rgba(255, 255, 255, 0.06); }
+[data-theme="dark"] .heatmap-cell { background: rgba(255, 255, 255, 0.06); }
 .heatmap-cell[data-level="1"] { background: rgba(29, 158, 117, 0.20); }
 .heatmap-cell[data-level="2"] { background: rgba(29, 158, 117, 0.45); }
 .heatmap-cell[data-level="3"] { background: rgba(29, 158, 117, 0.70); }
@@ -677,7 +677,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .step-card-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; margin: 0 0 8px; color: var(--fg-primary); }
 .step-card-progress { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .step-card-bar { flex: 1; height: 6px; background: rgba(0, 0, 0, 0.06); border-radius: var(--r-pill); overflow: hidden; }
-.dark .step-card-bar { background: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .step-card-bar { background: rgba(255, 255, 255, 0.08); }
 .step-card-bar-fill { height: 100%; border-radius: var(--r-pill); }
 .step-card-pct { font-size: 10px; font-weight: 500; color: var(--fg-tertiary); font-variant-numeric: tabular-nums; }
 .step-card-meta { font-size: 10.5px; color: var(--fg-muted); margin-bottom: 6px; }
@@ -774,7 +774,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   box-shadow: inset -0.5px 0 0 var(--line);
   overflow: hidden;
 }
-.dark .notes-library { background: rgba(255, 255, 255, 0.02); }
+[data-theme="dark"] .notes-library { background: rgba(255, 255, 255, 0.02); }
 
 .notes-library-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -1253,7 +1253,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
-.dark .mobile-tabbar { background: rgba(19, 19, 22, 0.85); }
+[data-theme="dark"] .mobile-tabbar { background: rgba(19, 19, 22, 0.85); }
 
 .mobile-tab {
   flex: 1; display: flex; flex-direction: column;
@@ -1286,7 +1286,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   display: flex; align-items: center; justify-content: center;
   padding: 16px;
 }
-.dark .modal-backdrop { background: rgba(0, 0, 0, 0.6); }
+[data-theme="dark"] .modal-backdrop { background: rgba(0, 0, 0, 0.6); }
 
 .modal-panel {
   background: var(--bg-elevated);
@@ -1717,7 +1717,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   position: relative; overflow: visible;
   width: 100%;
 }
-.dark .streak-strip-row { background: rgba(255, 255, 255, 0.03); }
+[data-theme="dark"] .streak-strip-row { background: rgba(255, 255, 255, 0.03); }
 .streak-strip-label {
   font-size: 10px; font-weight: 500;
   text-transform: uppercase; letter-spacing: 0.07em;

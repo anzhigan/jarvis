@@ -24,173 +24,24 @@ from app.schemas.tasks import (
     TaskOut,
     TaskUpdate,
 )
+from app.services.tasks import (
+    VALID_GO_KINDS,
+    VALID_PRIORITIES,
+    VALID_RECURRENCE,
+    VALID_STATUSES,
+    get_go_or_404 as _get_go,
+    get_sprint_or_404 as _get_sprint,
+    get_task_or_404 as _get_task,
+    go_completion_ratio as _go_completion_ratio,
+    go_total_value as _go_total_value,
+    is_go_done_today as _is_go_done_today,
+    normalize_status as _normalize_status,
+    sprint_progress_pct as _sprint_progress,
+    task_eager_options as _task_opts,
+    task_progress_pct as _task_progress,
+)
 
 router = APIRouter(tags=["tasks"])
-
-# New canonical statuses: backlog / active / paused / done
-# Old names are accepted and translated for backwards compat with any existing client code.
-VALID_STATUSES = {"backlog", "active", "paused", "done", "todo", "in_progress", "background"}
-
-
-def _normalize_status(s: str) -> str:
-    """Map old status names → new ones. background → active by default."""
-    return {
-        "todo": "backlog",
-        "in_progress": "active",
-        "background": "active",
-    }.get(s, s)
-VALID_PRIORITIES = {"low", "medium", "high"}
-VALID_GO_KINDS = {"boolean", "numeric"}
-VALID_RECURRENCE = {"none", "daily", "weekly"}
-
-
-# ── loaders ──────────────────────────────────────────────────────────────────
-
-def _task_opts():
-    return (
-        selectinload(Task.sprints).selectinload(Sprint.gos).selectinload(Go.entries),
-        selectinload(Task.gos).selectinload(Go.entries),
-        selectinload(Task.gos).selectinload(Go.sprint),
-        selectinload(Task.tags),
-    )
-
-
-async def _get_task(task_id: uuid.UUID, user: User, db: AsyncSession) -> Task:
-    r = await db.execute(
-        select(Task).where(Task.id == task_id, Task.user_id == user.id).options(*_task_opts())
-    )
-    t = r.scalar_one_or_none()
-    if not t:
-        raise HTTPException(404, "Task not found")
-    return t
-
-
-async def _get_sprint(sprint_id: uuid.UUID, user: User, db: AsyncSession) -> Sprint:
-    r = await db.execute(
-        select(Sprint).where(Sprint.id == sprint_id, Sprint.user_id == user.id)
-        .options(selectinload(Sprint.gos).selectinload(Go.entries), selectinload(Sprint.task))
-    )
-    s = r.scalar_one_or_none()
-    if not s:
-        raise HTTPException(404, "Sprint not found")
-    return s
-
-
-async def _get_go(go_id: uuid.UUID, user: User, db: AsyncSession) -> Go:
-    r = await db.execute(
-        select(Go).where(Go.id == go_id, Go.user_id == user.id)
-        .options(selectinload(Go.entries), selectinload(Go.task), selectinload(Go.sprint))
-    )
-    g = r.scalar_one_or_none()
-    if not g:
-        raise HTTPException(404, "Go not found")
-    return g
-
-
-# ─── Progress calculation ────────────────────────────────────────────────────
-
-def _is_go_done_today(go: Go) -> bool:
-    """For boolean: has an entry with value>0 for today.
-    For numeric one-off: cumulative total_value >= target_value.
-    For numeric recurring: today's value >= target_value.
-    """
-    today = date_cls.today()
-    if go.kind == "boolean":
-        return any(e.value > 0 and e.date == today for e in go.entries)
-    # numeric
-    target = go.target_value or 0
-    if go.recurrence == "none":
-        total = sum(e.value for e in go.entries)
-        return target > 0 and total >= target
-    else:
-        today_val = next((e.value for e in go.entries if e.date == today), 0)
-        return target > 0 and today_val >= target
-
-
-def _go_completion_ratio(g: Go, period_start: date_cls | None = None, period_end: date_cls | None = None) -> float:
-    """Returns 0.0..1.0 — how complete this Go is.
-
-    For daily-recurring boolean Go:
-        ratio = entries_with_value>0 / possible_days
-        possible_days = days from max(g.created_at, period_start) to min(today, period_end or due_date)
-    For other Go (one-off or numeric):
-        boolean → 1.0 if any positive entry else 0.0
-        numeric → min(1.0, sum(values) / target_value) or 1.0 if no target & has entries
-    """
-    today = date_cls.today()
-
-    # Recurring boolean (daily or weekly) is the special case
-    if g.kind == "boolean" and g.recurrence in ("daily", "weekly"):
-        # Establish window
-        start = g.created_at.date() if g.created_at else today
-        if period_start and period_start > start:
-            start = period_start
-        end = today
-        # Cap by due_date or period_end
-        if g.due_date and g.due_date < end:
-            end = g.due_date
-        if period_end and period_end < end:
-            end = period_end
-        if end < start:
-            return 0.0
-        possible_days = (end - start).days + 1
-        if possible_days <= 0:
-            return 0.0
-        # For weekly — convert to weeks, count weeks with ≥1 entry
-        if g.recurrence == "weekly":
-            possible_weeks = max(1, (possible_days + 6) // 7)
-            seen_weeks = set()
-            for e in g.entries:
-                if e.value > 0 and start <= e.date <= end:
-                    seen_weeks.add((e.date - start).days // 7)
-            return min(1.0, len(seen_weeks) / possible_weeks)
-        # Daily: count days with value > 0
-        done_days = sum(
-            1 for e in g.entries
-            if e.value > 0 and start <= e.date <= end
-        )
-        ratio = min(1.0, done_days / possible_days)
-        return ratio
-
-    # Non-recurring boolean
-    if g.kind == "boolean":
-        return 1.0 if any(e.value > 0 for e in g.entries) else 0.0
-
-    # numeric
-    total = sum(e.value for e in g.entries)
-    target = g.target_value or 0
-    if target > 0:
-        return min(1.0, total / target)
-    return 1.0 if total > 0 else 0.0
-
-
-def _go_total_value(go: Go) -> float:
-    return sum(e.value for e in go.entries)
-
-
-def _sprint_progress(sprint: Sprint) -> int:
-    """Progress % = average of completion ratios across all Gos."""
-    gos = [g for g in sprint.gos if g.item_kind != 'routine_legacy']
-    if not gos:
-        return 0
-    period_start = sprint.start_date
-    period_end = sprint.end_date
-    ratios = [_go_completion_ratio(g, period_start, period_end) for g in gos]
-    return int(round(100 * sum(ratios) / len(ratios)))
-
-
-def _task_progress(task: Task) -> int:
-    """Average of completion ratios across sprints + direct gos."""
-    direct_gos = [g for g in task.gos if not g.sprint_id and g.item_kind != 'routine_legacy']
-    sprint_progresses = [_sprint_progress(s) for s in task.sprints]
-    direct_ratios = [
-        _go_completion_ratio(g, task.start_date, task.due_date) * 100
-        for g in direct_gos
-    ]
-    all_values = sprint_progresses + direct_ratios
-    if not all_values:
-        return 0
-    return int(round(sum(all_values) / len(all_values)))
 
 
 # ─── Serializers ─────────────────────────────────────────────────────────────

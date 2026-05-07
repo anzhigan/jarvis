@@ -4,10 +4,10 @@ import { Loader2 } from 'lucide-react';
 import AuthPage from '../components/AuthPage';
 import { useAuthStore } from '../store/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { MobileApp, type Tab } from './MobileApp';
+import { applyTheme, getStoredTheme, resolveTheme, watchSystemTheme } from '../lib/theme';
+import { MobileApp } from './MobileApp';
 import { DesktopApp } from './DesktopApp';
-
-const VALID_TABS: Tab[] = ['notes', 'tasks', 'routines', 'sprints', 'analysis', 'profile'];
+import { VALID_TABS, type Tab } from './tabs';
 
 export default function App() {
   const { user, isReady, init } = useAuthStore();
@@ -20,16 +20,17 @@ export default function App() {
   });
   useEffect(() => { localStorage.setItem('jarvnote:tab', tab); }, [tab]);
 
-  const [dark, setDark] = useState(false);
+  // Theme is applied to <html data-theme="..."> by applyInitialTheme() in main.tsx.
+  // We only mirror its current resolved value to drive UI (icon swap, etc.).
+  const [dark, setDark] = useState(() => resolveTheme(getStoredTheme()) === 'dark');
 
   useEffect(() => { init(); }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem('jarvnote:theme');
-    const isDark = saved === 'dark' ||
-      (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    setDark(isDark);
-    document.documentElement.classList.toggle('dark', isDark);
+    return watchSystemTheme((resolved) => {
+      applyTheme('auto');
+      setDark(resolved === 'dark');
+    });
   }, []);
 
   useEffect(() => {
@@ -40,9 +41,8 @@ export default function App() {
 
   const toggleTheme = () => {
     const next = !dark;
+    applyTheme(next ? 'dark' : 'light');
     setDark(next);
-    document.documentElement.classList.toggle('dark', next);
-    localStorage.setItem('jarvnote:theme', next ? 'dark' : 'light');
   };
 
   const toaster = (

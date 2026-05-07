@@ -1,16 +1,17 @@
 import { lazy, Suspense, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { DesktopShell, type Tab } from '../components/shell/DesktopShell';
+import { DesktopShell } from '../components/shell/DesktopShell';
 import { CommandPalette } from '../components/shell/CommandPalette';
 import { TooltipProvider } from '../components/ui';
 import { useShortcuts } from '../hooks/useShortcuts';
+import type { Tab } from './tabs';
 
-const NotesView    = lazy(() => import('../components/views/NotesView'));
-const GoalsView    = lazy(() => import('../components/views/GoalsView'));
-const RoutinesView = lazy(() => import('../components/views/RoutinesView'));
-const SprintsView  = lazy(() => import('../components/views/SprintsView'));
-const AnalysisView = lazy(() => import('../components/views/AnalysisView'));
-const ProfileView  = lazy(() => import('../components/views/ProfileView'));
+const NotesView    = lazy(() => import('../features/notes/components/NotesView'));
+const GoalsView    = lazy(() => import('../features/goals/components/GoalsView'));
+const RoutinesView = lazy(() => import('../features/routines/components/RoutinesView'));
+const SprintsView  = lazy(() => import('../features/sprints/components/SprintsView'));
+const AnalysisView = lazy(() => import('../features/analytics/components/AnalysisView'));
+const ProfileView  = lazy(() => import('../features/profile/components/ProfileView'));
 
 interface Props {
   tab: Tab;
@@ -21,9 +22,11 @@ interface Props {
 
 function ViewFallback() {
   return (
-    <div className="size-full flex items-center justify-center">
-      <Loader2 size={24} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
-    </div>
+    <main className="content">
+      <div className="content-empty">
+        <Loader2 size={20} className="animate-spin" />
+      </div>
+    </main>
   );
 }
 
@@ -32,22 +35,10 @@ export function DesktopApp({ tab, onTabChange, dark, onToggleTheme }: Props) {
 
   useShortcuts({
     bindings: {
-      openPalette: {
-        keys: { key: 'k', modifiers: ['mod'] },
-        handler: () => setPaletteOpen(true),
-      },
-      slashSearch: {
-        keys: { key: '/' },
-        handler: () => setPaletteOpen(true),
-      },
-      toggleTheme: {
-        keys: { key: 'l', modifiers: ['mod', 'shift'] },
-        handler: onToggleTheme,
-      },
-      escape: {
-        keys: { key: 'Escape' },
-        handler: () => setPaletteOpen(false),
-      },
+      openPalette: { keys: { key: 'k', modifiers: ['mod'] }, handler: () => setPaletteOpen(true) },
+      slashSearch: { keys: { key: '/' }, handler: () => setPaletteOpen(true) },
+      toggleTheme: { keys: { key: 'l', modifiers: ['mod', 'shift'] }, handler: onToggleTheme },
+      escape:      { keys: { key: 'Escape' }, handler: () => setPaletteOpen(false) },
     },
     sequences: {
       g: {

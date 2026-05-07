@@ -6,6 +6,7 @@ export { Input, Textarea } from './Input';
 export { Kbd } from './Kbd';
 export { Tooltip, TooltipProvider } from './Tooltip';
 export { Dialog, DialogClose } from './Dialog';
+export { Drawer, DrawerClose } from './Drawer';
 export {
   Dropdown, MenuItem, MenuLabel, MenuSeparator, MenuCheck, MenuSub,
   Context, ContextItem, ContextSeparator,

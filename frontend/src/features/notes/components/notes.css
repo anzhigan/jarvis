@@ -1,0 +1,76 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Notes — section-specific CSS
+   Imported by features/notes/components/NotesView.tsx so the bundle is
+   loaded only when the section is opened.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Saved indicator in content-bar */
+.saved {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.saved[data-state="saved"] svg { color: var(--success); }
+.saved svg { width: 11px; height: 11px; }
+
+/* Editor paper — the writing surface inside .content */
+.content.editor { overflow: hidden; }
+.note-paper {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  padding: 24px max(48px, calc((100% - 760px) / 2)) 96px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.note-paper::-webkit-scrollbar { width: 8px; }
+.note-paper::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+
+/* Title input — large, borderless, inherits paper background */
+.note-title {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--fg-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-3xl);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.15;
+  padding: 8px 0 12px;
+  margin-bottom: 8px;
+}
+.note-title::placeholder { color: var(--fg-faint); }
+.note-title:focus { outline: 0; }
+
+/* The legacy RichTextEditor wraps content in .notes-editor-paper. On desktop
+   we re-use it as-is; just make sure it fills the host without its own
+   horizontal padding, since .note-paper already handles that. */
+.note-paper .notes-editor-paper { padding: 0; }
+
+/* Floating expand button shown when the pane is collapsed.
+   Sits in the top-left corner of the content area, beside the rail. */
+.pane-expand-floating {
+  position: absolute;
+  top: 8px;
+  left: calc(var(--rail-w) + 8px);
+  z-index: var(--z-sticky);
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-card);
+  color: var(--fg-tertiary);
+  border: 0;
+  border-radius: var(--r-control);
+  box-shadow: var(--sh-card);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.pane-expand-floating:hover { background: var(--bg-hover); color: var(--fg-primary); }
+.pane-expand-floating svg { width: 14px; height: 14px; }
+
+/* Anchor for the floating expand button. The shell is already flex,
+   we only need a positioning context. */
+.dk-shell { position: relative; }

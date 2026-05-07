@@ -1,14 +1,12 @@
-import { useEffect, useState } from 'react';
 import {
-  BookOpen, Target, Repeat, Zap, BarChart3, Search, PanelLeftClose, PanelLeftOpen,
-  Moon, Sun, Settings,
+  Search, BookOpen, Target, Repeat, Zap, BarChart3, Moon, Sun,
 } from 'lucide-react';
 import { resolveUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { useT } from '../../store/i18n';
-import { Avatar, IconButton, Kbd, Tooltip } from '../ui';
-
-export type Tab = 'notes' | 'tasks' | 'routines' | 'sprints' | 'analysis' | 'profile';
+import { Tooltip } from '../ui';
+import type { Tab } from '../../app/tabs';
+import { sectionForTab } from '../../app/tabs';
 
 const NAV: { key: Tab; labelKey: string; icon: React.ElementType; acc: string }[] = [
   { key: 'notes',    labelKey: 'nav.notes',    icon: BookOpen,  acc: 'notes' },
@@ -31,93 +29,76 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
   const { user } = useAuthStore();
   const t = useT();
 
-  const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem('jarvnote:sidebar:v4') === 'collapsed';
-  });
-  useEffect(() => {
-    localStorage.setItem('jarvnote:sidebar:v4', collapsed ? 'collapsed' : 'open');
-  }, [collapsed]);
-
   if (!user) return null;
 
+  const initial = (user.username?.[0] ?? '?').toUpperCase();
+  const avatarSrc = user.avatar_url ? resolveUrl(user.avatar_url) : undefined;
+
   return (
-    <div className="dt-root">
-      <div className="dt-shell">
-        <aside className="dt-sidebar" data-collapsed={collapsed}>
-          <div className="dt-sidebar-head">
-            {!collapsed && <span className="dt-brand">Jarvnote</span>}
-            <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right">
-              <IconButton size="sm" onClick={() => setCollapsed((c) => !c)} aria-label="Toggle sidebar">
-                {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-              </IconButton>
-            </Tooltip>
-          </div>
+    <div className="dk-shell" data-section={sectionForTab(tab)}>
+      <aside className="rail">
+        <div className="rail-brand" aria-label="Jarvnote">
+          <svg viewBox="0 0 32 32" fill="none">
+            <g transform="rotate(20 16 16)">
+              <path
+                d="M16 3 C16 10 13 13 6 16 C13 19 16 22 16 29 C16 22 19 19 26 16 C19 13 16 10 16 3 Z"
+                fill="currentColor"
+              />
+              <rect x="-3" y="14.6" width="38" height="2.8" rx="1.4" fill="var(--bg-rail)" />
+            </g>
+          </svg>
+        </div>
 
-          {!collapsed && (
-            <div className="dt-sidebar-search">
-              <button type="button" className="dt-sidebar-search-btn" onClick={onOpenSearch}>
-                <Search size={12} />
-                <span>{t('search.placeholder') || 'Search…'}</span>
-                <Kbd className="kbd-suffix" keys={['mod', 'k']} />
-              </button>
-            </div>
-          )}
+        <div className="rail-section">
+          <Tooltip content={`${t('search.placeholder') || 'Search'} (⌘K)`} side="right">
+            <button className="rail-btn" onClick={onOpenSearch} aria-label="Search">
+              <Search />
+            </button>
+          </Tooltip>
+        </div>
 
-          {!collapsed && <div className="dt-sidebar-section">Workspace</div>}
+        <div className="rail-divider" />
 
-          <nav className="dt-sidebar-nav">
-            {NAV.map(({ key, labelKey, icon: Icon, acc }) => {
-              const active = tab === key;
-              const node = (
+        <div className="rail-section">
+          {NAV.map(({ key, labelKey, icon: Icon, acc }) => {
+            const active = tab === key;
+            return (
+              <Tooltip key={key} content={t(labelKey)} side="right">
                 <button
-                  key={key}
-                  className="dt-nav-item"
+                  className="rail-btn"
                   data-active={active || undefined}
                   data-acc={acc}
                   onClick={() => onTabChange(key)}
+                  aria-label={t(labelKey)}
+                  aria-current={active ? 'page' : undefined}
                 >
-                  <Icon className="icon" />
-                  {!collapsed && <span>{t(labelKey)}</span>}
+                  <Icon />
                 </button>
-              );
-              return collapsed ? (
-                <Tooltip key={key} content={t(labelKey)} side="right">{node}</Tooltip>
-              ) : node;
-            })}
-          </nav>
-
-          <div className="dt-sidebar-foot">
-            <div className="dt-sidebar-foot-row">
-              <button className="dt-profile-row" onClick={() => onTabChange('profile')}>
-                <Avatar
-                  src={user.avatar_url ? resolveUrl(user.avatar_url) : undefined}
-                  name={user.username}
-                  size="sm"
-                />
-                {!collapsed && <span className="dt-profile-name">{user.username}</span>}
-              </button>
-              {!collapsed && (
-                <>
-                  <Tooltip content={dark ? 'Light theme' : 'Dark theme'} side="top">
-                    <IconButton size="sm" onClick={onToggleTheme} aria-label="Toggle theme">
-                      {dark ? <Sun size={14} /> : <Moon size={14} />}
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip content="Settings" side="top">
-                    <IconButton size="sm" onClick={() => onTabChange('profile')} aria-label="Settings">
-                      <Settings size={14} />
-                    </IconButton>
-                  </Tooltip>
-                </>
-              )}
-            </div>
-          </div>
-        </aside>
-
-        <div className="dt-workspace">
-          <main className="dt-main">{children}</main>
+              </Tooltip>
+            );
+          })}
         </div>
-      </div>
+
+        <div className="rail-foot">
+          <Tooltip content={dark ? 'Light theme' : 'Dark theme'} side="right">
+            <button className="rail-btn" onClick={onToggleTheme} aria-label="Toggle theme">
+              {dark ? <Sun /> : <Moon />}
+            </button>
+          </Tooltip>
+          <Tooltip content={user.username} side="right">
+            <button
+              className="rail-avatar"
+              onClick={() => onTabChange('profile')}
+              aria-label="Profile"
+              data-active={tab === 'profile' || undefined}
+            >
+              {avatarSrc ? <img src={avatarSrc} alt="" /> : initial}
+            </button>
+          </Tooltip>
+        </div>
+      </aside>
+
+      {children}
     </div>
   );
 }

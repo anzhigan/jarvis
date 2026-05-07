@@ -4,7 +4,7 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 async def test_register(client: AsyncClient):
-    resp = await client.post("/api/auth/register", json={
+    resp = await client.post("/api/v1/auth/register", json={
         "email": "newuser@test.com",
         "username": "newuser",
         "password": "password123",
@@ -18,18 +18,18 @@ async def test_register(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_register_duplicate_email(client: AsyncClient):
     payload = {"email": "dup@test.com", "username": "dup1", "password": "password123"}
-    await client.post("/api/auth/register", json=payload)
+    await client.post("/api/v1/auth/register", json=payload)
     payload["username"] = "dup2"
-    resp = await client.post("/api/auth/register", json=payload)
+    resp = await client.post("/api/v1/auth/register", json=payload)
     assert resp.status_code == 409
 
 
 @pytest.mark.asyncio
 async def test_login(client: AsyncClient):
-    await client.post("/api/auth/register", json={
+    await client.post("/api/v1/auth/register", json={
         "email": "login@test.com", "username": "loginuser", "password": "password123"
     })
-    resp = await client.post("/api/auth/login", json={
+    resp = await client.post("/api/v1/auth/login", json={
         "email": "login@test.com", "password": "password123"
     })
     assert resp.status_code == 200
@@ -39,10 +39,10 @@ async def test_login(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_login_wrong_password(client: AsyncClient):
-    await client.post("/api/auth/register", json={
+    await client.post("/api/v1/auth/register", json={
         "email": "wrongpw@test.com", "username": "wrongpwuser", "password": "password123"
     })
-    resp = await client.post("/api/auth/login", json={
+    resp = await client.post("/api/v1/auth/login", json={
         "email": "wrongpw@test.com", "password": "wrongpassword"
     })
     assert resp.status_code == 401
@@ -50,23 +50,55 @@ async def test_login_wrong_password(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_me(client: AsyncClient):
-    await client.post("/api/auth/register", json={
+    await client.post("/api/v1/auth/register", json={
         "email": "me@test.com", "username": "meuser", "password": "password123"
     })
-    resp = await client.post("/api/auth/login", json={"email": "me@test.com", "password": "password123"})
+    resp = await client.post("/api/v1/auth/login", json={"email": "me@test.com", "password": "password123"})
     token = resp.json()["access_token"]
-    resp = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    resp = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
     assert resp.json()["email"] == "me@test.com"
 
 
 @pytest.mark.asyncio
 async def test_refresh_token(client: AsyncClient):
-    await client.post("/api/auth/register", json={
+    await client.post("/api/v1/auth/register", json={
         "email": "refresh@test.com", "username": "refreshuser", "password": "password123"
     })
-    resp = await client.post("/api/auth/login", json={"email": "refresh@test.com", "password": "password123"})
+    resp = await client.post("/api/v1/auth/login", json={"email": "refresh@test.com", "password": "password123"})
     refresh_token = resp.json()["refresh_token"]
-    resp = await client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
+    resp = await client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
     assert resp.status_code == 200
     assert "access_token" in resp.json()
+
+
+@pytest.mark.asyncio
+async def test_deprecated_api_alias_still_works_with_warning(client: AsyncClient):
+    """The /api/* prefix is kept as a deprecation alias for in-flight clients.
+    Requests succeed but carry Deprecation/Sunset headers so we can observe
+    usage and eventually retire it."""
+    resp = await client.post("/api/auth/register", json={
+        "email": "alias@test.com", "username": "aliasuser", "password": "password123"
+    })
+    assert resp.status_code in (200, 201)
+    assert resp.headers.get("Deprecation") == "true"
+    assert "successor-version" in resp.headers.get("Link", "")
+    assert resp.headers.get("Sunset")
+
+
+@pytest.mark.asyncio
+async def test_health_live_always_ok(client: AsyncClient):
+    resp = await client.get("/health/live")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_health_ready_reports_db_check(client: AsyncClient):
+    resp = await client.get("/health/ready")
+    # SQLite tests can't head_bucket against a real MinIO, but db ping should work.
+    body = resp.json()
+    assert "checks" in body
+    assert "db" in body["checks"]
+    assert "s3" in body["checks"]
+    assert body["checks"]["db"]["ok"] is True

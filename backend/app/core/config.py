@@ -26,7 +26,12 @@ class Settings(BaseSettings):
 
     # App
     APP_ENV: str = "development"
+    APP_VERSION: str = "1.0.0"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+
+    # Observability — Sentry is opt-in. Empty DSN = no-op.
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
 
     @property
     def origins(self) -> list[str]:

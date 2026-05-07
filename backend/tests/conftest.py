@@ -8,7 +8,12 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.database import Base, get_db
+from app.core.rate_limit import limiter
 from app.main import app
+
+# Disable rate limiting in tests — slowapi keeps in-memory state per-process,
+# so repeated /auth/register calls in the same run hit the 5/hour cap.
+limiter.enabled = False
 
 # Use a separate test DB (SQLite for simplicity, or set TEST_DATABASE_URL)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -51,11 +56,11 @@ async def register_and_login(client: AsyncClient, suffix: str = "") -> dict:
     """Register a user and return auth headers."""
     email = f"user{suffix}_{uuid.uuid4().hex[:6]}@test.com"
     username = f"user{suffix}_{uuid.uuid4().hex[:6]}"
-    await client.post("/api/auth/register", json={
+    await client.post("/api/v1/auth/register", json={
         "email": email,
         "username": username,
         "password": "password123",
     })
-    resp = await client.post("/api/auth/login", json={"email": email, "password": "password123"})
+    resp = await client.post("/api/v1/auth/login", json={"email": email, "password": "password123"})
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}

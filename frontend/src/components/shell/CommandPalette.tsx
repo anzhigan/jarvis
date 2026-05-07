@@ -5,7 +5,7 @@ import {
   Search, BookOpen, Target, Repeat, Zap, BarChart3, Settings,
   Sun, Plus, FileText, ArrowRight,
 } from 'lucide-react';
-import type { Tab } from './DesktopShell';
+import type { Tab } from '../../app/tabs';
 import { tasksApi, waysApi } from '../../api/client';
 import type { Note, Task, Way, Topic } from '../../api/types';
 

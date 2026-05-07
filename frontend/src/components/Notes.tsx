@@ -1,25 +1,7 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
-  ChevronRight,
-  ChevronLeft,
-  FolderPlus,
-  FileText,
-  Pin,
-  PinOff,
-  FilePlus,
-  Plus,
-  Pencil,
-  Trash2,
-  Search,
-  Loader2,
-  BookOpen,
-  Layers,
-  Folder,
-  FolderOpen,
-  PanelRightClose,
-  ChevronsRight,
-  Check,
+  ChevronRight, ChevronLeft, FolderPlus, FileText, Pin,
+  Search, Loader2, Layers, Folder, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 // Heavy editor (~280 KB gzip with tiptap+lowlight+katex). Lazy-load only when
@@ -37,8 +19,10 @@ import MobileNavbar from './MobileNavbar';
 import AddItemButton from './AddItemButton';
 import { useSwipeBack } from '../hooks/useSwipeBack';
 import { useT } from '../store/i18n';
-import { notesApi, topicsApi, waysApi, resolveUrl } from '../api/client';
 import { useAuthStore } from '../store/auth';
+import { resolveUrl } from '../api/client';
+import { useNotesLibrary } from '../features/notes/hooks/useNotesLibrary';
+import { useNoteAutoSave } from '../features/notes/hooks/useNoteAutoSave';
 import type { Note, Way } from '../api/types';
 import CreateSheet, { FormField } from './CreateSheet';
 
@@ -68,12 +52,14 @@ type MobileView =
 
 export default function Notes() {
   const t = useT();
-  const [ways, setWays] = useState<Way[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+
+  // Shared library + autosave hooks (also used by features/notes/ on desktop).
+  const library = useNotesLibrary();
+  const save    = useNoteAutoSave(() => { void library.refresh(); });
+  const { ways, loading } = library;
 
   const [expandedWays, setExpandedWays] = useState<Set<string>>(new Set());
-  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [, setExpandedTopics] = useState<Set<string>>(new Set());
   const [selection, setSelection] = useState<Selection>(() => {
     try {
       const raw = localStorage.getItem('notes:selection');
@@ -107,62 +93,34 @@ export default function Notes() {
   // Mobile navigation stack
   const [mobileView, setMobileView] = useState<MobileView>({ kind: 'root' });
 
-  // Desktop sidebar visibility
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    return localStorage.getItem('jarvnote:notes:libOpen') !== '0';
-  });
-  // Right context panel visibility
-  const [contextOpen, setContextOpen] = useState(() => {
-    return localStorage.getItem('jarvnote:notes:ctxOpen') !== '0';
-  });
-  useEffect(() => { localStorage.setItem('jarvnote:notes:libOpen', sidebarOpen ? '1' : '0'); }, [sidebarOpen]);
-  useEffect(() => { localStorage.setItem('jarvnote:notes:ctxOpen', contextOpen ? '1' : '0'); }, [contextOpen]);
-
-  // Editor state
-  const [editorState, setEditorState] = useState<{ noteId: string; content: string; dirty: boolean } | null>(null);
-  const editorStateRef = useRef(editorState);
-  editorStateRef.current = editorState;
-
-  // ── Load ─────────────────────────────────────────────────────────────────
-  const loadWays = async () => {
-    try {
-      const data = await waysApi.list();
-      setWays(data);
-      if (data.length > 0 && expandedWays.size === 0) {
-        setExpandedWays(new Set([data[0].id]));
-      }
-      // If we have a restored selection, expand its parent way/topic
-      if (selection) {
-        for (const w of data) {
-          for (const t of w.topics) {
-            if (t.id === selection.parentId || t.notes.some((n) => n.id === selection.noteId)) {
-              setExpandedWays((p) => new Set([...p, w.id]));
-              setExpandedTopics((p) => new Set([...p, t.id]));
-            }
-          }
-          if (w.id === selection.parentId || w.notes?.some((n) => n.id === selection.noteId)) {
+  // ── Auto-expand parent way/topic for restored selection ─────────────────
+  useEffect(() => {
+    if (loading || ways.length === 0) return;
+    if (expandedWays.size === 0) {
+      setExpandedWays(new Set([ways[0].id]));
+    }
+    if (selection) {
+      for (const w of ways) {
+        for (const tp of w.topics) {
+          if (tp.id === selection.parentId || tp.notes.some((n) => n.id === selection.noteId)) {
             setExpandedWays((p) => new Set([...p, w.id]));
+            setExpandedTopics((p) => new Set([...p, tp.id]));
           }
         }
+        if (w.id === selection.parentId || w.notes?.some((n) => n.id === selection.noteId)) {
+          setExpandedWays((p) => new Set([...p, w.id]));
+        }
       }
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to load knowledge base');
-    } finally {
-      setLoading(false);
     }
-  };
-
-  useEffect(() => { loadWays(); }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, ways.length]);
 
   // iOS swipe-back gesture: from-left-edge swipe closes the note view
   useSwipeBack({
     onBack: async () => {
       if (selection) {
-        // Save and exit
-        const st = editorStateRef.current;
-        if (st?.dirty) {
-          try { await notesApi.update(st.noteId, { content: st.content }); } catch {}
-        }
+        // Flush pending edits before navigating away.
+        await save.flush();
         // Restore the hierarchy view to the note's parent. Without this,
         // mobileView stays at { kind: 'note' } while currentNote becomes null,
         // and MobileHierarchy has no matching branch → blank screen, requiring
@@ -198,124 +156,41 @@ export default function Notes() {
     return null;
   }, [ways, selection]);
 
-  // ── Autosave ──────────────────────────────────────────────────────────────
-  const saveCurrentEditor = async (): Promise<void> => {
-    const st = editorStateRef.current;
-    if (!st || !st.dirty) return;
-    setSaving(true);
-    try {
-      await notesApi.update(st.noteId, { content: st.content });
-      // Update local ways state in-place so content matches server
-      setWays((prev) => prev.map((w) => ({
-        ...w,
-        notes: w.notes.map((n) => n.id === st.noteId ? { ...n, content: st.content } : n),
-        topics: w.topics.map((t) => ({
-          ...t,
-          notes: t.notes.map((n) => n.id === st.noteId ? { ...n, content: st.content } : n),
-        })),
-      })));
-      if (editorStateRef.current && editorStateRef.current.noteId === st.noteId && editorStateRef.current.content === st.content) {
-        setEditorState({ ...editorStateRef.current, dirty: false });
-      }
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  // Autosave is fully handled by useNoteAutoSave (debounce + flush on unmount).
+  // When the selected note changes we flush any pending writes for the previous one.
+  const prevNoteIdRef = useState<{ current: string | null }>({ current: null })[0];
   useEffect(() => {
-    const newNoteId = currentNote?.id ?? null;
-    const prev = editorStateRef.current;
-    if (prev && prev.noteId === newNoteId) return;
-
-    if (prev && prev.dirty) {
-      notesApi.update(prev.noteId, { content: prev.content }).catch(() => {});
+    const newId = currentNote?.id ?? null;
+    if (prevNoteIdRef.current && prevNoteIdRef.current !== newId) {
+      void save.flush();
     }
-
-    if (currentNote) {
-      setEditorState({ noteId: currentNote.id, content: currentNote.content, dirty: false });
-    } else {
-      setEditorState(null);
-    }
-  }, [currentNote?.id]);
-
-  useEffect(() => {
-    if (!editorState?.dirty) return;
-    const snapshot = editorState;
-    const timer = setTimeout(() => {
-      const cur = editorStateRef.current;
-      if (cur && cur.noteId === snapshot.noteId && cur.content === snapshot.content && cur.dirty) {
-        saveCurrentEditor();
-      }
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [editorState?.noteId, editorState?.content, editorState?.dirty]);
-
-  useEffect(() => {
-    const onBeforeUnload = () => {
-      const st = editorStateRef.current;
-      if (st && st.dirty) {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-          // Use sendBeacon when available — guaranteed to fire on unload
-          // and doesn't trigger CORS preflight. Fall back to keepalive fetch.
-          const url = `${import.meta.env.VITE_API_URL ?? '/api'}/notes/${st.noteId}`;
-          const body = JSON.stringify({ content: st.content });
-          try {
-            fetch(url, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body,
-              keepalive: true,
-            }).catch((err) => {
-              console.warn('[Notes] keepalive save failed', err);
-            });
-          } catch (err) {
-            console.warn('[Notes] keepalive save threw', err);
-          }
-        }
-      }
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload);
-      const st = editorStateRef.current;
-      if (st && st.dirty) {
-        notesApi.update(st.noteId, { content: st.content })
-          .catch((err) => console.warn('[Notes] cleanup save failed', err));
-      }
-    };
-  }, []);
+    prevNoteIdRef.current = newId;
+  }, [currentNote?.id, save, prevNoteIdRef]);
 
   // ── CRUD handlers ─────────────────────────────────────────────────────────
   const commitAdd = async () => {
     if (!adding || !addName.trim()) { cancelAdd(); return; }
     const name = addName.trim();
-    await saveCurrentEditor();
+    await save.flush();
     if (adding.kind === 'way') {
-      const newWay = await waysApi.create(name, ways.length);
-      setExpandedWays((p) => new Set([...p, newWay.id]));
+      const newWay = await library.createWay(name);
+      if (newWay) setExpandedWays((p) => new Set([...p, newWay.id]));
     } else if (adding.kind === 'topic') {
-      const way = ways.find((w) => w.id === adding.wayId);
-      await topicsApi.create(adding.wayId, name, way?.topics.length ?? 0);
+      await library.createTopic(adding.wayId, name);
       setExpandedWays((p) => new Set([...p, adding.wayId]));
     } else if (adding.kind === 'topic-note') {
-      const note = await notesApi.create({ name, topic_id: adding.topicId, content: '' });
+      const note = await library.createNote({ topic_id: adding.topicId }, name);
       setExpandedTopics((p) => new Set([...p, adding.topicId]));
-      await loadWays();
       cancelAdd();
-      setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: adding.topicId });
+      if (note) setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: adding.topicId });
       return;
     } else if (adding.kind === 'way-note') {
-      const note = await notesApi.create({ name, way_id: adding.wayId, content: '' });
+      const note = await library.createNote({ way_id: adding.wayId }, name);
       setExpandedWays((p) => new Set([...p, adding.wayId]));
-      await loadWays();
       cancelAdd();
-      setSelection({ kind: 'note', noteId: note.id, parentType: 'way', parentId: adding.wayId });
+      if (note) setSelection({ kind: 'note', noteId: note.id, parentType: 'way', parentId: adding.wayId });
       return;
     }
-    await loadWays();
     cancelAdd();
   };
 
@@ -328,14 +203,10 @@ export default function Notes() {
   const commitRename = async () => {
     if (!renaming || !renameValue.trim()) { cancelRename(); return; }
     const name = renameValue.trim();
-    try {
-      if (renaming.kind === 'way') await waysApi.update(renaming.id, { name });
-      else if (renaming.kind === 'topic') await topicsApi.update(renaming.id, { name });
-      else if (renaming.kind === 'note') await notesApi.update(renaming.id, { name });
-      await loadWays();
-    } catch (e: any) {
-      toast.error(e?.detail ?? 'Failed to rename');
-    } finally { cancelRename(); }
+    if (renaming.kind === 'way')        await library.renameWay(renaming.id, name);
+    else if (renaming.kind === 'topic') await library.renameTopic(renaming.id, name);
+    else if (renaming.kind === 'note')  await library.renameNote(renaming.id, name);
+    cancelRename();
   };
 
   const cancelRename = () => { setRenaming(null); setRenameValue(''); };
@@ -345,86 +216,38 @@ export default function Notes() {
   const askConfirm = (title: string, message: string, onConfirm: () => void) =>
     setConfirmState({ title, message, onConfirm });
 
-  // Drag & drop state
-  const [draggingNote, setDraggingNote] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState<{ kind: 'way' | 'topic'; id: string } | null>(null);
-
   // Mobile drag state (long-press triggers, then tap on target to drop)
   const [mobileDragNoteId, setMobileDragNoteId] = useState<string | null>(null);
 
-  const togglePin = async (note: Note) => {
-    try {
-      await notesApi.update(note.id, { pinned: !note.pinned });
-      await loadWays();
-    } catch (e: any) { toast.error(e?.detail ?? 'Failed to pin'); }
-  };
-
-  const handleDrop = async (e: React.DragEvent, target: { kind: 'way' | 'topic'; id: string }) => {
-    e.preventDefault();
-    const noteId = e.dataTransfer.getData('note-id');
-    setDraggingNote(null);
-    setDragOver(null);
-    if (!noteId) return;
-    try {
-      await notesApi.move(noteId, target.kind === 'way' ? { way_id: target.id } : { topic_id: target.id });
-      await loadWays();
-      toast.success(t('notes.moveToast'));
-    } catch (err: any) {
-      toast.error(err?.detail ?? t('notes.moveFail'));
-    }
-  };
-
   const deleteWay = (id: string) => {
     askConfirm(t('notes.deleteWay'), t('notes.deleteWayMsg'), async () => {
-      try {
-        await waysApi.delete(id);
-        if (selection && selection.parentId === id) setSelection(null);
-        if (mobileView.kind === 'way' && mobileView.wayId === id) setMobileView({ kind: 'root' });
-        await loadWays();
-        toast.success('Way deleted');
-      } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
+      if (selection && selection.parentId === id) setSelection(null);
+      if (mobileView.kind === 'way' && mobileView.wayId === id) setMobileView({ kind: 'root' });
+      await library.deleteWay(id);
+      toast.success('Way deleted');
     });
   };
 
   const deleteTopic = (id: string) => {
     askConfirm('Delete topic?', 'This will delete the topic and all its notes.', async () => {
-      try {
-        await topicsApi.delete(id);
-        if (selection && selection.parentId === id) setSelection(null);
-        if (mobileView.kind === 'topic' && mobileView.topicId === id) {
-          const parentWay = ways.find((w) => w.topics.some((t) => t.id === id));
-          if (parentWay) setMobileView({ kind: 'way', wayId: parentWay.id });
-          else setMobileView({ kind: 'root' });
-        }
-        await loadWays();
-        toast.success('Topic deleted');
-      } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
+      if (selection && selection.parentId === id) setSelection(null);
+      if (mobileView.kind === 'topic' && mobileView.topicId === id) {
+        const parentWay = ways.find((w) => w.topics.some((t) => t.id === id));
+        if (parentWay) setMobileView({ kind: 'way', wayId: parentWay.id });
+        else setMobileView({ kind: 'root' });
+      }
+      await library.deleteTopic(id);
+      toast.success('Topic deleted');
     });
   };
 
   const deleteNote = (id: string) => {
     askConfirm('Delete note?', 'This cannot be undone.', async () => {
-      try {
-        await notesApi.delete(id);
-        if (selection?.noteId === id) setSelection(null);
-        if (editorState?.noteId === id) setEditorState(null);
-        await loadWays();
-        toast.success('Note deleted');
-      } catch (e: any) { toast.error(e?.detail ?? 'Failed to delete'); }
+      if (selection?.noteId === id) setSelection(null);
+      await library.deleteNote(id);
+      toast.success('Note deleted');
     });
   };
-
-  const toggleWay = (id: string) => setExpandedWays((prev) => {
-    const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
-    return next;
-  });
-
-  const toggleTopic = (id: string) => setExpandedTopics((prev) => {
-    const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
-    return next;
-  });
 
   // ── Filtering ─────────────────────────────────────────────────────────────
   const filteredWays = useMemo(() => {
@@ -484,7 +307,7 @@ export default function Notes() {
   // ═══════════════════════════════════════════════════════════════════════════
   if (isMobile) {
     // Mobile editor view — triggered by selection OR mobileView.kind === 'note'
-    if (currentNote && editorState?.noteId === currentNote.id) {
+    if (currentNote) {
       // Determine back destination from selection state
       const backToTopic = selection?.parentType === 'topic' ? selection.parentId : null;
       const backToWay = selection?.parentType === 'way' ? selection.parentId : null;
@@ -492,8 +315,7 @@ export default function Notes() {
       // Non-blocking back: navigate immediately, save in background
       const handleBack = () => {
         // Fire and forget — don't block navigation while saving
-        saveCurrentEditor();
-        loadWays();
+        void save.flush();
         setSelection(null);
         if (backToTopic) {
           setMobileView({ kind: 'topic', topicId: backToTopic });
@@ -543,9 +365,9 @@ export default function Notes() {
                 </div>
               )}
               <span className="notes-saved-pill">
-                {saving
+                {save.saving
                   ? <><Loader2 size={11} className="animate-spin" /> Saving…</>
-                  : editorState.dirty ? null : <><Check size={11} /> Saved</>}
+                  : save.savedAt ? <><Check size={11} /> Saved</> : null}
               </span>
             </div>
             <div style={{ padding: '4px 20px 4px' }}>
@@ -554,13 +376,11 @@ export default function Notes() {
                 initial={currentNote.name}
                 onChange={(newName) => {
                   if (newName === currentNote.name) return;
-                  notesApi.update(currentNote.id, { name: newName })
-                    .then(() => loadWays())
-                    .catch((e: any) => toast.error(e?.detail ?? 'Failed to rename'));
+                  void library.renameNote(currentNote.id, newName);
                 }}
               />
               <div className="doc-tags" style={{ marginTop: 8 }}>
-                <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
+                <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={library.refresh} />
               </div>
             </div>
             <div style={{ padding: '0 20px 80px' }}>
@@ -568,12 +388,8 @@ export default function Notes() {
                 <RichTextEditor
                   key={currentNote.id}
                   noteId={currentNote.id}
-                  content={editorState.content}
-                  onChange={(html) => {
-                    const cur = editorStateRef.current;
-                    if (!cur || cur.noteId !== currentNote.id) return;
-                    setEditorState({ noteId: currentNote.id, content: html, dirty: html !== currentNote.content });
-                  }}
+                  content={currentNote.content}
+                  onChange={(html) => save.queueSave(currentNote.id, { content: html })}
                 />
               </Suspense>
             </div>
@@ -636,12 +452,9 @@ export default function Notes() {
         }}
         onDropMobileDrag={async (target) => {
           if (!mobileDragNoteId) return;
-          try {
-            await notesApi.move(mobileDragNoteId, target.kind === 'way' ? { way_id: target.id } : { topic_id: target.id });
-            await loadWays();
-            toast.success(t('notes.moveToast'));
-          } catch (err: any) { toast.error(err?.detail ?? 'Failed'); }
-          finally { setMobileDragNoteId(null); }
+          await library.moveNote(mobileDragNoteId, target.kind === 'way' ? { way_id: target.id } : { topic_id: target.id });
+          toast.success(t('notes.moveToast'));
+          setMobileDragNoteId(null);
         }}
         onCancelMobileDrag={() => setMobileDragNoteId(null)}
       />
@@ -649,352 +462,10 @@ export default function Notes() {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // DESKTOP VIEW
-  // ═══════════════════════════════════════════════════════════════════════════
-  const addingTitle = !adding ? '' : adding.kind === 'way' ? 'New way' : adding.kind === 'topic' ? 'New topic' : 'New note';
-  const addingLabel = !adding ? '' : adding.kind === 'way' ? 'Create way' : adding.kind === 'topic' ? 'Add topic' : 'Add note';
-
-  const countWayNotes = (way: Way) =>
-    way.notes.length + way.topics.reduce((sum, t) => sum + t.notes.length, 0);
-
-  return (
-    <>
-      <ConfirmDialog
-        open={confirmState !== null}
-        title={confirmState?.title ?? ''}
-        message={confirmState?.message}
-        onCancel={() => setConfirmState(null)}
-        onConfirm={() => { const c = confirmState; setConfirmState(null); c?.onConfirm(); }}
-      />
-      <CreateSheet
-        open={adding !== null}
-        onClose={cancelAdd}
-        title={addingTitle}
-        primaryLabel={addingLabel}
-        canSubmit={!!addName.trim()}
-        onSubmit={async () => { await commitAdd(); }}
-      >
-        <FormField label="Name">
-          <input type="text" className="input w-full" value={addName}
-            onChange={(e) => setAddName(e.target.value)}
-            placeholder={addingTitle.toLowerCase()} />
-        </FormField>
-      </CreateSheet>
-
-    <div className="notes-layout" data-no-lib={!sidebarOpen}>
-      {/* ── Library ── */}
-      <aside className="notes-library">
-        <div className="notes-library-head">
-          <span className="notes-library-title">Library</span>
-          <div className="notes-library-actions">
-            <button
-              onClick={() => { setAdding({ kind: 'way' }); setAddName(''); }}
-              title="New way"
-              className="icon-btn icon-btn-sm"
-            ><Plus size={14} /></button>
-            <button onClick={() => setSidebarOpen(false)} title="Hide library" className="icon-btn icon-btn-sm">
-              <ChevronsRight size={14} />
-            </button>
-          </div>
-        </div>
-
-        <div className="library-search">
-          <div className="field" style={{ height: 26, gap: 5 }}>
-            <Search size={11} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} />
-            <input
-              type="text"
-              placeholder="Filter notes…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 0, background: 'transparent', fontSize: 12, border: 0, outline: 0 }}
-            />
-          </div>
-        </div>
-
-        <div className="notes-library-tree">
-          {filteredWays.length === 0 && !adding && (
-            <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: 12, color: 'var(--fg-muted)' }}>
-              {search ? 'No matches' : 'No ways yet. Click + to create one.'}
-            </div>
-          )}
-
-          {filteredWays.map((way) => (
-            <div key={way.id}>
-              {renaming?.kind === 'way' && renaming.id === way.id ? (
-                <RenameInput onCommit={commitRename} onCancel={cancelRename} />
-              ) : (
-                <div
-                  className={`tree-row${expandedWays.has(way.id) ? ' is-open' : ''}`}
-                  data-depth="0"
-                  onClick={() => toggleWay(way.id)}
-                >
-                  <span className="chev"><ChevronRight size={11} /></span>
-                  <Layers size={13} className="tico" />
-                  <span className="tname">{way.name}</span>
-                  <span className="tcount">{countWayNotes(way)}</span>
-                  <div className="tree-actions">
-                    <ActionBtn icon={FilePlus} title="Add note" onClick={() => { setAdding({ kind: 'way-note', wayId: way.id }); setAddName(''); setExpandedWays((p) => new Set([...p, way.id])); }} />
-                    <ActionBtn icon={FolderPlus} title="Add topic" onClick={() => { setAdding({ kind: 'topic', wayId: way.id }); setAddName(''); setExpandedWays((p) => new Set([...p, way.id])); }} />
-                    <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'way', id: way.id }, way.name)} />
-                    <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteWay(way.id)} />
-                  </div>
-                </div>
-              )}
-
-              <AnimatePresence initial={false}>
-                {expandedWays.has(way.id) && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    style={{ overflow: 'hidden' }}
-                    onDragOver={(e) => { e.preventDefault(); setDragOver({ kind: 'way', id: way.id }); }}
-                    onDragLeave={() => setDragOver((p) => p?.kind === 'way' && p.id === way.id ? null : p)}
-                    onDrop={(e) => handleDrop(e, { kind: 'way', id: way.id })}
-                  >
-                    {/* Direct way notes */}
-                    {way.notes.map((n) => (
-                      <div key={n.id}>
-                        {renaming?.kind === 'note' && renaming.id === n.id ? (
-                          <RenameInput onCommit={commitRename} onCancel={cancelRename} />
-                        ) : (
-                          <div
-                            draggable
-                            onDragStart={(e) => { e.dataTransfer.setData('note-id', n.id); setDraggingNote(n.id); }}
-                            onDragEnd={() => { setDraggingNote(null); setDragOver(null); }}
-                            className="tree-row"
-                            data-depth="1"
-                            data-active={selection?.noteId === n.id}
-                            style={draggingNote === n.id ? { opacity: 0.4 } : undefined}
-                            onClick={() => setSelection({ kind: 'note', noteId: n.id, parentType: 'way', parentId: way.id })}
-                          >
-                            {n.pinned ? <Pin size={11} className="tico" style={{ color: 'var(--accent-notes)', fill: 'currentColor' }} /> : <FileText size={12} className="tico" />}
-                            <span className="tname">{n.name}</span>
-                            <div className="tree-actions">
-                              <ActionBtn icon={n.pinned ? PinOff : Pin} title={n.pinned ? 'Unpin' : 'Pin'} onClick={() => togglePin(n)} />
-                              <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: n.id }, n.name)} />
-                              <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(n.id)} />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Topics */}
-                    {way.topics.map((topic) => (
-                      <div key={topic.id}>
-                        {renaming?.kind === 'topic' && renaming.id === topic.id ? (
-                          <RenameInput onCommit={commitRename} onCancel={cancelRename} />
-                        ) : (
-                          <div
-                            className={`tree-row${expandedTopics.has(topic.id) ? ' is-open' : ''}`}
-                            data-depth="1"
-                            onClick={() => toggleTopic(topic.id)}
-                            onDragOver={(e) => { if (draggingNote) { e.preventDefault(); setDragOver({ kind: 'topic', id: topic.id }); } }}
-                            onDragLeave={() => setDragOver((p) => p?.kind === 'topic' && p.id === topic.id ? null : p)}
-                            onDrop={(e) => handleDrop(e, { kind: 'topic', id: topic.id })}
-                            style={dragOver?.kind === 'topic' && dragOver.id === topic.id ? { boxShadow: '0 0 0 1px var(--accent-notes)' } : undefined}
-                          >
-                            <span className="chev"><ChevronRight size={11} /></span>
-                            {expandedTopics.has(topic.id)
-                              ? <FolderOpen size={13} className="tico" />
-                              : <Folder size={13} className="tico" />}
-                            <span className="tname">{topic.name}</span>
-                            <span className="tcount">{topic.notes.length}</span>
-                            <div className="tree-actions">
-                              <ActionBtn icon={Plus} title="Add note" onClick={() => { setAdding({ kind: 'topic-note', wayId: way.id, topicId: topic.id }); setAddName(''); setExpandedTopics((p) => new Set([...p, topic.id])); }} />
-                              <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'topic', id: topic.id }, topic.name)} />
-                              <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteTopic(topic.id)} />
-                            </div>
-                          </div>
-                        )}
-
-                        <AnimatePresence initial={false}>
-                          {expandedTopics.has(topic.id) && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              style={{ overflow: 'hidden' }}
-                            >
-                              {topic.notes.map((note) => (
-                                <div key={note.id}>
-                                  {renaming?.kind === 'note' && renaming.id === note.id ? (
-                                    <RenameInput onCommit={commitRename} onCancel={cancelRename} />
-                                  ) : (
-                                    <div
-                                      draggable
-                                      onDragStart={(e) => { e.dataTransfer.setData('note-id', note.id); setDraggingNote(note.id); }}
-                                      onDragEnd={() => { setDraggingNote(null); setDragOver(null); }}
-                                      className="tree-row"
-                                      data-depth="2"
-                                      data-active={selection?.noteId === note.id}
-                                      style={draggingNote === note.id ? { opacity: 0.4 } : undefined}
-                                      onClick={() => setSelection({ kind: 'note', noteId: note.id, parentType: 'topic', parentId: topic.id })}
-                                    >
-                                      <FileText size={12} className="tico" />
-                                      <span className="tname">{note.name}</span>
-                                      <div className="tree-actions">
-                                        <ActionBtn icon={Pencil} title="Rename" onClick={() => startRename({ kind: 'note', id: note.id }, note.name)} />
-                                        <ActionBtn icon={Trash2} title="Delete" onClick={() => deleteNote(note.id)} />
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
-        </div>
-      </aside>
-
-      {/* Floating "show library" button when collapsed */}
-      {!sidebarOpen && (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="icon-btn"
-          title="Show library"
-          style={{ position: 'absolute', top: 10, left: 10, zIndex: 4, background: 'var(--bg-elevated)', boxShadow: '0 0 0 0.5px var(--line), var(--sh-raised)' }}
-        >
-          <ChevronsRight size={14} />
-        </button>
-      )}
-
-      {/* ── Content ── */}
-      <main className="notes-content" data-no-rp={!contextOpen}>
-        {currentNote && editorState?.noteId === currentNote.id ? (
-          <>
-            {/* Topbar: breadcrumb + save status */}
-            <div className="notes-topbar">
-              <div className="notes-breadcrumb">
-                {(() => {
-                  const wayName = ways.find((w) => w.id === currentNote.way_id)?.name;
-                  const topicName = ways.flatMap((w) => w.topics ?? []).find((tp) => tp.id === currentNote.topic_id)?.name;
-                  return (
-                    <>
-                      {wayName && <><span className="crumb">{wayName}</span><span className="crumb-sep">›</span></>}
-                      {topicName && <><span className="crumb">{topicName}</span><span className="crumb-sep">›</span></>}
-                      <span className="crumb current">{currentNote.name || 'Untitled'}</span>
-                    </>
-                  );
-                })()}
-              </div>
-              <span className="notes-saved">
-                {saving
-                  ? <><Loader2 size={11} className="animate-spin" /> Saving…</>
-                  : editorState.dirty ? null : <><Check size={11} /> Saved</>}
-              </span>
-              <div className="notes-topbar-actions">
-                <button
-                  onClick={() => setContextOpen(!contextOpen)}
-                  className="icon-btn icon-btn-sm"
-                  data-active={contextOpen}
-                  title={contextOpen ? 'Hide right panel' : 'Show right panel'}
-                ><PanelRightClose size={14} /></button>
-              </div>
-            </div>
-
-            {/* Editor + context grid */}
-            <div className="notes-editor-and-context">
-              <div className="notes-editor-wrap">
-                {/* Toolbar (sticky at top of scroll) + paper: title, tags, body */}
-                <Suspense fallback={<EditorFallback />}>
-                <RichTextEditor
-                  key={currentNote.id}
-                  noteId={currentNote.id}
-                  content={editorState.content}
-                  onChange={(html) => {
-                    const cur = editorStateRef.current;
-                    if (!cur || cur.noteId !== currentNote.id) return;
-                    setEditorState({ noteId: currentNote.id, content: html, dirty: html !== currentNote.content });
-                  }}
-                >
-                  <NoteTitle
-                    key={currentNote.id + '-title'}
-                    initial={currentNote.name}
-                    onChange={async (newName) => {
-                      if (newName === currentNote.name) return;
-                      try {
-                        await notesApi.update(currentNote.id, { name: newName });
-                        await loadWays();
-                      } catch (e: any) { toast.error(e?.detail ?? 'Failed to rename'); }
-                    }}
-                  />
-                  <div className="doc-meta">
-                    <span>
-                      {currentNote.updated_at
-                        ? `Updated ${new Date(currentNote.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
-                        : 'New note'}
-                    </span>
-                    <span className="dot" />
-                    <span>
-                      {Math.max(1, Math.round(
-                        (editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length / 200
-                      ))} min read
-                    </span>
-                  </div>
-                  <div className="doc-tag-row">
-                    <TagSelector targetId={currentNote.id} tags={currentNote.tags ?? []} onChange={loadWays} />
-                  </div>
-                </RichTextEditor>
-                </Suspense>
-              </div>
-
-              {/* Right context panel */}
-              <aside className="notes-context">
-                <div className="panel-card">
-                  <div className="panel-head">Note stats</div>
-                  <div className="panel-row">
-                    <span className="panel-row-title">Words</span>
-                    <span className="panel-row-meta">{(editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length}</span>
-                  </div>
-                  <div className="panel-row">
-                    <span className="panel-row-title">Read time</span>
-                    <span className="panel-row-meta">
-                      {Math.max(1, Math.round((editorState.content || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length / 200))} min
-                    </span>
-                  </div>
-                  <div className="panel-row">
-                    <span className="panel-row-title">Tags</span>
-                    <span className="panel-row-meta">{(currentNote.tags ?? []).length}</span>
-                  </div>
-                </div>
-              </aside>
-            </div>
-          </>
-        ) : (
-          <div className="notes-empty-state">
-            <div className="notes-empty-content">
-              <BookOpen size={32} style={{ opacity: 0.4, marginBottom: 12 }} />
-              <p style={{ fontSize: 14, color: 'var(--fg-tertiary)' }}>Select or create a note to start</p>
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-    </>
-  );
+  // Notes.tsx is mobile-only — desktop renders via features/notes/.
+  return null;
 }
 
-function ActionBtn({ icon: Icon, onClick, title }: { icon: React.ElementType; onClick: (e: React.MouseEvent) => void; title: string }) {
-  return (
-    <div
-      title={title}
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      className="icon-btn icon-btn-sm opacity-0 group-hover:opacity-100 transition-opacity"
-    >
-      <Icon size={12} />
-    </div>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
