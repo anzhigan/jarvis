@@ -128,7 +128,7 @@ async def create_way(
     way = Way(user_id=user.id, name=body.name, order=body.order)
     db.add(way)
     await db.flush()
-    await db.refresh(way, ["topics", "note"])
+    await db.refresh(way, ["topics", "notes"])
     return way
 
 

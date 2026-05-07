@@ -25,6 +25,21 @@ export interface GroupedSteps {
  * groups by deadline relative to today. Mutations refresh the parent goals
  * library so changes propagate to the kanban view too.
  */
+/** Bucket a single Step into one of four deadline categories (pure). */
+export function bucketOfStep(step: StepWithGoal, today: string): StepBucket {
+  if (step.is_completed) return 'done';
+  if (step.end_date < today) return 'overdue';
+  if (step.start_date > today) return 'upcoming';
+  return 'active';
+}
+
+/** Group steps by bucket relative to `today` (pure). */
+export function groupSteps(steps: StepWithGoal[], today: string): GroupedSteps {
+  const out: GroupedSteps = { overdue: [], active: [], upcoming: [], done: [] };
+  for (const s of steps) out[bucketOfStep(s, today)].push(s);
+  return out;
+}
+
 export function useSteps(goals: GoalsLibrary) {
   const allSteps = useMemo<StepWithGoal[]>(() => {
     const out: StepWithGoal[] = [];
@@ -34,17 +49,10 @@ export function useSteps(goals: GoalsLibrary) {
     return out;
   }, [goals.tasks]);
 
-  const grouped = useMemo<GroupedSteps>(() => {
-    const today = ymd(new Date());
-    const out: GroupedSteps = { overdue: [], active: [], upcoming: [], done: [] };
-    for (const s of allSteps) {
-      if (s.is_completed) { out.done.push(s); continue; }
-      if (s.end_date < today) out.overdue.push(s);
-      else if (s.start_date > today) out.upcoming.push(s);
-      else out.active.push(s);
-    }
-    return out;
-  }, [allSteps]);
+  const grouped = useMemo<GroupedSteps>(
+    () => groupSteps(allSteps, ymd(new Date())),
+    [allSteps],
+  );
 
   const refresh = goals.refresh;
 

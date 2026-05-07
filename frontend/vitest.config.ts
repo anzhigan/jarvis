@@ -18,15 +18,23 @@ export default defineConfig({
         'src/lib/**/*.{ts,tsx}',
         'src/api/client.ts',
         'src/components/tasks/helpers.ts',
+        // Pure helpers extracted from feature hooks. Components and
+        // useEffect-driven hooks are intentionally excluded — they need a
+        // RTL setup that we haven't taken on yet.
+        'src/features/goals/hooks/useGos.ts',
+        'src/features/goals/hooks/useSteps.ts',
+        'src/features/goals/hooks/useGoalsFilters.ts',
+        'src/features/routines/lib/heatmap.ts',
       ],
-      exclude: ['**/*.d.ts', 'src/api/types.ts'],
-      // Threshold starts at the current floor — raise as features/* hooks
-      // gain unit tests (the hooks themselves are pure and trivially testable).
+      exclude: ['**/*.d.ts', '**/*.test.{ts,tsx}', 'src/api/types.ts'],
+      // Non-regressive baseline. Functions stay lower than lines because
+      // included hook files also export mutation helpers (network calls)
+      // that we don't unit-test — they live behind the mutation layer.
       thresholds: {
-        lines: 30,
-        statements: 30,
-        functions: 8,
-        branches: 70,
+        lines: 50,
+        statements: 50,
+        functions: 25,
+        branches: 75,
       },
     },
   },

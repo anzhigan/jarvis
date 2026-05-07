@@ -106,10 +106,17 @@ async def refresh(request: Request, body: RefreshRequest, db: AsyncSession = Dep
         payload = decode_token(body.refresh_token)
         if payload.get("type") != "refresh":
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not a refresh token")
-        user_id = payload.get("sub")
+        user_id_str = payload.get("sub")
         jti_str = payload.get("jti")
     except JWTError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid refresh token")
+
+    try:
+        user_id = uuid.UUID(user_id_str) if user_id_str else None
+    except ValueError:
+        user_id = None
+    if not user_id:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid refresh token subject")
 
     if not jti_str:
         # Pre-rotation refresh tokens (issued before this migration) have no jti.
@@ -129,7 +136,10 @@ async def refresh(request: Request, body: RefreshRequest, db: AsyncSession = Dep
         # Reuse-detection: a revoked token came back. Revoke the entire family.
         await _revoke_family(db, row.family_id)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token reuse detected")
-    if row.expires_at < datetime.now(timezone.utc):
+    # SQLite returns naive datetimes even when stored UTC; coerce so the
+    # comparison works on both Postgres (timestamptz) and SQLite tests.
+    expires_at = row.expires_at if row.expires_at.tzinfo else row.expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token expired")
 
     user = (

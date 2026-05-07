@@ -8,6 +8,23 @@ const ymd = (d: Date) =>
 
 export type GoBucket = 'overdue' | 'today' | 'upcoming' | 'done';
 
+/** Bucket a single Go into one of four deadline categories (pure). */
+export function bucketOfGo(go: Go, today: string): GoBucket {
+  if (go.is_done_today) return 'done';
+  const due = go.due_date;
+  if (!due) return 'upcoming';
+  if (due < today) return 'overdue';
+  if (due === today) return 'today';
+  return 'upcoming';
+}
+
+/** Group an array of Gos by deadline bucket relative to `today` (pure). */
+export function groupGos(gos: Go[], today: string): GroupedGos {
+  const out: GroupedGos = { overdue: [], today: [], upcoming: [], done: [] };
+  for (const g of gos) out[bucketOfGo(g, today)].push(g);
+  return out;
+}
+
 export interface GroupedGos {
   overdue: Go[];
   today: Go[];
@@ -35,19 +52,7 @@ export function useGos() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const grouped = useMemo<GroupedGos>(() => {
-    const today = ymd(new Date());
-    const out: GroupedGos = { overdue: [], today: [], upcoming: [], done: [] };
-    for (const g of gos) {
-      if (g.is_done_today) { out.done.push(g); continue; }
-      const due = g.due_date;
-      if (!due) { out.upcoming.push(g); continue; }
-      if (due < today) out.overdue.push(g);
-      else if (due === today) out.today.push(g);
-      else out.upcoming.push(g);
-    }
-    return out;
-  }, [gos]);
+  const grouped = useMemo<GroupedGos>(() => groupGos(gos, ymd(new Date())), [gos]);
 
   // ── Mutations ────────────────────────────────────────────────────────────
   const createGo = useCallback(

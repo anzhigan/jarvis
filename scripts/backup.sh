@@ -4,12 +4,21 @@
 #
 #   0 3 * * * /projects/jarvis/scripts/backup.sh >> /var/log/jarvis-backup.log 2>&1
 #
-# Output: /var/backups/jarvis/<date>/{db.sql.gz, minio/}. Keeps last 7 days.
+# Output: /var/backups/jarvis/<date>/{db.dump, minio/}. Keeps last 7 days.
 #
 # Required environment (read from .env in the project root):
 #   POSTGRES_PASSWORD   — for the db container
 #   MINIO_ROOT_USER     — mc admin user
 #   MINIO_ROOT_PASSWORD — mc admin password
+#
+# Optional offsite sync (any S3-compatible target via rclone):
+#   OFFSITE_REMOTE      — rclone remote name + path, e.g. "b2:jarvis-backups"
+#                         Empty / unset → local backups only.
+#   OFFSITE_KEEP_DAYS   — retention on the offsite (default 30, looser than local).
+#
+# Setup once:
+#   apt install rclone
+#   rclone config             # interactive — picks B2 / S3 / GDrive / etc.
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -39,7 +48,25 @@ $COMPOSE cp minio:/tmp/_backup_jarvis "$DEST/minio"
 $COMPOSE exec -T minio rm -rf /tmp/_backup_jarvis
 echo "  minio: $(du -sh "$DEST/minio" | cut -f1)"
 
-# 3. Prune old backups
+# 3. Offsite sync (opt-in). Only runs if OFFSITE_REMOTE is set and rclone is installed.
+OFFSITE_REMOTE="${OFFSITE_REMOTE:-}"
+OFFSITE_KEEP_DAYS="${OFFSITE_KEEP_DAYS:-30}"
+if [[ -n "$OFFSITE_REMOTE" ]]; then
+  if ! command -v rclone >/dev/null 2>&1; then
+    echo "  WARN: OFFSITE_REMOTE set but rclone missing — skipping offsite sync." >&2
+  else
+    echo "  offsite → $OFFSITE_REMOTE/$TODAY"
+    rclone sync --transfers=4 --checkers=8 \
+      "$DEST" "$OFFSITE_REMOTE/$TODAY" \
+      --log-level NOTICE
+    # Prune offsite older than OFFSITE_KEEP_DAYS. `--min-age` deletes anything older.
+    rclone delete --min-age "${OFFSITE_KEEP_DAYS}d" "$OFFSITE_REMOTE" \
+      --log-level NOTICE 2>/dev/null || true
+    rclone rmdirs "$OFFSITE_REMOTE" --leave-root --log-level NOTICE 2>/dev/null || true
+  fi
+fi
+
+# 4. Prune old local backups
 find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -mtime +"$KEEP_DAYS" -exec rm -rf {} +
 
 echo "[$(date)] Backup OK"

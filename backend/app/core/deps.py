@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
@@ -18,14 +20,20 @@ async def get_current_user(
     token = credentials.credentials
     try:
         payload = decode_token(token)
-        user_id: str = payload.get("sub")
+        user_id_str: str = payload.get("sub")
         token_type: str = payload.get("type", "access")
-        if not user_id:
+        if not user_id_str:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         # Refresh tokens (and any non-access type) must NOT be accepted as bearer credentials.
         # Pre-existing access tokens issued before this change have no "type" claim and default to "access".
         if token_type != "access":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+        # Coerce sub → UUID. SA's cross-DB Uuid type expects an actual UUID
+        # object on SQLite (it'd accept strings on Postgres natively).
+        try:
+            user_id = uuid.UUID(user_id_str)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 

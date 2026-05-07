@@ -48,41 +48,41 @@ export function useGoalsFilters() {
   }, []);
   const reset = useCallback(() => setFilters(DEFAULT), []);
 
-  const apply = useMemo(() => {
-    return (tasks: Task[]): Task[] => {
-      const q = filters.search.trim().toLowerCase();
-      let out = tasks.filter((t) => {
-        if (filters.status !== 'all' && t.status !== filters.status) return false;
-        if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
-        if (filters.tagId && !t.tags.some((tg) => tg.id === filters.tagId)) return false;
-        if (q && !t.title.toLowerCase().includes(q) && !t.description.toLowerCase().includes(q)) return false;
-        return true;
-      });
-      switch (filters.sort) {
-        case 'priority': {
-          const order: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 };
-          out = [...out].sort((a, b) => order[a.priority] - order[b.priority]);
-          break;
-        }
-        case 'due': {
-          out = [...out].sort((a, b) => {
-            if (!a.due_date && !b.due_date) return 0;
-            if (!a.due_date) return 1;
-            if (!b.due_date) return -1;
-            return a.due_date.localeCompare(b.due_date);
-          });
-          break;
-        }
-        case 'recent':
-          out = [...out].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-          break;
-        case 'manual':
-        default:
-          out = [...out].sort((a, b) => a.order - b.order);
-      }
-      return out;
-    };
-  }, [filters]);
+  const apply = useMemo(() => (tasks: Task[]) => applyGoalsFilters(tasks, filters), [filters]);
 
   return { filters, set, reset, apply };
+}
+
+/** Pure filter+sort. Exported for unit testing without React. */
+export function applyGoalsFilters(tasks: Task[], filters: GoalsFilters): Task[] {
+  const q = filters.search.trim().toLowerCase();
+  let out = tasks.filter((t) => {
+    if (filters.status !== 'all' && t.status !== filters.status) return false;
+    if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
+    if (filters.tagId && !t.tags.some((tg) => tg.id === filters.tagId)) return false;
+    if (q && !t.title.toLowerCase().includes(q) && !t.description.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  switch (filters.sort) {
+    case 'priority': {
+      const order: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 };
+      out = [...out].sort((a, b) => order[a.priority] - order[b.priority]);
+      break;
+    }
+    case 'due':
+      out = [...out].sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0;
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return a.due_date.localeCompare(b.due_date);
+      });
+      break;
+    case 'recent':
+      out = [...out].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      break;
+    case 'manual':
+    default:
+      out = [...out].sort((a, b) => a.order - b.order);
+  }
+  return out;
 }
