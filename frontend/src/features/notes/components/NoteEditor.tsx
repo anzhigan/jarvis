@@ -1,7 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { Bold, Check, Image as ImageIcon, Italic, Loader2, Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon } from 'lucide-react';
+import {
+  Bold, Check, Image as ImageIcon, Italic, Link as LinkIcon, Loader2, Plus,
+  Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
+} from 'lucide-react';
 import type { Editor } from '@tiptap/react';
-import { BubbleMenu } from '@tiptap/react/menus';
+import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus';
 import type { EditorHelpers } from '../../../components/RichTextEditor';
 import type { Note } from '../../../api/types';
 import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
@@ -194,47 +197,6 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
       </div>
       <div className="ntb-sep" />
 
-      {/* Lists */}
-      <div className="ntb-group">
-        <Btn
-          title="Bulleted list"
-          active={editor.isActive('bulletList')}
-          onClick={cmd((c) => c.toggleBulletList())}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-            <line x1="9" y1="6" x2="20" y2="6" />
-            <line x1="9" y1="12" x2="20" y2="12" />
-            <line x1="9" y1="18" x2="20" y2="18" />
-            <circle cx="4" cy="6" r="1.2" fill="currentColor" />
-            <circle cx="4" cy="12" r="1.2" fill="currentColor" />
-            <circle cx="4" cy="18" r="1.2" fill="currentColor" />
-          </svg>
-        </Btn>
-        <Btn
-          title="Numbered list"
-          active={editor.isActive('orderedList')}
-          onClick={cmd((c) => c.toggleOrderedList())}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-            <line x1="10" y1="6" x2="20" y2="6" />
-            <line x1="10" y1="12" x2="20" y2="12" />
-            <line x1="10" y1="18" x2="20" y2="18" />
-            <path d="M4 6h1v4M4 10h2M5 16c0-1 1-1 1.5-1s1 .5 1 1-.5 1-1 1.5L4 20h3.5" />
-          </svg>
-        </Btn>
-        <Btn
-          title="Checklist"
-          active={editor.isActive('taskList')}
-          onClick={cmd((c) => c.toggleTaskList())}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-            <polyline points="9 11 12 14 22 4" />
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-          </svg>
-        </Btn>
-      </div>
-      <div className="ntb-sep" />
-
       {/* Blocks: quote / code / divider */}
       <div className="ntb-group">
         <Btn
@@ -265,46 +227,162 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
           </svg>
         </Btn>
       </div>
-      <div className="ntb-sep" />
+    </div>
+  );
+}
 
-      {/* Inserts: link / formula / table / image — driven via helpers callbacks
-          provided by RichTextEditor onEditorReady. */}
-      <div className="ntb-group">
-        <Btn
-          title="Link"
-          active={editor.isActive('link')}
-          disabled={!helpers}
-          onClick={() => helpers?.openLink()}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-            <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
-            <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
-          </svg>
-        </Btn>
-        <Btn
-          title="Math formula"
-          active={editor.isActive('inline-math') || editor.isActive('inlineMath')}
-          disabled={!helpers}
-          onClick={() => helpers?.openMath()}
-        >
-          <Sigma />
-        </Btn>
-        <Btn
-          title="Table"
-          active={editor.isActive('table')}
-          disabled={!helpers}
-          onClick={() => helpers?.openTable()}
-        >
-          <TableIcon />
-        </Btn>
-        <Btn
-          title="Image"
-          disabled={!helpers}
-          onClick={() => helpers?.openImage()}
-        >
-          <ImageIcon />
-        </Btn>
-      </div>
+/* ── Block-insert "+" menu (Notion-style) — appears on empty paragraphs ── */
+
+interface InsertProps { editor: Editor; helpers: EditorHelpers | null }
+
+function BlockInsertMenu({ editor, helpers }: InsertProps) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click / Esc.
+  useEffect(() => {
+    if (!open) return;
+    const onDocDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDocDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  // Editor selection changes hide the menu naturally (FloatingMenu unmounts
+  // when the cursor moves to a non-empty line). Reset our local open state.
+  useEffect(() => {
+    const onSel = () => setOpen(false);
+    editor.on('selectionUpdate', onSel);
+    return () => { editor.off('selectionUpdate', onSel); };
+  }, [editor]);
+
+  const run = (fn: () => void) => () => {
+    fn();
+    setOpen(false);
+  };
+
+  const Pick = ({
+    title, onClick, children,
+  }: { title: string; onClick: () => void; children: React.ReactNode }) => (
+    <button
+      type="button"
+      className="bim-btn"
+      title={title}
+      aria-label={title}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+    >{children}</button>
+  );
+
+  return (
+    <div className="block-insert" ref={wrapRef}>
+      <button
+        type="button"
+        className="block-insert-btn"
+        aria-label="Insert block"
+        aria-expanded={open}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Plus />
+      </button>
+
+      {open && (
+        <div className="block-insert-menu" role="menu">
+          <div className="bim-group">
+            <div className="bim-label">Headings</div>
+            <div className="bim-row">
+              <Pick title="Heading 1" onClick={run(() => editor.chain().focus().toggleHeading({ level: 1 }).run())}>
+                <span className="bim-h">H1</span>
+              </Pick>
+              <Pick title="Heading 2" onClick={run(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}>
+                <span className="bim-h">H2</span>
+              </Pick>
+              <Pick title="Heading 3" onClick={run(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}>
+                <span className="bim-h">H3</span>
+              </Pick>
+            </div>
+          </div>
+
+          <div className="bim-group">
+            <div className="bim-label">Lists</div>
+            <div className="bim-row">
+              <Pick title="Bulleted list" onClick={run(() => editor.chain().focus().toggleBulletList().run())}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <line x1="9" y1="6" x2="20" y2="6" />
+                  <line x1="9" y1="12" x2="20" y2="12" />
+                  <line x1="9" y1="18" x2="20" y2="18" />
+                  <circle cx="4" cy="6" r="1.2" fill="currentColor" />
+                  <circle cx="4" cy="12" r="1.2" fill="currentColor" />
+                  <circle cx="4" cy="18" r="1.2" fill="currentColor" />
+                </svg>
+              </Pick>
+              <Pick title="Numbered list" onClick={run(() => editor.chain().focus().toggleOrderedList().run())}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <line x1="10" y1="6" x2="20" y2="6" />
+                  <line x1="10" y1="12" x2="20" y2="12" />
+                  <line x1="10" y1="18" x2="20" y2="18" />
+                  <path d="M4 6h1v4M4 10h2M5 16c0-1 1-1 1.5-1s1 .5 1 1-.5 1-1 1.5L4 20h3.5" />
+                </svg>
+              </Pick>
+              <Pick title="Checklist" onClick={run(() => editor.chain().focus().toggleTaskList().run())}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <polyline points="9 11 12 14 22 4" />
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                </svg>
+              </Pick>
+            </div>
+          </div>
+
+          <div className="bim-group">
+            <div className="bim-label">Blocks</div>
+            <div className="bim-row">
+              <Pick title="Quote" onClick={run(() => editor.chain().focus().toggleBlockquote().run())}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <path d="M3 21c3 0 7-1 7-8V5H3v8h4M14 21c3 0 7-1 7-8V5h-7v8h4" />
+                </svg>
+              </Pick>
+              <Pick title="Code block" onClick={run(() => editor.chain().focus().toggleCodeBlock().run())}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                </svg>
+              </Pick>
+              <Pick title="Divider" onClick={run(() => editor.chain().focus().setHorizontalRule().run())}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                </svg>
+              </Pick>
+            </div>
+          </div>
+
+          <div className="bim-group">
+            <div className="bim-label">Inserts</div>
+            <div className="bim-row">
+              <Pick title="Link" onClick={run(() => helpers?.openLink())}>
+                <LinkIcon />
+              </Pick>
+              <Pick title="Math formula" onClick={run(() => helpers?.openMath())}>
+                <Sigma />
+              </Pick>
+              <Pick title="Table" onClick={run(() => helpers?.openTable())}>
+                <TableIcon />
+              </Pick>
+              <Pick title="Image" onClick={run(() => helpers?.openImage())}>
+                <ImageIcon />
+              </Pick>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -359,6 +437,25 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     shift: { padding: 8 },
   }).current;
 
+  // FloatingMenu shows the "+" block-insert button on empty paragraphs.
+  // We anchor it to the LEFT of the line so it sits in the gutter.
+  const floatingShouldShow = useCallback(
+    ({ state }: {
+      state: { selection: { empty: boolean; $from: { parent: { type: { name: string }; content: { size: number } } } } };
+    }) => {
+      const { selection } = state;
+      if (!selection.empty) return false;
+      const parent = selection.$from.parent;
+      // Only show on truly empty paragraphs (don't crowd the gutter on every line).
+      return parent.type.name === 'paragraph' && parent.content.size === 0;
+    },
+    [],
+  );
+  const floatingOptions = useRef({
+    placement: 'left-start' as const,
+    offset: 6,
+  }).current;
+
   if (!note) {
     return (
       <main className="content">
@@ -392,6 +489,17 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
         >
           <NoteToolbar editor={editor} helpers={helpers} />
         </BubbleMenu>
+      )}
+
+      {editor && (
+        <FloatingMenu
+          editor={editor}
+          updateDelay={0}
+          shouldShow={floatingShouldShow}
+          options={floatingOptions}
+        >
+          <BlockInsertMenu editor={editor} helpers={helpers} />
+        </FloatingMenu>
       )}
 
       <div className="content-scroll">

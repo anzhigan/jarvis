@@ -41,6 +41,79 @@
 .note-bubble .ntb-btn svg { width: 13px; height: 13px; }
 .note-bubble .ntb-sep { height: 14px; margin: 0 4px; }
 
+/* ─── Block-insert menu ("+") shown via Tiptap FloatingMenu on empty lines */
+.block-insert {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-start;
+  z-index: var(--z-sticky);
+}
+.block-insert-btn {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 0;
+  box-shadow: 0 0 0 1px var(--hairline-strong);
+  color: var(--ink-4);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  transition: all var(--dur-fast);
+}
+.block-insert-btn:hover,
+.block-insert-btn[aria-expanded="true"] {
+  background: var(--indigo);
+  color: var(--paper);
+  box-shadow: 0 0 0 1px var(--indigo);
+}
+.block-insert-btn svg { width: 14px; height: 14px; }
+
+.block-insert-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--paper);
+  border-radius: var(--r-control);
+  box-shadow: var(--sh-popover);
+  padding: 8px;
+  min-width: 220px;
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+.bim-group { display: flex; flex-direction: column; gap: 2px; }
+.bim-label {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--ink-4);
+  padding: 4px 6px 2px;
+}
+.bim-row { display: flex; gap: 2px; padding: 0 2px; }
+.bim-btn {
+  width: 32px; height: 28px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-control);
+  color: var(--ink-3);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  transition: all var(--dur-fast);
+}
+.bim-btn:hover {
+  background: var(--cream);
+  color: var(--ink);
+}
+.bim-btn svg { width: 14px; height: 14px; }
+.bim-h {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
 /* ─── Static toolbar (mobile / fallback) ──────────────────────────────── */
 .note-toolbar {
   flex-shrink: 0;
