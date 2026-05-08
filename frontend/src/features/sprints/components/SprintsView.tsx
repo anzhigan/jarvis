@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, PanelLeftOpen, Plus, Repeat, Target, Zap, ListChecks } from 'lucide-react';
-import { Tooltip } from '../../../components/ui';
+import { Loader2, Plus, Repeat, Target, Zap, ListChecks } from 'lucide-react';
 import type { Sprint, SprintItem } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../hooks/useSprints';
 import { useSprintsFilters, type ViewFilter } from '../hooks/useSprintsFilters';
-import { SprintsPane } from './SprintsPane';
 import { SprintDetailPanel } from './SprintDetailPanel';
 import { SprintCreateDialog } from './SprintCreateDialog';
 import './sprints.css';
 
-const PANE_COLLAPSED_KEY = 'jarvnote:sprints:libCollapsed';
-
 const VIEW_LABELS: Record<ViewFilter, string> = {
-  all: 'All', active: 'Active', upcoming: 'Upcoming', past: 'Completed',
+  all: 'All', active: 'Active', upcoming: 'Upcoming', past: 'Past',
 };
 
 function ymd(d: Date): string {
@@ -185,13 +181,6 @@ export default function SprintsView() {
   const library = useSprints();
   const f = useSprintsFilters();
 
-  const [paneCollapsed, setPaneCollapsed] = useState(
-    () => localStorage.getItem(PANE_COLLAPSED_KEY) === '1',
-  );
-  useEffect(() => {
-    localStorage.setItem(PANE_COLLAPSED_KEY, paneCollapsed ? '1' : '0');
-  }, [paneCollapsed]);
-
   const [detailSprintId, setDetailSprintId] = useState<string | null>(null);
   const detailSprint = useMemo(
     () => library.decorated.find((d) => d.sprint.id === detailSprintId) ?? null,
@@ -212,6 +201,12 @@ export default function SprintsView() {
 
   const onSelectSprint = useCallback((id: string) => setDetailSprintId(id), []);
   const onNewSprint = useCallback(() => setCreateOpen(true), []);
+  // "Templates" pill-seg button opens the create dialog with default 14-day length —
+  // matches gallery section 06 where the templates entry sits inline with the filters.
+  const onTemplatesClick = useCallback(() => {
+    setTemplateDays(14);
+    setCreateOpen(true);
+  }, []);
 
   const filtered = useMemo(() => f.apply(library.decorated), [f, library.decorated]);
 
@@ -253,30 +248,10 @@ export default function SprintsView() {
 
   return (
     <>
-      <SprintsPane
-        library={library}
-        filters={f.filters}
-        setFilter={f.set}
-        collapsed={paneCollapsed}
-        onCollapseToggle={() => setPaneCollapsed(true)}
-      />
-
-      {paneCollapsed && (
-        <Tooltip content="Show library" side="right">
-          <button
-            className="pane-expand-floating"
-            onClick={() => setPaneCollapsed(false)}
-            aria-label="Show library"
-          >
-            <PanelLeftOpen />
-          </button>
-        </Tooltip>
-      )}
-
       <main className="content">
         <div className="content-bar">
           <div className="breadcrumb">
-            <span><b>Sprints</b></span>
+            <b>Sprints</b>
             <span className="breadcrumb-sep">›</span>
             <span>{VIEW_LABELS[f.filters.view]}</span>
           </div>
@@ -290,6 +265,7 @@ export default function SprintsView() {
                 onClick={() => f.set('view', v)}
               >{VIEW_LABELS[v]}</button>
             ))}
+            <button onClick={onTemplatesClick}>Templates</button>
           </div>
           <button className="new-btn" onClick={onNewSprint}>
             <Plus /> New sprint

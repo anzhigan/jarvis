@@ -1,14 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, PanelLeftOpen } from 'lucide-react';
-import { Tooltip } from '../../../components/ui';
+import { useEffect, useState } from 'react';
+import { Loader2, MoreHorizontal } from 'lucide-react';
 import { Dialog } from '../../../components/ui/Dialog';
 import { Button } from '../../../components/ui/Button';
 import { applyTheme, getStoredTheme, type ThemeMode } from '../../../lib/theme';
 import { useProfile, FONT_SIZES } from '../hooks/useProfile';
-import { ProfilePane, type ProfileSectionKey } from './ProfilePane';
 import './profile.css';
-
-const PANE_COLLAPSED_KEY = 'jarvnote:profile:libCollapsed';
 
 const THEMES: { key: ThemeMode; label: string }[] = [
   { key: 'light', label: 'Light'  },
@@ -27,29 +23,11 @@ function splitName(raw: string): { head: string; tail: string } {
 
 export default function ProfileView() {
   const p = useProfile();
-  const [paneCollapsed, setPaneCollapsed] = useState(
-    () => localStorage.getItem(PANE_COLLAPSED_KEY) === '1',
-  );
-  useEffect(() => {
-    localStorage.setItem(PANE_COLLAPSED_KEY, paneCollapsed ? '1' : '0');
-  }, [paneCollapsed]);
-
-  const [search, setSearch] = useState('');
-  const [section, setSection] = useState<ProfileSectionKey>('account');
 
   const [theme, setTheme] = useState<ThemeMode>(() => getStoredTheme());
   const onThemeChange = (next: ThemeMode) => {
     setTheme(next);
     applyTheme(next);
-  };
-
-  // Refs for scroll-to-section.
-  const accountRef = useRef<HTMLElement | null>(null);
-  const appearanceRef = useRef<HTMLElement | null>(null);
-  const onSelectSection = (key: ProfileSectionKey) => {
-    setSection(key);
-    const target = key === 'account' ? accountRef.current : appearanceRef.current;
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   // Dialogs — minimal local state, one boolean each.
@@ -62,23 +40,10 @@ export default function ProfileView() {
   const initial = (user?.username ?? user?.email ?? '?').slice(0, 1).toUpperCase();
   const { head, tail } = splitName(user?.username ?? user?.email ?? '');
 
-  // Active routines = those that are not paused.
   const stats = p.stats;
   const topStreakStr = stats.topStreak === 0
     ? '0'
     : `${stats.topStreak}`;
-
-  const filteredVisible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return { account: true, appearance: true, signOut: true, danger: true };
-    const match = (label: string) => label.toLowerCase().includes(q);
-    return {
-      account:    match('account') || match('email') || match('password') || match('name') || match('username'),
-      appearance: match('appearance') || match('theme') || match('reading') || match('font') || match('size'),
-      signOut:    match('sign out') || match('logout'),
-      danger:     match('delete') || match('danger'),
-    };
-  }, [search]);
 
   if (!user) {
     return (
@@ -92,35 +57,16 @@ export default function ProfileView() {
 
   return (
     <>
-      <ProfilePane
-        active={section}
-        onSelect={onSelectSection}
-        search={search}
-        setSearch={setSearch}
-        collapsed={paneCollapsed}
-        onCollapseToggle={() => setPaneCollapsed(true)}
-        memberSince={p.memberSince || 'Member'}
-      />
-
-      {paneCollapsed && (
-        <Tooltip content="Show library" side="right">
-          <button
-            className="pane-expand-floating"
-            onClick={() => setPaneCollapsed(false)}
-            aria-label="Show library"
-          >
-            <PanelLeftOpen />
-          </button>
-        </Tooltip>
-      )}
-
       <main className="content">
         <div className="content-bar">
           <div className="breadcrumb">
             <b>Profile</b>
             <span className="breadcrumb-sep">›</span>
-            <span>{section === 'account' ? 'Account' : 'Appearance'}</span>
+            <span>Account</span>
           </div>
+          <button className="icon-btn" title="More" aria-label="More">
+            <MoreHorizontal />
+          </button>
         </div>
 
         <div className="content-scroll">
@@ -169,8 +115,7 @@ export default function ProfileView() {
               </div>
             </div>
 
-            {filteredVisible.account && (
-              <section className="pf-section" ref={accountRef as any} id="profile-account">
+            <section className="pf-section">
                 <div className="pf-sect-head">
                   <h2 className="pf-sect-title">Account</h2>
                   <p className="pf-sect-sub">Your username, email, and password.</p>
@@ -198,10 +143,8 @@ export default function ProfileView() {
                   </div>
                 </div>
               </section>
-            )}
 
-            {filteredVisible.appearance && (
-              <section className="pf-section" ref={appearanceRef as any} id="profile-appearance">
+            <section className="pf-section">
                 <div className="pf-sect-head">
                   <h2 className="pf-sect-title">Appearance</h2>
                   <p className="pf-sect-sub">How Jarvnote looks and reads.</p>
@@ -241,18 +184,14 @@ export default function ProfileView() {
                   </div>
                 </div>
               </section>
-            )}
 
-            {filteredVisible.signOut && (
-              <section className="pf-section">
+            <section className="pf-section">
                 <div className="pf-card pf-card-clean">
                   <button className="pf-link" onClick={p.logout}>Sign out</button>
                 </div>
               </section>
-            )}
 
-            {filteredVisible.danger && (
-              <section className="pf-section">
+            <section className="pf-section">
                 <div className="pf-sect-head">
                   <h2 className="pf-sect-title pf-danger-title">Point of no return</h2>
                   <p className="pf-sect-sub">
@@ -274,7 +213,6 @@ export default function ProfileView() {
                   </div>
                 </div>
               </section>
-            )}
 
             <div style={{ height: 48 }} />
           </div>

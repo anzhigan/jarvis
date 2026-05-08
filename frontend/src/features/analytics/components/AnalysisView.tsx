@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Loader2, MoreHorizontal, PanelLeftOpen } from 'lucide-react';
-import { Tooltip } from '../../../components/ui';
+import { useMemo } from 'react';
+import { Loader2, MoreHorizontal } from 'lucide-react';
 import { useAnalytics, type PeriodKey } from '../hooks/useAnalytics';
-import { AnalysisPane } from './AnalysisPane';
 import { KpiGrid } from './KpiGrid';
 import { StatusDonut } from './StatusDonut';
 import {
@@ -10,8 +8,6 @@ import {
   PracticeActivityChart, YearHeatmapCard,
 } from './AnalysisCharts';
 import './analytics.css';
-
-const PANE_COLLAPSED_KEY = 'jarvnote:analytics:libCollapsed';
 
 const PERIOD_TABS: { key: PeriodKey; label: string }[] = [
   { key: '7d',   label: '7d' },
@@ -34,14 +30,6 @@ function fmtMonth(): string {
 
 export default function AnalysisView() {
   const a = useAnalytics();
-  const [paneCollapsed, setPaneCollapsed] = useState(
-    () => localStorage.getItem(PANE_COLLAPSED_KEY) === '1',
-  );
-  useEffect(() => {
-    localStorage.setItem(PANE_COLLAPSED_KEY, paneCollapsed ? '1' : '0');
-  }, [paneCollapsed]);
-
-  const [search, setSearch] = useState('');
 
   // ── Hero copy: italic em on the most-affected metric ─────────────────────
   const heroTitle = useMemo(() => {
@@ -93,13 +81,6 @@ export default function AnalysisView() {
     [a.routines],
   );
 
-  const totals = {
-    entries:  heatmapEntries,
-    goals:    a.tasks.filter((t) => t.status === 'active').length,
-    routines: activeRoutineCount,
-    notes:    0,
-  };
-
   if (a.loading) {
     return (
       <main className="content">
@@ -114,28 +95,6 @@ export default function AnalysisView() {
 
   return (
     <>
-      <AnalysisPane
-        period={a.period}
-        setPeriod={a.setPeriod}
-        search={search}
-        setSearch={setSearch}
-        collapsed={paneCollapsed}
-        onCollapseToggle={() => setPaneCollapsed(true)}
-        totals={totals}
-      />
-
-      {paneCollapsed && (
-        <Tooltip content="Show library" side="right">
-          <button
-            className="pane-expand-floating"
-            onClick={() => setPaneCollapsed(false)}
-            aria-label="Show library"
-          >
-            <PanelLeftOpen />
-          </button>
-        </Tooltip>
-      )}
-
       <main className="content">
         <div className="content-bar">
           <div className="breadcrumb">

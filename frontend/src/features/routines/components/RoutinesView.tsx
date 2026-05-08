@@ -1,22 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Loader2, MoreHorizontal, PanelLeftOpen, Plus, X } from 'lucide-react';
-import { Tooltip } from '../../../components/ui';
+import { useCallback, useMemo, useState } from 'react';
+import { Check, Loader2, MoreHorizontal, Plus, X } from 'lucide-react';
 import type { Routine, RoutineEntry } from '../../../api/types';
 import { useRoutines } from '../hooks/useRoutines';
 import { useRoutinesToday } from '../hooks/useRoutinesToday';
-import { useRoutinesFilters } from '../hooks/useRoutinesFilters';
 import { useGoals } from '../../goals/hooks/useGoals';
 import {
   completionRate, currentStreak, scheduleLabel, ymd, addDays, isScheduledOn,
 } from '../lib/heatmap';
 import { todayState } from '../hooks/useRoutinesToday';
-import { RoutinesPane } from './RoutinesPane';
 import { RoutineDetailPanel } from './RoutineDetailPanel';
 import { RoutineCreateDialog } from './RoutineCreateDialog';
 import './routines.css';
 
-const PANE_COLLAPSED_KEY = 'jarvnote:routines:libCollapsed';
 const HISTORY_DAYS = 14;
+
+type ViewMode = 'grid' | 'list' | 'today';
+const MODE_LABELS: Record<ViewMode, string> = { grid: 'Grid', list: 'List', today: 'Today' };
 
 const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--slate)', 'var(--ochre)', 'var(--rust)'] as const;
 function accentFor(seed: string | null | undefined): string {
@@ -68,7 +67,6 @@ function bestStreak(routine: Routine): number {
 export default function RoutinesView() {
   const library = useRoutines();
   const today   = useRoutinesToday(library);
-  const f       = useRoutinesFilters();
   const goalsLib = useGoals();
   const goalById = useMemo(() => {
     const m = new Map<string, string>();
@@ -76,13 +74,7 @@ export default function RoutinesView() {
     return m;
   }, [goalsLib.tasks]);
 
-  const [paneCollapsed, setPaneCollapsed] = useState(
-    () => localStorage.getItem(PANE_COLLAPSED_KEY) === '1',
-  );
-  useEffect(() => {
-    localStorage.setItem(PANE_COLLAPSED_KEY, paneCollapsed ? '1' : '0');
-  }, [paneCollapsed]);
-
+  const [mode, setMode] = useState<ViewMode>('grid');
   const [detailRoutineId, setDetailRoutineId] = useState<string | null>(null);
   const detailRoutine = useMemo(
     () => library.routines.find((r) => r.id === detailRoutineId) ?? null,
@@ -94,10 +86,6 @@ export default function RoutinesView() {
   const onSkip  = useCallback((r: Routine) => { void library.skipToday(r.id); }, [library]);
   const onNew   = useCallback(() => setCreateOpen(true), []);
 
-  const streaksCount = useMemo(
-    () => library.routines.filter((r) => !r.is_paused && currentStreak(r) >= 3).length,
-    [library.routines],
-  );
   const todayDate = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
 
   // ── 14-day history columns (oldest → today on the right) ──────────────────
@@ -120,9 +108,6 @@ export default function RoutinesView() {
     );
   }
 
-  // Filter the routines by pane filters before rendering rows.
-  const filteredRoutines = f.apply(library.routines);
-
   const longestStreakRoutine = library.routines
     .filter((r) => !r.is_paused)
     .reduce<{ routine: Routine | null; streak: number }>(
@@ -138,7 +123,6 @@ export default function RoutinesView() {
     return Math.round(arr.reduce((acc, r) => acc + completionRate(r, 30), 0) / arr.length);
   })();
 
-  // ── Hero title — italic em on the most-affected metric ────────────────────
   const totalActive = library.routines.filter((r) => !r.is_paused).length;
   const heroTitle = totalActive === 0
     ? <>No routines yet,<br /><em>blank slate</em>.</>
@@ -177,35 +161,23 @@ export default function RoutinesView() {
 
   return (
     <>
-      <RoutinesPane
-        library={library}
-        filters={f.filters}
-        setFilter={f.set}
-        pendingTodayCount={today.scheduledCount}
-        streaksCount={streaksCount}
-        linkedGoals={goalsLib.tasks}
-        collapsed={paneCollapsed}
-        onCollapseToggle={() => setPaneCollapsed(true)}
-      />
-
-      {paneCollapsed && (
-        <Tooltip content="Show library" side="right">
-          <button
-            className="pane-expand-floating"
-            onClick={() => setPaneCollapsed(false)}
-            aria-label="Show library"
-          >
-            <PanelLeftOpen />
-          </button>
-        </Tooltip>
-      )}
-
       <main className="content">
         <div className="content-bar">
           <div className="breadcrumb">
             <b>Routines</b>
             <span className="breadcrumb-sep">›</span>
             <span>All practices</span>
+          </div>
+          <div className="pill-seg" role="tablist">
+            {(['grid', 'list', 'today'] as ViewMode[]).map((m) => (
+              <button
+                key={m}
+                className={mode === m ? 'on' : ''}
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => setMode(m)}
+              >{MODE_LABELS[m]}</button>
+            ))}
           </div>
           <button className="new-btn" onClick={onNew}>
             <Plus /> New routine
@@ -222,6 +194,17 @@ export default function RoutinesView() {
               <div className="content-empty-desc">
                 Recurring practices fire on their schedule and stack into streaks.
                 Add the first one to get started.
+              </div>
+            </div>
+          ) : mode !== 'grid' ? (
+            <div className="content-empty">
+              <div className="content-empty-eyebrow">Routines · {MODE_LABELS[mode]}</div>
+              <div className="content-empty-title">
+                Coming <em>soon</em>.
+              </div>
+              <div className="content-empty-desc">
+                The {MODE_LABELS[mode]} view is planned for a follow-up.
+                Grid view is canonical for now.
               </div>
             </div>
           ) : (
@@ -287,15 +270,7 @@ export default function RoutinesView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRoutines.length === 0 ? (
-                      <tr>
-                        <td colSpan={5}>
-                          <div className="ana-card-empty" style={{ padding: 24 }}>
-                            Nothing matches the current filters.
-                          </div>
-                        </td>
-                      </tr>
-                    ) : filteredRoutines.map((r) => {
+                    {library.routines.map((r) => {
                       const entryByDate = new Map<string, RoutineEntry>();
                       for (const e of r.entries) entryByDate.set(e.date, e);
                       const streak = currentStreak(r);
