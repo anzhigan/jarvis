@@ -333,6 +333,20 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     setHelpers(h);
   }, []);
 
+  // Stable references for BubbleMenu — recreating these on every render
+  // re-initialises the menu plugin and causes lag/flicker.
+  const bubbleShouldShow = useCallback(
+    ({ state }: { state: { selection: { empty: boolean } } }) =>
+      !state.selection.empty,
+    [],
+  );
+  const bubbleOptions = useRef({
+    placement: 'top' as const,
+    offset: 8,
+    flip: true,
+    shift: { padding: 8 },
+  }).current;
+
   if (!note) {
     return (
       <main className="content">
@@ -360,7 +374,9 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
         <BubbleMenu
           editor={editor}
           className="note-bubble"
-          options={{ placement: 'top' }}
+          updateDelay={0}
+          shouldShow={bubbleShouldShow}
+          options={bubbleOptions}
         >
           <NoteToolbar editor={editor} helpers={helpers} />
         </BubbleMenu>
