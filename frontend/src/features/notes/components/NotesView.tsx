@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, PanelLeftOpen } from 'lucide-react';
+import { Loader2, PanelLeft } from 'lucide-react';
 import { Tooltip } from '../../../components/ui';
 import { useNotesLibrary } from '../hooks/useNotesLibrary';
 import { useNoteEditor } from '../hooks/useNoteEditor';
@@ -54,7 +54,7 @@ export default function NotesView() {
             onClick={() => setPaneCollapsed(false)}
             aria-label="Show library"
           >
-            <PanelLeftOpen />
+            <PanelLeft />
           </button>
         </Tooltip>
       )}

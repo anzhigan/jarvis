@@ -906,14 +906,17 @@
   color: var(--ink-4);
 }
 
-/* Floating expand button (when pane is collapsed) — sits below the content-bar
-   so it doesn't overlap the breadcrumb/saved-pill (Claude-style placement). */
+/* Floating expand button (when pane is collapsed) — anchored to the same y
+   as the .collapse-btn inside the sidebar so toggling feels like a stationary
+   pivot. Wider rectangle, plain panel-left icon (no chevron). */
 .pane-expand-floating {
   position: absolute;
-  top: calc(var(--topbar-h) + 10px);
+  /* y matches collapse-btn position inside pane: pane-head height ≈ 104px +
+     pane-tools padding-top 12px = 116px from the frame top. */
+  top: 116px;
   left: calc(var(--rail-w) + 10px);
   z-index: var(--z-sticky);
-  width: 32px; height: 32px;
+  width: 40px; height: 32px;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--paper);
   color: var(--ink-3);
@@ -924,7 +927,7 @@
   transition: all var(--dur-fast) var(--ease);
 }
 .pane-expand-floating:hover { background: var(--cream); color: var(--ink); }
-.pane-expand-floating svg { width: 14px; height: 14px; }
+.pane-expand-floating svg { width: 16px; height: 16px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    4. COMMAND PALETTE (cmdk)
