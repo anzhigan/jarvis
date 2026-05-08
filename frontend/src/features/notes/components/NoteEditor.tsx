@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Bold, Check, Image as ImageIcon, Italic, Loader2, Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 import type { EditorHelpers } from '../../../components/RichTextEditor';
 import type { Note } from '../../../api/types';
 import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
@@ -355,7 +356,15 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
         <SavedPill saving={saving} savedAt={savedAt} />
       </div>
 
-      {editor && <NoteToolbar editor={editor} helpers={helpers} />}
+      {editor && (
+        <BubbleMenu
+          editor={editor}
+          className="note-bubble"
+          options={{ placement: 'top' }}
+        >
+          <NoteToolbar editor={editor} helpers={helpers} />
+        </BubbleMenu>
+      )}
 
       <div className="content-scroll">
         <article className="doc">

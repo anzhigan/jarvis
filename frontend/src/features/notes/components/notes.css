@@ -17,7 +17,31 @@
 .saved-pill[data-state="saved"] svg { color: var(--moss); }
 .saved-pill svg { width: 11px; height: 11px; }
 
-/* ─── Top-of-content formatting toolbar ───────────────────────────────── */
+/* ─── Selection-anchored formatting bubble (Tiptap BubbleMenu) ────────── */
+/* Wraps the toolbar; appears only when there is a text selection. */
+.note-bubble {
+  display: inline-flex;
+  align-items: center;
+  background: var(--paper);
+  border-radius: var(--r-control);
+  box-shadow: var(--sh-popover);
+  padding: 0;
+  z-index: var(--z-sticky);
+}
+
+/* Inside the bubble — collapse the toolbar to a compact horizontal chip. */
+.note-bubble .note-toolbar {
+  height: 32px;
+  padding: 0 6px;
+  border-bottom: 0;
+  background: transparent;
+  gap: 2px;
+}
+.note-bubble .ntb-btn { width: 28px; height: 24px; }
+.note-bubble .ntb-btn svg { width: 13px; height: 13px; }
+.note-bubble .ntb-sep { height: 14px; margin: 0 4px; }
+
+/* ─── Static toolbar (mobile / fallback) ──────────────────────────────── */
 .note-toolbar {
   flex-shrink: 0;
   height: 44px;
