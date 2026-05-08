@@ -1,7 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useReducer, useState } from 'react';
-import { Check, Loader2, MoreHorizontal } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { Bold, Check, Image as ImageIcon, Italic, Loader2, Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
-import { Tooltip } from '../../../components/ui';
+import type { EditorHelpers } from '../../../components/RichTextEditor';
 import type { Note } from '../../../api/types';
 import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
 
@@ -93,9 +93,9 @@ function EditorFallback() {
 
 /* ── Top-of-content formatting toolbar (matches gallery section 01 .ntb-*) ── */
 
-interface ToolbarProps { editor: Editor }
+interface ToolbarProps { editor: Editor; helpers: EditorHelpers | null }
 
-function NoteToolbar({ editor }: ToolbarProps) {
+function NoteToolbar({ editor, helpers }: ToolbarProps) {
   // Re-render on every Tiptap transaction so isActive() reflects current state.
   const [, tick] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
@@ -114,18 +114,14 @@ function NoteToolbar({ editor }: ToolbarProps) {
     [editor],
   );
 
-  const onLink = useCallback(() => {
-    const prev = (editor.getAttributes('link').href as string | undefined) ?? '';
-    const next = window.prompt('Link URL (leave blank to remove)', prev);
-    if (next === null) return;
-    if (next === '') editor.chain().focus().unsetLink().run();
-    else editor.chain().focus().setLink({ href: next }).run();
-  }, [editor]);
-
   const Btn = ({
-    title, active, onClick, children,
+    title, active, disabled, onClick, children,
   }: {
-    title: string; active?: boolean; onClick: () => void; children: React.ReactNode;
+    title: string;
+    active?: boolean;
+    disabled?: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
   }) => (
     <button
       type="button"
@@ -133,37 +129,65 @@ function NoteToolbar({ editor }: ToolbarProps) {
       title={title}
       aria-label={title}
       data-active={active || undefined}
+      disabled={disabled}
       onClick={onClick}
     >{children}</button>
   );
 
+  const HText = ({ children }: { children: React.ReactNode }) => (
+    <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600, letterSpacing: '-0.02em' }}>
+      {children}
+    </span>
+  );
+
   return (
     <div className="note-toolbar">
+      {/* Headings */}
       <div className="ntb-group">
         <Btn
           title="Heading 1"
           active={editor.isActive('heading', { level: 1 })}
           onClick={cmd((c) => c.toggleHeading({ level: 1 }))}
-        >
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600, letterSpacing: '-0.02em' }}>H1</span>
-        </Btn>
+        ><HText>H1</HText></Btn>
         <Btn
           title="Heading 2"
           active={editor.isActive('heading', { level: 2 })}
           onClick={cmd((c) => c.toggleHeading({ level: 2 }))}
-        >
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600, letterSpacing: '-0.02em' }}>H2</span>
-        </Btn>
+        ><HText>H2</HText></Btn>
         <Btn
           title="Heading 3"
           active={editor.isActive('heading', { level: 3 })}
           onClick={cmd((c) => c.toggleHeading({ level: 3 }))}
-        >
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600, letterSpacing: '-0.02em' }}>H3</span>
-        </Btn>
+        ><HText>H3</HText></Btn>
       </div>
       <div className="ntb-sep" />
 
+      {/* Inline marks: bold / italic / underline / strikethrough */}
+      <div className="ntb-group">
+        <Btn
+          title="Bold"
+          active={editor.isActive('bold')}
+          onClick={cmd((c) => c.toggleBold())}
+        ><Bold /></Btn>
+        <Btn
+          title="Italic"
+          active={editor.isActive('italic')}
+          onClick={cmd((c) => c.toggleItalic())}
+        ><Italic /></Btn>
+        <Btn
+          title="Underline"
+          active={editor.isActive('underline')}
+          onClick={cmd((c) => c.toggleUnderline())}
+        ><UnderlineIcon /></Btn>
+        <Btn
+          title="Strikethrough"
+          active={editor.isActive('strike')}
+          onClick={cmd((c) => c.toggleStrike())}
+        ><Strikethrough /></Btn>
+      </div>
+      <div className="ntb-sep" />
+
+      {/* Lists */}
       <div className="ntb-group">
         <Btn
           title="Bulleted list"
@@ -204,6 +228,7 @@ function NoteToolbar({ editor }: ToolbarProps) {
       </div>
       <div className="ntb-sep" />
 
+      {/* Blocks: quote / code / divider */}
       <div className="ntb-group">
         <Btn
           title="Quote"
@@ -235,16 +260,42 @@ function NoteToolbar({ editor }: ToolbarProps) {
       </div>
       <div className="ntb-sep" />
 
+      {/* Inserts: link / formula / table / image — driven via helpers callbacks
+          provided by RichTextEditor onEditorReady. */}
       <div className="ntb-group">
         <Btn
           title="Link"
           active={editor.isActive('link')}
-          onClick={onLink}
+          disabled={!helpers}
+          onClick={() => helpers?.openLink()}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
             <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
             <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
           </svg>
+        </Btn>
+        <Btn
+          title="Math formula"
+          active={editor.isActive('inline-math') || editor.isActive('inlineMath')}
+          disabled={!helpers}
+          onClick={() => helpers?.openMath()}
+        >
+          <Sigma />
+        </Btn>
+        <Btn
+          title="Table"
+          active={editor.isActive('table')}
+          disabled={!helpers}
+          onClick={() => helpers?.openTable()}
+        >
+          <TableIcon />
+        </Btn>
+        <Btn
+          title="Image"
+          disabled={!helpers}
+          onClick={() => helpers?.openImage()}
+        >
+          <ImageIcon />
         </Btn>
       </div>
     </div>
@@ -254,12 +305,26 @@ function NoteToolbar({ editor }: ToolbarProps) {
 export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, onContentChange }: Props) {
   const [localTitle, setLocalTitle] = useState(note?.name ?? '');
   const [editor, setEditor] = useState<Editor | null>(null);
-  // Reset local title only when switching to a different note; also clear the
-  // stale editor reference so the toolbar doesn't drive a different note's editor.
+  const [helpers, setHelpers] = useState<EditorHelpers | null>(null);
+
+  // Track previous note id so we can distinguish initial mount from a real
+  // note switch — only the latter should clear the editor reference.
+  const prevIdRef = useRef<string | undefined>(note?.id);
   useEffect(() => {
     setLocalTitle(note?.name ?? '');
-    setEditor(null);
-  }, [note?.id]);
+    if (prevIdRef.current !== undefined && prevIdRef.current !== note?.id) {
+      // Real switch between two distinct notes: drop the stale editor; the
+      // RichTextEditor's `key={note.id}` remount will set the new one.
+      setEditor(null);
+      setHelpers(null);
+    }
+    prevIdRef.current = note?.id;
+  }, [note?.id, note?.name]);
+
+  const onEditorReady = useCallback((ed: Editor, h: EditorHelpers) => {
+    setEditor(ed);
+    setHelpers(h);
+  }, []);
 
   if (!note) {
     return (
@@ -282,12 +347,9 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       <div className="content-bar">
         <Breadcrumb items={breadcrumbs} />
         <SavedPill saving={saving} savedAt={savedAt} />
-        <Tooltip content="More actions" side="bottom">
-          <button className="icon-btn" aria-label="More actions"><MoreHorizontal /></button>
-        </Tooltip>
       </div>
 
-      {editor && <NoteToolbar editor={editor} />}
+      {editor && <NoteToolbar editor={editor} helpers={helpers} />}
 
       <div className="content-scroll">
         <article className="doc">
@@ -330,7 +392,7 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
                 noteId={note.id}
                 content={note.content}
                 onChange={(html) => onContentChange(note.id, html)}
-                onEditorReady={setEditor}
+                onEditorReady={onEditorReady}
               />
             </Suspense>
           </div>

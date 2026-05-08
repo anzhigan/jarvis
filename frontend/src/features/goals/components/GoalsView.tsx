@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Loader2, Plus } from 'lucide-react';
-import type { TaskStatus } from '../../../api/types';
+import type { Tag, Task, TaskStatus } from '../../../api/types';
 import { useGoals } from '../hooks/useGoals';
 import { useGos } from '../hooks/useGos';
 import { useSteps } from '../hooks/useSteps';
@@ -25,6 +25,15 @@ const DAY_LABELS: Record<DayFilter, string> = {
   future: 'Future',
 };
 
+type StatusFilter = 'all' | TaskStatus;
+const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
+  { key: 'all',     label: 'All'      },
+  { key: 'backlog', label: 'Backlog'  },
+  { key: 'active',  label: 'Active'   },
+  { key: 'paused',  label: 'On hold'  },
+  { key: 'done',    label: 'Done'     },
+];
+
 const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -34,9 +43,12 @@ export default function GoalsView() {
   const steps = useSteps(goals);
   const view  = useGoalsView();
 
-  // Day-bucket filter for Go mode (Past / Today / Future). Maps directly onto
-  // bucketOfGo categories so it's a stateless transform on goals.tasks.
+  // Day-bucket filter for Go mode (Past / Today / Future).
   const [dayFilter, setDayFilter] = useState<DayFilter>('today');
+
+  // Kanban filters — status (single-select) + tags (multi-select).
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
 
   const [detailGoalId, setDetailGoalId] = useState<string | null>(null);
   const detailGoal = useMemo(
@@ -52,8 +64,6 @@ export default function GoalsView() {
   }, []);
   const onSelectGoal = useCallback((id: string) => setDetailGoalId(id), []);
 
-  // ── Day-filtered gos list for Go mode. Past = overdue, Today = today/upcoming-today,
-  //    Future = upcoming with due-date strictly later than today. Done items always show.
   const dayFilteredGos = useMemo(() => {
     if (view.mode !== 'go') return gos.gos;
     const today = ymd(new Date());
@@ -61,10 +71,35 @@ export default function GoalsView() {
       const due = g.due_date;
       if (dayFilter === 'past')   return !!due && due < today;
       if (dayFilter === 'future') return !!due && due > today;
-      // today: items due today, items with no due date, or items already done today
       return !due || due === today || g.is_done_today;
     });
   }, [gos.gos, dayFilter, view.mode]);
+
+  // Tag pool — all tags actually present on goals (not the global tag list).
+  const tagPool = useMemo<Tag[]>(() => {
+    const seen = new Map<string, Tag>();
+    for (const t of goals.tasks) for (const tag of t.tags) seen.set(tag.id, tag);
+    return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [goals.tasks]);
+
+  const filteredKanbanTasks = useMemo<Task[]>(() => {
+    return goals.tasks.filter((t) => {
+      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+      if (tagFilter.size > 0) {
+        const taskTagIds = new Set(t.tags.map((tag) => tag.id));
+        let any = false;
+        for (const id of tagFilter) if (taskTagIds.has(id)) { any = true; break; }
+        if (!any) return false;
+      }
+      return true;
+    });
+  }, [goals.tasks, statusFilter, tagFilter]);
+
+  const toggleTag = (id: string) => setTagFilter((p) => {
+    const n = new Set(p);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
 
   if (goals.loading || gos.loading) {
     return (
@@ -76,46 +111,50 @@ export default function GoalsView() {
     );
   }
 
+  const showSecondarySeg = view.mode === 'go';
+
   return (
     <>
       <main className="content">
-        <div className="content-bar">
+        <div className="content-bar content-bar-centered">
           <div className="breadcrumb">
             <b>Goals</b>
             <span className="breadcrumb-sep">›</span>
             <span>{VIEW_LABELS[view.mode]}</span>
           </div>
 
-          {view.mode === 'go' && (
-            <div className="pill-seg pill-seg-secondary" role="tablist">
-              {(['past', 'today', 'future'] as DayFilter[]).map((k) => (
-                <button
-                  key={k}
-                  className={dayFilter === k ? 'on' : ''}
-                  role="tab"
-                  aria-selected={dayFilter === k}
-                  onClick={() => setDayFilter(k)}
-                >{DAY_LABELS[k]}</button>
-              ))}
-            </div>
-          )}
+          <div className="content-bar-mid">
+            {showSecondarySeg && (
+              <div className="pill-seg pill-seg-secondary" role="tablist">
+                {(['past', 'today', 'future'] as DayFilter[]).map((k) => (
+                  <button
+                    key={k}
+                    className={dayFilter === k ? 'on' : ''}
+                    role="tab"
+                    aria-selected={dayFilter === k}
+                    onClick={() => setDayFilter(k)}
+                  >{DAY_LABELS[k]}</button>
+                ))}
+              </div>
+            )}
 
-          <div className="pill-seg" role="tablist">
-            <button
-              className={view.mode === 'goals' ? 'on' : ''}
-              role="tab" aria-selected={view.mode === 'goals'}
-              onClick={() => view.setMode('goals')}
-            >Kanban</button>
-            <button
-              className={view.mode === 'go' ? 'on' : ''}
-              role="tab" aria-selected={view.mode === 'go'}
-              onClick={() => view.setMode('go')}
-            >Go</button>
-            <button
-              className={view.mode === 'step' ? 'on' : ''}
-              role="tab" aria-selected={view.mode === 'step'}
-              onClick={() => view.setMode('step')}
-            >Step</button>
+            <div className="pill-seg" role="tablist">
+              <button
+                className={view.mode === 'goals' ? 'on' : ''}
+                role="tab" aria-selected={view.mode === 'goals'}
+                onClick={() => view.setMode('goals')}
+              >Kanban</button>
+              <button
+                className={view.mode === 'go' ? 'on' : ''}
+                role="tab" aria-selected={view.mode === 'go'}
+                onClick={() => view.setMode('go')}
+              >Go</button>
+              <button
+                className={view.mode === 'step' ? 'on' : ''}
+                role="tab" aria-selected={view.mode === 'step'}
+                onClick={() => view.setMode('step')}
+              >Step</button>
+            </div>
           </div>
 
           <button className="new-btn" onClick={() => onAddGoal('active')}>
@@ -124,8 +163,6 @@ export default function GoalsView() {
         </div>
 
         {view.mode === 'go' ? (
-          // Go v6 owns the whole content area below the bar — its left/right
-          // panes scroll independently, so we skip the outer .content-scroll.
           <GoView
             gos={dayFilteredGos}
             goals={goals.tasks}
@@ -134,8 +171,6 @@ export default function GoalsView() {
             onSelectGoal={onSelectGoal}
           />
         ) : view.mode === 'step' ? (
-          // Step v2 Gantt owns the whole area too — gantt-body and dp-scroll
-          // each manage their own vertical scroll.
           <StepView
             steps={steps.allSteps}
             goals={goals.tasks}
@@ -144,8 +179,55 @@ export default function GoalsView() {
           />
         ) : (
           <div className="content-scroll" style={{ overflowX: 'auto' }}>
+            {/* Filter row above kanban — single-select status + multi-select tags. */}
+            <div className="kanban-filters">
+              <div className="kanban-filters-group">
+                <span className="kanban-filters-label">Status</span>
+                {STATUS_FILTERS.map((s) => (
+                  <button
+                    key={s.key}
+                    className="ui-chip"
+                    data-active={statusFilter === s.key || undefined}
+                    onClick={() => setStatusFilter(s.key)}
+                    type="button"
+                  >{s.label}</button>
+                ))}
+              </div>
+              {tagPool.length > 0 && (
+                <div className="kanban-filters-group">
+                  <span className="kanban-filters-label">Tags</span>
+                  {tagPool.map((tag) => {
+                    const on = tagFilter.has(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        className="ui-chip"
+                        data-active={on || undefined}
+                        onClick={() => toggleTag(tag.id)}
+                        type="button"
+                      >
+                        <span style={{
+                          width: 8, height: 8, borderRadius: 2,
+                          background: tag.color, display: 'inline-block',
+                        }} />
+                        {tag.name}
+                      </button>
+                    );
+                  })}
+                  {tagFilter.size > 0 && (
+                    <button
+                      className="ui-chip"
+                      data-tone="muted"
+                      onClick={() => setTagFilter(new Set())}
+                      type="button"
+                    >Clear</button>
+                  )}
+                </div>
+              )}
+            </div>
+
             <GoalsBoard
-              tasks={goals.tasks}
+              tasks={filteredKanbanTasks}
               onSelect={onSelectGoal}
               onAdd={onAddGoal}
               onMove={goals.moveStatus}

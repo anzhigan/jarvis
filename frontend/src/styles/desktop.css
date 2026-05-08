@@ -650,6 +650,20 @@
   border-bottom: 1px solid var(--hairline-faint);
   display: flex; align-items: center; gap: 14px;
 }
+
+/* Centered variant — breadcrumb left, primary pill-seg perfectly centered,
+   actions right. Used in Goals/Routines content-bar. */
+.content-bar-centered {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 14px;
+}
+.content-bar-centered > :first-child  { justify-self: start; min-width: 0; }
+.content-bar-centered > :last-child   { justify-self: end; }
+.content-bar-mid {
+  display: flex; align-items: center; gap: 14px;
+  justify-self: center;
+}
 .content-scroll {
   flex: 1; min-height: 0;
   overflow-y: auto;

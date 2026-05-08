@@ -14,9 +14,6 @@ import './routines.css';
 
 const HISTORY_DAYS = 14;
 
-type ViewMode = 'grid' | 'list' | 'today';
-const MODE_LABELS: Record<ViewMode, string> = { grid: 'Grid', list: 'List', today: 'Today' };
-
 const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--slate)', 'var(--ochre)', 'var(--rust)'] as const;
 function accentFor(seed: string | null | undefined): string {
   if (!seed) return 'var(--ink-4)';
@@ -74,7 +71,6 @@ export default function RoutinesView() {
     return m;
   }, [goalsLib.tasks]);
 
-  const [mode, setMode] = useState<ViewMode>('grid');
   const [detailRoutineId, setDetailRoutineId] = useState<string | null>(null);
   const detailRoutine = useMemo(
     () => library.routines.find((r) => r.id === detailRoutineId) ?? null,
@@ -168,17 +164,6 @@ export default function RoutinesView() {
             <span className="breadcrumb-sep">›</span>
             <span>All practices</span>
           </div>
-          <div className="pill-seg" role="tablist">
-            {(['grid', 'list', 'today'] as ViewMode[]).map((m) => (
-              <button
-                key={m}
-                className={mode === m ? 'on' : ''}
-                role="tab"
-                aria-selected={mode === m}
-                onClick={() => setMode(m)}
-              >{MODE_LABELS[m]}</button>
-            ))}
-          </div>
           <button className="new-btn" onClick={onNew}>
             <Plus /> New routine
           </button>
@@ -194,17 +179,6 @@ export default function RoutinesView() {
               <div className="content-empty-desc">
                 Recurring practices fire on their schedule and stack into streaks.
                 Add the first one to get started.
-              </div>
-            </div>
-          ) : mode !== 'grid' ? (
-            <div className="content-empty">
-              <div className="content-empty-eyebrow">Routines · {MODE_LABELS[mode]}</div>
-              <div className="content-empty-title">
-                Coming <em>soon</em>.
-              </div>
-              <div className="content-empty-desc">
-                The {MODE_LABELS[mode]} view is planned for a follow-up.
-                Grid view is canonical for now.
               </div>
             </div>
           ) : (

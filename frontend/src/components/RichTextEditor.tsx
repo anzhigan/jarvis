@@ -381,6 +381,16 @@ const InlineMath = Node.create({
 // ─── Types ───────────────────────────────────────────────────────────────────
 import type { Editor } from '@tiptap/react';
 
+/** Helpers exposed alongside the editor — they trigger our internal dialogs
+ *  (link / table / math) and the file picker for image upload. The parent
+ *  toolbar uses these so the buttons feel native to the editor. */
+export interface EditorHelpers {
+  openLink: () => void;
+  openTable: () => void;
+  openMath: () => void;
+  openImage: () => void;
+}
+
 interface RichTextEditorProps {
   noteId: string;
   content: string;
@@ -388,7 +398,7 @@ interface RichTextEditorProps {
   children?: ReactNode;
   /** Called once the Tiptap editor is ready — lets the parent render its own
    *  top-of-content toolbar (matching gallery section 01) wired to commands. */
-  onEditorReady?: (editor: Editor) => void;
+  onEditorReady?: (editor: Editor, helpers: EditorHelpers) => void;
 }
 
 // ─── Main Editor ─────────────────────────────────────────────────────────────
@@ -501,10 +511,25 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
     },
   });
 
-  // Lift the editor to the parent so it can render its own top-of-content
-  // toolbar (matches gallery section 01). Fires once per editor instance.
+  // Lift the editor + helpers to the parent so it can render its own top-of-
+  // content toolbar (matches gallery section 01). Fires once per editor instance.
+  // We use a ref for the helpers callback signatures so the effect doesn't
+  // re-fire on every render — only on actual editor instance change.
   useEffect(() => {
-    if (editor && onEditorReady) onEditorReady(editor);
+    if (!editor || !onEditorReady) return;
+    onEditorReady(editor, {
+      openLink:  () => {
+        const prev = editor.getAttributes('link').href as string | undefined;
+        setDialogExtra({ prevUrl: prev });
+        setDialog('link');
+      },
+      openTable: () => {
+        if (editor.isActive('table')) editor.chain().focus().deleteTable().run();
+        else setDialog('table');
+      },
+      openMath:  () => setDialog('math'),
+      openImage: () => fileInputRef.current?.click(),
+    });
   }, [editor, onEditorReady]);
 
   // Note: content changes between notes are handled via `key` prop remount in parent.

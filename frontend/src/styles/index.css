@@ -49,7 +49,8 @@ body {
 button { background: none; border: 0; margin: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; letter-spacing: inherit; }
 input, textarea, select { font: inherit; color: inherit; background: transparent; border: 0; outline: 0; }
 
-::selection { background: var(--accent-notes-bg); color: var(--accent-notes-fg); }
+::selection      { background: var(--indigo-tint); color: var(--ink); }
+::-moz-selection { background: var(--indigo-tint); color: var(--ink); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

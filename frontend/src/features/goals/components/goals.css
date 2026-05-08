@@ -3,6 +3,28 @@
    Imported by GoalsView. Adapted from jarvnote-indigo-3.html sections 02-04.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Filter chips row above kanban — single-select status + multi-select tags. */
+.kanban-filters {
+  padding: 16px 24px 4px;
+  display: flex; flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+.kanban-filters-group {
+  display: inline-flex; align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.kanban-filters-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--ink-4);
+  margin-right: 4px;
+}
+
 .kanban {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
