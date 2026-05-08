@@ -906,11 +906,12 @@
   color: var(--ink-4);
 }
 
-/* Floating expand button (when pane is collapsed) */
+/* Floating expand button (when pane is collapsed) — sits below the content-bar
+   so it doesn't overlap the breadcrumb/saved-pill (Claude-style placement). */
 .pane-expand-floating {
   position: absolute;
-  top: 10px;
-  left: calc(var(--indigo-rail-w) + 10px);
+  top: calc(var(--topbar-h) + 10px);
+  left: calc(var(--rail-w) + 10px);
   z-index: var(--z-sticky);
   width: 32px; height: 32px;
   display: inline-flex; align-items: center; justify-content: center;
