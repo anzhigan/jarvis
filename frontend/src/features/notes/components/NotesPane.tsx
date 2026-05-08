@@ -1,29 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Pin, Plus, Search } from 'lucide-react';
-
-/** Sidebar-toggle icon — inlined to match gallery section 01 exactly:
- *  rounded panel rect + vertical divider at 1/3 + chevron pointing into the
- *  collapsed pane. Explicit width/height ensure consistent sizing across
- *  browsers regardless of parent box. */
-function CollapseIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-      <line x1="9" y1="3" x2="9" y2="21" />
-      <path d="m16 15-3-3 3-3" />
-    </svg>
-  );
-}
 import type { NotesLibrary } from '../hooks/useNotesLibrary';
 import type { Way } from '../../../api/types';
 
@@ -45,11 +21,10 @@ interface Props {
   selectedNoteId: string | null;
   collapsed: boolean;
   onSelectNote: (id: string) => void;
-  onCollapseToggle: () => void;
 }
 
 export function NotesPane({
-  library, selectedNoteId, collapsed, onSelectNote, onCollapseToggle,
+  library, selectedNoteId, collapsed, onSelectNote,
 }: Props) {
   const { ways, pinnedNotes, createWay } = library;
   const [expandedWays, setExpandedWays]     = useState<Set<string>>(readSet(EXP_WAYS_KEY));
@@ -126,7 +101,6 @@ export function NotesPane({
   return (
     <aside className="pane" data-collapsed={collapsed || undefined}>
       <header className="pane-head">
-        <div className="pane-eyebrow">Knowledge</div>
         <div className="pane-title">Notes</div>
         <div className="pane-sub">
           {ways.length} ways · {totalTopics} topics · {totalNotes} notes
@@ -142,14 +116,6 @@ export function NotesPane({
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <button
-          className="collapse-btn"
-          title="Hide sidebar"
-          onClick={onCollapseToggle}
-          aria-label="Hide sidebar"
-        >
-          <CollapseIcon />
-        </button>
       </div>
 
       <div className="pane-body">

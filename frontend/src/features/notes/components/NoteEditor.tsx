@@ -314,24 +314,36 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   const [editor, setEditor] = useState<Editor | null>(null);
   const [helpers, setHelpers] = useState<EditorHelpers | null>(null);
 
-  // Track previous note id so we can distinguish initial mount from a real
-  // note switch — only the latter should clear the editor reference.
-  const prevIdRef = useRef<string | undefined>(note?.id);
+  // Just sync localTitle when the note id changes — DON'T touch editor/helpers
+  // here. Two reasons:
+  //   1. RichTextEditor's `key={note.id}` already triggers a full remount, so
+  //      the new editor instance arrives via onEditorReady automatically.
+  //   2. If we manually setEditor(null) in this effect, it can race with the
+  //      child's onEditorReady call (child effects fire BEFORE parent effects),
+  //      leaving us with a permanently-null editor after a note switch.
   useEffect(() => {
     setLocalTitle(note?.name ?? '');
-    if (prevIdRef.current !== undefined && prevIdRef.current !== note?.id) {
-      // Real switch between two distinct notes: drop the stale editor; the
-      // RichTextEditor's `key={note.id}` remount will set the new one.
-      setEditor(null);
-      setHelpers(null);
-    }
-    prevIdRef.current = note?.id;
   }, [note?.id, note?.name]);
 
+  // Receive the new editor + helpers when RichTextEditor remounts. Atomic
+  // replace — never clear in between or BubbleMenu will permanently detach.
   const onEditorReady = useCallback((ed: Editor, h: EditorHelpers) => {
     setEditor(ed);
     setHelpers(h);
   }, []);
+
+  // When an editor instance is destroyed (e.g. by RichTextEditor unmount on
+  // note switch), clear our state IF and only IF that destroyed editor is
+  // still the one we're holding. This prevents stale-destroyed editors from
+  // hanging around but doesn't clobber a new editor that already replaced it.
+  useEffect(() => {
+    if (!editor) return;
+    const onDestroy = () => setEditor((cur) => (cur === editor ? null : cur));
+    editor.on('destroy', onDestroy);
+    return () => {
+      editor.off('destroy', onDestroy);
+    };
+  }, [editor]);
 
   // Stable references for BubbleMenu — recreating these on every render
   // re-initialises the menu plugin and causes lag/flicker.

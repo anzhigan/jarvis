@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import {
-  Search, BookOpen, Target, Repeat, Zap, BarChart3, Moon, Sun,
+  Search, BookOpen, Target, Repeat, Zap, BarChart3, Moon, PanelLeft, Sun,
 } from 'lucide-react';
 import { resolveUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth';
@@ -25,9 +26,27 @@ interface Props {
   children: React.ReactNode;
 }
 
+const NOTES_PANE_KEY = 'jarvnote:notes:libCollapsed';
+
 export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSearch, children }: Props) {
   const { user } = useAuthStore();
   const t = useT();
+
+  // Mirror the Notes-pane collapsed flag so the rail toggle can show its
+  // active state. NotesView is the source of truth (persists to localStorage);
+  // we just react to its broadcast event.
+  const [notesPaneCollapsed, setNotesPaneCollapsed] = useState(
+    () => typeof localStorage !== 'undefined'
+      && localStorage.getItem(NOTES_PANE_KEY) === '1',
+  );
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const collapsed = (e as CustomEvent<boolean>).detail;
+      if (typeof collapsed === 'boolean') setNotesPaneCollapsed(collapsed);
+    };
+    window.addEventListener('jarvnote:notesPaneState', handler);
+    return () => window.removeEventListener('jarvnote:notesPaneState', handler);
+  }, []);
 
   if (!user) return null;
 
@@ -56,6 +75,21 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
               <Search />
             </button>
           </Tooltip>
+          {tab === 'notes' && (
+            <Tooltip content={notesPaneCollapsed ? 'Show sidebar' : 'Hide sidebar'} side="right">
+              <button
+                className="rail-btn"
+                aria-label="Toggle sidebar"
+                aria-pressed={!notesPaneCollapsed}
+                data-active={!notesPaneCollapsed || undefined}
+                onClick={() => window.dispatchEvent(
+                  new CustomEvent('jarvnote:toggleNotesPane'),
+                )}
+              >
+                <PanelLeft />
+              </button>
+            </Tooltip>
+          )}
         </div>
 
         <div className="rail-divider" />

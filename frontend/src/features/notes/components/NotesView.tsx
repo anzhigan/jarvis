@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, PanelLeft } from 'lucide-react';
-import { Tooltip } from '../../../components/ui';
+import { Loader2 } from 'lucide-react';
 import { useNotesLibrary } from '../hooks/useNotesLibrary';
 import { useNoteEditor } from '../hooks/useNoteEditor';
 import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
@@ -20,7 +19,20 @@ export default function NotesView() {
   );
   useEffect(() => {
     localStorage.setItem(PANE_COLLAPSED_KEY, paneCollapsed ? '1' : '0');
+    // Tell the rail's sidebar-toggle about our current state so it can show
+    // an active indicator on the rail button.
+    window.dispatchEvent(new CustomEvent('jarvnote:notesPaneState', {
+      detail: paneCollapsed,
+    }));
   }, [paneCollapsed]);
+
+  // Listen for toggle requests from the rail button (DesktopShell). The rail
+  // owns the visible toggle; this view just owns the boolean.
+  useEffect(() => {
+    const handler = () => setPaneCollapsed((c) => !c);
+    window.addEventListener('jarvnote:toggleNotesPane', handler);
+    return () => window.removeEventListener('jarvnote:toggleNotesPane', handler);
+  }, []);
 
   const handleSelectNote = useCallback(async (id: string) => {
     await save.flush();
@@ -44,20 +56,7 @@ export default function NotesView() {
         selectedNoteId={editor.selectedNoteId}
         collapsed={paneCollapsed}
         onSelectNote={handleSelectNote}
-        onCollapseToggle={() => setPaneCollapsed(true)}
       />
-
-      {paneCollapsed && (
-        <Tooltip content="Show library" side="right">
-          <button
-            className="pane-expand-floating"
-            onClick={() => setPaneCollapsed(false)}
-            aria-label="Show library"
-          >
-            <PanelLeft />
-          </button>
-        </Tooltip>
-      )}
 
       <NoteEditor
         note={editor.note}
