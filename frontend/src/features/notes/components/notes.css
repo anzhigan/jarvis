@@ -248,7 +248,13 @@
 }
 
 /* ─── Tiptap surface integration ───────────────────────────────────────── */
-.doc-body .notes-editor-paper { padding: 0; }
+.doc-body .notes-editor-paper {
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+  max-width: none;
+  margin: 0;
+}
 .doc-body .ProseMirror {
   outline: 0;
   font-family: var(--font-body);

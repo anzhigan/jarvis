@@ -99,7 +99,7 @@
 }
 .kc-progress-fill {
   height: 100%;
-  background: var(--indigo);
+  background: var(--gc, var(--indigo));
   transition: width var(--dur-med) var(--ease);
 }
 .kc-progress-num {
@@ -175,46 +175,120 @@
 .kc-expand-btn[data-open] svg { transform: rotate(90deg); }
 
 .kc-children {
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--hairline-faint);
   display: flex; flex-direction: column;
-  gap: 2px;
+  gap: 6px;
 }
 .kc-child {
-  display: grid;
-  grid-template-columns: 14px 1fr auto;
-  gap: 8px;
-  align-items: center;
-  padding: 5px 0;
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--ink-3);
+  display: flex; flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--cream);
+  border-radius: var(--r-control);
+  border-left: 2px solid var(--gc, var(--indigo));
+  transition: background var(--dur-fast);
 }
-.kc-child-icon {
+.kc-child:hover { background: var(--soft); }
+.kc-child[data-kind="go"] { border-left-color: var(--moss); }
+.kc-child[data-kind="step"] { border-left-color: var(--gc, var(--indigo)); }
+
+.kc-child-row {
+  display: flex; align-items: center; gap: 8px;
+  min-width: 0;
+}
+.kc-child-pill {
   font-family: var(--font-ui);
   font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.10em;
   text-transform: uppercase;
-  color: var(--ink-5);
-  text-align: center;
+  padding: 2px 6px;
+  border-radius: var(--r-pill);
+  flex-shrink: 0;
+  background: var(--paper);
+  color: var(--ink-4);
+  box-shadow: 0 0 0 1px var(--hairline-faint);
 }
-.kc-child[data-kind="step"] .kc-child-icon { color: var(--indigo); }
-.kc-child[data-kind="go"]   .kc-child-icon { color: var(--moss); }
-.kc-child[data-done] .kc-child-name {
-  color: var(--ink-5);
-  text-decoration: line-through;
-  text-decoration-color: var(--moss);
+.kc-child[data-kind="step"] .kc-child-pill {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  box-shadow: none;
+}
+.kc-child[data-kind="go"] .kc-child-pill {
+  background: var(--moss-soft);
+  color: var(--moss);
+  box-shadow: none;
+}
+.kc-child[data-done] .kc-child-pill {
+  background: var(--moss-soft);
+  color: var(--moss);
+  box-shadow: none;
 }
 .kc-child-name {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-tight);
+  flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.kc-child-meta {
+.kc-child[data-done] .kc-child-name {
+  color: var(--ink-4);
+  text-decoration: line-through;
+  text-decoration-color: var(--moss);
+  text-decoration-thickness: 1px;
+}
+.kc-child-pct {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--ink-5);
+  font-weight: 600;
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.kc-child-pct[data-strong] { color: var(--moss); }
+
+.kc-child-meta {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--ink-4);
+  flex-wrap: wrap;
+}
+.kc-child-meta .sep { color: var(--ink-5); }
+.kc-child-meta time { font-family: var(--font-mono); }
+.kc-child-meta .overdue { color: var(--rust); font-weight: 500; }
+
+.kc-child-bar {
+  height: 3px;
+  background: var(--paper);
+  border-radius: var(--r-sharp);
+  overflow: hidden;
+}
+.kc-child-bar-fill {
+  height: 100%;
+  background: var(--gc, var(--indigo));
+  transition: width var(--dur-med) var(--ease);
+}
+.kc-child[data-kind="go"] .kc-child-bar-fill { background: var(--moss); }
+.kc-child[data-done] .kc-child-bar-fill { background: var(--moss); }
+.kc-child-check {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--hairline-strong);
+  background: transparent;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--ink-4);
+}
+.kc-child-check svg { width: 8px; height: 8px; }
+.kc-child[data-done] .kc-child-check {
+  background: var(--moss);
+  border-color: var(--moss);
+  color: var(--paper);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

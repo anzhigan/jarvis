@@ -604,17 +604,8 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
       style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}
     />
 
-    {!isMobile && (
-      <EditorToolbar
-        editor={editor}
-        variant="desktop"
-        onInsertLink={openLink}
-        onInsertTable={openTable}
-        onInsertMath={openMath}
-        onInsertImage={openImage}
-        uploadingImage={uploadingImage}
-      />
-    )}
+    {/* Desktop uses NoteEditor's top-of-content .note-toolbar (gallery section 01)
+        wired via onEditorReady. The legacy EditorToolbar is mobile-only now. */}
     {isMobile && editorFocused && (
       <EditorToolbar
         editor={editor}

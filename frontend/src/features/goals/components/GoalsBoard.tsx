@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronRight, Plus, Repeat } from 'lucide-react';
+import { Check, ChevronRight, Plus, Repeat } from 'lucide-react';
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor,
   useDraggable, useDroppable, useSensor, useSensors,
@@ -25,6 +25,15 @@ const COLUMNS: Column[] = [
   { key: 'paused',  c: 'ochre' },
   { key: 'done',    c: 'slate' },
 ];
+
+/** Deterministic accent per goal id — keeps kanban progress bar, expand
+ *  sub-cards and the v6 Go-list card stripe in sync for the same goal. */
+const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--slate)', 'var(--ochre)', 'var(--rust)'] as const;
+function accentFor(goalId: string): string {
+  let h = 0;
+  for (let i = 0; i < goalId.length; i++) h = (h * 31 + goalId.charCodeAt(i)) >>> 0;
+  return ACCENTS[h % ACCENTS.length];
+}
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: 'Backlog',
@@ -117,24 +126,86 @@ function GoalCardContent({
 
       {expanded && childTotal > 0 && (
         <div className="kc-children" onClick={(e) => e.stopPropagation()}>
-          {task.sprints.map((s) => (
-            <div key={s.id} className="kc-child" data-kind="step" data-done={s.is_completed || undefined}>
-              <span className="kc-child-icon">S</span>
-              <span className="kc-child-name">{s.title}</span>
-              <span className="kc-child-meta">{Math.round(s.progress ?? 0)}%</span>
-            </div>
-          ))}
-          {task.gos.map((g) => (
-            <div key={g.id} className="kc-child" data-kind="go" data-done={g.is_done_today || undefined}>
-              <span className="kc-child-icon">G</span>
-              <span className="kc-child-name">{g.title}</span>
-              <span className="kc-child-meta">
-                {g.kind === 'numeric' && g.target_value
-                  ? `${g.target_value}${g.unit ? ' ' + g.unit : ''}`
-                  : g.is_done_today ? '✓' : '·'}
-              </span>
-            </div>
-          ))}
+          {task.sprints.map((s) => {
+            const pct = Math.round(s.progress ?? 0);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const end = s.end_date ? new Date(s.end_date) : null;
+            const start = s.start_date ? new Date(s.start_date) : null;
+            const overdue = !s.is_completed && end && end < today;
+            return (
+              <div
+                key={s.id}
+                className="kc-child"
+                data-kind="step"
+                data-done={s.is_completed || undefined}
+              >
+                <div className="kc-child-row">
+                  <span className="kc-child-pill">Step</span>
+                  <span className="kc-child-name">{s.title}</span>
+                  <span className="kc-child-pct" data-strong={s.is_completed || undefined}>{pct}%</span>
+                </div>
+                <div className="kc-child-bar">
+                  <div className="kc-child-bar-fill" style={{ width: `${pct}%` }} />
+                </div>
+                {(start || end) && (
+                  <div className="kc-child-meta">
+                    {start && <time>{fmtDue(s.start_date)}</time>}
+                    {start && end && <span className="sep">→</span>}
+                    {end && (
+                      <time className={overdue ? 'overdue' : undefined}>
+                        {fmtDue(s.end_date)}
+                        {overdue ? ' · overdue' : ''}
+                      </time>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {task.gos.map((g) => {
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const due = g.due_date ? new Date(g.due_date) : null;
+            const overdue = due && !g.is_done_today && due < today;
+            const valueLabel = g.kind === 'numeric' && g.target_value
+              ? `${g.target_value}${g.unit ? ' ' + g.unit : ''}`
+              : null;
+            const meta: React.ReactNode[] = [];
+            if (valueLabel) meta.push(<span key="v">target {valueLabel}</span>);
+            if (due) {
+              meta.push(
+                <time key="due" className={overdue ? 'overdue' : undefined}>
+                  due {fmtDue(g.due_date!)}
+                  {overdue ? ' · overdue' : ''}
+                </time>,
+              );
+            }
+            return (
+              <div
+                key={g.id}
+                className="kc-child"
+                data-kind="go"
+                data-done={g.is_done_today || undefined}
+              >
+                <div className="kc-child-row">
+                  <span className="kc-child-pill">{g.kind === 'numeric' ? 'Numeric' : 'Go'}</span>
+                  <span className="kc-child-name">{g.title}</span>
+                  <span className="kc-child-check" aria-hidden>
+                    {g.is_done_today && <Check />}
+                  </span>
+                </div>
+                {meta.length > 0 && (
+                  <div className="kc-child-meta">
+                    {meta.map((node, i) => (
+                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {i > 0 && <span className="sep">·</span>}
+                        {node}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </>
@@ -150,6 +221,7 @@ function DraggableCard({
   onToggleExpand: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
+  const accent = accentFor(task.id);
   return (
     <article
       ref={setNodeRef}
@@ -160,7 +232,11 @@ function DraggableCard({
       tabIndex={0}
       data-dragging={isDragging || undefined}
       data-expanded={expanded || undefined}
-      style={{ opacity: isDragging ? 0.4 : 1, cursor: isDragging ? 'grabbing' : 'pointer' }}
+      style={{
+        opacity: isDragging ? 0.4 : 1,
+        cursor: isDragging ? 'grabbing' : 'pointer',
+        ['--gc' as any]: accent,
+      }}
       onClick={() => onSelect(task.id)}
       onKeyDown={(e) => { if (e.key === 'Enter') onSelect(task.id); }}
     >
@@ -265,7 +341,14 @@ export function GoalsBoard({ tasks, onSelect, onAdd, onMove }: Props) {
       </div>
       <DragOverlay dropAnimation={null}>
         {activeTask ? (
-          <article className="kc" style={{ cursor: 'grabbing', boxShadow: 'var(--sh-popover)' }}>
+          <article
+            className="kc"
+            style={{
+              cursor: 'grabbing',
+              boxShadow: 'var(--sh-popover)',
+              ['--gc' as any]: accentFor(activeTask.id),
+            }}
+          >
             <GoalCardContent task={activeTask} />
           </article>
         ) : null}
