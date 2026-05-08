@@ -238,16 +238,16 @@
   --indigo-pane-w:   var(--library-w);
   --indigo-topbar-h: var(--topbar-h);
 
-  /* Light surfaces — cool slate */
-  --paper:    #EFF1F0;
-  --cream:    #E1E4E5;
-  --soft:     #CFD3D5;
-  --rail-bg:  #C9CDCE;
+  /* Light surfaces — cool slate, brighter pass */
+  --paper:    #F7F8F8;   /* primary surface — almost white, faint slate tint */
+  --cream:    #ECEEEF;   /* secondary surface — input bg, even rows, hover */
+  --soft:     #DEE1E2;   /* tertiary — hover on cream, swatches */
+  --rail-bg:  #D6DADB;   /* rail — slightly darker than soft so it recedes */
 
-  /* Hairlines (semantic borders, not shadows) — cool ink */
-  --hairline:        rgba(15, 24, 32, 0.10);
-  --hairline-strong: rgba(15, 24, 32, 0.18);
-  --hairline-faint:  rgba(15, 24, 32, 0.05);
+  /* Hairlines — slightly stronger so they read on the brighter paper. */
+  --hairline:        rgba(15, 24, 32, 0.09);
+  --hairline-strong: rgba(15, 24, 32, 0.16);
+  --hairline-faint:  rgba(15, 24, 32, 0.04);
 
   /* Ink — cool slate scale */
   --ink:    #15202A;
