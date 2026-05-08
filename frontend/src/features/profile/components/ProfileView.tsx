@@ -1,383 +1,520 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  Camera, Lock, Sun, Moon, Monitor, LogOut, Trash2, User as UserIcon,
-  Palette, Globe, Database, Eye, FileText, HelpCircle,
-} from 'lucide-react';
-import { resolveUrl } from '../../../api/client';
-import { Button, Dialog, Input } from '../../../components/ui';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, PanelLeftOpen } from 'lucide-react';
+import { Tooltip } from '../../../components/ui';
+import { Dialog } from '../../../components/ui/Dialog';
+import { Button } from '../../../components/ui/Button';
 import { applyTheme, getStoredTheme, type ThemeMode } from '../../../lib/theme';
-import { useLangStore, type Lang } from '../../../store/i18n';
 import { useProfile, FONT_SIZES } from '../hooks/useProfile';
+import { ProfilePane, type ProfileSectionKey } from './ProfilePane';
 import './profile.css';
 
-type PaneSection = 'account' | 'appearance' | 'language' | 'data';
+const PANE_COLLAPSED_KEY = 'jarvnote:profile:libCollapsed';
+
+const THEMES: { key: ThemeMode; label: string }[] = [
+  { key: 'light', label: 'Light'  },
+  { key: 'dark',  label: 'Dark'   },
+  { key: 'auto',  label: 'System' },
+];
+
+/** Split a display name on the last word so it can render with an italic accent. */
+function splitName(raw: string): { head: string; tail: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { head: '', tail: '' };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return { head: '', tail: parts[0] };
+  return { head: parts.slice(0, -1).join(' '), tail: parts[parts.length - 1] };
+}
 
 export default function ProfileView() {
   const p = useProfile();
-  const lang = useLangStore();
-
-  const [paneSection, setPaneSection] = useState<PaneSection>(
-    () => (localStorage.getItem('jarvnote:profile:section') as PaneSection) || 'account',
+  const [paneCollapsed, setPaneCollapsed] = useState(
+    () => localStorage.getItem(PANE_COLLAPSED_KEY) === '1',
   );
-  useEffect(() => { localStorage.setItem('jarvnote:profile:section', paneSection); }, [paneSection]);
+  useEffect(() => {
+    localStorage.setItem(PANE_COLLAPSED_KEY, paneCollapsed ? '1' : '0');
+  }, [paneCollapsed]);
 
-  const [theme, setThemeState] = useState<ThemeMode>(getStoredTheme);
-  const setTheme = (mode: ThemeMode) => { setThemeState(mode); applyTheme(mode); };
+  const [search, setSearch] = useState('');
+  const [section, setSection] = useState<ProfileSectionKey>('account');
 
-  const [pwOpen, setPwOpen] = useState(false);
-  const [pwCurrent, setPwCurrent] = useState('');
-  const [pwNext, setPwNext] = useState('');
-  const [pwConfirm, setPwConfirm] = useState('');
-  const [pwSubmitting, setPwSubmitting] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>(() => getStoredTheme());
+  const onThemeChange = (next: ThemeMode) => {
+    setTheme(next);
+    applyTheme(next);
+  };
 
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  // Refs for scroll-to-section.
+  const accountRef = useRef<HTMLElement | null>(null);
+  const appearanceRef = useRef<HTMLElement | null>(null);
+  const onSelectSection = (key: ProfileSectionKey) => {
+    setSection(key);
+    const target = key === 'account' ? accountRef.current : appearanceRef.current;
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Dialogs — minimal local state, one boolean each.
+  const [editName, setEditName] = useState(false);
+  const [editEmail, setEditEmail] = useState(false);
+  const [editPassword, setEditPassword] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  if (!p.user) {
+  const user = p.user;
+  const initial = (user?.username ?? user?.email ?? '?').slice(0, 1).toUpperCase();
+  const { head, tail } = splitName(user?.username ?? user?.email ?? '');
+
+  // Active routines = those that are not paused.
+  const stats = p.stats;
+  const topStreakStr = stats.topStreak === 0
+    ? '0'
+    : `${stats.topStreak}`;
+
+  const filteredVisible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return { account: true, appearance: true, signOut: true, danger: true };
+    const match = (label: string) => label.toLowerCase().includes(q);
+    return {
+      account:    match('account') || match('email') || match('password') || match('name') || match('username'),
+      appearance: match('appearance') || match('theme') || match('reading') || match('font') || match('size'),
+      signOut:    match('sign out') || match('logout'),
+      danger:     match('delete') || match('danger'),
+    };
+  }, [search]);
+
+  if (!user) {
     return (
       <main className="content">
-        <div className="content-empty">Not signed in.</div>
+        <div className="content-empty">
+          <Loader2 size={20} className="animate-spin" />
+        </div>
       </main>
     );
   }
 
-  const initial = (p.user.username?.[0] ?? '?').toUpperCase();
-  const avatarSrc = p.user.avatar_url ? resolveUrl(p.user.avatar_url) : undefined;
-
-  const onPickAvatar = () => fileInputRef.current?.click();
-  const onAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) await p.uploadAvatar(file);
-    if (e.target) e.target.value = '';
-  };
-
-  const submitPassword = async () => {
-    if (pwNext.length < 8) { return; }
-    if (pwNext !== pwConfirm) { return; }
-    setPwSubmitting(true);
-    const ok = await p.changePassword(pwCurrent, pwNext);
-    setPwSubmitting(false);
-    if (ok) {
-      setPwOpen(false);
-      setPwCurrent(''); setPwNext(''); setPwConfirm('');
-    }
-  };
-
   return (
     <>
-      <aside className="pane">
-        <header className="pane-head">
-          <div className="pane-title-block">
-            <div className="pane-title">Profile</div>
-            <div className="pane-sub">{p.user.email}</div>
-          </div>
-        </header>
+      <ProfilePane
+        active={section}
+        onSelect={onSelectSection}
+        search={search}
+        setSearch={setSearch}
+        collapsed={paneCollapsed}
+        onCollapseToggle={() => setPaneCollapsed(true)}
+        memberSince={p.memberSince || 'Member'}
+      />
 
-        <div className="pane-body" style={{ paddingTop: 8 }}>
-          <div className="lib-section">
-            <div className="lib-section-label"><span>Settings</span></div>
-            <button className="lib-row" data-active={paneSection === 'account' || undefined}
-                    onClick={() => setPaneSection('account')}>
-              <span className="ico"><UserIcon /></span>
-              <span className="name">Account</span>
-            </button>
-            <button className="lib-row" data-active={paneSection === 'appearance' || undefined}
-                    onClick={() => setPaneSection('appearance')}>
-              <span className="ico"><Palette /></span>
-              <span className="name">Appearance</span>
-            </button>
-            <button className="lib-row" data-active={paneSection === 'language' || undefined}
-                    onClick={() => setPaneSection('language')}>
-              <span className="ico"><Globe /></span>
-              <span className="name">Language</span>
-            </button>
-            <button className="lib-row" data-active={paneSection === 'data' || undefined}
-                    onClick={() => setPaneSection('data')}>
-              <span className="ico"><Database /></span>
-              <span className="name">Data &amp; account</span>
-            </button>
-          </div>
-
-          <div className="lib-section">
-            <div className="lib-section-label"><span>About</span></div>
-            <button className="lib-row" disabled style={{ opacity: 0.6 }}>
-              <span className="ico"><Eye /></span>
-              <span className="name">Privacy</span>
-            </button>
-            <button className="lib-row" disabled style={{ opacity: 0.6 }}>
-              <span className="ico"><FileText /></span>
-              <span className="name">Terms of use</span>
-            </button>
-            <button className="lib-row" disabled style={{ opacity: 0.6 }}>
-              <span className="ico"><HelpCircle /></span>
-              <span className="name">Help &amp; support</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="pane-foot">
-          <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--fg-muted)', padding: '0 4px' }}>
-            Jarvnote v1.0.0
-          </span>
-        </div>
-      </aside>
+      {paneCollapsed && (
+        <Tooltip content="Show library" side="right">
+          <button
+            className="pane-expand-floating"
+            onClick={() => setPaneCollapsed(false)}
+            aria-label="Show library"
+          >
+            <PanelLeftOpen />
+          </button>
+        </Tooltip>
+      )}
 
       <main className="content">
         <div className="content-bar">
-          <div className="content-title">
-            <span>{paneSection === 'account' ? 'Account'
-                : paneSection === 'appearance' ? 'Appearance'
-                : paneSection === 'language' ? 'Language'
-                : 'Data & account'}</span>
+          <div className="breadcrumb">
+            <b>Profile</b>
+            <span className="breadcrumb-sep">›</span>
+            <span>{section === 'account' ? 'Account' : 'Appearance'}</span>
           </div>
         </div>
 
         <div className="content-scroll">
           <div className="profile-canvas">
-            {/* Identity card — always visible */}
-            <section className="pf-card pf-identity">
-              <div className="pf-avatar-block">
-                <div className="pf-avatar-large">
-                  {avatarSrc ? <img src={avatarSrc} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : initial}
-                </div>
-                <button className="pf-avatar-edit" onClick={onPickAvatar} title="Change photo" aria-label="Change photo">
-                  <Camera />
-                </button>
+            <header className="pf-identity">
+              <label
+                className="pf-avatar"
+                title={user.avatar_url ? 'Replace avatar' : 'Upload avatar'}
+              >
+                {user.avatar_url ? <img src={user.avatar_url} alt="avatar" /> : initial}
                 <input
-                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  hidden
-                  onChange={onAvatarChange}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void p.uploadAvatar(f);
+                    e.currentTarget.value = '';
+                  }}
                 />
+              </label>
+              <div className="pf-id-text">
+                <div className="go-kicker">{p.memberSince || 'Member'}</div>
+                <h1 className="pf-name">
+                  {head ? <>{head} <em>{tail}</em></> : <em>{tail || user.email}</em>}
+                </h1>
+                <p className="pf-id-meta">{user.email} · @{user.username}</p>
               </div>
-              <div className="pf-identity-meta">
-                <div className="pf-identity-name">{p.user.username}</div>
-                <div className="pf-identity-email">{p.user.email}</div>
-                <div className="pf-identity-since">{p.memberSince}</div>
+            </header>
+
+            <div className="pf-stats">
+              <div className="pf-stat">
+                <div className="pf-stat-num">{stats.activeGoals}</div>
+                <div className="pf-stat-label">Active goals</div>
               </div>
-
-              <div className="pf-stat-strip">
-                <div className="pf-stat-cell">
-                  <span className="pf-stat-value">{p.stats.activeGoals}</span>
-                  <span className="pf-stat-label">Active goals</span>
-                </div>
-                <div className="pf-stat-divider" />
-                <div className="pf-stat-cell">
-                  <span className="pf-stat-value">{p.stats.activeRoutines}</span>
-                  <span className="pf-stat-label">Active routines</span>
-                </div>
-                <div className="pf-stat-divider" />
-                <div className="pf-stat-cell">
-                  <span className="pf-stat-value pf-stat-streak">{p.stats.topStreak}</span>
-                  <span className="pf-stat-label">Top streak</span>
-                </div>
+              <div className="pf-stat">
+                <div className="pf-stat-num">{stats.activeRoutines}</div>
+                <div className="pf-stat-label">Active routines</div>
               </div>
-            </section>
+              <div className="pf-stat">
+                <div className="pf-stat-num">{topStreakStr}<em>d</em></div>
+                <div className="pf-stat-label">Top streak</div>
+              </div>
+              <div className="pf-stat">
+                <div className="pf-stat-num">{stats.streaksCount}</div>
+                <div className="pf-stat-label">Streaks ≥ 3d</div>
+              </div>
+            </div>
 
-            {/* Account section */}
-            {paneSection === 'account' && (
-              <>
-                <section className="pf-card">
-                  <h3 className="pf-card-title">Account</h3>
-                  <p className="pf-card-desc">Email and username are read from your registration.</p>
-
+            {filteredVisible.account && (
+              <section className="pf-section" ref={accountRef as any} id="profile-account">
+                <div className="pf-sect-head">
+                  <h2 className="pf-sect-title">Account</h2>
+                  <p className="pf-sect-sub">Your username, email, and password.</p>
+                </div>
+                <div className="pf-card">
                   <div className="pf-row">
-                    <div className="pf-row-text">
-                      <div className="pf-row-label">Username</div>
-                      <div className="pf-row-desc">{p.user.username}</div>
-                    </div>
+                    <div className="pf-row-label">Display name</div>
+                    <div className="pf-row-value">{user.username}</div>
+                    <button className="pf-row-edit" onClick={() => setEditName(true)}>Edit</button>
                   </div>
-
                   <div className="pf-row">
-                    <div className="pf-row-text">
-                      <div className="pf-row-label">Email</div>
-                      <div className="pf-row-desc">{p.user.email}</div>
-                    </div>
+                    <div className="pf-row-label">Email</div>
+                    <div className="pf-row-value">{user.email}</div>
+                    <button className="pf-row-edit" onClick={() => setEditEmail(true)}>Change</button>
                   </div>
-
                   <div className="pf-row">
-                    <div className="pf-row-text">
-                      <div className="pf-row-label">Password</div>
-                      <div className="pf-row-desc">Update your password to keep your account secure.</div>
-                    </div>
-                    <button className="pf-btn" onClick={() => setPwOpen(true)}>
-                      <Lock /> Change password
-                    </button>
+                    <div className="pf-row-label">Username</div>
+                    <div className="pf-row-value pf-row-mono">@{user.username}</div>
+                    <button className="pf-row-edit" onClick={() => setEditName(true)}>Edit</button>
                   </div>
-                </section>
-
-                <section className="pf-card">
-                  <h3 className="pf-card-title">Sign out</h3>
-                  <p className="pf-card-desc">End this session on this device. You can sign back in any time.</p>
-                  <button className="pf-btn" onClick={p.logout}>
-                    <LogOut /> Sign out
-                  </button>
-                </section>
-              </>
+                  <div className="pf-row">
+                    <div className="pf-row-label">Password</div>
+                    <div className="pf-row-value">••••••••</div>
+                    <button className="pf-row-edit" onClick={() => setEditPassword(true)}>Change</button>
+                  </div>
+                </div>
+              </section>
             )}
 
-            {/* Appearance section */}
-            {paneSection === 'appearance' && (
-              <section className="pf-card">
-                <h3 className="pf-card-title">Appearance</h3>
-                <p className="pf-card-desc">How Jarvnote looks for you.</p>
-
-                <div className="pf-row">
-                  <div className="pf-row-text">
+            {filteredVisible.appearance && (
+              <section className="pf-section" ref={appearanceRef as any} id="profile-appearance">
+                <div className="pf-sect-head">
+                  <h2 className="pf-sect-title">Appearance</h2>
+                  <p className="pf-sect-sub">How Jarvnote looks and reads.</p>
+                </div>
+                <div className="pf-card">
+                  <div className="pf-row">
                     <div className="pf-row-label">Theme</div>
-                    <div className="pf-row-desc">Light, dark, or follow system.</div>
+                    <div className="pf-row-value pf-row-controls">
+                      <div className="pill-seg" role="radiogroup">
+                        {THEMES.map((t) => (
+                          <button
+                            key={t.key}
+                            className={theme === t.key ? 'on' : ''}
+                            role="radio"
+                            aria-checked={theme === t.key}
+                            onClick={() => onThemeChange(t.key)}
+                          >{t.label}</button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div className="seg pf-seg" role="tablist">
-                    <button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')}>
-                      <Sun /> Light
-                    </button>
-                    <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')}>
-                      <Moon /> Dark
-                    </button>
-                    <button className={theme === 'auto' ? 'on' : ''} onClick={() => setTheme('auto')}>
-                      <Monitor /> Auto
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pf-row">
-                  <div className="pf-row-text">
-                    <div className="pf-row-label">Editor text size</div>
-                    <div className="pf-row-desc">Affects rich-text editor body. Currently {p.fontSize}px.</div>
-                  </div>
-                  <div className="pf-fontsize-row">
-                    {FONT_SIZES.map((n) => (
-                      <button
-                        key={n}
-                        className={`pf-fontsize-btn${n === p.fontSize ? ' pf-fontsize-on' : ''}`}
-                        onClick={() => p.setFontSize(n)}
-                      >{n}</button>
-                    ))}
+                  <div className="pf-row">
+                    <div className="pf-row-label">Reading size</div>
+                    <div className="pf-row-value pf-row-controls">
+                      <div className="pill-seg" role="radiogroup">
+                        {FONT_SIZES.map((n) => (
+                          <button
+                            key={n}
+                            className={p.fontSize === n ? 'on' : ''}
+                            role="radio"
+                            aria-checked={p.fontSize === n}
+                            onClick={() => p.setFontSize(n)}
+                          >{n}</button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>
             )}
 
-            {/* Language section */}
-            {paneSection === 'language' && (
-              <section className="pf-card">
-                <h3 className="pf-card-title">Language</h3>
-                <p className="pf-card-desc">Interface language.</p>
+            {filteredVisible.signOut && (
+              <section className="pf-section">
+                <div className="pf-card pf-card-clean">
+                  <button className="pf-link" onClick={p.logout}>Sign out</button>
+                </div>
+              </section>
+            )}
 
-                <div className="pf-row">
-                  <div className="pf-row-text">
-                    <div className="pf-row-label">Language</div>
-                    <div className="pf-row-desc">English / Русский</div>
-                  </div>
-                  <div className="seg pf-seg" role="tablist">
+            {filteredVisible.danger && (
+              <section className="pf-section">
+                <div className="pf-sect-head">
+                  <h2 className="pf-sect-title pf-danger-title">Point of no return</h2>
+                  <p className="pf-sect-sub">
+                    Deleting removes every note, goal, routine, and recorded entry. There is no recovery.
+                  </p>
+                </div>
+                <div className="pf-card pf-card-danger">
+                  <div className="pf-row">
+                    <div style={{ flex: 1 }}>
+                      <div className="pf-row-label" style={{ color: 'var(--rust)' }}>
+                        Delete account
+                      </div>
+                      <div className="pf-row-meta">All data is removed within 24 hours.</div>
+                    </div>
                     <button
-                      className={lang.lang === 'en' ? 'on' : ''}
-                      onClick={() => lang.setLang('en' as Lang)}
-                    >English</button>
-                    <button
-                      className={lang.lang === 'ru' ? 'on' : ''}
-                      onClick={() => lang.setLang('ru' as Lang)}
-                    >Русский</button>
+                      className="pf-btn-danger"
+                      onClick={() => setConfirmDelete(true)}
+                    >Delete</button>
                   </div>
                 </div>
               </section>
             )}
 
-            {/* Data section — danger zone */}
-            {paneSection === 'data' && (
-              <section className="pf-card pf-danger">
-                <h3 className="pf-card-title">Delete account</h3>
-                <p className="pf-card-desc">
-                  This permanently deletes your account, notes, goals, routines, and sprints.
-                  There is no undo.
-                </p>
-                <button className="pf-btn pf-btn-danger" onClick={() => setDeleteOpen(true)}>
-                  <Trash2 /> Delete account
-                </button>
-              </section>
-            )}
+            <div style={{ height: 48 }} />
           </div>
         </div>
       </main>
 
-      {/* ── Change password dialog ────────────────────────────────────── */}
-      <Dialog
-        open={pwOpen}
-        onOpenChange={setPwOpen}
-        title="Change password"
-        description="Use 8 or more characters."
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Input
-            type="password"
-            placeholder="Current password"
-            value={pwCurrent}
-            onChange={(e) => setPwCurrent(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="New password"
-            value={pwNext}
-            onChange={(e) => setPwNext(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="Confirm new password"
-            value={pwConfirm}
-            onChange={(e) => setPwConfirm(e.target.value)}
-          />
-          {pwNext.length > 0 && pwNext.length < 8 && (
-            <span style={{ fontSize: 12, color: 'var(--fg-muted)' }}>
-              Password must be at least 8 characters.
-            </span>
-          )}
-          {pwNext.length >= 8 && pwConfirm.length > 0 && pwNext !== pwConfirm && (
-            <span style={{ fontSize: 12, color: 'var(--danger)' }}>
-              Passwords don't match.
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <Button variant="ghost" onClick={() => setPwOpen(false)}>Cancel</Button>
-          <Button
-            variant="primary"
-            onClick={submitPassword}
-            disabled={pwSubmitting || pwCurrent.length === 0 || pwNext.length < 8 || pwNext !== pwConfirm}
-          >
-            {pwSubmitting ? 'Updating…' : 'Update password'}
-          </Button>
-        </div>
-      </Dialog>
-
-      {/* ── Delete account confirmation ─────────────────────────────── */}
-      <Dialog
-        open={deleteOpen}
-        onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteConfirmText(''); }}
-        title="Delete account?"
-        description={`Type "${p.user.username}" to confirm. This cannot be undone.`}
-      >
-        <Input
-          placeholder={p.user.username}
-          value={deleteConfirmText}
-          onChange={(e) => setDeleteConfirmText(e.target.value)}
-        />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <Button variant="ghost" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-          <Button
-            variant="danger"
-            disabled={deleteConfirmText !== p.user.username}
-            onClick={async () => {
-              setDeleteOpen(false);
-              await p.deleteAccount();
-            }}
-          >
-            Delete forever
-          </Button>
-        </div>
-      </Dialog>
+      <EditNameDialog
+        open={editName}
+        onOpenChange={setEditName}
+        currentName={user.username}
+        onSave={async (next) => {
+          const ok = await p.updateProfile({ username: next });
+          if (ok) setEditName(false);
+        }}
+      />
+      <EditEmailDialog
+        open={editEmail}
+        onOpenChange={setEditEmail}
+        currentEmail={user.email}
+        onSave={async (next) => {
+          const ok = await p.updateProfile({ email: next });
+          if (ok) setEditEmail(false);
+        }}
+      />
+      <ChangePasswordDialog
+        open={editPassword}
+        onOpenChange={setEditPassword}
+        onSave={async (current, next) => {
+          const ok = await p.changePassword(current, next);
+          if (ok) setEditPassword(false);
+        }}
+      />
+      <DeleteAccountDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        confirmEmail={user.email}
+        onConfirm={async () => {
+          await p.deleteAccount();
+          setConfirmDelete(false);
+        }}
+      />
     </>
+  );
+}
+
+/* ── Dialogs ──────────────────────────────────────────────────────────────── */
+
+function EditNameDialog({ open, onOpenChange, currentName, onSave }: {
+  open: boolean; onOpenChange: (o: boolean) => void;
+  currentName: string; onSave: (next: string) => Promise<void>;
+}) {
+  const [value, setValue] = useState(currentName);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) setValue(currentName); }, [open, currentName]);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Edit username"
+      description="Username appears in your identity card and as your handle."
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={async () => { setBusy(true); await onSave(value.trim()); setBusy(false); }}
+            disabled={busy || !value.trim() || value.trim() === currentName}
+          >Save</Button>
+        </>
+      }
+    >
+      <div className="pf-form">
+        <label>
+          <div className="pf-form-label">Username</div>
+          <input
+            className="ui-input"
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </label>
+      </div>
+    </Dialog>
+  );
+}
+
+function EditEmailDialog({ open, onOpenChange, currentEmail, onSave }: {
+  open: boolean; onOpenChange: (o: boolean) => void;
+  currentEmail: string; onSave: (next: string) => Promise<void>;
+}) {
+  const [value, setValue] = useState(currentEmail);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) setValue(currentEmail); }, [open, currentEmail]);
+
+  const valid = /\S+@\S+\.\S+/.test(value.trim());
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Change email"
+      description="A confirmation flow is not yet wired — the email field updates immediately."
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={async () => { setBusy(true); await onSave(value.trim()); setBusy(false); }}
+            disabled={busy || !valid || value.trim() === currentEmail}
+          >Save</Button>
+        </>
+      }
+    >
+      <div className="pf-form">
+        <label>
+          <div className="pf-form-label">Email</div>
+          <input
+            className="ui-input"
+            type="email"
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </label>
+        {!valid && value && <p className="pf-form-error">That doesn't look like a valid email.</p>}
+      </div>
+    </Dialog>
+  );
+}
+
+function ChangePasswordDialog({ open, onOpenChange, onSave }: {
+  open: boolean; onOpenChange: (o: boolean) => void;
+  onSave: (current: string, next: string) => Promise<void>;
+}) {
+  const [current, setCurrent] = useState('');
+  const [next, setNext]       = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (open) { setCurrent(''); setNext(''); setConfirm(''); }
+  }, [open]);
+
+  const tooShort = next.length > 0 && next.length < 8;
+  const mismatch = confirm.length > 0 && confirm !== next;
+  const valid = current.length >= 1 && next.length >= 8 && confirm === next;
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Change password"
+      description="Use 8 or more characters. You'll stay signed in on this device."
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={async () => { setBusy(true); await onSave(current, next); setBusy(false); }}
+            disabled={busy || !valid}
+          >Update</Button>
+        </>
+      }
+    >
+      <div className="pf-form">
+        <label>
+          <div className="pf-form-label">Current password</div>
+          <input
+            className="ui-input"
+            type="password"
+            autoFocus
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+          />
+        </label>
+        <label>
+          <div className="pf-form-label">New password</div>
+          <input
+            className="ui-input"
+            type="password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+          />
+        </label>
+        <label>
+          <div className="pf-form-label">Confirm new password</div>
+          <input
+            className="ui-input"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+        </label>
+        {tooShort && <p className="pf-form-error">At least 8 characters.</p>}
+        {mismatch && <p className="pf-form-error">Passwords don't match.</p>}
+      </div>
+    </Dialog>
+  );
+}
+
+function DeleteAccountDialog({ open, onOpenChange, confirmEmail, onConfirm }: {
+  open: boolean; onOpenChange: (o: boolean) => void;
+  confirmEmail: string; onConfirm: () => Promise<void>;
+}) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) setTyped(''); }, [open]);
+
+  const ok = typed.trim().toLowerCase() === confirmEmail.toLowerCase();
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Delete account"
+      description="This is irreversible. Type your email to confirm."
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={async () => { setBusy(true); await onConfirm(); setBusy(false); }}
+            disabled={busy || !ok}
+            style={{ background: 'var(--rust)', color: 'var(--paper)' }}
+          >Delete forever</Button>
+        </>
+      }
+    >
+      <div className="pf-form">
+        <p className="pf-form-hint">
+          Every note, goal, routine, and entry will be removed within 24 hours.
+        </p>
+        <label>
+          <div className="pf-form-label">Type {confirmEmail} to confirm</div>
+          <input
+            className="ui-input"
+            autoFocus
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+          />
+        </label>
+      </div>
+    </Dialog>
   );
 }

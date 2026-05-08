@@ -30,7 +30,6 @@ export function SprintDetailPanel({ decorated, library, open, onOpenChange }: Pr
     setDescription(sprint?.description ?? '');
     setStartDate(sprint?.start_date ?? '');
     setEndDate(sprint?.end_date ?? '');
-
   }, [sprint?.id]);
 
   if (!sprint || !decorated) return null;
@@ -65,6 +64,8 @@ export function SprintDetailPanel({ decorated, library, open, onOpenChange }: Pr
     : decorated.bucket === 'upcoming'
       ? `Starts ${fmtDate(sprint.start_date)}`
       : `Day ${decorated.daysElapsed} of ${decorated.daysTotal}`;
+
+  const pct = Math.round(decorated.progress * 100);
 
   return (
     <Drawer
@@ -115,7 +116,7 @@ export function SprintDetailPanel({ decorated, library, open, onOpenChange }: Pr
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
           onBlur={flushDates}
-          style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--fg-primary)' }}
+          style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--ink)' }}
         />
       </div>
       <div className="ui-field-row">
@@ -126,7 +127,7 @@ export function SprintDetailPanel({ decorated, library, open, onOpenChange }: Pr
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
           onBlur={flushDates}
-          style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--fg-primary)' }}
+          style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--ink)' }}
         />
       </div>
       <div className="ui-field-row">
@@ -137,45 +138,49 @@ export function SprintDetailPanel({ decorated, library, open, onOpenChange }: Pr
       <div className="ui-field">
         <span className="ui-field-label">Progress</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div className="goal-progressbar" style={{ flex: 1 }}>
-            <div
-              className="fill"
-              style={{
-                width: `${Math.min(100, decorated.progress * 100)}%`,
-                ['--bar-color' as any]: sprint.color || 'var(--accent-sprints)',
-              }}
-            />
+          <div className="gpb-bar" style={{ flex: 1, height: 4, ['--accent' as any]: sprint.color || 'var(--slate)' }}>
+            <div className="gpb-bar-fill" style={{ width: `${Math.min(100, pct)}%` }} />
           </div>
-          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--fg-primary)', minWidth: 36, textAlign: 'right' }}>
-            {Math.round(decorated.progress * 100)}%
-          </span>
+          <span style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 18, fontWeight: 500,
+            color: 'var(--ink)',
+            fontVariantNumeric: 'tabular-nums',
+            minWidth: 44, textAlign: 'right',
+          }}>{pct}%</span>
         </div>
       </div>
 
       <div className="ui-field">
         <span className="ui-field-label">Items ({sprint.items.length})</span>
         {sprint.items.length === 0 ? (
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-4)' }}>
             No items linked yet — add goals, steps, gos or routines from their detail panels.
           </span>
         ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
             {sprint.items.map((it) => (
               <li
                 key={it.id}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '6px 8px', borderRadius: 6,
-                  background: 'var(--bg-card)',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 10px',
+                  borderRadius: 'var(--r-control)',
+                  background: 'var(--cream)',
+                  fontFamily: 'var(--font-body)',
                   fontSize: 'var(--text-sm)',
-                  color: 'var(--fg-primary)',
+                  color: 'var(--ink)',
                 }}
               >
-                <Box size={11} style={{ color: 'var(--fg-faint)' }} />
+                <Box size={11} style={{ color: 'var(--ink-5)' }} />
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {it.title || `(unnamed ${it.item_type})`}
                 </span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)', textTransform: 'uppercase' }}>
+                <span style={{
+                  fontFamily: 'var(--font-ui)',
+                  fontSize: 'var(--text-2xs)', color: 'var(--ink-4)',
+                  textTransform: 'uppercase', letterSpacing: '0.10em', fontWeight: 500,
+                }}>
                   {it.item_type}
                 </span>
               </li>

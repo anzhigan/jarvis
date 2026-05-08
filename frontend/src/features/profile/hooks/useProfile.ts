@@ -42,6 +42,7 @@ export function useProfile() {
     activeRoutines: routines.filter((r) => !r.is_paused).length,
     topStreak: routines.length === 0 ? 0
       : Math.max(...routines.map((r) => currentStreak(r))),
+    streaksCount: routines.filter((r) => !r.is_paused && currentStreak(r) >= 3).length,
   };
 
   const memberSince = (() => {
@@ -82,6 +83,18 @@ export function useProfile() {
     }
   }, [auth]);
 
+  const updateProfile = useCallback(async (data: { username?: string; email?: string }) => {
+    try {
+      await authApi.updateProfile(data);
+      await auth.init();
+      toast.success('Profile updated');
+      return true;
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to update profile');
+      return false;
+    }
+  }, [auth]);
+
   const removeAvatar = useCallback(async () => {
     try {
       await authApi.updateProfile({ avatar_url: null } as any);
@@ -107,7 +120,7 @@ export function useProfile() {
     user: auth.user,
     stats, statsLoading, memberSince,
     fontSize, setFontSize,
-    changePassword, uploadAvatar, removeAvatar,
+    changePassword, uploadAvatar, removeAvatar, updateProfile,
     deleteAccount, logout,
   };
 }

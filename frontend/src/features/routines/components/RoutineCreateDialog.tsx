@@ -10,10 +10,10 @@ interface Props {
 }
 
 const SCHEDULES: { value: RoutineScheduleType; label: string }[] = [
-  { value: 'daily',          label: 'Daily' },
-  { value: 'weekly_on_days', label: 'On days' },
+  { value: 'daily',          label: 'Daily'        },
+  { value: 'weekly_on_days', label: 'On days'      },
   { value: 'every_n_days',   label: 'Every N days' },
-  { value: 'times_per_week', label: 'X / week' },
+  { value: 'times_per_week', label: 'X / week'     },
 ];
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -73,8 +73,16 @@ export function RoutineCreateDialog({ open, onOpenChange, library }: Props) {
       onOpenChange={onOpenChange}
       title="New routine"
       description="Recurring habit with a schedule and optional target."
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="primary" onClick={submit} disabled={submitting || !title.trim()}>
+            {submitting ? 'Creating…' : 'Create routine'}
+          </Button>
+        </>
+      }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="ui-form">
         <Input
           autoFocus
           placeholder="Routine title (e.g. Morning meditation)"
@@ -90,19 +98,23 @@ export function RoutineCreateDialog({ open, onOpenChange, library }: Props) {
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="ui-field">
           <span className="ui-field-label">Schedule</span>
-          <div className="seg" role="tablist">
+          <div className="pill-seg" role="radiogroup">
             {SCHEDULES.map((s) => (
-              <button key={s.value} className={schedule === s.value ? 'on' : ''} onClick={() => setSchedule(s.value)}>
-                {s.label}
-              </button>
+              <button
+                key={s.value}
+                className={schedule === s.value ? 'on' : ''}
+                role="radio"
+                aria-checked={schedule === s.value}
+                onClick={() => setSchedule(s.value)}
+              >{s.label}</button>
             ))}
           </div>
         </div>
 
         {schedule === 'weekly_on_days' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="ui-field">
             <span className="ui-field-label">Days</span>
             <div style={{ display: 'flex', gap: 4 }}>
               {DAY_LABELS.map((label, i) => {
@@ -111,14 +123,9 @@ export function RoutineCreateDialog({ open, onOpenChange, library }: Props) {
                   <button
                     key={i}
                     onClick={() => toggleDay(i)}
-                    className="pf-fontsize-btn"
+                    className="ui-chip"
                     data-active={on || undefined}
-                    style={on ? {
-                      background: 'var(--accent-routines-bg)',
-                      color: 'var(--accent-routines-fg)',
-                      borderColor: 'var(--accent-routines)',
-                      width: 40,
-                    } : { width: 40 }}
+                    style={{ minWidth: 44, justifyContent: 'center' }}
                   >{label}</button>
                 );
               })}
@@ -127,7 +134,7 @@ export function RoutineCreateDialog({ open, onOpenChange, library }: Props) {
         )}
 
         {schedule === 'every_n_days' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="ui-field">
             <span className="ui-field-label">Every N days</span>
             <Input
               type="number"
@@ -140,7 +147,7 @@ export function RoutineCreateDialog({ open, onOpenChange, library }: Props) {
         )}
 
         {schedule === 'times_per_week' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="ui-field">
             <span className="ui-field-label">Times per week</span>
             <Input
               type="number"
@@ -152,17 +159,27 @@ export function RoutineCreateDialog({ open, onOpenChange, library }: Props) {
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="ui-field">
           <span className="ui-field-label">Tracking</span>
-          <div className="seg" role="tablist">
-            <button className={kind === 'boolean' ? 'on' : ''} onClick={() => setKind('boolean')}>Done / not</button>
-            <button className={kind === 'numeric' ? 'on' : ''} onClick={() => setKind('numeric')}>Numeric</button>
+          <div className="pill-seg" role="radiogroup">
+            <button
+              className={kind === 'boolean' ? 'on' : ''}
+              role="radio"
+              aria-checked={kind === 'boolean'}
+              onClick={() => setKind('boolean')}
+            >Done / not</button>
+            <button
+              className={kind === 'numeric' ? 'on' : ''}
+              role="radio"
+              aria-checked={kind === 'numeric'}
+              onClick={() => setKind('numeric')}
+            >Numeric</button>
           </div>
         </div>
 
         {kind === 'numeric' && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="ui-form-row">
+            <div className="ui-field">
               <span className="ui-field-label">Target</span>
               <Input
                 type="number"
@@ -171,7 +188,7 @@ export function RoutineCreateDialog({ open, onOpenChange, library }: Props) {
                 onChange={(e) => setTarget(e.target.value)}
               />
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="ui-field">
               <span className="ui-field-label">Unit</span>
               <Input
                 placeholder="e.g. min, km, pages"
@@ -181,13 +198,6 @@ export function RoutineCreateDialog({ open, onOpenChange, library }: Props) {
             </div>
           </div>
         )}
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
-        <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-        <Button variant="primary" onClick={submit} disabled={submitting || !title.trim()}>
-          {submitting ? 'Creating…' : 'Create routine'}
-        </Button>
       </div>
     </Dialog>
   );

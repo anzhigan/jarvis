@@ -1,6 +1,6 @@
 import { cn } from '../../lib/cn';
 
-interface ToolbarProps extends React.HTMLAttributes<HTMLDivElement> {}
+type ToolbarProps = React.HTMLAttributes<HTMLDivElement>;
 
 export function Toolbar({ className, ...rest }: ToolbarProps) {
   return <div className={cn('ui-toolbar', className)} {...rest} />;

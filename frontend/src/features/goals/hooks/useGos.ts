@@ -25,6 +25,33 @@ export function groupGos(gos: Go[], today: string): GroupedGos {
   return out;
 }
 
+/** Group Gos by their parent task_id ('__none__' for orphan gos). Pure. */
+export function groupGosByGoal(gos: Go[]): Map<string, Go[]> {
+  const out = new Map<string, Go[]>();
+  for (const g of gos) {
+    const k = g.task_id ?? '__none__';
+    const arr = out.get(k);
+    if (arr) arr.push(g); else out.set(k, [g]);
+  }
+  return out;
+}
+
+/** Consecutive days back from today where Go has a positive entry. Pure. */
+export function goCurrentStreak(go: Go, today: Date = new Date()): number {
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const map = new Map<string, number>();
+  for (const e of go.entries) map.set(e.date, e.value);
+  let count = 0;
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(t0); d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const v = map.get(key) ?? 0;
+    if (v > 0) count++;
+    else if (i > 0) break;
+  }
+  return count;
+}
+
 export interface GroupedGos {
   overdue: Go[];
   today: Go[];

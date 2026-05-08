@@ -203,12 +203,144 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 14px;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     INDIGO EDITORIAL v4 — Desktop tokens.
+     Source of truth: jarvnote-indigo-3.html. Used only inside .dk-shell scope
+     and ui-kit primitives that desktop renders. Mobile keeps the cool zinc
+     tokens above unchanged.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Type */
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body:    "Source Serif 4", Georgia, serif;
+  --font-ui:      "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  --text-2xs:  10px;
+  --text-md:   15.5px;
+  --text-4xl:  48px;
+  --text-5xl:  64px;
+
+  --tracking-display: -0.030em;
+  --tracking-wide:    0.06em;
+
+  /* Layout */
+  --r-sharp:   2px;
+  --r-control: 5px;
+  --r-card:    6px;
+
+  --indigo-rail-w: 56px;
+  --indigo-pane-w: 280px;
+  --indigo-topbar-h: 52px;
+
+  /* Light surfaces */
+  --paper:    #EFF1F0;
+  --cream:    #E6E2D6;
+  --soft:     #DAD3C0;
+  --rail-bg:  #D6D2C8;
+
+  /* Hairlines (semantic borders, not shadows) */
+  --hairline:        rgba(28, 24, 20, 0.10);
+  --hairline-strong: rgba(28, 24, 20, 0.18);
+  --hairline-faint:  rgba(28, 24, 20, 0.05);
+
+  /* Ink — warm scale */
+  --ink:    #1A1F22;
+  --ink-2:  #353130;
+  --ink-3:  #4A4641;
+  --ink-4:  #767169;
+  --ink-5:  #A4A099;
+
+  /* Brand — iron-blue */
+  --indigo:      #3A5364;
+  --indigo-2:    #2A3D4B;
+  --indigo-soft: rgba(58, 83, 100, 0.10);
+  --indigo-tint: rgba(58, 83, 100, 0.18);
+
+  /* Editorial accents */
+  --slate:      #6F7A82;
+  --slate-soft: rgba(111, 122, 130, 0.14);
+  --moss:       #6B7A4F;
+  --moss-soft:  rgba(107, 122, 79, 0.16);
+  --ochre:      #A18030;
+  --ochre-soft: rgba(161, 128, 48, 0.14);
+  --rust:       #A04A39;
+  --rust-soft:  rgba(160, 74, 57, 0.10);
+  --walnut:     #4A3A2D;
+  --walnut-2:   #6B4F3D;
+
+  /* Heatmap — moss-tinted */
+  --heat-0: rgba(28, 24, 20, 0.06);
+  --heat-1: rgba(107, 122, 79, 0.22);
+  --heat-2: rgba(107, 122, 79, 0.42);
+  --heat-3: rgba(107, 122, 79, 0.65);
+  --heat-4: rgba(107, 122, 79, 0.92);
+
+  /* Shadows — minimal, hairline-first */
+  --sh-card:       0 0 0 1px var(--hairline);
+  --sh-card-hover: 0 0 0 1px var(--hairline-strong), 0 2px 6px rgba(28, 24, 20, 0.05);
+  --sh-popover:    0 0 0 1px var(--hairline-strong), 0 8px 24px rgba(28, 24, 20, 0.10);
+  --sh-modal:      0 0 0 1px var(--hairline-strong), 0 24px 64px rgba(28, 24, 20, 0.14);
+  --sh-focus:      0 0 0 3px var(--indigo-tint);
+
+  --ease:     cubic-bezier(0.32, 0.72, 0.30, 1);
+  --dur-fast: 140ms;
+  --dur-med:  220ms;
+}
+
+[data-theme="dark"] {
+  /* Indigo dark mirror — note these override the cool-zinc dark block above
+     for desktop scope. Mobile rules are scoped via .dark-theme legacy paths
+     and won't notice these per-token overrides because they consult their
+     own --bg-app etc. set above. */
+  --paper:    #131820;
+  --cream:    #2A2620;
+  --soft:     #322D24;
+  --rail-bg:  #1F1B16;
+
+  --hairline:        rgba(239, 241, 240, 0.08);
+  --hairline-strong: rgba(239, 241, 240, 0.18);
+  --hairline-faint:  rgba(239, 241, 240, 0.04);
+
+  --ink:    #F2EFE8;
+  --ink-2:  #D4D0C7;
+  --ink-3:  #A29C90;
+  --ink-4:  #7A746B;
+  --ink-5:  #4F4A43;
+
+  --indigo:      #7AA2BC;
+  --indigo-2:    #5A7E94;
+  --indigo-soft: rgba(122, 162, 188, 0.16);
+  --indigo-tint: rgba(122, 162, 188, 0.26);
+
+  --slate:      #98A4AE;
+  --slate-soft: rgba(152, 164, 174, 0.18);
+  --moss:       #95A674;
+  --moss-soft:  rgba(149, 166, 116, 0.18);
+  --ochre:      #C9A157;
+  --ochre-soft: rgba(201, 161, 87, 0.18);
+  --rust:       #C46959;
+  --rust-soft:  rgba(196, 105, 89, 0.14);
+  --walnut:     #B0916D;
+  --walnut-2:   #8E7656;
+
+  --heat-0: rgba(239, 241, 240, 0.06);
+  --heat-1: rgba(149, 166, 116, 0.22);
+  --heat-2: rgba(149, 166, 116, 0.42);
+  --heat-3: rgba(149, 166, 116, 0.65);
+  --heat-4: rgba(149, 166, 116, 0.92);
+
+  --sh-card:       0 0 0 1px var(--hairline);
+  --sh-card-hover: 0 0 0 1px var(--hairline-strong), 0 2px 8px rgba(0,0,0,0.4);
+  --sh-popover:    0 0 0 1px var(--hairline-strong), 0 8px 28px rgba(0,0,0,0.55);
+  --sh-modal:      0 0 0 1px var(--hairline-strong), 0 24px 64px rgba(0,0,0,0.65);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DARK THEME — pure zinc, no warm/brown undertone.
-   Stronger surface steps so cards lift clearly off the page.
-   Accents shift to Tailwind-400 pastels for retina comfort.
+   DARK THEME (legacy mobile + ui-kit fallback) — pure zinc, no warm undertone.
+   These tokens drive the *old* mobile shell and any ui-kit consumer that still
+   reads --bg-app / --accent-notes. Desktop in Indigo Editorial scope reads
+   --paper / --indigo / --ink instead, set in the block above.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 [data-theme="dark"] {

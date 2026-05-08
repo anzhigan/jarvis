@@ -143,7 +143,7 @@ async def update_routine(
     r = await _get_routine(routine_id, user, db)
     data = body.model_dump(exclude_unset=True)
     if "schedule_type" in data and data["schedule_type"] not in VALID_SCHEDULE_TYPES:
-        raise HTTPException(400, f"Invalid schedule_type")
+        raise HTTPException(400, "Invalid schedule_type")
     if "kind" in data and data["kind"] not in VALID_KINDS:
         raise HTTPException(400, "Invalid kind")
     for k, v in data.items():

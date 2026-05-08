@@ -14,18 +14,18 @@ interface Props {
 }
 
 const SCHEDULES: { value: RoutineScheduleType; label: string }[] = [
-  { value: 'daily',          label: 'Daily' },
-  { value: 'weekly_on_days', label: 'On days' },
+  { value: 'daily',          label: 'Daily'        },
+  { value: 'weekly_on_days', label: 'On days'      },
   { value: 'every_n_days',   label: 'Every N days' },
-  { value: 'times_per_week', label: 'Times / period' },
+  { value: 'times_per_week', label: 'Times / week' },
 ];
 
-const STATE_LABEL = {
+const STATE_LABEL: Record<'done' | 'skipped' | 'pending' | 'unscheduled', string> = {
   done: 'Done today',
   skipped: 'Skipped today',
   pending: 'Pending today',
   unscheduled: 'Off-day',
-} as const;
+};
 
 export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Props) {
   const [title, setTitle] = useState(routine?.title ?? '');
@@ -33,7 +33,6 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
   useEffect(() => {
     setTitle(routine?.title ?? '');
     setDescription(routine?.description ?? '');
-
   }, [routine?.id]);
 
   if (!routine) return null;
@@ -45,7 +44,7 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
   const flushDescription = async () => {
     if (description !== routine.description) await library.update(routine.id, { description });
   };
-  const onSchedule = (s: RoutineScheduleType) => library.update(routine.id, { schedule_type: s });
+  const onSchedule    = (s: RoutineScheduleType) => library.update(routine.id, { schedule_type: s });
   const onTogglePause = () => library.togglePause(routine.id, routine.is_paused);
   const onDelete = async () => {
     if (!window.confirm(`Delete "${routine.title}"? Entries are kept until you delete them manually.`)) return;
@@ -98,11 +97,13 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
 
       <div className="ui-field">
         <span className="ui-field-label">Schedule</span>
-        <div className="seg" role="tablist">
+        <div className="pill-seg" role="radiogroup">
           {SCHEDULES.map((s) => (
             <button
               key={s.value}
               className={routine.schedule_type === s.value ? 'on' : ''}
+              role="radio"
+              aria-checked={routine.schedule_type === s.value}
               onClick={() => onSchedule(s.value)}
             >{s.label}</button>
           ))}
@@ -115,7 +116,7 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
       </div>
       <div className="ui-field-row">
         <span className="label"><Repeat size={11} /> Streak</span>
-        <span className="value" style={{ color: streak > 0 ? 'var(--accent-routines-fg)' : undefined }}>
+        <span className="value" style={{ color: streak > 0 ? 'var(--moss)' : undefined }}>
           {streak} {streak === 1 ? 'day' : 'days'}
         </span>
       </div>

@@ -11,6 +11,11 @@ const PAD_X = 4;
 const PAD_TOP = 8;
 const PAD_BOT = 24;
 
+/**
+ * Daily completions bar chart — goals stacked on routines. Indigo + moss
+ * accents, hairline baseline. The chart sits inside an .ana-card so it can
+ * share the row layout with the donut.
+ */
 export function ActivityChart({ data }: Props) {
   const { paths, ticks } = useMemo(() => {
     const max = Math.max(1, ...data.map((d) => d.goals + d.routines));
@@ -25,7 +30,6 @@ export function ActivityChart({ data }: Props) {
       const goalH = (d.goals / max) * innerH;
       out.push({ x, routH, goalH, date: d.date, label: d.label });
     }
-    // X-axis ticks: every ~7 days, plus first and last.
     const stride = Math.max(1, Math.floor(data.length / 6));
     const ticks = data.filter((_, i) => i % stride === 0 || i === data.length - 1);
     return { paths: out.map((b) => ({ ...b, barW })), ticks };
@@ -35,38 +39,21 @@ export function ActivityChart({ data }: Props) {
 
   if (data.length === 0) {
     return (
-      <div className="an-card an-activity">
-        <div className="an-card-head">
-          <div className="an-card-title-block">
-            <div className="an-card-title">Daily completions</div>
-            <div className="an-card-sub">Nothing logged in this period yet.</div>
-          </div>
-        </div>
+      <div className="ana-card">
+        <div className="ana-card-eyebrow">Daily completions</div>
+        <h3 className="ana-card-title">Goals + routines per day</h3>
+        <div className="ana-card-empty">Nothing logged in this period yet.</div>
       </div>
     );
   }
 
   return (
-    <div className="an-card an-activity">
-      <div className="an-card-head">
-        <div className="an-card-title-block">
-          <div className="an-card-title">Daily completions</div>
-          <div className="an-card-sub">Goals + routines per day</div>
-        </div>
-        <div className="legend">
-          <span className="legend-item">
-            <span className="legend-dot" style={{ background: 'var(--accent-goals)' }} />
-            Goals
-          </span>
-          <span className="legend-item">
-            <span className="legend-dot" style={{ background: 'var(--accent-routines)' }} />
-            Routines
-          </span>
-        </div>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="activity-chart" xmlns="http://www.w3.org/2000/svg">
-        {/* baseline */}
-        <line x1={0} y1={baselineY} x2={W} y2={baselineY} stroke="var(--line)" strokeWidth={1} />
+    <div className="ana-card">
+      <div className="ana-card-eyebrow">Daily completions</div>
+      <h3 className="ana-card-title">Goals + routines per day</h3>
+
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="ana-chart" xmlns="http://www.w3.org/2000/svg">
+        <line x1={0} y1={baselineY} x2={W} y2={baselineY} stroke="var(--hairline)" strokeWidth={1} />
 
         {paths.map((b) => {
           const yRout = baselineY - b.routH;
@@ -76,32 +63,32 @@ export function ActivityChart({ data }: Props) {
               <rect
                 x={b.x} y={yRout}
                 width={b.barW} height={b.routH}
-                fill="var(--accent-routines)" rx={1.5}
+                fill="var(--moss)" rx={1}
               />
               <rect
                 x={b.x} y={yGoal}
                 width={b.barW} height={b.goalH}
-                fill="var(--accent-goals)" rx={1.5}
+                fill="var(--indigo)" rx={1}
               />
             </g>
           );
         })}
 
-        {/* X-axis labels */}
-        {ticks.map((t, i) => {
-          const idx = data.findIndex((d) => d.date === t.date);
-          const x = PAD_X + idx * ((W - PAD_X * 2) / data.length);
-          return (
-            <text
-              key={i}
-              x={x} y={H - 6}
-              fontSize={11}
-              fill="var(--fg-muted)"
-              fontFamily="var(--font-sans)"
-            >{t.label}</text>
-          );
-        })}
+        <g className="ana-chart-axis">
+          {ticks.map((t, i) => {
+            const idx = data.findIndex((d) => d.date === t.date);
+            const x = PAD_X + idx * ((W - PAD_X * 2) / data.length);
+            return (
+              <text key={i} x={x} y={H - 6}>{t.label}</text>
+            );
+          })}
+        </g>
       </svg>
+
+      <div className="ana-chart-legend">
+        <span><span className="swatch" style={{ background: 'var(--indigo)' }} /> Goals</span>
+        <span><span className="swatch" style={{ background: 'var(--moss)' }} /> Routines</span>
+      </div>
     </div>
   );
 }

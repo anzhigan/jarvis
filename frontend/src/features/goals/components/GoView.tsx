@@ -1,182 +1,187 @@
-import { Plus, Check, Target, Repeat } from 'lucide-react';
-import type { Go } from '../../../api/types';
-import type { GoBucket, GroupedGos } from '../hooks/useGos';
+import { useMemo } from 'react';
+import { Check, Repeat, X } from 'lucide-react';
+import type { Go, Task } from '../../../api/types';
+import { goCurrentStreak, groupGosByGoal } from '../hooks/useGos';
 
 interface Props {
-  grouped: GroupedGos;
+  gos: Go[];
+  goals: Task[];
   onToggleDone: (go: Go) => void;
+  onSkip: (go: Go) => void;
   onSelect: (id: string) => void;
-  onAdd: (bucket: GoBucket) => void;
 }
 
-const COLS: { key: GoBucket; title: string }[] = [
-  { key: 'overdue',  title: 'Overdue'  },
-  { key: 'today',    title: 'Today'    },
-  { key: 'upcoming', title: 'Upcoming' },
-  { key: 'done',     title: 'Done'     },
-];
+const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--slate)', 'var(--ochre)', 'var(--rust)'] as const;
 
-const ymd = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-function dueText(due: string | null): { text: string; tone?: 'overdue' | 'today' } | null {
-  if (!due) return null;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const d = new Date(due); d.setHours(0, 0, 0, 0);
-  const days = Math.round((d.getTime() - today.getTime()) / 86400_000);
-  if (days < 0)   return { text: `${-days} ${days === -1 ? 'day' : 'days'} late`, tone: 'overdue' };
-  if (days === 0) return { text: 'Today', tone: 'today' };
-  if (days === 1) return { text: 'Tomorrow' };
-  if (days < 7)   return { text: `${days}d` };
-  return { text: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) };
+/** Deterministic accent for a given goal id (so colours stay stable across renders). */
+function accentFor(goalId: string | '__none__'): string {
+  if (goalId === '__none__') return 'var(--ink-4)';
+  let h = 0;
+  for (let i = 0; i < goalId.length; i++) h = (h * 31 + goalId.charCodeAt(i)) >>> 0;
+  return ACCENTS[h % ACCENTS.length];
 }
 
-/** Last 7 days as boolean[] (oldest → newest). null = scheduled-but-empty miss. */
-function last7Days(go: Go): { on: boolean; miss: boolean }[] {
-  const map = new Map<string, number>();
-  for (const e of go.entries) map.set(e.date, e.value);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const out: { on: boolean; miss: boolean }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today); d.setDate(d.getDate() - i);
-    const key = ymd(d);
-    const v = map.get(key) ?? 0;
-    out.push({ on: v > 0, miss: v === 0 && i > 0 });
-  }
-  return out;
+function fmtToday(): string {
+  const d = new Date();
+  return d.toLocaleDateString(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
-function currentStreak(go: Go): number {
-  const map = new Map<string, number>();
-  for (const e of go.entries) map.set(e.date, e.value);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  let count = 0;
-  for (let i = 0; i < 365; i++) {
-    const d = new Date(today); d.setDate(d.getDate() - i);
-    const v = map.get(ymd(d)) ?? 0;
-    if (v > 0) count++;
-    else if (i > 0) break;
-  }
-  return count;
+function valueLabel(go: Go): string | null {
+  if (go.kind !== 'numeric' || !go.target_value) return null;
+  const today = new Date();
+  const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayVal = go.entries.find((e) => e.date === ymd)?.value ?? 0;
+  const unit = go.unit ? ` ${go.unit}` : '';
+  return `${todayVal} / ${go.target_value}${unit}`;
 }
 
-function numericFraction(go: Go): string {
-  const target = go.target_value ?? 0;
-  if (!target) return '';
-  const ratio = Math.min(1, go.total_value / target);
-  if (ratio <= 0)        return '';
-  if (ratio < 0.34)      return '⅓';
-  if (ratio < 0.5)       return '';
-  if (ratio < 0.67)      return '½';
-  if (ratio < 0.85)      return '¾';
-  return '';
-}
+export function GoView({ gos, goals, onToggleDone, onSkip, onSelect }: Props) {
+  const grouped = useMemo(() => groupGosByGoal(gos), [gos]);
+  const goalById = useMemo(() => {
+    const m = new Map<string, Task>();
+    for (const t of goals) m.set(t.id, t);
+    return m;
+  }, [goals]);
 
-function GoMark({ go, onToggle }: { go: Go; onToggle: () => void }) {
-  if (go.kind === 'numeric') {
-    const target = go.target_value ?? 0;
-    const ratio = target ? go.total_value / target : 0;
-    const progress = ratio >= 1 ? 'full' : ratio > 0 ? 'partial' : 'empty';
+  const totals = useMemo(() => {
+    const done = gos.filter((g) => g.is_done_today).length;
+    const total = gos.length;
+    const pending = total - done;
+    const bestStreak = gos.reduce((m, g) => Math.max(m, goCurrentStreak(g)), 0);
+    const advancing = new Set(gos.filter((g) => g.task_id).map((g) => g.task_id)).size;
+    return { done, total, pending, bestStreak, advancing };
+  }, [gos]);
+
+  if (gos.length === 0) {
     return (
-      <button
-        className="go-mark numeric"
-        data-progress={progress}
-        onClick={onToggle}
-        aria-label="Open log"
-      >
-        {progress === 'full' ? <Check size={10} /> : numericFraction(go)}
-      </button>
+      <div className="content-empty">
+        <div className="content-empty-eyebrow">Go · today</div>
+        <div className="content-empty-title">
+          Nothing <em>scheduled</em> today.
+        </div>
+        <div className="content-empty-desc">
+          Set daily targets on your active goals to see them here.
+        </div>
+      </div>
     );
   }
-  return (
-    <button
-      className="go-mark"
-      data-checked={go.is_done_today || undefined}
-      onClick={onToggle}
-      aria-label={go.is_done_today ? 'Mark not done' : 'Mark done'}
-    >
-      {go.is_done_today && <Check size={10} />}
-    </button>
-  );
-}
 
-function GoCard({ go, onToggleDone, onSelect }: { go: Go; onToggleDone: (go: Go) => void; onSelect: (id: string) => void }) {
-  const due = dueText(go.due_date);
-  const recurring = go.recurrence === 'daily' || go.recurrence === 'weekly';
+  // Stable order: groups by parent display order, orphans last.
+  const groupKeys = Array.from(grouped.keys()).sort((a, b) => {
+    if (a === '__none__') return 1;
+    if (b === '__none__') return -1;
+    const oa = goalById.get(a)?.order ?? 0;
+    const ob = goalById.get(b)?.order ?? 0;
+    return oa - ob;
+  });
+
   return (
-    <div
-      className="go-card"
-      role="button"
-      tabIndex={0}
-      onClick={() => onSelect(go.id)}
-      onKeyDown={(e) => { if (e.key === 'Enter') onSelect(go.id); }}
-    >
-      <div className="go-row1">
-        <GoMark go={go} onToggle={() => { onToggleDone(go); }} />
-        {go.task_title && (
-          <span className="go-parent" onClick={(e) => e.stopPropagation()}>
-            <Target />
-            <span className="pname">{go.task_title}</span>
-          </span>
-        )}
-        <span className="go-spacer" />
-        {recurring ? (
-          <span className="go-rec">
-            <Repeat />
-            {go.recurrence === 'daily' ? 'Daily' : 'Weekly'}
-          </span>
-        ) : due ? (
-          <span className={`go-due${due.tone ? ` ${due.tone}` : ''}`}>{due.text}</span>
-        ) : null}
+    <>
+      <header className="go-hero">
+        <div className="go-kicker">{fmtToday()}</div>
+        <h1 className="go-hero-title">
+          {totals.done > 0
+            ? <><em>{totals.done} of {totals.total}</em>,<br />{totals.done === totals.total ? 'all done.' : 'on the board.'}</>
+            : <>The day, <em>open</em>.</>}
+        </h1>
+        <p className="go-lede">
+          Daily targets pulled from your active goals. Tick what's done,
+          set aside what isn't, leave the rest for later in the day.
+        </p>
+      </header>
+
+      <div className="go-progress-strip">
+        <div className="ps-cell">
+          <div className="ps-num">{totals.done}<em>/{totals.total}</em></div>
+          <div className="ps-label">Done today</div>
+        </div>
+        <div className="ps-cell">
+          <div className="ps-num">{totals.pending}</div>
+          <div className="ps-label">Pending</div>
+        </div>
+        <div className="ps-cell">
+          <div className="ps-num">{totals.bestStreak}<em> {totals.bestStreak === 1 ? 'day' : 'days'}</em></div>
+          <div className="ps-label">Best streak now</div>
+        </div>
+        <div className="ps-cell">
+          <div className="ps-num">{totals.advancing}</div>
+          <div className="ps-label">Goals advancing</div>
+        </div>
       </div>
-      <div className={`go-title${go.is_done_today ? ' go-title-done' : ''}`}>{go.title}</div>
-      {go.kind === 'numeric' && go.target_value && (
-        <div className="go-numeric">
-          <span className="go-numeric-bar">
-            <span style={{ width: `${Math.min(100, (go.total_value / go.target_value) * 100)}%` }} />
-          </span>
-          <span className="go-numeric-text">
-            <b>{go.total_value}</b> / {go.target_value}{go.unit && ` ${go.unit}`}
-          </span>
-        </div>
-      )}
-      {recurring && (
-        <div className="go-streak">
-          <div className="go-streak-cells">
-            {last7Days(go).map((cell, i) => (
-              <span key={i} className="c" data-on={cell.on || undefined} data-miss={cell.miss || undefined} />
-            ))}
-          </div>
-          <span className="go-streak-text">Streak <b>{currentStreak(go)}</b> · last 7d</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
-export function GoView({ grouped, onToggleDone, onSelect, onAdd }: Props) {
-  return (
-    <div className="board">
-      {COLS.map(({ key, title }) => (
-        <div key={key} className="col" data-status={key}>
-          <div className="col-head">
-            <span className="dot" />
-            <span className="col-title">{title}</span>
-            <span className="col-count">{grouped[key].length}</span>
-            <button className="col-add" onClick={() => onAdd(key)} aria-label={`Add ${title}`}>
-              <Plus />
-            </button>
-          </div>
-          <div className="col-body">
-            {grouped[key].map((go) => (
-              <GoCard key={go.id} go={go} onToggleDone={onToggleDone} onSelect={onSelect} />
-            ))}
-            <button className="col-add-card" onClick={() => onAdd(key)}>
-              <Plus /> Add Go
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
+      <div className="section-head">
+        <span className="section-title">Today, by goal</span>
+        <span className="section-rule" />
+        <span className="section-meta">
+          {totals.total} item{totals.total === 1 ? '' : 's'} · grouped by parent
+        </span>
+      </div>
+
+      <div className="go-list">
+        {groupKeys.flatMap((goalId) => {
+          const items = grouped.get(goalId) ?? [];
+          const accent = accentFor(goalId);
+          const goalTitle = goalId === '__none__' ? 'Standalone' : goalById.get(goalId)?.title ?? '—';
+          return items.map((go) => {
+            const streak = goCurrentStreak(go);
+            const val = valueLabel(go);
+            return (
+              <article
+                key={go.id}
+                className="go-row"
+                data-done={go.is_done_today || undefined}
+                style={{ ['--accent' as any]: accent }}
+                onClick={() => onSelect(go.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter') onSelect(go.id); }}
+              >
+                <button
+                  className="go-check"
+                  data-active={go.is_done_today || undefined}
+                  onClick={(e) => { e.stopPropagation(); onToggleDone(go); }}
+                  aria-label={go.is_done_today ? 'Mark not done' : 'Mark done'}
+                >
+                  <Check />
+                </button>
+                <div className="go-text">
+                  <h3 className="go-target">{go.title}</h3>
+                  <p className="go-meta">
+                    {goalId !== '__none__' && (
+                      <>
+                        <span className="go-goal">{goalTitle}</span>
+                        <span className="go-meta-sep">·</span>
+                      </>
+                    )}
+                    <span className={`go-streak${streak === 0 ? ' go-streak-zero' : ''}`}>
+                      {streak === 0 ? 'no streak' : <><Repeat size={11} style={{ verticalAlign: -2 }} /> {streak}</>}
+                    </span>
+                    {val && (
+                      <>
+                        <span className="go-meta-sep">·</span>
+                        <span className="go-value">{val}</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+                <button
+                  className="card-btn-skip"
+                  title="Skip"
+                  onClick={(e) => { e.stopPropagation(); onSkip(go); }}
+                  aria-label="Skip today"
+                >
+                  <X />
+                </button>
+              </article>
+            );
+          });
+        })}
+      </div>
+    </>
   );
 }

@@ -5,10 +5,18 @@ interface Props {
   slices: StatusSlice[];
 }
 
-const SIZE = 140;
-const R = 60;
-const STROKE = 22;
-const CIRC = 2 * Math.PI * R; // ≈ 376.99
+const SIZE = 132;
+const R = 54;
+const STROKE = 18;
+const CIRC = 2 * Math.PI * R;
+
+/** Indigo accent palette mapped per status — overrides the hook's mobile-era colours. */
+const COLOR: Record<StatusSlice['status'], string> = {
+  active:  'var(--indigo)',
+  backlog: 'var(--ochre)',
+  paused:  'var(--ink-5)',
+  done:    'var(--moss)',
+};
 
 export function StatusDonut({ slices }: Props) {
   const total = slices.reduce((acc, s) => acc + s.count, 0);
@@ -17,26 +25,23 @@ export function StatusDonut({ slices }: Props) {
     let acc = 0;
     for (const s of slices) {
       const len = total === 0 ? 0 : (s.count / total) * CIRC;
-      out.push({ color: s.color, len, offset: -acc });
+      out.push({ color: COLOR[s.status], len, offset: -acc });
       acc += len;
     }
     return out;
   }, [slices, total]);
 
   return (
-    <div className="an-card">
-      <div className="an-card-head">
-        <div className="an-card-title-block">
-          <div className="an-card-title">Goal status</div>
-          <div className="an-card-sub">Distribution across all {total} goals</div>
-        </div>
-      </div>
-      <div className="status-donut-wrap">
-        <div className="status-donut" style={{ position: 'relative' }}>
-          <svg viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+    <div className="ana-card">
+      <div className="ana-card-eyebrow">Goal status</div>
+      <h3 className="ana-card-title">Distribution across {total} {total === 1 ? 'goal' : 'goals'}</h3>
+
+      <div className="ana-donut-wrap">
+        <div className="ana-donut">
+          <svg viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ transform: 'rotate(-90deg)' }}>
             <circle
               cx={SIZE / 2} cy={SIZE / 2} r={R}
-              fill="none" stroke="var(--bg-active)" strokeWidth={STROKE}
+              fill="none" stroke="var(--cream)" strokeWidth={STROKE}
             />
             {segments.map((seg, i) => (
               <circle
@@ -49,21 +54,23 @@ export function StatusDonut({ slices }: Props) {
                 strokeDashoffset={seg.offset}
               />
             ))}
+            <text
+              x={SIZE / 2} y={SIZE / 2 + 6}
+              textAnchor="middle"
+              transform={`rotate(90 ${SIZE / 2} ${SIZE / 2})`}
+              className="ana-donut-center"
+              fontSize={22}
+            >{total}</text>
           </svg>
-          <div className="status-donut-num">
-            <b>{total}</b>
-            <span>goals</span>
-          </div>
         </div>
-        <div className="status-legend">
+        <div className="ana-donut-legend">
           {slices.map((s) => {
             const pct = total === 0 ? 0 : Math.round((s.count / total) * 100);
             return (
-              <div key={s.status} className="status-legend-row">
-                <span className="status-legend-dot" style={{ background: s.color }} />
-                <span className="status-legend-name">{s.label}</span>
-                <span className="status-legend-num">{s.count}</span>
-                <span className="status-legend-pct">{pct}%</span>
+              <div key={s.status} className="ana-donut-row">
+                <span className="swatch" style={{ background: COLOR[s.status] }} />
+                <span>{s.label}</span>
+                <span className="count">{s.count} · {pct}%</span>
               </div>
             );
           })}

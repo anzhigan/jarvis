@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { PanelLeftOpen, Loader2 } from 'lucide-react';
+import { Loader2, PanelLeftOpen } from 'lucide-react';
 import { Tooltip } from '../../../components/ui';
 import { useNotesLibrary } from '../hooks/useNotesLibrary';
 import { useNoteEditor } from '../hooks/useNoteEditor';
@@ -22,8 +22,6 @@ export default function NotesView() {
     localStorage.setItem(PANE_COLLAPSED_KEY, paneCollapsed ? '1' : '0');
   }, [paneCollapsed]);
 
-  // Flush pending drafts before switching to a different note so we never
-  // lose unsaved keystrokes to a navigation race.
   const handleSelectNote = useCallback(async (id: string) => {
     await save.flush();
     editor.setSelectedNoteId(id);
@@ -44,9 +42,9 @@ export default function NotesView() {
       <NotesPane
         library={library}
         selectedNoteId={editor.selectedNoteId}
+        collapsed={paneCollapsed}
         onSelectNote={handleSelectNote}
         onCollapseToggle={() => setPaneCollapsed(true)}
-        collapsed={paneCollapsed}
       />
 
       {paneCollapsed && (

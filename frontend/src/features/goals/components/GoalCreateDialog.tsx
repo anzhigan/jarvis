@@ -11,8 +11,18 @@ interface Props {
   initialStatus?: TaskStatus;
 }
 
-const STATUSES: TaskStatus[] = ['backlog', 'active', 'paused', 'done'];
-const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high'];
+const STATUSES: { value: TaskStatus; label: string }[] = [
+  { value: 'backlog', label: 'Backlog' },
+  { value: 'active',  label: 'Active'  },
+  { value: 'paused',  label: 'Paused'  },
+  { value: 'done',    label: 'Done'    },
+];
+
+const PRIORITIES: { value: TaskPriority; label: string }[] = [
+  { value: 'low',    label: 'Low'    },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high',   label: 'High'   },
+];
 
 export function GoalCreateDialog({ open, onOpenChange, library, initialStatus = 'active' }: Props) {
   const [title, setTitle] = useState('');
@@ -23,7 +33,6 @@ export function GoalCreateDialog({ open, onOpenChange, library, initialStatus = 
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset on each open.
   useEffect(() => {
     if (open) {
       setTitle(''); setDescription('');
@@ -58,8 +67,16 @@ export function GoalCreateDialog({ open, onOpenChange, library, initialStatus = 
       onOpenChange={onOpenChange}
       title="New goal"
       description="Long-running outcome with steps, Go items, and a deadline."
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="primary" onClick={submit} disabled={submitting || !title.trim()}>
+            {submitting ? 'Creating…' : 'Create goal'}
+          </Button>
+        </>
+      }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="ui-form">
         <Input
           autoFocus
           placeholder="Goal title"
@@ -75,29 +92,37 @@ export function GoalCreateDialog({ open, onOpenChange, library, initialStatus = 
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="ui-field">
           <span className="ui-field-label">Status</span>
-          <div className="seg" role="tablist">
+          <div className="pill-seg" role="radiogroup">
             {STATUSES.map((s) => (
-              <button key={s} className={status === s ? 'on' : ''} onClick={() => setStatus(s)}>
-                {s[0].toUpperCase() + s.slice(1)}
-              </button>
+              <button
+                key={s.value}
+                className={status === s.value ? 'on' : ''}
+                role="radio"
+                aria-checked={status === s.value}
+                onClick={() => setStatus(s.value)}
+              >{s.label}</button>
             ))}
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="ui-field">
           <span className="ui-field-label">Priority</span>
-          <div className="seg" role="tablist">
+          <div className="pill-seg" role="radiogroup">
             {PRIORITIES.map((p) => (
-              <button key={p} className={priority === p ? 'on' : ''} onClick={() => setPriority(p)}>
-                {p[0].toUpperCase() + p.slice(1)}
-              </button>
+              <button
+                key={p.value}
+                className={priority === p.value ? 'on' : ''}
+                role="radio"
+                aria-checked={priority === p.value}
+                onClick={() => setPriority(p.value)}
+              >{p.label}</button>
             ))}
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="ui-field">
           <span className="ui-field-label">Due date</span>
           <input
             type="date"
@@ -108,7 +133,7 @@ export function GoalCreateDialog({ open, onOpenChange, library, initialStatus = 
         </div>
 
         {library.tags.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="ui-field">
             <span className="ui-field-label">Tags</span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {library.tags.map((tag: Tag) => {
@@ -117,11 +142,10 @@ export function GoalCreateDialog({ open, onOpenChange, library, initialStatus = 
                   <button
                     key={tag.id}
                     onClick={() => toggleTag(tag.id)}
-                    className="filter-chip"
+                    className="ui-chip"
                     data-active={on || undefined}
-                    style={on ? { background: `${tag.color}1A`, color: tag.color, borderColor: `${tag.color}55` } : undefined}
                   >
-                    <span style={{ width: 8, height: 8, borderRadius: 4, background: tag.color, display: 'inline-block' }} />
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: tag.color, display: 'inline-block' }} />
                     {tag.name}
                   </button>
                 );
@@ -129,13 +153,6 @@ export function GoalCreateDialog({ open, onOpenChange, library, initialStatus = 
             </div>
           </div>
         )}
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
-        <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-        <Button variant="primary" onClick={submit} disabled={submitting || !title.trim()}>
-          {submitting ? 'Creating…' : 'Create goal'}
-        </Button>
       </div>
     </Dialog>
   );

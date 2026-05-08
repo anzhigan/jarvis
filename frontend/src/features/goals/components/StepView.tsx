@@ -1,145 +1,176 @@
-import { Plus, Calendar, Target, Box, Check } from 'lucide-react';
-import type { GroupedSteps, StepBucket, StepWithGoal } from '../hooks/useSteps';
+import { useMemo } from 'react';
+import { Check } from 'lucide-react';
+import type { Task } from '../../../api/types';
+import type { StepWithGoal } from '../hooks/useSteps';
 
 interface Props {
-  grouped: GroupedSteps;
-  onToggleDone: (step: StepWithGoal) => void;
+  steps: StepWithGoal[];
+  goals: Task[];
   onSelect: (id: string) => void;
-  onAdd: (bucket: StepBucket) => void;
 }
 
-const COLS: { key: StepBucket; title: string }[] = [
-  { key: 'overdue',  title: 'Overdue'     },
-  { key: 'active',   title: 'In progress' },
-  { key: 'upcoming', title: 'Upcoming'    },
-  { key: 'done',     title: 'Done'        },
-];
+type StepStatus = 'on-track' | 'upcoming' | 'done' | 'at-risk';
 
-function shortId(id: string): string { return `JV-S${id.slice(0, 3).toUpperCase()}`; }
+const STATUS_LABEL: Record<StepStatus, string> = {
+  'on-track': 'On track',
+  'upcoming': 'Upcoming',
+  'done':     'Completed',
+  'at-risk':  'At risk',
+};
 
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--slate)', 'var(--ochre)', 'var(--rust)'] as const;
+
+function accentFor(goalId: string): string {
+  let h = 0;
+  for (let i = 0; i < goalId.length; i++) h = (h * 31 + goalId.charCodeAt(i)) >>> 0;
+  return ACCENTS[h % ACCENTS.length];
 }
 
-function relativeEnd(end: string): string | null {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const e = new Date(end); e.setHours(0, 0, 0, 0);
-  const days = Math.round((e.getTime() - today.getTime()) / 86400_000);
-  if (days < 0)   return `${-days}d ago`;
-  if (days === 0) return 'today';
-  if (days < 14)  return `in ${days}d`;
-  return null;
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function daysBetween(a: string, b: string): number {
+  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400_000);
 }
 
-function durationLabel(start: string, end: string): string {
-  const days = Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400_000) + 1);
-  if (days % 7 === 0 && days >= 14) return `${days / 7} weeks`;
-  return `${days} days`;
+function fmtPeriod(start: string, end: string): string {
+  const s = new Date(start);
+  const e = new Date(end);
+  const sameYear = s.getFullYear() === e.getFullYear();
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  if (sameYear && s.getFullYear() === new Date().getFullYear()) {
+    return `${fmt(s)} — ${fmt(e)}`;
+  }
+  return `${fmt(s)} ${s.getFullYear()} — ${fmt(e)} ${e.getFullYear()}`;
 }
 
-/** Returns 0..1 (or >1 if overdue) for "how far through the period today is". */
-function progressRatio(start: string, end: string): { fill: number; today: number } {
-  const s = new Date(start).getTime();
-  const e = new Date(end).getTime();
-  const t = Date.now();
-  const span = Math.max(1, e - s);
-  const ratio = Math.max(0, Math.min(1, (t - s) / span));
-  const todayRatio = (t - s) / span;
-  return { fill: ratio, today: Math.max(0, todayRatio) };
+function statusOf(step: StepWithGoal, today: string): StepStatus {
+  if (step.is_completed) return 'done';
+  if (step.start_date > today) return 'upcoming';
+  if (step.end_date < today)   return 'at-risk';
+  const total = Math.max(1, daysBetween(step.start_date, step.end_date));
+  const elapsed = Math.max(0, daysBetween(step.start_date, today));
+  const expectedPct = (elapsed / total) * 100;
+  if (step.progress < expectedPct - 25) return 'at-risk';
+  return 'on-track';
 }
 
-function StepCard({ step, onToggleDone, onSelect }: { step: StepWithGoal; onToggleDone: (s: StepWithGoal) => void; onSelect: (id: string) => void }) {
-  const color = step.color || step.goal.color || 'var(--accent-goals)';
-  const pr = progressRatio(step.start_date, step.end_date);
-  const endRel = relativeEnd(step.end_date);
-  const isOverdue = pr.today > 1 && !step.is_completed;
-  const goCount = step.gos.length;
-  const goDoneCount = step.gos.filter((g) => g.is_done_today).length;
-  const childState = step.is_completed ? 'done' : isOverdue ? 'overdue' : undefined;
-
-  return (
-    <div
-      className="step-card"
-      style={{ ['--step-color' as any]: isOverdue ? 'var(--danger)' : color }}
-      role="button"
-      tabIndex={0}
-      onClick={() => onSelect(step.id)}
-      onKeyDown={(e) => { if (e.key === 'Enter') onSelect(step.id); }}
-    >
-      <div className="step-row1">
-        <span className="step-id">{shortId(step.id)}</span>
-        <span className="step-parent" onClick={(e) => e.stopPropagation()}>
-          <Target />
-          <span className="pname">{step.task_title ?? step.goal.title}</span>
-        </span>
-        <span className="step-spacer" />
-        <button
-          className="step-checkbox"
-          data-checked={step.is_completed || undefined}
-          onClick={(e) => { e.stopPropagation(); onToggleDone(step); }}
-          aria-label={step.is_completed ? 'Mark in progress' : 'Mark done'}
-        >
-          {step.is_completed && <Check size={10} />}
-        </button>
-      </div>
-
-      <div className={`step-title${step.is_completed ? ' step-title-done' : ''}`}>{step.title}</div>
-
-      <div className="step-dates">
-        <Calendar />
-        <span className="from">{fmtDate(step.start_date)}</span>
-        <span className="arrow">→</span>
-        <span
-          className="to"
-          style={isOverdue ? { color: 'var(--danger)', fontWeight: 500 } : undefined}
-        >
-          {fmtDate(step.end_date)}{endRel ? ` · ${endRel}` : ''}
-        </span>
-      </div>
-
-      <div className="step-track">
-        <span className="step-track-fill" style={{ width: `${pr.fill * 100}%` }} />
-        <span className="step-track-today" style={{ left: `${Math.min(100, pr.today * 100)}%` }} />
-      </div>
-
-      <div className="step-meta-row">
-        {goCount > 0 && (
-          <span className="step-children-chip" data-state={childState}>
-            <Box />
-            <b>{goDoneCount}</b> / {goCount} Go
-          </span>
-        )}
-        <span className="step-meta-spacer" />
-        <span className="step-duration">{durationLabel(step.start_date, step.end_date)}</span>
-      </div>
-    </div>
-  );
+function footLabel(step: StepWithGoal, status: StepStatus, today: string): React.ReactNode {
+  if (status === 'done') {
+    return (
+      <span className="step-done-badge">
+        <Check size={11} />
+        <span>Closed</span>
+      </span>
+    );
+  }
+  if (status === 'upcoming') {
+    const days = daysBetween(today, step.start_date);
+    return <span className="step-days">starts in {days} {days === 1 ? 'day' : 'days'}</span>;
+  }
+  // on-track or at-risk — both show "X days left" but at-risk colours warn
+  const left = daysBetween(today, step.end_date);
+  if (left < 0) {
+    return <span className="step-days step-days-warn">{Math.abs(left)} days overdue</span>;
+  }
+  const className = status === 'at-risk' || left <= 7 ? 'step-days step-days-warn' : 'step-days';
+  return <span className={className}>{left} {left === 1 ? 'day' : 'days'} left</span>;
 }
 
-export function StepView({ grouped, onToggleDone, onSelect, onAdd }: Props) {
-  return (
-    <div className="board">
-      {COLS.map(({ key, title }) => (
-        <div key={key} className="col" data-status={key}>
-          <div className="col-head">
-            <span className="dot" />
-            <span className="col-title">{title}</span>
-            <span className="col-count">{grouped[key].length}</span>
-            <button className="col-add" onClick={() => onAdd(key)} aria-label={`Add ${title}`}>
-              <Plus />
-            </button>
-          </div>
-          <div className="col-body">
-            {grouped[key].map((step) => (
-              <StepCard key={step.id} step={step} onToggleDone={onToggleDone} onSelect={onSelect} />
-            ))}
-            <button className="col-add-card" onClick={() => onAdd(key)}>
-              <Plus /> Add step
-            </button>
-          </div>
+export function StepView({ steps, goals, onSelect }: Props) {
+  const goalById = useMemo(() => {
+    const m = new Map<string, Task>();
+    for (const g of goals) m.set(g.id, g);
+    return m;
+  }, [goals]);
+
+  const today = ymd(new Date());
+  const decorated = useMemo(() => steps.map((s) => ({
+    step: s,
+    status: statusOf(s, today),
+    accent: accentFor(s.task_id),
+    pct: Math.round(s.progress ?? 0),
+  })), [steps, today]);
+
+  // Order: at-risk first, then on-track, upcoming, done
+  const ORDER: StepStatus[] = ['at-risk', 'on-track', 'upcoming', 'done'];
+  const sorted = useMemo(() => [...decorated].sort((a, b) => {
+    const oa = ORDER.indexOf(a.status);
+    const ob = ORDER.indexOf(b.status);
+    if (oa !== ob) return oa - ob;
+    return a.step.end_date.localeCompare(b.step.end_date);
+  }), [decorated]);
+
+  if (steps.length === 0) {
+    return (
+      <div className="content-empty">
+        <div className="content-empty-eyebrow">Step · milestones</div>
+        <div className="content-empty-title">
+          No <em>milestones</em> yet.
         </div>
-      ))}
-    </div>
+        <div className="content-empty-desc">
+          Steps break a goal into period-bound chapters. Add one from a goal's detail panel.
+        </div>
+      </div>
+    );
+  }
+
+  const inProgress = decorated.filter((d) => d.status === 'on-track' || d.status === 'at-risk').length;
+
+  return (
+    <>
+      <header className="go-hero">
+        <div className="go-kicker">Time-bound milestones</div>
+        <h1 className="go-hero-title">
+          {steps.length} step{steps.length === 1 ? '' : 's'},<br />
+          moving in <em>{inProgress > 0 ? 'parallel' : 'queue'}</em>.
+        </h1>
+        <p className="go-lede">
+          Each step is a chapter in a larger goal. They have a start, an end,
+          and a measurable percentage between.
+        </p>
+      </header>
+
+      <div className="step-list">
+        {sorted.map(({ step, status, accent, pct }) => {
+          const goalTitle = goalById.get(step.task_id)?.title ?? step.task_title ?? 'Standalone';
+          return (
+            <article
+              key={step.id}
+              className="step-row"
+              data-status={status}
+              style={{ ['--accent' as any]: accent }}
+              onClick={() => onSelect(step.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') onSelect(step.id); }}
+            >
+              <div className="step-bar">
+                <div className="step-bar-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="step-text">
+                <div className="step-meta">
+                  <span className="step-goal">{goalTitle}</span>
+                  <span className={`step-status step-status-${status}`}>
+                    {STATUS_LABEL[status]}
+                  </span>
+                </div>
+                <h3 className="step-title">{step.title}</h3>
+                <div className="step-foot">
+                  <span className="step-period">{fmtPeriod(step.start_date, step.end_date)}</span>
+                  <span className="step-foot-sep">·</span>
+                  {footLabel(step, status, today)}
+                </div>
+              </div>
+              <div className="step-pct">
+                <span className="step-pct-num">
+                  {pct}<span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>%</span>
+                </span>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </>
   );
 }

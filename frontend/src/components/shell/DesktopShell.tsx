@@ -39,12 +39,12 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
       <aside className="rail">
         <div className="rail-brand" aria-label="Jarvnote">
           <svg viewBox="0 0 32 32" fill="none">
-            <g transform="rotate(20 16 16)">
+            <g transform="rotate(25 16 16)">
               <path
                 d="M16 3 C16 10 13 13 6 16 C13 19 16 22 16 29 C16 22 19 19 26 16 C19 13 16 10 16 3 Z"
                 fill="currentColor"
               />
-              <rect x="-3" y="14.6" width="38" height="2.8" rx="1.4" fill="var(--bg-rail)" />
+              <rect x="-3" y="14.6" width="38" height="2.8" rx="1.4" fill="var(--soft)" />
             </g>
           </svg>
         </div>

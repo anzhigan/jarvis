@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Flag, Box } from 'lucide-react';
+import { Plus, Repeat } from 'lucide-react';
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor,
   useDraggable, useDroppable, useSensor, useSensors,
@@ -13,114 +13,128 @@ interface Props {
   onMove: (id: string, status: TaskStatus) => void | Promise<void>;
 }
 
-const COLUMNS: { key: TaskStatus; title: string }[] = [
-  { key: 'backlog', title: 'Backlog' },
-  { key: 'active',  title: 'Active' },
-  { key: 'paused',  title: 'Paused' },
-  { key: 'done',    title: 'Done' },
+interface Column {
+  key: TaskStatus;
+  /** Maps to .kanban-col[data-c=…] coloured headline. */
+  c?: 'moss' | 'ochre' | 'slate';
+}
+
+const COLUMNS: Column[] = [
+  { key: 'backlog' },
+  { key: 'active',  c: 'moss'  },
+  { key: 'paused',  c: 'ochre' },
+  { key: 'done',    c: 'slate' },
 ];
 
-const PRIORITY_TONE: Record<TaskPriority, 'high' | 'med' | 'low'> = {
-  high: 'high', medium: 'med', low: 'low',
+const STATUS_LABEL: Record<TaskStatus, string> = {
+  backlog: 'Backlog',
+  active:  'Active',
+  paused:  'On hold',
+  done:    'Done',
 };
 
-function shortId(id: string): string {
-  return `JV-${id.slice(0, 4).toUpperCase()}`;
+function fmtDue(due: string): string {
+  const d = new Date(due);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function dueLabel(due: string | null): { text: string; tone?: 'overdue' | 'due-soon' } | null {
-  if (!due) return null;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const d = new Date(due); d.setHours(0, 0, 0, 0);
-  const days = Math.round((d.getTime() - today.getTime()) / 86400_000);
-  if (days < 0)   return { text: `${-days}d late`, tone: 'overdue' };
-  if (days === 0) return { text: 'Today',          tone: 'due-soon' };
-  if (days === 1) return { text: 'Tomorrow',       tone: 'due-soon' };
-  if (days < 7)   return { text: `${days}d`,        tone: 'due-soon' };
-  return { text: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) };
-}
-
-/** Visual content of a goal card — pure, doesn't know about DnD. */
 function GoalCardContent({ task }: { task: Task }) {
-  const due = dueLabel(task.due_date);
-  const tone = PRIORITY_TONE[task.priority];
-  const childrenLabel = `${task.gos.filter((g) => g.is_done_today).length} / ${task.gos.length} Go`;
+  const pct = Math.round(task.progress ?? 0);
+  const showProgress = task.status === 'active' || task.status === 'paused';
+  const routinesCount = task.gos.length;
   const primaryTag = task.tags[0];
+
+  const foot: React.ReactNode[] = [];
+  if (routinesCount > 0) {
+    foot.push(
+      <span key="rt"><Repeat size={11} style={{ verticalAlign: -2 }} /> {routinesCount} routine{routinesCount === 1 ? '' : 's'}</span>,
+    );
+  }
+  if (task.due_date) {
+    foot.push(<span key="due">due <time>{fmtDue(task.due_date)}</time></span>);
+  } else if (task.status === 'done') {
+    foot.push(<span key="closed">closed</span>);
+  }
+
   return (
     <>
-      <div className="kc-row1">
-        <span className="kc-id">{shortId(task.id)}</span>
-        <span className={`kc-pri ${tone}`}><Flag /></span>
-        <span className="kc-spacer" />
-        {due && <span className={`kc-due${due.tone ? ` ${due.tone}` : ''}`}>{due.text}</span>}
-      </div>
-      <div className={`kc-title${task.status === 'done' ? ' kc-title-done' : ''}`}>{task.title}</div>
-      {(primaryTag || task.gos.length > 0) && (
-        <div className="kc-meta">
-          {primaryTag && (
-            <span
-              className="kc-tag"
-              style={{ background: `${primaryTag.color}1A`, color: primaryTag.color }}
-            >
-              {primaryTag.name}
+      <span className="kc-pri" data-pri={task.priority as TaskPriority} />
+      <h3 className="kc-title">{task.title}</h3>
+      {task.description && <p className="kc-desc">{task.description}</p>}
+
+      {showProgress && (
+        <div className="kc-progress">
+          <div className="kc-progress-bar"><div className="kc-progress-fill" style={{ width: `${pct}%` }} /></div>
+          <span className="kc-progress-num">
+            {pct}<span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>%</span>
+          </span>
+        </div>
+      )}
+
+      {primaryTag && (
+        <div className="kc-tags">
+          <span className="kc-tag" style={{ color: primaryTag.color }}>{primaryTag.name}</span>
+        </div>
+      )}
+
+      {foot.length > 0 && (
+        <div className="kc-foot">
+          {foot.map((node, i) => (
+            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {i > 0 && <span style={{ color: 'var(--ink-5)' }}>·</span>}
+              {node}
             </span>
-          )}
-          {task.gos.length > 0 && (
-            <span className="kc-children"><Box />{childrenLabel}</span>
-          )}
+          ))}
         </div>
       )}
     </>
   );
 }
 
-function DraggableGoalCard({ task, onSelect }: { task: Task; onSelect: (id: string) => void }) {
+function DraggableCard({ task, onSelect }: { task: Task; onSelect: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
   return (
-    <div
+    <article
       ref={setNodeRef}
       className="kc"
       {...attributes}
       {...listeners}
       role="button"
       tabIndex={0}
-      data-done={task.status === 'done' || undefined}
       data-dragging={isDragging || undefined}
-      style={{ opacity: isDragging ? 0.4 : 1 }}
+      style={{ opacity: isDragging ? 0.4 : 1, cursor: isDragging ? 'grabbing' : 'pointer' }}
       onClick={() => onSelect(task.id)}
       onKeyDown={(e) => { if (e.key === 'Enter') onSelect(task.id); }}
     >
       <GoalCardContent task={task} />
-    </div>
+    </article>
   );
 }
 
 function DroppableColumn({
-  status, title, tasks, onAdd, onSelect,
+  col, tasks, onSelect, onAdd,
 }: {
-  status: TaskStatus; title: string; tasks: Task[];
-  onAdd: (status: TaskStatus) => void; onSelect: (id: string) => void;
+  col: Column;
+  tasks: Task[];
+  onSelect: (id: string) => void;
+  onAdd: (status: TaskStatus) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { setNodeRef, isOver } = useDroppable({ id: col.key });
   return (
-    <div className="col" data-status={status} data-over={isOver || undefined}>
-      <div className="col-head">
-        <span className="dot" />
-        <span className="col-title">{title}</span>
-        <span className="col-count">{tasks.length}</span>
-        <button className="col-add" onClick={() => onAdd(status)} aria-label={`Add to ${title}`}>
-          <Plus />
-        </button>
-      </div>
-      <div ref={setNodeRef} className="col-body">
-        {tasks.map((task) => (
-          <DraggableGoalCard key={task.id} task={task} onSelect={onSelect} />
+    <section className="kanban-col" data-c={col.c} data-over={isOver || undefined}>
+      <header className="kanban-col-head">
+        <div className="kanban-col-label">{STATUS_LABEL[col.key]}</div>
+        <div className="kanban-col-count">{tasks.length}</div>
+      </header>
+      <div ref={setNodeRef} className="kanban-col-body">
+        {tasks.map((t) => (
+          <DraggableCard key={t.id} task={t} onSelect={onSelect} />
         ))}
-        <button className="col-add-card" onClick={() => onAdd(status)}>
-          <Plus /> Add goal
+        <button className="kanban-add" onClick={() => onAdd(col.key)}>
+          <Plus size={12} /> Add a goal
         </button>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -134,8 +148,8 @@ export function GoalsBoard({ tasks, onSelect, onAdd, onMove }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const activeTask = activeId ? tasks.find((t) => t.id === activeId) ?? null : null;
 
-  // Tiny activation distance — clicks still register as clicks; only meaningful
-  // movement starts a drag. Critical because cards are also clickable to open detail.
+  // 6px activation distance keeps clicks click-y; only meaningful movement
+  // starts a drag. Cards are also clickable to open detail.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const onDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
@@ -151,23 +165,22 @@ export function GoalsBoard({ tasks, onSelect, onAdd, onMove }: Props) {
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div className="board">
-        {COLUMNS.map(({ key, title }) => (
+      <div className="kanban">
+        {COLUMNS.map((col) => (
           <DroppableColumn
-            key={key}
-            status={key}
-            title={title}
-            tasks={byStatus[key]}
-            onAdd={onAdd}
+            key={col.key}
+            col={col}
+            tasks={byStatus[col.key]}
             onSelect={onSelect}
+            onAdd={onAdd}
           />
         ))}
       </div>
       <DragOverlay dropAnimation={null}>
         {activeTask ? (
-          <div className="kc" style={{ cursor: 'grabbing', boxShadow: 'var(--sh-popover)' }}>
+          <article className="kc" style={{ cursor: 'grabbing', boxShadow: 'var(--sh-popover)' }}>
             <GoalCardContent task={activeTask} />
-          </div>
+          </article>
         ) : null}
       </DragOverlay>
     </DndContext>

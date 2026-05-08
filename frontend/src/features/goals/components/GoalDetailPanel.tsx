@@ -19,9 +19,9 @@ const STATUSES: { value: TaskStatus; label: string }[] = [
 ];
 
 const PRIORITIES: { value: TaskPriority; label: string; tone: string }[] = [
-  { value: 'low',    label: 'Low',    tone: 'var(--fg-muted)' },
-  { value: 'medium', label: 'Medium', tone: 'var(--accent-goals)' },
-  { value: 'high',   label: 'High',   tone: 'var(--danger)' },
+  { value: 'low',    label: 'Low',    tone: 'var(--ink-5)' },
+  { value: 'medium', label: 'Medium', tone: 'var(--ochre)' },
+  { value: 'high',   label: 'High',   tone: 'var(--rust)'  },
 ];
 
 function fmtDate(iso: string | null): string {
@@ -30,15 +30,11 @@ function fmtDate(iso: string | null): string {
 }
 
 export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
-  // Local title/description mirror the goal but don't reset on every refresh.
   const [title, setTitle] = useState(goal?.title ?? '');
   const [description, setDescription] = useState(goal?.description ?? '');
   useEffect(() => {
     setTitle(goal?.title ?? '');
     setDescription(goal?.description ?? '');
-    // Intentionally only depends on id: we don't want to reset local edits
-    // when the parent's library refresh re-emits the same goal with same content.
-
   }, [goal?.id]);
 
   if (!goal) return null;
@@ -50,7 +46,7 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
   const flushDescription = async () => {
     if (description !== goal.description) await library.updateGoal(goal.id, { description });
   };
-  const onStatus = (s: TaskStatus) => library.updateGoal(goal.id, { status: s });
+  const onStatus   = (s: TaskStatus)   => library.updateGoal(goal.id, { status: s });
   const onPriority = (p: TaskPriority) => library.updateGoal(goal.id, { priority: p });
   const onDue = (e: React.ChangeEvent<HTMLInputElement>) =>
     library.updateGoal(goal.id, { due_date: e.target.value || null });
@@ -103,11 +99,13 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
 
       <div className="ui-field">
         <span className="ui-field-label">Status</span>
-        <div className="seg" role="tablist">
+        <div className="pill-seg" role="radiogroup">
           {STATUSES.map((s) => (
             <button
               key={s.value}
               className={goal.status === s.value ? 'on' : ''}
+              role="radio"
+              aria-checked={goal.status === s.value}
               onClick={() => onStatus(s.value)}
             >{s.label}</button>
           ))}
@@ -116,11 +114,13 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
 
       <div className="ui-field">
         <span className="ui-field-label">Priority</span>
-        <div className="seg" role="tablist">
+        <div className="pill-seg" role="radiogroup">
           {PRIORITIES.map((p) => (
             <button
               key={p.value}
               className={goal.priority === p.value ? 'on' : ''}
+              role="radio"
+              aria-checked={goal.priority === p.value}
               onClick={() => onPriority(p.value)}
               style={goal.priority === p.value ? { color: p.tone } : undefined}
             >
@@ -137,7 +137,7 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
           className="value"
           value={goal.due_date ?? ''}
           onChange={onDue}
-          style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--fg-primary)' }}
+          style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--ink)' }}
         />
       </div>
       <div className="ui-field-row">
@@ -148,42 +148,37 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
       <div className="ui-field">
         <span className="ui-field-label">Tags</span>
         {goal.tags.length === 0 ? (
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>No tags</span>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-4)' }}>No tags</span>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {goal.tags.map((tag) => (
               <span
                 key={tag.id}
-                className="kc-tag"
-                style={{ background: `${tag.color}1A`, color: tag.color }}
+                className="ui-chip"
+                data-tone="muted"
               >
-                <TagIcon size={10} /> {tag.name}
+                <TagIcon size={10} style={{ color: tag.color }} /> {tag.name}
               </span>
             ))}
           </div>
         )}
       </div>
 
-      <div className="ui-field">
-        <span className="ui-field-label">Steps</span>
-        {goal.sprints.length === 0 ? (
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>No steps yet</span>
-        ) : (
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-secondary)' }}>
-            <ListChecks size={12} style={{ verticalAlign: -1 }} /> {stepsDone} / {goal.sprints.length} done
-          </div>
-        )}
+      <div className="ui-field-row">
+        <span className="label"><ListChecks size={11} /> Steps</span>
+        <span className="value">
+          {goal.sprints.length === 0
+            ? <span style={{ color: 'var(--ink-4)' }}>None yet</span>
+            : <>{stepsDone} / {goal.sprints.length} done</>}
+        </span>
       </div>
-
-      <div className="ui-field">
-        <span className="ui-field-label">Go items</span>
-        {goal.gos.length === 0 ? (
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>No Go items</span>
-        ) : (
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-secondary)' }}>
-            <Box size={12} style={{ verticalAlign: -1 }} /> {gosDone} / {goal.gos.length} done today
-          </div>
-        )}
+      <div className="ui-field-row">
+        <span className="label"><Box size={11} /> Gos</span>
+        <span className="value">
+          {goal.gos.length === 0
+            ? <span style={{ color: 'var(--ink-4)' }}>None</span>
+            : <>{gosDone} / {goal.gos.length} done today</>}
+        </span>
       </div>
     </Drawer>
   );

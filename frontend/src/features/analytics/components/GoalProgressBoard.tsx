@@ -1,8 +1,15 @@
-import { ArrowRight } from 'lucide-react';
 import type { GoalProgressRow } from '../hooks/useAnalytics';
 
 interface Props {
   rows: GoalProgressRow[];
+  onSelect?: (id: string) => void;
+}
+
+const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--slate)', 'var(--ochre)', 'var(--rust)'] as const;
+function accentFor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return ACCENTS[h % ACCENTS.length];
 }
 
 function dueLabel(due: string | null): string {
@@ -11,56 +18,67 @@ function dueLabel(due: string | null): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function GoalProgressBoard({ rows }: Props) {
+/**
+ * Editorial goal progress board — title with steps + due meta, slim bar,
+ * percentage display. Accents derive from goal id so the same goal looks
+ * the same across the board, the kanban, and the Today list.
+ */
+export function GoalProgressBoard({ rows, onSelect }: Props) {
   if (rows.length === 0) {
     return (
-      <div className="an-card">
-        <div className="an-card-head">
-          <div className="an-card-title-block">
-            <div className="an-card-title">Goal progress</div>
-            <div className="an-card-sub">No active goals to track yet.</div>
+      <>
+        <div className="section-head" style={{ marginTop: 48 }}>
+          <span className="section-title">Goals in motion</span>
+          <span className="section-rule" />
+          <span className="section-meta">No active goals</span>
+        </div>
+        <div className="streak-list-card">
+          <div className="ana-card-empty">
+            Add a goal in the Goals tab and its progress will surface here.
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="an-card">
-      <div className="an-card-head">
-        <div className="an-card-title-block">
-          <div className="an-card-title">Goal progress</div>
-          <div className="an-card-sub">Goals sorted by completion · steps and deadlines</div>
-        </div>
-        <button className="icon-btn" title="View all" aria-label="View all">
-          <ArrowRight />
-        </button>
+    <>
+      <div className="section-head" style={{ marginTop: 48 }}>
+        <span className="section-title">Goals in motion</span>
+        <span className="section-rule" />
+        <span className="section-meta">Sorted by completion</span>
       </div>
 
-      <div className="goal-list">
-        {rows.map(({ task, pct, steps, due, overdue }) => (
-          <div
-            key={task.id}
-            className="goal-row"
-            data-done={task.status === 'done' || undefined}
-            data-paused={task.status === 'paused' || undefined}
-          >
-            <span className="goal-color" style={{ background: task.color || 'var(--accent-goals)' }} />
-            <div>
-              <div className="goal-name">{task.title}</div>
-              <div className="goal-name-sub">{steps.done}/{steps.total} steps</div>
+      <div className="gpb-list">
+        {rows.map(({ task, pct, steps, due, overdue }) => {
+          const accent = accentFor(task.id);
+          return (
+            <div
+              key={task.id}
+              className="gpb-row"
+              role={onSelect ? 'button' : undefined}
+              tabIndex={onSelect ? 0 : undefined}
+              onClick={onSelect ? () => onSelect(task.id) : undefined}
+              onKeyDown={(e) => { if (onSelect && e.key === 'Enter') onSelect(task.id); }}
+            >
+              <div className="gpb-text">
+                <h3 className="gpb-title">{task.title}</h3>
+                <div className="gpb-meta">
+                  <span>{steps.done}/{steps.total} steps</span>
+                  <span className="gpb-meta-sep">·</span>
+                  <span className={overdue ? 'gpb-meta-overdue' : undefined}>
+                    {overdue ? `Overdue · ${dueLabel(due)}` : `Due ${dueLabel(due)}`}
+                  </span>
+                </div>
+              </div>
+              <div className="gpb-bar" style={{ ['--accent' as any]: accent }}>
+                <div className="gpb-bar-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="gpb-pct">{pct}%</div>
             </div>
-            <div className="goal-progressbar">
-              <div className="fill" style={{ width: `${pct}%`, ['--bar-color' as any]: task.color || 'var(--accent-goals)' }} />
-            </div>
-            <div className="goal-pct">
-              {pct}<span style={{ color: 'var(--fg-muted)', fontSize: 'var(--text-xs)', fontWeight: 500 }}>%</span>
-            </div>
-            <span className="goal-meta-pill" data-pri={task.priority}>{task.priority}</span>
-            <span className="goal-due" data-overdue={overdue || undefined}>{dueLabel(due)}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
-    </div>
+    </>
   );
 }

@@ -123,7 +123,7 @@ class Tag(Base):
     color: Mapped[str] = mapped_column(String(20), default="#4f46e5")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    user: Mapped["User"] = relationship(back_populates="tags")
+    user: Mapped["User"] = relationship(back_populates="tags")  # noqa: F821
     notes: Mapped[list["Note"]] = relationship(secondary=note_tags, back_populates="tags")
     tasks: Mapped[list["Task"]] = relationship(  # noqa: F821
         secondary="task_tags", back_populates="tags"

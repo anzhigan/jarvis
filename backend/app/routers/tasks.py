@@ -32,7 +32,6 @@ from app.services.tasks import (
     get_go_or_404 as _get_go,
     get_sprint_or_404 as _get_sprint,
     get_task_or_404 as _get_task,
-    go_completion_ratio as _go_completion_ratio,
     go_total_value as _go_total_value,
     is_go_done_today as _is_go_done_today,
     normalize_status as _normalize_status,
