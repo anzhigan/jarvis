@@ -1,7 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ChevronRight, FileText, Folder, FolderTree, PanelLeftClose, Pin, Plus, Search,
-} from 'lucide-react';
+import { ChevronRight, Pin, Plus, Search } from 'lucide-react';
+
+/** Sidebar-toggle icon — inlined to match gallery section 01 exactly. */
+function CollapseIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <line x1="9" y1="3" x2="9" y2="21" />
+      <path d="m16 15-3-3 3-3" />
+    </svg>
+  );
+}
 import type { NotesLibrary } from '../hooks/useNotesLibrary';
 import type { Way } from '../../../api/types';
 
@@ -122,11 +138,11 @@ export function NotesPane({
         </label>
         <button
           className="collapse-btn"
-          title="Hide library"
+          title="Hide sidebar"
           onClick={onCollapseToggle}
-          aria-label="Hide library"
+          aria-label="Hide sidebar"
         >
-          <PanelLeftClose />
+          <CollapseIcon />
         </button>
       </div>
 
@@ -174,7 +190,6 @@ export function NotesPane({
               <div key={way.id}>
                 <button className="lib-row tree-row" onClick={() => toggleWay(way.id)}>
                   <span className={`tree-chev${wayOpen ? ' is-open' : ''}`}><ChevronRight /></span>
-                  <span className="ico"><FolderTree /></span>
                   <span className="name">{way.name}</span>
                   <span className="count">{wayCount}</span>
                 </button>
@@ -189,7 +204,6 @@ export function NotesPane({
                         data-active={selectedNoteId === note.id || undefined}
                         onClick={() => onSelectNote(note.id)}
                       >
-                        <span className="ico"><FileText /></span>
                         <span className="name">{note.name || 'Untitled'}</span>
                       </button>
                     ))}
@@ -201,7 +215,6 @@ export function NotesPane({
                           <button className="lib-row tree-row" data-depth="1"
                                   onClick={() => toggleTopic(topic.id)}>
                             <span className={`tree-chev${topicOpen ? ' is-open' : ''}`}><ChevronRight /></span>
-                            <span className="ico"><Folder /></span>
                             <span className="name">{topic.name}</span>
                             <span className="count">{topic.notes.length}</span>
                           </button>
@@ -213,7 +226,6 @@ export function NotesPane({
                               data-active={selectedNoteId === note.id || undefined}
                               onClick={() => onSelectNote(note.id)}
                             >
-                              <span className="ico"><FileText /></span>
                               <span className="name">{note.name || 'Untitled'}</span>
                             </button>
                           ))}

@@ -27,7 +27,7 @@ import { mergeAttributes, Node } from '@tiptap/core';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github-dark.css';
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { notesApi, injectImageToken, stripImageToken } from '../api/client';
 import EditorToolbar from './EditorToolbar';
@@ -379,15 +379,20 @@ const InlineMath = Node.create({
 });
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+import type { Editor } from '@tiptap/react';
+
 interface RichTextEditorProps {
   noteId: string;
   content: string;
   onChange: (content: string) => void;
   children?: ReactNode;
+  /** Called once the Tiptap editor is ready — lets the parent render its own
+   *  top-of-content toolbar (matching gallery section 01) wired to commands. */
+  onEditorReady?: (editor: Editor) => void;
 }
 
 // ─── Main Editor ─────────────────────────────────────────────────────────────
-export default function RichTextEditor({ noteId, content, onChange, children }: RichTextEditorProps) {
+export default function RichTextEditor({ noteId, content, onChange, children, onEditorReady }: RichTextEditorProps) {
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
@@ -495,6 +500,12 @@ export default function RichTextEditor({ noteId, content, onChange, children }: 
       },
     },
   });
+
+  // Lift the editor to the parent so it can render its own top-of-content
+  // toolbar (matches gallery section 01). Fires once per editor instance.
+  useEffect(() => {
+    if (editor && onEditorReady) onEditorReady(editor);
+  }, [editor, onEditorReady]);
 
   // Note: content changes between notes are handled via `key` prop remount in parent.
 

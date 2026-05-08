@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Repeat } from 'lucide-react';
+import { ChevronRight, Plus, Repeat } from 'lucide-react';
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor,
   useDraggable, useDroppable, useSensor, useSensors,
@@ -38,11 +38,19 @@ function fmtDue(due: string): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function GoalCardContent({ task }: { task: Task }) {
+function GoalCardContent({
+  task, expanded, onToggleExpand,
+}: {
+  task: Task;
+  expanded?: boolean;
+  onToggleExpand?: (e: React.MouseEvent | React.KeyboardEvent) => void;
+}) {
   const pct = Math.round(task.progress ?? 0);
   const showProgress = task.status === 'active' || task.status === 'paused';
   const routinesCount = task.gos.length;
   const primaryTag = task.tags[0];
+  const stepsTotal = task.sprints.length;
+  const childTotal = stepsTotal + routinesCount;
 
   const foot: React.ReactNode[] = [];
   if (routinesCount > 0) {
@@ -77,7 +85,7 @@ function GoalCardContent({ task }: { task: Task }) {
         </div>
       )}
 
-      {foot.length > 0 && (
+      {(foot.length > 0 || childTotal > 0) && (
         <div className="kc-foot">
           {foot.map((node, i) => (
             <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -85,13 +93,62 @@ function GoalCardContent({ task }: { task: Task }) {
               {node}
             </span>
           ))}
+          {childTotal > 0 && onToggleExpand && (
+            <button
+              type="button"
+              className="kc-expand-btn"
+              data-open={expanded || undefined}
+              onClick={(e) => { e.stopPropagation(); onToggleExpand(e); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onToggleExpand(e);
+                }
+              }}
+              aria-label={expanded ? 'Hide steps and gos' : 'Show steps and gos'}
+            >
+              <ChevronRight />
+              {childTotal} {childTotal === 1 ? 'item' : 'items'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {expanded && childTotal > 0 && (
+        <div className="kc-children" onClick={(e) => e.stopPropagation()}>
+          {task.sprints.map((s) => (
+            <div key={s.id} className="kc-child" data-kind="step" data-done={s.is_completed || undefined}>
+              <span className="kc-child-icon">S</span>
+              <span className="kc-child-name">{s.title}</span>
+              <span className="kc-child-meta">{Math.round(s.progress ?? 0)}%</span>
+            </div>
+          ))}
+          {task.gos.map((g) => (
+            <div key={g.id} className="kc-child" data-kind="go" data-done={g.is_done_today || undefined}>
+              <span className="kc-child-icon">G</span>
+              <span className="kc-child-name">{g.title}</span>
+              <span className="kc-child-meta">
+                {g.kind === 'numeric' && g.target_value
+                  ? `${g.target_value}${g.unit ? ' ' + g.unit : ''}`
+                  : g.is_done_today ? '✓' : '·'}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </>
   );
 }
 
-function DraggableCard({ task, onSelect }: { task: Task; onSelect: (id: string) => void }) {
+function DraggableCard({
+  task, onSelect, expanded, onToggleExpand,
+}: {
+  task: Task;
+  onSelect: (id: string) => void;
+  expanded: boolean;
+  onToggleExpand: (id: string) => void;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
   return (
     <article
@@ -102,22 +159,29 @@ function DraggableCard({ task, onSelect }: { task: Task; onSelect: (id: string) 
       role="button"
       tabIndex={0}
       data-dragging={isDragging || undefined}
+      data-expanded={expanded || undefined}
       style={{ opacity: isDragging ? 0.4 : 1, cursor: isDragging ? 'grabbing' : 'pointer' }}
       onClick={() => onSelect(task.id)}
       onKeyDown={(e) => { if (e.key === 'Enter') onSelect(task.id); }}
     >
-      <GoalCardContent task={task} />
+      <GoalCardContent
+        task={task}
+        expanded={expanded}
+        onToggleExpand={() => onToggleExpand(task.id)}
+      />
     </article>
   );
 }
 
 function DroppableColumn({
-  col, tasks, onSelect, onAdd,
+  col, tasks, onSelect, onAdd, expandedIds, onToggleExpand,
 }: {
   col: Column;
   tasks: Task[];
   onSelect: (id: string) => void;
   onAdd: (status: TaskStatus) => void;
+  expandedIds: Set<string>;
+  onToggleExpand: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
   return (
@@ -128,7 +192,13 @@ function DroppableColumn({
       </header>
       <div ref={setNodeRef} className="kanban-col-body">
         {tasks.map((t) => (
-          <DraggableCard key={t.id} task={t} onSelect={onSelect} />
+          <DraggableCard
+            key={t.id}
+            task={t}
+            onSelect={onSelect}
+            expanded={expandedIds.has(t.id)}
+            onToggleExpand={onToggleExpand}
+          />
         ))}
         <button className="kanban-add" onClick={() => onAdd(col.key)}>
           <Plus size={12} /> Add a goal
@@ -147,6 +217,21 @@ export function GoalsBoard({ tasks, onSelect, onAdd, onMove }: Props) {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const activeTask = activeId ? tasks.find((t) => t.id === activeId) ?? null : null;
+
+  // Per-card expanded state. Persists in localStorage so toggling a goal's
+  // children survives a page reload.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('jarvnote:goals:kanbanExpanded');
+      return raw ? new Set(raw.split(',').filter(Boolean)) : new Set();
+    } catch { return new Set(); }
+  });
+  const onToggleExpand = (id: string) => setExpandedIds((p) => {
+    const n = new Set(p);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    try { localStorage.setItem('jarvnote:goals:kanbanExpanded', Array.from(n).join(',')); } catch {}
+    return n;
+  });
 
   // 6px activation distance keeps clicks click-y; only meaningful movement
   // starts a drag. Cards are also clickable to open detail.
@@ -173,6 +258,8 @@ export function GoalsBoard({ tasks, onSelect, onAdd, onMove }: Props) {
             tasks={byStatus[col.key]}
             onSelect={onSelect}
             onAdd={onAdd}
+            expandedIds={expandedIds}
+            onToggleExpand={onToggleExpand}
           />
         ))}
       </div>

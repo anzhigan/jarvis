@@ -17,6 +17,47 @@
 .saved-pill[data-state="saved"] svg { color: var(--moss); }
 .saved-pill svg { width: 11px; height: 11px; }
 
+/* ─── Top-of-content formatting toolbar ───────────────────────────────── */
+.note-toolbar {
+  flex-shrink: 0;
+  height: 44px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--hairline-faint);
+  display: flex; align-items: center;
+  gap: 6px;
+  background: var(--paper);
+}
+.ntb-group {
+  display: inline-flex;
+  gap: 1px;
+}
+.ntb-btn {
+  width: 32px; height: 28px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-control);
+  color: var(--ink-3);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all var(--dur-fast);
+  padding: 0;
+}
+.ntb-btn svg { width: 14px; height: 14px; }
+.ntb-btn:hover {
+  background: var(--cream);
+  color: var(--ink);
+}
+.ntb-btn[data-active] {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+.ntb-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--hairline-strong);
+  margin: 0 6px;
+}
+
 /* ─── Editorial doc layout ─────────────────────────────────────────────── */
 .doc {
   max-width: 720px;
