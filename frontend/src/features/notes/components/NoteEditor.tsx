@@ -130,6 +130,12 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
       aria-label={title}
       data-active={active || undefined}
       disabled={disabled}
+      // Crucial: prevent the editor's selection from collapsing when the user
+      // clicks a toolbar button. Without this, mousedown moves focus to the
+      // button, the editor blurs, and any subsequent toggleBold/etc runs on
+      // an empty selection. Tiptap's standard pattern is to suppress the
+      // mousedown's default focus shift here.
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
     >{children}</button>
   );

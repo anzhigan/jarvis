@@ -25,6 +25,40 @@
   margin-right: 4px;
 }
 
+/* Filter chip emphasis — within a group, when *any* chip is active the
+   non-active ones dim, and the active one pops with the indigo brand. */
+.kanban-filters-group .ui-chip {
+  background: transparent;
+  color: var(--ink-4);
+  box-shadow: 0 0 0 1px var(--hairline);
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    opacity var(--dur-fast) var(--ease);
+}
+.kanban-filters-group .ui-chip:hover {
+  background: var(--cream);
+  color: var(--ink-2);
+}
+.kanban-filters-group:has(.ui-chip[data-active="true"]) .ui-chip {
+  opacity: 0.55;
+}
+.kanban-filters-group:has(.ui-chip[data-active="true"]) .ui-chip:hover {
+  opacity: 0.85;
+}
+.kanban-filters-group .ui-chip[data-active="true"] {
+  background: var(--indigo);
+  color: var(--paper);
+  box-shadow: 0 0 0 1px var(--indigo);
+  font-weight: 600;
+  opacity: 1;
+}
+.kanban-filters-group .ui-chip[data-active="true"]:hover {
+  filter: brightness(1.08);
+  opacity: 1;
+}
+
 .kanban {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

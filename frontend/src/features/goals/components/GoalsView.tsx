@@ -124,20 +124,6 @@ export default function GoalsView() {
           </div>
 
           <div className="content-bar-mid">
-            {showSecondarySeg && (
-              <div className="pill-seg pill-seg-secondary" role="tablist">
-                {(['past', 'today', 'future'] as DayFilter[]).map((k) => (
-                  <button
-                    key={k}
-                    className={dayFilter === k ? 'on' : ''}
-                    role="tab"
-                    aria-selected={dayFilter === k}
-                    onClick={() => setDayFilter(k)}
-                  >{DAY_LABELS[k]}</button>
-                ))}
-              </div>
-            )}
-
             <div className="pill-seg" role="tablist">
               <button
                 className={view.mode === 'goals' ? 'on' : ''}
@@ -157,9 +143,24 @@ export default function GoalsView() {
             </div>
           </div>
 
-          <button className="new-btn" onClick={() => onAddGoal('active')}>
-            <Plus /> {view.mode === 'go' ? 'Add target' : view.mode === 'step' ? 'New step' : 'New goal'}
-          </button>
+          <div className="content-bar-end">
+            {showSecondarySeg && (
+              <div className="pill-seg pill-seg-secondary" role="tablist">
+                {(['past', 'today', 'future'] as DayFilter[]).map((k) => (
+                  <button
+                    key={k}
+                    className={dayFilter === k ? 'on' : ''}
+                    role="tab"
+                    aria-selected={dayFilter === k}
+                    onClick={() => setDayFilter(k)}
+                  >{DAY_LABELS[k]}</button>
+                ))}
+              </div>
+            )}
+            <button className="new-btn" onClick={() => onAddGoal('active')}>
+              <Plus /> {view.mode === 'go' ? 'Add go' : view.mode === 'step' ? 'New step' : 'New goal'}
+            </button>
+          </div>
         </div>
 
         {view.mode === 'go' ? (

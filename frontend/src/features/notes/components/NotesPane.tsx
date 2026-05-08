@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Pin, Plus, Search } from 'lucide-react';
 
-/** Sidebar-toggle icon — inlined to match gallery section 01 exactly. */
+/** Sidebar-toggle icon — inlined to match gallery section 01 exactly:
+ *  rounded panel rect + vertical divider at 1/3 + chevron pointing into the
+ *  collapsed pane. Explicit width/height ensure consistent sizing across
+ *  browsers regardless of parent box. */
 function CollapseIcon() {
   return (
     <svg
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth={1.7}
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden
     >
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
       <line x1="9" y1="3" x2="9" y2="21" />
