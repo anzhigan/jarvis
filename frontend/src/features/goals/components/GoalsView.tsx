@@ -117,35 +117,35 @@ export default function GoalsView() {
           </button>
         </div>
 
-        <div className="content-scroll" style={{ overflowX: 'auto' }}>
-          {view.mode === 'goals' && (
+        {view.mode === 'go' ? (
+          // Go v6 owns the whole content area below the bar — its left/right
+          // panes scroll independently, so we skip the outer .content-scroll.
+          <GoView
+            gos={gos.gos}
+            goals={goals.tasks}
+            onLog={(go, v) => { void gos.logToday(go.id, v); }}
+            onSkip={(go) => { void gos.logToday(go.id, 0); }}
+            onSelectGoal={onSelectGoal}
+          />
+        ) : view.mode === 'step' ? (
+          // Step v2 Gantt owns the whole area too — gantt-body and dp-scroll
+          // each manage their own vertical scroll.
+          <StepView
+            steps={steps.allSteps}
+            goals={goals.tasks}
+            onSelect={onSelectGoal}
+            onToggleDone={steps.toggleStepDone}
+          />
+        ) : (
+          <div className="content-scroll" style={{ overflowX: 'auto' }}>
             <GoalsBoard
               tasks={filteredTasks}
               onSelect={onSelectGoal}
               onAdd={onAddGoal}
               onMove={goals.moveStatus}
             />
-          )}
-          {view.mode === 'go' && (
-            <GoView
-              gos={gos.gos}
-              goals={goals.tasks}
-              onToggleDone={(go) => {
-                const value = go.is_done_today ? 0 : (go.kind === 'numeric' ? (go.target_value ?? 1) : 1);
-                void gos.logToday(go.id, value);
-              }}
-              onSkip={(go) => { void gos.logToday(go.id, 0); }}
-              onSelect={onSelectGoal}
-            />
-          )}
-          {view.mode === 'step' && (
-            <StepView
-              steps={steps.allSteps}
-              goals={goals.tasks}
-              onSelect={onSelectGoal}
-            />
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
       <GoalDetailPanel

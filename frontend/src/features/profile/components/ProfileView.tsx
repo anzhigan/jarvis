@@ -152,20 +152,20 @@ export default function ProfileView() {
 
             <div className="pf-stats">
               <div className="pf-stat">
-                <div className="pf-stat-num">{stats.activeGoals}</div>
-                <div className="pf-stat-label">Active goals</div>
+                <div className="pf-stat-num">{stats.goals}</div>
+                <div className="pf-stat-label">Goals</div>
               </div>
               <div className="pf-stat">
-                <div className="pf-stat-num">{stats.activeRoutines}</div>
-                <div className="pf-stat-label">Active routines</div>
+                <div className="pf-stat-num">{stats.routines}</div>
+                <div className="pf-stat-label">Routines</div>
               </div>
               <div className="pf-stat">
                 <div className="pf-stat-num">{topStreakStr}<em>d</em></div>
                 <div className="pf-stat-label">Top streak</div>
               </div>
               <div className="pf-stat">
-                <div className="pf-stat-num">{stats.streaksCount}</div>
-                <div className="pf-stat-label">Streaks ≥ 3d</div>
+                <div className="pf-stat-num">{stats.entriesLogged.toLocaleString()}</div>
+                <div className="pf-stat-label">Entries logged</div>
               </div>
             </div>
 

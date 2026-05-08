@@ -30,12 +30,5 @@ dist/
 .vscode/
 
 CLAUDE.md
-jarvis-notes-redesign.html
-jarvis-notes-redesign-v2.html
-jarvis-notes-mobile-v2.html
-jarvnote-design-system.html
-prompt
-design-system-colors.html
-jarvnote-desktop-gallery.html
-jarvnote-indigo-3.html
 coverage/
+jarvnote-indigo.html

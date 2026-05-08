@@ -38,10 +38,15 @@ export function useProfile() {
 
   // ── Stats ────────────────────────────────────────────────────────────────
   const stats = {
-    activeGoals:    tasks.filter((t) => t.status === 'active').length,
-    activeRoutines: routines.filter((r) => !r.is_paused).length,
+    /** Lifetime counts displayed on the profile identity strip. */
+    goals:    tasks.length,
+    routines: routines.length,
     topStreak: routines.length === 0 ? 0
       : Math.max(...routines.map((r) => currentStreak(r))),
+    /** Sum of positive-value entries across every routine — "Entries logged". */
+    entriesLogged: routines.reduce((acc, r) =>
+      acc + r.entries.filter((e) => e.value > 0).length, 0),
+    /** Active streaks (≥3 days) — kept as a derivation for the rail/route badge. */
     streaksCount: routines.filter((r) => !r.is_paused && currentStreak(r) >= 3).length,
   };
 

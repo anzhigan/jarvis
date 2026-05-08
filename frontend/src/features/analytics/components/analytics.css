@@ -1,220 +1,307 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Analytics — section CSS (Indigo Editorial)
-   Imported by AnalysisView. Adapted from jarvnote-indigo-3.html section 07.
-   Reuses .go-row / .go-list / .section-head from goals.css and desktop.css.
+   Analytics v3 — proper dashboard (Indigo Editorial cool palette)
+   Imported by AnalysisView. Adapted from jarvnote-indigo.html section 07.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Editorial hero ──────────────────────────────────────────────────────── */
-.ana-hero {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 56px 80px 32px;
+.ana-row {
+  padding: 24px 40px 0;
 }
+.ana-row:last-child { padding-bottom: 24px; }
+
+/* ── Row 1 — Hero + KPI grid (2-col) ─────────────────────────────────────── */
+.ana-row-hero {
+  padding-top: 36px;
+  display: grid;
+  grid-template-columns: minmax(440px, 1fr) auto;
+  gap: 56px;
+  align-items: flex-start;
+}
+@media (max-width: 1100px) { .ana-row-hero { grid-template-columns: 1fr; } }
+
+.ana-hero-block { max-width: 640px; min-width: 0; }
 .ana-hero-title {
   font-family: var(--font-display);
-  font-size: var(--text-5xl);
+  font-size: 44px;
   font-weight: 500;
   color: var(--ink);
   line-height: 1.04;
   letter-spacing: var(--tracking-display);
-  margin: 0 0 14px;
+  margin: 6px 0 14px;
 }
 .ana-hero-title em {
   font-style: italic;
-  color: var(--rust);
+  color: var(--indigo);
   font-weight: 400;
 }
-.ana-hero-title em.ok { color: var(--moss); }
+.ana-hero-title em.warn { color: var(--rust); }
+.ana-hero-lede {
+  font-family: var(--font-body);
+  font-size: 17px;
+  color: var(--ink-3);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 600px;
+}
 
-/* ── 4-cell KPI strip (rule top + bottom, vertical hairlines between) ────── */
-.ana-stats-row {
-  max-width: 1180px;
-  margin: 0 auto 48px;
-  padding: 24px 80px;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
+/* KPI 2×2 grid */
+.kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--paper);
+  align-self: start;
 }
-.ana-stat {
+.kpi-tile {
+  padding: 18px 26px;
   line-height: 1.2;
-  padding-right: 24px;
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  min-width: 200px;
 }
-.ana-stat + .ana-stat {
-  border-left: 1px solid var(--hairline);
-  padding-left: 32px;
-}
-.ana-stat-num {
+.kpi-tile:nth-child(2n)         { border-right: 0; }
+.kpi-tile:nth-last-child(-n+2)  { border-bottom: 0; }
+.kpi-num {
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 500;
-  letter-spacing: var(--tracking-display);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-display);
   line-height: 1;
 }
-.ana-stat-num em {
+.kpi-num em {
   font-family: var(--font-body);
   font-style: italic;
   font-weight: 400;
   color: var(--ink-4);
-  font-size: 24px;
+  font-size: 20px;
 }
-.ana-stat-label {
+.kpi-label {
   font-family: var(--font-ui);
   font-size: var(--text-2xs);
   font-weight: 500;
+  color: var(--ink-4);
   text-transform: uppercase;
   letter-spacing: 0.10em;
-  color: var(--ink-4);
-  margin-top: 10px;
+  margin-top: 8px;
 }
-.ana-stat-foot {
+.kpi-trend {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--ink-4);
   margin-top: 6px;
 }
+.kpi-trend-up   { color: var(--moss); }
+.kpi-trend-down { color: var(--rust); }
+.kpi-trend-neutral { color: var(--ink-4); }
 
-/* ── Insights grid (3 cards with colour stripe) ──────────────────────────── */
-.insights-grid {
-  max-width: 1180px;
-  margin: 0 auto 32px;
-  padding: 0 80px;
+/* ── Row 2/3 — chart card rows ───────────────────────────────────────────── */
+.ana-row-charts-1 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
-@media (max-width: 1100px) {
-  .insights-grid { grid-template-columns: 1fr 1fr; }
+.ana-row-charts-2 {
+  display: grid;
+  grid-template-columns: 380px 1fr 1fr;
+  gap: 16px;
 }
-@media (max-width: 720px) {
-  .insights-grid { grid-template-columns: 1fr; }
+@media (max-width: 1300px) { .ana-row-charts-2 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) {
+  .ana-row-charts-1, .ana-row-charts-2 { grid-template-columns: 1fr; }
 }
 
-.insight {
+/* ── Card chart wrapper ──────────────────────────────────────────────────── */
+.ana-card-chart {
   background: var(--paper);
-  box-shadow: var(--sh-card);
+  border: 1px solid var(--hairline);
   border-radius: var(--r-card);
-  padding: 22px 24px 20px;
+  padding: 20px 24px;
   display: flex; flex-direction: column;
-  gap: 12px;
-  position: relative;
-  overflow: hidden;
 }
-.insight::before {
-  content: ''; position: absolute;
-  left: 0; top: 0; right: 0;
-  height: 3px;
-  background: var(--ic, var(--indigo));
+.acc-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
 }
-.insight-head { display: flex; }
-.insight-tag {
-  font-family: var(--font-ui);
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.10em;
-  color: var(--ic, var(--indigo));
-}
-.insight-headline {
+.acc-head-text { line-height: 1.3; flex: 1; min-width: 0; }
+.acc-title {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: var(--text-lg);
   font-weight: 500;
   color: var(--ink);
   letter-spacing: var(--tracking-tight);
-  line-height: 1.25;
-  margin: 0;
+  margin: 0 0 4px;
 }
-.insight-body {
+.acc-sub {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: var(--ink-3);
-  line-height: 1.6;
+  color: var(--ink-4);
   margin: 0;
+  line-height: 1.4;
 }
-.insight-body b { color: var(--ink); font-weight: 600; }
-
-.insight-mini-bars {
-  display: flex; align-items: flex-end; gap: 3px;
-  height: 50px;
-  padding: 4px 0;
-}
-.insight-mini-bars .mb {
-  flex: 1;
-  background: var(--ic, var(--moss));
-  border-radius: 1px 1px 0 0;
-  min-height: 3px;
-  opacity: 0.85;
-}
-
-.insight-stat-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  padding: 4px 0;
-}
-.is-cell {
-  line-height: 1.2;
-  padding: 0 0 0 12px;
-  border-left: 2px solid var(--ic, var(--indigo));
-}
-.is-cell:first-child { padding-left: 0; border-left: 0; }
-.is-num {
+.acc-stat { text-align: right; line-height: 1.2; flex-shrink: 0; }
+.acc-stat-num {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 500;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--tracking-tight);
-  display: block;
+  line-height: 1;
 }
-.is-num em {
+.acc-stat-num em {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--ink-4);
+  font-size: 16px;
+}
+.acc-stat-trend {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  margin-top: 4px;
+}
+
+.acc-body { flex: 1; min-height: 0; }
+.chart-svg { width: 100%; height: auto; display: block; }
+
+/* ── Donut card ──────────────────────────────────────────────────────────── */
+.donut-block { display: flex; align-items: center; gap: 24px; }
+.donut-svg-wrap { flex-shrink: 0; }
+.donut-svg { width: 180px; height: 180px; display: block; }
+.donut-legend { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.donut-legend-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+.dl-swatch { width: 12px; height: 12px; border-radius: 2px; }
+.dl-label {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dl-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Top streaks list with sparklines ────────────────────────────────────── */
+.streak-list-2 { flex: 1; display: flex; flex-direction: column; }
+.streak-row-2 {
+  display: grid;
+  grid-template-columns: 22px 1fr 90px 56px;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hairline-faint);
+}
+.streak-row-2:last-child { border-bottom: 0; }
+.streak-rank-2 {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-5);
+  font-variant-numeric: tabular-nums;
+}
+.streak-text-2 { line-height: 1.3; min-width: 0; }
+.streak-name-2 {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.streak-meta-2 {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-5);
+  margin-top: 1px;
+}
+.streak-spark { display: flex; align-items: center; }
+.spark-svg { width: 80px; height: 22px; display: block; }
+.streak-days-2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--moss);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-tight);
+}
+.streak-days-2 em {
   font-family: var(--font-body);
   font-style: italic;
   font-weight: 400;
   color: var(--ink-4);
   font-size: 14px;
 }
-.is-lab {
-  font-family: var(--font-ui);
-  font-size: 10px;
-  color: var(--ink-4);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-top: 4px;
-  display: block;
-  font-weight: 500;
-}
 
-.insight-cta {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-family: var(--font-ui);
+/* ── Practice activity card mini-list under the chart ────────────────────── */
+.ways-mini-list {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline-faint);
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+.way-mini-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 28px;
+  gap: 12px;
+  align-items: center;
+}
+.way-mini-name {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--ic, var(--indigo));
-  background: transparent; border: 0; cursor: pointer;
-  padding: 4px 0;
-  margin-top: auto;
-  align-self: flex-start;
+  color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.insight-cta:hover { filter: brightness(0.9); }
-.insight-cta svg { width: 11px; height: 11px; }
-
-/* ── Year heatmap (53 cols × 7 rows) ─────────────────────────────────────── */
-.year-heat-card {
-  max-width: 1180px;
-  margin: 0 auto 24px;
-  padding: 24px 80px 28px;
+.way-mini-bar {
+  height: 4px;
   background: var(--cream);
-  border-radius: var(--r-card);
-  box-shadow: 0 0 0 1px var(--hairline);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.way-mini-fill { height: 100%; transition: width var(--dur-med) var(--ease); }
+.way-mini-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+  font-weight: 500;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Year heatmap (cooler, in card) ──────────────────────────────────────── */
+.ym-axis {
+  position: relative;
+  height: 18px;
+  margin: 0 4px 4px;
+}
+.ym-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-5);
+  font-variant-numeric: tabular-nums;
 }
 .year-heat {
   display: grid;
   grid-template-columns: repeat(53, 1fr);
-  gap: 2.5px;
+  gap: 3px;
 }
-.year-week { display: grid; grid-template-rows: repeat(7, 1fr); gap: 2.5px; }
+.year-week { display: grid; grid-template-rows: repeat(7, 1fr); gap: 3px; }
 .year-cell {
   aspect-ratio: 1;
   border-radius: 1px;
@@ -228,265 +315,17 @@
 
 .year-heat-foot {
   margin-top: 14px;
-  display: flex; justify-content: space-between; align-items: center;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--ink-4);
-  flex-wrap: wrap;
-  gap: 12px;
+  display: flex; justify-content: flex-end;
 }
 .year-heat-scale {
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--font-ui);
   font-size: var(--text-xs);
+  color: var(--ink-4);
 }
 .year-heat-scale .scale-cell {
   width: 11px; height: 11px;
   border-radius: 1px;
-}
-
-/* ── Strongest streaks list (rank · name · days · rate) ──────────────────── */
-.streak-list-card {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 0 80px;
-}
-.streak-row {
-  display: grid;
-  grid-template-columns: 30px 1fr 80px 60px;
-  gap: 14px; align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--hairline-faint);
-  font-family: var(--font-body);
-}
-.streak-rank {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--ink-5);
-  font-variant-numeric: tabular-nums;
-}
-.streak-name {
-  font-family: var(--font-display);
-  font-size: var(--text-md);
-  color: var(--ink);
-  font-weight: 500;
-  letter-spacing: var(--tracking-tight);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.streak-days {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 500;
-  color: var(--ochre);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  letter-spacing: var(--tracking-tight);
-}
-.streak-days .streak-days-unit { color: var(--ink-4); font-weight: 400; }
-.streak-rate {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--ink-4);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-/* ── Two-card row: chart + donut ─────────────────────────────────────────── */
-.ana-row-2 {
-  max-width: 1180px;
-  margin: 0 auto 32px;
-  padding: 0 80px;
-  display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 20px;
-}
-@media (max-width: 980px) {
-  .ana-row-2 { grid-template-columns: 1fr; }
-}
-.ana-card {
-  background: var(--paper);
-  border-radius: var(--r-card);
-  box-shadow: var(--sh-card);
-  padding: 22px 24px;
-}
-.ana-card-eyebrow {
-  font-family: var(--font-ui);
-  font-size: var(--text-2xs);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.10em;
-  color: var(--ink-4);
-  margin-bottom: 6px;
-}
-.ana-card-title {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 500;
-  color: var(--ink);
-  letter-spacing: var(--tracking-tight);
-  margin: 0 0 14px;
-}
-
-/* Activity chart (line/area) — themed under Indigo */
-.ana-chart { width: 100%; height: 180px; display: block; }
-.ana-chart-grid line { stroke: var(--hairline-faint); }
-.ana-chart-area     { fill: var(--indigo-soft); }
-.ana-chart-line     { stroke: var(--indigo); stroke-width: 1.5; fill: none; }
-.ana-chart-line-2   { stroke: var(--moss);   stroke-width: 1.5; fill: none; }
-.ana-chart-axis text {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  fill: var(--ink-5);
-}
-.ana-chart-legend {
-  display: flex; gap: 16px; margin-top: 10px;
-  font-family: var(--font-ui);
-  font-size: var(--text-xs);
-  color: var(--ink-3);
-}
-.ana-chart-legend .swatch {
-  display: inline-block; width: 10px; height: 10px;
-  border-radius: 2px; margin-right: 6px; vertical-align: -1px;
-}
-
-/* Status donut */
-.ana-donut-wrap {
-  display: flex; gap: 18px; align-items: center;
-}
-.ana-donut svg { width: 132px; height: 132px; display: block; }
-.ana-donut-center {
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: var(--tracking-tight);
-  fill: var(--ink);
-}
-.ana-donut-legend { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.ana-donut-row {
-  display: grid;
-  grid-template-columns: 12px 1fr auto;
-  gap: 10px;
-  align-items: center;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--ink-3);
-}
-.ana-donut-row .swatch {
-  width: 10px; height: 10px;
-  border-radius: 2px;
-}
-.ana-donut-row .count {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Goal progress board ─────────────────────────────────────────────────── */
-.gpb-list { max-width: 1180px; margin: 0 auto; padding: 0 80px; }
-.gpb-row {
-  display: grid;
-  grid-template-columns: 1fr 220px 60px;
-  gap: 24px;
-  align-items: center;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--hairline-faint);
-  cursor: pointer;
-}
-.gpb-row:last-child { border-bottom: 0; }
-.gpb-text { min-width: 0; }
-.gpb-title {
-  font-family: var(--font-display);
-  font-size: var(--text-md);
-  font-weight: 500;
-  color: var(--ink);
-  letter-spacing: var(--tracking-tight);
-  margin: 0 0 4px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.gpb-meta {
-  font-family: var(--font-ui);
-  font-size: var(--text-xs);
-  color: var(--ink-4);
-  display: flex; gap: 6px; align-items: center;
-}
-.gpb-meta-sep { color: var(--ink-5); }
-.gpb-meta-overdue { color: var(--rust); font-weight: 500; }
-.gpb-bar {
-  height: 4px;
-  background: var(--cream);
-  border-radius: var(--r-sharp);
-  overflow: hidden;
-}
-.gpb-bar-fill {
-  height: 100%;
-  background: var(--accent, var(--indigo));
-  transition: width var(--dur-med) var(--ease);
-}
-.gpb-pct {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: var(--tracking-tight);
-  text-align: right;
-}
-
-/* ── 3-col cards row (priority + tags) ───────────────────────────────────── */
-.ana-row-3 {
-  max-width: 1180px;
-  margin: 0 auto 32px;
-  padding: 0 80px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-@media (max-width: 720px) {
-  .ana-row-3 { grid-template-columns: 1fr; }
-}
-.ana-bar-row {
-  display: grid;
-  grid-template-columns: 80px 1fr 40px;
-  gap: 12px;
-  align-items: center;
-  padding: 8px 0;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--ink-3);
-}
-.ana-bar-track {
-  height: 6px;
-  background: var(--cream);
-  border-radius: var(--r-sharp);
-  overflow: hidden;
-}
-.ana-bar-fill {
-  height: 100%;
-  background: var(--accent, var(--indigo));
-  transition: width var(--dur-med) var(--ease);
-}
-.ana-bar-count {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-.ana-tag-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--hairline-faint);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--ink-3);
-}
-.ana-tag-row:last-child { border-bottom: 0; }
-.ana-tag-row .count {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
 }
 
 /* Empty state inside cards */

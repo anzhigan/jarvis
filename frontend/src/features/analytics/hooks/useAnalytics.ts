@@ -291,6 +291,9 @@ export function useAnalytics() {
     loading, refresh,
     period, setPeriod,
     kpis, activity, yearGrid, statusDonut, goalProgress, topStreaks, priorityCounts, tagRows,
+    // Raw arrays exposed for v3 dashboard (routine status donut, goal-progress
+    // bars with expected line, sparkline trends).
+    tasks, routines,
   };
 }
 
