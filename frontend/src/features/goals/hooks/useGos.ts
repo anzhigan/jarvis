@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { gosApi } from '../../../api/client';
 import type { Go } from '../../../api/types';
+import type { GoalsLibrary } from './useGoals';
 
 const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -63,19 +64,24 @@ export interface GroupedGos {
  * Loads Gos and groups them by deadline relative to today. The "done" bucket
  * collects items completed today (boolean) or hitting their target (numeric).
  */
-export function useGos() {
+export function useGos(goals?: GoalsLibrary) {
   const [gos, setGos] = useState<Go[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const goalsRefresh = goals?.refresh;
   const refresh = useCallback(async () => {
     try {
-      setGos(await gosApi.list());
+      const [list] = await Promise.all([
+        gosApi.list(),
+        goalsRefresh ? goalsRefresh() : Promise.resolve(),
+      ]);
+      setGos(list);
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to load Gos');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [goalsRefresh]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

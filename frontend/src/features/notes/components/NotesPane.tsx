@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Pin, Plus, Search } from 'lucide-react';
+import { ChevronRight, FileText, Pin, Plus, Search } from 'lucide-react';
 import type { NotesLibrary } from '../hooks/useNotesLibrary';
 import type { Way } from '../../../api/types';
 
@@ -26,7 +26,7 @@ interface Props {
 export function NotesPane({
   library, selectedNoteId, collapsed, onSelectNote,
 }: Props) {
-  const { ways, pinnedNotes, createWay } = library;
+  const { ways, pinnedNotes, createWay, createTopic, createNote } = library;
   const [expandedWays, setExpandedWays]     = useState<Set<string>>(readSet(EXP_WAYS_KEY));
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(readSet(EXP_TOPICS_KEY));
   const [search, setSearch] = useState('');
@@ -98,6 +98,25 @@ export function NotesPane({
     await createWay(name);
   };
 
+  const handleNewTopic = async (wayId: string) => {
+    const name = window.prompt('Topic name')?.trim();
+    if (!name) return;
+    await createTopic(wayId, name);
+    setExpandedWays((p) => p.has(wayId) ? p : new Set([...p, wayId]));
+  };
+
+  const handleNewNote = async (target: { way_id?: string; topic_id?: string }) => {
+    const note = await createNote(target, 'Untitled');
+    if (!note) return;
+    if (target.way_id) {
+      setExpandedWays((p) => p.has(target.way_id!) ? p : new Set([...p, target.way_id!]));
+    }
+    if (target.topic_id) {
+      setExpandedTopics((p) => p.has(target.topic_id!) ? p : new Set([...p, target.topic_id!]));
+    }
+    onSelectNote(note.id);
+  };
+
   return (
     <aside className="pane" data-collapsed={collapsed || undefined}>
       <header className="pane-head">
@@ -160,11 +179,33 @@ export function NotesPane({
             const wayCount = way.notes.length + way.topics.reduce((a, t) => a + t.notes.length, 0);
             return (
               <div key={way.id}>
-                <button className="lib-row tree-row" onClick={() => toggleWay(way.id)}>
+                <div
+                  className="lib-row tree-row"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleWay(way.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleWay(way.id); } }}
+                >
                   <span className={`tree-chev${wayOpen ? ' is-open' : ''}`}><ChevronRight /></span>
                   <span className="name">{way.name}</span>
                   <span className="count">{wayCount}</span>
-                </button>
+                  <span
+                    className="row-add"
+                    role="button"
+                    tabIndex={0}
+                    title="New topic"
+                    onClick={(e) => { e.stopPropagation(); void handleNewTopic(way.id); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void handleNewTopic(way.id); } }}
+                  ><Plus size={11} /></span>
+                  <span
+                    className="row-add"
+                    role="button"
+                    tabIndex={0}
+                    title="New note in way"
+                    onClick={(e) => { e.stopPropagation(); void handleNewNote({ way_id: way.id }); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void handleNewNote({ way_id: way.id }); } }}
+                  ><FileText size={11} /></span>
+                </div>
 
                 {wayOpen && (
                   <>
@@ -184,12 +225,26 @@ export function NotesPane({
                       const topicOpen = q ? true : expandedTopics.has(topic.id);
                       return (
                         <div key={topic.id}>
-                          <button className="lib-row tree-row" data-depth="1"
-                                  onClick={() => toggleTopic(topic.id)}>
+                          <div
+                            className="lib-row tree-row"
+                            data-depth="1"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => toggleTopic(topic.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTopic(topic.id); } }}
+                          >
                             <span className={`tree-chev${topicOpen ? ' is-open' : ''}`}><ChevronRight /></span>
                             <span className="name">{topic.name}</span>
                             <span className="count">{topic.notes.length}</span>
-                          </button>
+                            <span
+                              className="row-add"
+                              role="button"
+                              tabIndex={0}
+                              title="New note in topic"
+                              onClick={(e) => { e.stopPropagation(); void handleNewNote({ topic_id: topic.id }); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void handleNewNote({ topic_id: topic.id }); } }}
+                            ><Plus size={11} /></span>
+                          </div>
                           {topicOpen && topic.notes.map((note) => (
                             <button
                               key={note.id}

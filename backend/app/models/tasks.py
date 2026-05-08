@@ -31,6 +31,7 @@ class Task(Base):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     order: Mapped[int] = mapped_column(Integer, default=0)
+    color: Mapped[str] = mapped_column(String(20), default="#5B5BD6", server_default="#5B5BD6")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -47,6 +48,12 @@ class Task(Base):
     )
     tags: Mapped[list["Tag"]] = relationship(  # noqa: F821
         secondary=task_tags, back_populates="tasks", order_by="Tag.name"
+    )
+    routine_links: Mapped[list["GoalRoutineLink"]] = relationship(
+        back_populates="goal",
+        cascade="all, delete-orphan",
+        foreign_keys="GoalRoutineLink.goal_id",
+        order_by="GoalRoutineLink.created_at",
     )
 
 
@@ -232,6 +239,9 @@ class GoalRoutineLink(Base):
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     target_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    goal: Mapped["Task"] = relationship(back_populates="routine_links", foreign_keys=[goal_id])
+    routine: Mapped["Routine"] = relationship(foreign_keys=[routine_id])
 
 
 # ─── New: FocusSprint — temporal focus referencing existing Goals/Steps/Gos/Routines ──

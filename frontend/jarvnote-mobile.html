@@ -1,0 +1,3814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Jarvnote — Mobile Gallery</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..600;1,8..60,300..600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+:root {
+    --font-display: "Fraunces", Georgia, serif;
+    --font-body: "Source Serif 4", Georgia, serif;
+    --font-ui: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --text-2xs: 10px;
+    --text-xs: 11.5px;
+    --text-sm: 13px;
+    --text-base: 14.5px;
+    --text-md: 15.5px;
+    --text-lg: 17.5px;
+    --text-xl: 22px;
+    --text-2xl: 28px;
+    --text-3xl: 36px;
+    --text-4xl: 48px;
+    --text-5xl: 64px;
+
+    --tracking-tight: -0.025em;
+    --tracking-snug: -0.015em;
+    --tracking-wide: 0.06em;
+    --tracking-display: -0.030em;
+
+    --r-sharp: 2px;
+    --r-control: 5px;
+    --r-card: 6px;
+    --r-pill: 999px;
+
+    --h-xs: 24px;
+    --h-sm: 28px;
+    --h-md: 32px;
+    --h-lg: 38px;
+
+    --rail-w: 56px;
+    --library-w: 280px;
+    --topbar-h: 52px;
+
+    /* ── Light theme — cool palette ── */
+    --paper: #EFF1F0;
+    --cream: #E1E4E5;
+    --soft: #CFD3D5;
+    --rail-bg: #C9CDCE;
+
+    --hairline: rgba(15, 24, 32, 0.10);
+    --hairline-strong: rgba(15, 24, 32, 0.18);
+    --hairline-faint: rgba(15, 24, 32, 0.05);
+
+    --ink: #15202A;
+    --ink-2: #2C353D;
+    --ink-3: #455058;
+    --ink-4: #6E7780;
+    --ink-5: #9EA5AB;
+
+    --indigo: #2C4A60;
+    --indigo-2: #1B3447;
+    --indigo-soft: rgba(44, 74, 96, 0.10);
+    --indigo-tint: rgba(44, 74, 96, 0.18);
+
+    --slate: #5A6B78;
+    --slate-soft: rgba(90, 107, 120, 0.14);
+
+    --moss: #6B7A4F;
+    --moss-soft: rgba(107, 122, 79, 0.16);
+
+    --ochre: #A18030;
+    --ochre-soft: rgba(161, 128, 48, 0.14);
+
+    --rust: #A04A39;
+    --rust-soft: rgba(160, 74, 57, 0.10);
+
+    --heat-0: rgba(15, 24, 32, 0.06);
+    --heat-1: rgba(107, 122, 79, 0.22);
+    --heat-2: rgba(107, 122, 79, 0.42);
+    --heat-3: rgba(107, 122, 79, 0.65);
+    --heat-4: rgba(107, 122, 79, 0.92);
+
+    --sh-card: 0 0 0 1px var(--hairline);
+    --sh-card-hover: 0 0 0 1px var(--hairline-strong), 0 2px 6px rgba(15, 24, 32, 0.06);
+    --sh-popover: 0 0 0 1px var(--hairline-strong), 0 8px 24px rgba(15, 24, 32, 0.10);
+    --sh-focus: 0 0 0 3px var(--indigo-tint);
+
+    --ease: cubic-bezier(0.32, 0.72, 0.30, 1);
+    --dur-fast: 140ms;
+    --dur-med: 220ms;
+  }
+[data-theme="dark"] {
+    --paper: #131820;
+    --cream: #1C2228;
+    --soft: #242B33;
+    --rail-bg: #1A1F26;
+
+    --hairline: rgba(239, 241, 240, 0.08);
+    --hairline-strong: rgba(239, 241, 240, 0.18);
+    --hairline-faint: rgba(239, 241, 240, 0.04);
+
+    --ink: #EFF1F0;
+    --ink-2: #C8CDD0;
+    --ink-3: #9EA5AB;
+    --ink-4: #74797F;
+    --ink-5: #4F555B;
+
+    --indigo: #6E94A8;
+    --indigo-2: #4F7184;
+    --indigo-soft: rgba(110, 148, 168, 0.16);
+    --indigo-tint: rgba(110, 148, 168, 0.26);
+
+    --slate: #889099;
+    --slate-soft: rgba(136, 144, 153, 0.18);
+    --moss: #95A674;
+    --moss-soft: rgba(149, 166, 116, 0.18);
+    --ochre: #C9A157;
+    --ochre-soft: rgba(201, 161, 87, 0.18);
+    --rust: #C46959;
+    --rust-soft: rgba(196, 105, 89, 0.14);
+
+    --heat-0: rgba(239, 241, 240, 0.06);
+    --heat-1: rgba(149, 166, 116, 0.22);
+    --heat-2: rgba(149, 166, 116, 0.42);
+    --heat-3: rgba(149, 166, 116, 0.65);
+    --heat-4: rgba(149, 166, 116, 0.92);
+
+    --sh-card: 0 0 0 1px var(--hairline);
+    --sh-card-hover: 0 0 0 1px var(--hairline-strong), 0 2px 8px rgba(0,0,0,0.4);
+    --sh-popover: 0 0 0 1px var(--hairline-strong), 0 8px 28px rgba(0,0,0,0.55);
+  }
+
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #B5BABE;
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    padding: 32px 16px;
+    min-height: 100vh;
+  }
+  [data-theme="dark"] body { background: #08090A; }
+  button { font: inherit; cursor: pointer; }
+
+  /* Gallery container — wrap multiple iPhones side by side, scroll horizontally */
+  .gallery {
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  .intro {
+    text-align: center;
+    margin-bottom: 36px;
+    color: var(--ink);
+  }
+  .intro-kicker {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--indigo);
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .intro h1 {
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.025em;
+    margin: 0 0 8px;
+  }
+  .intro h1 em { font-style: italic; color: var(--indigo); font-weight: 400; }
+  .intro p {
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--ink-3);
+    line-height: 1.55;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  /* Phones row: 4 per row, then wrap */
+  .phones-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 48px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .frame-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .frame-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-4);
+    letter-spacing: 0.06em;
+  }
+
+  /* iPhone 16 Pro frame: 402×874 logical px, but we add chrome 14px around */
+  .iphone {
+    width: 430px;
+    height: 902px;
+    background: #1A1A1B;
+    border-radius: 56px;
+    padding: 14px;
+    position: relative;
+    box-shadow: 0 24px 60px rgba(15, 24, 32, 0.30), 0 0 0 1px rgba(0,0,0,0.5);
+  }
+
+  .iphone-screen {
+    width: 100%; height: 100%;
+    background: var(--paper);
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Status bar */
+  .status-bar {
+    flex-shrink: 0;
+    height: 54px;
+    padding: 14px 30px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--ink);
+    position: relative;
+    z-index: 10;
+  }
+  .status-time {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .status-island {
+    position: absolute;
+    top: 11px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 122px;
+    height: 36px;
+    background: #000;
+    border-radius: 20px;
+  }
+  .status-icons {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink);
+  }
+  .status-signal {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 11px;
+  }
+  .status-signal span {
+    width: 3px;
+    background: var(--ink);
+    border-radius: 1px;
+  }
+  .status-signal span:nth-child(1) { height: 4px; }
+  .status-signal span:nth-child(2) { height: 6px; }
+  .status-signal span:nth-child(3) { height: 8px; }
+  .status-signal span:nth-child(4) { height: 11px; }
+  .status-icons svg:nth-of-type(1) { width: 18px; height: 12px; }
+  .status-icons svg:nth-of-type(2) { width: 26px; height: 12px; }
+
+  /* Top bar */
+  .top-bar {
+    flex-shrink: 0;
+    height: 56px;
+    padding: 0 14px;
+    display: grid;
+    grid-template-columns: 56px 1fr 56px;
+    align-items: center;
+    border-bottom: 1px solid var(--hairline-faint);
+    background: var(--paper);
+    position: relative;
+    z-index: 5;
+  }
+  .tb-side { display: inline-flex; align-items: center; gap: 4px; }
+  .tb-side-right { justify-content: flex-end; }
+  .tb-spacer { width: 36px; height: 36px; }
+  .tb-center { text-align: center; line-height: 1.1; }
+  .tb-title {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+  .tb-sub {
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    color: var(--ink-4);
+    margin-top: 2px;
+    font-weight: 500;
+  }
+  .tb-btn {
+    width: 36px; height: 36px;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    color: var(--ink-3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 140ms;
+  }
+  .tb-btn:hover { background: var(--cream); color: var(--ink); }
+  .tb-btn svg { width: 18px; height: 18px; }
+  .tb-avatar {
+    width: 36px; height: 36px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--indigo) 0%, var(--indigo-2) 100%);
+    color: var(--paper);
+    border: 0;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-style: italic;
+    font-weight: 500;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  /* Screen content */
+  .screen-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 16px 12px;
+    background: var(--paper);
+  }
+
+  /* Bottom tab bar */
+  .tab-bar {
+    flex-shrink: 0;
+    height: 70px;
+    padding: 6px 8px 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    border-top: 1px solid var(--hairline);
+    background: var(--paper);
+    position: relative;
+    z-index: 5;
+  }
+  .tab-btn {
+    background: transparent;
+    border: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 6px 4px;
+    color: var(--ink-4);
+    cursor: pointer;
+    transition: color 140ms;
+  }
+  .tab-btn[data-active] { color: var(--indigo); }
+  .tab-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tab-ico svg { width: 22px; height: 22px; }
+  .tab-label {
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  /* Home indicator */
+  .home-indicator {
+    flex-shrink: 0;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--paper);
+  }
+  .home-bar {
+    width: 134px;
+    height: 5px;
+    background: var(--ink);
+    border-radius: 3px;
+    opacity: 0.85;
+  }
+
+  /* ════════ Common screen elements ════════ */
+
+  /* Search pill */
+  .search-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--cream);
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 10px;
+    color: var(--ink-4);
+    margin-bottom: 14px;
+  }
+  .search-pill svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .search-pill input {
+    flex: 1; min-width: 0;
+    background: transparent;
+    border: 0; outline: 0;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .search-pill input::placeholder { color: var(--ink-4); }
+  .sp-filter {
+    background: transparent;
+    border: 0;
+    color: var(--ink-3);
+    width: 24px; height: 24px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* Status filter pills (horizontal scroll) */
+  .status-pills, .ways-pills, .time-pills {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    margin: 0 -16px 14px;
+    padding: 0 16px 4px;
+  }
+  .status-pills::-webkit-scrollbar, .ways-pills::-webkit-scrollbar, .time-pills::-webkit-scrollbar { display: none; }
+  .sp-pill, .wp-pill, .tp-pill {
+    flex-shrink: 0;
+    min-height: 38px;
+    padding: 9px 18px;
+    background: var(--cream);
+    border: 0;
+    border-radius: 999px;
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 140ms;
+    display: inline-flex;
+    align-items: center;
+  }
+  .sp-pill-active, .wp-pill-active, .tp-pill-active {
+    background: var(--indigo);
+    color: var(--paper);
+  }
+  .time-pills-ana { margin-bottom: 12px; }
+
+  /* Section bar (within content) */
+  .section-bar {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 8px 0 10px;
+  }
+  .sec-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+  .sec-rule { flex: 1; height: 1px; background: var(--hairline); }
+  .sec-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-5);
+  }
+
+  /* ════════ NOTES ════════ */
+  .notes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .note-card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 14px 14px 12px;
+  }
+  .nc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .nc-way {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--indigo);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .note-pin { color: var(--ochre); font-size: 10px; }
+  .nc-time {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-5);
+  }
+  .nc-title {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0 0 6px;
+  }
+  .nc-preview {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--ink-3);
+    line-height: 1.45;
+    margin: 0 0 8px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .nc-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .note-tag {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-4);
+    background: var(--cream);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  /* ════════ GOALS (kanban) ════════ */
+  .goal-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .goal-card {
+    position: relative;
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 14px;
+    overflow: hidden;
+  }
+  .gc-bar {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--cream);
+  }
+  .gc-bar-fill {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: var(--gc);
+  }
+  .gc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 4px;
+    padding-left: 10px;
+  }
+  .gc-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0;
+    flex: 1;
+  }
+  .gc-edit {
+    width: 28px; height: 28px;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--ink-4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .gc-edit svg { width: 14px; height: 14px; }
+  .gc-edit:hover { background: var(--cream); color: var(--ink); }
+  .gc-desc {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--ink-4);
+    line-height: 1.4;
+    margin: 0 0 10px;
+    padding-left: 10px;
+  }
+  .gc-progress-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-left: 10px;
+  }
+  .gc-pct {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.025em;
+    line-height: 1;
+  }
+  .gc-pct em {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink-4);
+    font-size: 16px;
+  }
+  .gc-progress-label {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+  }
+  .gc-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-left: 10px;
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+  }
+  .gc-today {
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .gc-today svg { width: 9px; height: 9px; }
+  .gc-today-done { color: var(--moss); }
+  .gc-today-pending { color: var(--ochre); }
+  .gc-today-mid { color: var(--indigo); }
+  .gc-streak {
+    font-family: var(--font-mono);
+    color: var(--moss);
+    font-weight: 500;
+  }
+  .gc-due {
+    font-family: var(--font-mono);
+    color: var(--ink-4);
+  }
+  .gc-due-none {
+    font-family: var(--font-ui);
+    font-style: italic;
+    color: var(--ink-5);
+  }
+
+  /* ════════ GO ════════ */
+  .go-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .gs-block {
+    padding: 12px 14px;
+    line-height: 1.2;
+  }
+  .gs-block + .gs-block {
+    border-left: 1px solid var(--hairline);
+  }
+  .gs-num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .gs-num em {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink-4);
+    font-size: 13px;
+  }
+  .gs-lab {
+    font-family: var(--font-ui);
+    font-size: 9.5px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-top: 5px;
+    font-weight: 500;
+  }
+
+  .tg-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .tg-card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .tg-card[data-done] {
+    background: var(--moss-soft);
+    border-color: rgba(107,122,79,0.3);
+  }
+  .tg-card[data-partial] {
+    background: var(--ochre-soft);
+    border-color: var(--ochre);
+  }
+  .tg-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .tg-meta-row {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+  }
+  .tg-kind-pill {
+    font-family: var(--font-ui);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--indigo);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    padding: 2px 7px;
+    background: var(--indigo-soft);
+    border-radius: 999px;
+  }
+  .tg-card[data-kind="boolean"] .tg-kind-pill {
+    color: var(--slate);
+    background: var(--slate-soft);
+  }
+  .tg-card[data-done] .tg-kind-pill {
+    color: var(--moss);
+    background: rgba(107,122,79,0.18);
+  }
+  .tg-goal-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    color: var(--gc);
+    font-weight: 500;
+  }
+  .tg-goal-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gc);
+  }
+  .tg-edit {
+    width: 26px; height: 26px;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--ink-4);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .tg-edit svg { width: 13px; height: 13px; }
+  .tg-edit:hover { background: var(--cream); color: var(--ink); }
+  .tg-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0 0 12px;
+  }
+  .tg-card[data-done] .tg-title { color: var(--ink-3); }
+
+  .tg-numeric-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .tg-num-display {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    line-height: 1;
+  }
+  .tg-num-logged {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.025em;
+  }
+  .tg-card[data-done] .tg-num-logged { color: var(--moss); }
+  .tg-card[data-partial] .tg-num-logged { color: var(--ochre); }
+  .tg-num-divider {
+    font-family: var(--font-display);
+    font-size: 20px;
+    color: var(--ink-5);
+    font-weight: 300;
+  }
+  .tg-num-target {
+    font-family: var(--font-display);
+    font-size: 20px;
+    color: var(--ink-4);
+    font-variant-numeric: tabular-nums;
+  }
+  .tg-num-unit {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-4);
+    margin-left: 2px;
+  }
+
+  .tg-stepper {
+    display: inline-flex;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .tg-step {
+    width: 36px; height: 36px;
+    background: var(--paper);
+    border: 0;
+    color: var(--ink-3);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all 140ms;
+  }
+  .tg-step + .tg-step { border-left: 1px solid var(--hairline); }
+  .tg-step:hover { background: var(--cream); color: var(--ink); }
+  .tg-step svg { width: 14px; height: 14px; }
+
+  .tg-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .tg-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--cream);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .tg-progress-fill { height: 100%; background: var(--indigo); }
+  .tg-card[data-done] .tg-progress-fill { background: var(--moss); }
+  .tg-card[data-partial] .tg-progress-fill { background: var(--ochre); }
+  .tg-progress-pct {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tg-foot {
+    padding-top: 8px;
+    border-top: 1px solid var(--hairline-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .tg-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .tg-status svg { width: 11px; height: 11px; }
+  .tg-status-done { color: var(--moss); }
+  .tg-status-partial { color: var(--ochre); }
+  .tg-status-pending { color: var(--ink-4); }
+  .tg-extra {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-4);
+  }
+
+  .tg-bool-block {
+    display: flex;
+    gap: 8px;
+  }
+  .tg-bool-btn {
+    flex: 1;
+    height: 48px;
+    padding: 0 14px;
+    background: var(--paper);
+    border: 1.5px solid var(--hairline-strong);
+    border-radius: 8px;
+    color: var(--ink-2);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .tg-bool-btn-done {
+    background: var(--moss);
+    border-color: var(--moss);
+    color: var(--paper);
+  }
+  .tg-bool-btn svg { width: 14px; height: 14px; }
+  .tg-skip-btn {
+    width: 48px; height: 48px;
+    background: var(--paper);
+    border: 1.5px solid var(--hairline-strong);
+    border-radius: 8px;
+    color: var(--ink-4);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .tg-skip-btn svg { width: 14px; height: 14px; }
+  .tg-skip-btn:hover {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: var(--paper);
+  }
+
+  /* ════════ STEP ════════ */
+  .step-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .ss-cell {
+    padding: 10px 8px;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .ss-cell + .ss-cell {
+    border-left: 1px solid var(--hairline);
+  }
+  .ss-num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .ss-lab {
+    font-family: var(--font-ui);
+    font-size: 9px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-top: 5px;
+    font-weight: 500;
+  }
+
+  .step-lanes {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .lane {
+    border-left: 3px solid var(--gc);
+    padding-left: 12px;
+  }
+  .lane-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .lane-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    background: var(--gc);
+    flex-shrink: 0;
+  }
+  .lane-name {
+    flex: 1;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+  .lane-count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-5);
+  }
+  .lane-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .step-card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .step-card[data-status="done"] {
+    background: var(--moss-soft);
+    border-color: rgba(107,122,79,0.3);
+    opacity: 0.85;
+  }
+  .step-card[data-status="at-risk"] {
+    border-color: var(--rust);
+    border-width: 1.5px;
+  }
+  .step-card[data-status="upcoming"] {
+    background: transparent;
+    border-style: dashed;
+  }
+  .step-card[data-selected] {
+    box-shadow: 0 0 0 2px var(--indigo);
+  }
+  .step-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .step-card-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0;
+    flex: 1;
+  }
+  .step-card-edit {
+    width: 24px; height: 24px;
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    color: var(--ink-4);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .step-card-edit svg { width: 12px; height: 12px; }
+  .step-card-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-4);
+    margin-bottom: 8px;
+  }
+  .step-period {}
+  .step-days {
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .step-card-prog {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .step-card-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--cream);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .step-card-bar-fill {
+    height: 100%;
+    background: var(--gc);
+  }
+  .step-card[data-status="done"] .step-card-bar-fill { background: var(--moss); }
+  .step-card-pct {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .step-card-foot {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-family: var(--font-ui);
+    font-size: 10px;
+  }
+  .step-status {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .step-status-done { background: var(--moss-soft); color: var(--moss); }
+  .step-status-on { background: var(--indigo-soft); color: var(--indigo); }
+  .step-status-risk { background: var(--rust-soft); color: var(--rust); }
+  .step-status-up { background: var(--cream); color: var(--ink-4); }
+  .step-gos {
+    font-family: var(--font-mono);
+    color: var(--ink-4);
+  }
+
+  /* ════════ ROUTINES ════════ */
+  .rt-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .rt-sum-cell {
+    padding: 12px;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .rt-sum-cell + .rt-sum-cell {
+    border-left: 1px solid var(--hairline);
+  }
+  .rt-sum-num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .rt-sum-num em {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink-4);
+    font-size: 13px;
+  }
+  .rt-sum-lab {
+    font-family: var(--font-ui);
+    font-size: 9.5px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-top: 5px;
+    font-weight: 500;
+  }
+
+  .rt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .routine-card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .rc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .rc-text { flex: 1; min-width: 0; line-height: 1.3; }
+  .rc-name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin: 0 0 3px;
+  }
+  .rc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--ink-4);
+  }
+  .rc-sep { color: var(--ink-5); }
+  .rt-goal {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--gc);
+    font-weight: 500;
+  }
+  .rt-goal-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--gc);
+  }
+  .rt-goal-none { color: var(--ink-5); font-style: italic; font-weight: 400; }
+  .rc-edit {
+    width: 26px; height: 26px;
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    color: var(--ink-4);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .rc-edit svg { width: 13px; height: 13px; }
+  .rc-edit:hover { background: var(--cream); color: var(--ink); }
+
+  .rc-history {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .rc-hist-cells {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    flex: 1;
+  }
+  .rh-cell {
+    aspect-ratio: 1;
+    max-width: 24px;
+    border-radius: 3px;
+    background: var(--cream);
+    border: 1px solid var(--hairline-faint);
+  }
+  .rh-cell-done { background: var(--moss); border-color: var(--moss); }
+  .rh-cell-partial {
+    background: linear-gradient(180deg, var(--moss) 50%, var(--cream) 50%);
+    border-color: var(--moss);
+  }
+  .rh-cell-skipped { background: var(--rust); border-color: var(--rust); }
+  .rh-cell-empty { background: var(--cream); border: 1px dashed var(--hairline-strong); }
+  .rh-cell[data-today] { box-shadow: 0 0 0 1.5px var(--indigo); }
+  .rc-hist-stats {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .rt-streak {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .rt-streak-strong { color: var(--moss); }
+  .rt-streak-zero { color: var(--ink-5); }
+  .rt-streak em {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink-4);
+    font-size: 12px;
+  }
+  .rc-stat-sep { color: var(--ink-5); font-size: 12px; }
+  .rt-comp {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-2);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .rt-comp-strong { color: var(--moss); }
+  .rt-comp-weak { color: var(--rust); }
+
+  .rc-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .rc-action {
+    flex: 1;
+    height: 38px;
+    background: transparent;
+    border: 1.5px solid var(--hairline-strong);
+    border-radius: 8px;
+    color: var(--ink-4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 140ms;
+  }
+  .rc-action svg { width: 16px; height: 16px; }
+  .rc-action-check[data-active] {
+    background: var(--moss);
+    border-color: var(--moss);
+    color: var(--paper);
+  }
+  .rc-action-skip[data-active] {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: var(--paper);
+  }
+
+  /* ════════ SPRINTS ════════ */
+  .sprint-featured {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 16px 14px;
+    margin-bottom: 18px;
+  }
+  .sf-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .sf-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    background: var(--moss-soft);
+    color: var(--moss);
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .sf-status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--moss);
+  }
+  .sf-edit {
+    width: 28px; height: 28px;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--ink-4);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .sf-edit svg { width: 14px; height: 14px; }
+  .sf-edit:hover { background: var(--cream); color: var(--ink); }
+  .sf-name {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    margin: 0 0 4px;
+  }
+  .sf-period {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+    margin: 0 0 10px;
+  }
+  .sf-desc {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--ink-3);
+    line-height: 1.5;
+    margin: 0 0 14px;
+    font-style: italic;
+  }
+  .sf-prog {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .sf-prog-num {
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .sf-prog-num em {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink-4);
+    font-size: 18px;
+  }
+  .sf-prog-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--cream);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .sf-prog-bar-fill {
+    height: 100%;
+    background: var(--indigo);
+  }
+  .sf-stats {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--ink-4);
+    margin-bottom: 16px;
+  }
+  .sf-stats b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sf-items {
+    border-top: 1px solid var(--hairline-faint);
+    padding-top: 12px;
+  }
+  .sf-items-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-bottom: 8px;
+  }
+  .sf-items-rule { flex: 1; height: 1px; background: var(--hairline); }
+  .sf-items-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .sp-item {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--hairline-faint);
+  }
+  .sp-item:last-child { border-bottom: 0; }
+  .sp-item-kind {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--gc);
+    text-align: center;
+  }
+  .sp-item-text { line-height: 1.3; min-width: 0; }
+  .sp-item-title {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .sp-item-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-4);
+    margin-top: 1px;
+  }
+  .sp-item-done .sp-item-title {
+    color: var(--ink-3);
+    text-decoration: line-through;
+    text-decoration-color: var(--moss);
+  }
+
+  .sf-items-foot {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+  }
+  .sf-items-foot-label {
+    width: 100%;
+    font-family: var(--font-ui);
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-bottom: 2px;
+  }
+  .sp-add {
+    padding: 5px 10px;
+    border: 1px dashed var(--hairline-strong);
+    background: transparent;
+    border-radius: 999px;
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .sp-add:hover {
+    border-color: var(--indigo);
+    color: var(--indigo);
+    background: var(--indigo-soft);
+    border-style: solid;
+  }
+
+  /* Other sprints */
+  .other-sprints-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .other-sprint {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .os-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .os-status {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .os-status-done { background: var(--cream); color: var(--ink-4); }
+  .os-status-on-track { background: var(--moss-soft); color: var(--moss); }
+  .os-status-upcoming { background: var(--indigo-soft); color: var(--indigo); }
+  .os-edit {
+    width: 24px; height: 24px;
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    color: var(--ink-4);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .os-edit svg { width: 12px; height: 12px; }
+  .os-name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0 0 3px;
+  }
+  .os-period {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-4);
+    margin-bottom: 8px;
+  }
+  .os-prog {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .os-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--cream);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .os-bar-fill {
+    height: 100%;
+    background: var(--indigo);
+  }
+  .os-pct {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .os-foot {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-4);
+  }
+
+  /* ════════ ANALYSIS ════════ */
+  .ana-hero {
+    margin-bottom: 14px;
+  }
+  .ana-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--indigo);
+    margin-bottom: 6px;
+  }
+  .ana-hero-title {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin: 0;
+  }
+  .ana-hero-title em {
+    font-style: italic;
+    color: var(--indigo);
+    font-weight: 400;
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .kpi-tile {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 10px 12px;
+    line-height: 1.2;
+  }
+  .kpi-num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.025em;
+    line-height: 1;
+  }
+  .kpi-num em {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink-4);
+    font-size: 14px;
+  }
+  .kpi-lab {
+    font-family: var(--font-ui);
+    font-size: 9.5px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .kpi-trend {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    margin-top: 4px;
+  }
+  .kpi-up { color: var(--moss); }
+  .kpi-down { color: var(--rust); }
+
+  .chart-card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .cc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .cc-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin: 0 0 2px;
+    line-height: 1.2;
+  }
+  .cc-sub {
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    color: var(--ink-4);
+    margin: 0;
+  }
+  .cc-stat { text-align: right; line-height: 1.2; flex-shrink: 0; }
+  .cc-stat-num {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .cc-stat-num em {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink-4);
+    font-size: 13px;
+  }
+  .cc-stat-lab {
+    font-family: var(--font-ui);
+    font-size: 9px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 3px;
+  }
+  .cc-body {
+    width: 100%;
+  }
+  .chart-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .donut-block-m {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .donut-svg-wrap-m {
+    flex-shrink: 0;
+  }
+  .donut-svg {
+    width: 120px; height: 120px;
+    display: block;
+  }
+  .dl-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .dl-row {
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .dl-swatch {
+    width: 12px; height: 12px;
+    border-radius: 2px;
+  }
+  .dl-label {
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    color: var(--ink-2);
+  }
+  .dl-num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ana-streak-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .ana-streak-row {
+    display: grid;
+    grid-template-columns: 18px 1fr 64px 44px;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--hairline-faint);
+  }
+  .ana-streak-row:last-child { border-bottom: 0; }
+  .asr-rank {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-5);
+    font-variant-numeric: tabular-nums;
+  }
+  .asr-name {
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .asr-spark {
+    display: flex; align-items: center;
+  }
+  .spark-svg {
+    width: 64px; height: 18px;
+    display: block;
+  }
+  .asr-days {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--moss);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .asr-days em {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink-4);
+    font-size: 11px;
+  }
+
+  .m-heat {
+    display: grid;
+    grid-template-columns: repeat(53, 1fr);
+    gap: 1.5px;
+  }
+  .m-heat-week { display: grid; grid-template-rows: repeat(7, 1fr); gap: 1.5px; }
+  .m-heat-cell {
+    aspect-ratio: 1;
+    border-radius: 1px;
+    background: var(--heat-0);
+  }
+  .m-heat-cell[data-level="1"] { background: var(--heat-1); }
+  .m-heat-cell[data-level="2"] { background: var(--heat-2); }
+  .m-heat-cell[data-level="3"] { background: var(--heat-3); }
+  .m-heat-cell[data-level="4"] { background: var(--heat-4); }
+  .m-heat-cell[data-today] { box-shadow: 0 0 0 1px var(--ink); }
+
+  .m-heat-foot {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    color: var(--ink-4);
+  }
+  .ms-cell {
+    width: 10px; height: 10px;
+    border-radius: 1px;
+  }
+
+  /* ════════ PROFILE ════════ */
+  .screen-content-profile {
+    padding: 0;
+  }
+  .pf-header {
+    padding: 24px 18px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 1px solid var(--hairline-faint);
+  }
+  .pf-avatar-big {
+    width: 72px; height: 72px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--indigo) 0%, var(--indigo-2) 100%);
+    color: var(--paper);
+    display: grid;
+    place-items: center;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 32px;
+    font-weight: 500;
+    flex-shrink: 0;
+    line-height: 1;
+    padding: 0;
+  }
+  .pf-info { line-height: 1.3; }
+  .pf-name {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin: 0 0 3px;
+  }
+  .pf-tagline {
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    color: var(--ink-3);
+    margin: 0;
+    font-style: italic;
+  }
+
+  .pf-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--hairline-faint);
+    background: var(--cream);
+  }
+  .pf-stat {
+    text-align: center;
+    line-height: 1.2;
+  }
+  .pf-stat + .pf-stat {
+    border-left: 1px solid var(--hairline);
+  }
+  .pf-stat-num {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .pf-stat-lab {
+    font-family: var(--font-ui);
+    font-size: 9px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 5px;
+    font-weight: 500;
+  }
+
+  .pf-section {
+    margin-top: 18px;
+  }
+  .pf-section-label {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    padding: 0 18px 8px;
+  }
+  .pf-section-body {
+    background: var(--paper);
+    border-top: 1px solid var(--hairline-faint);
+    border-bottom: 1px solid var(--hairline-faint);
+  }
+  .pf-row {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    padding: 13px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--hairline-faint);
+    text-align: left;
+    color: var(--ink);
+  }
+  .pf-row:last-child { border-bottom: 0; }
+  .pf-row:hover { background: var(--cream); }
+  .pf-row-label {
+    font-family: var(--font-body);
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+  .pf-row-danger .pf-row-label { color: var(--rust); }
+  .pf-row-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pf-row-value {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink-4);
+  }
+  .pf-row-arrow {
+    color: var(--ink-5);
+    display: inline-flex;
+  }
+  .pf-row-arrow svg { width: 14px; height: 14px; }
+  .pf-badge {
+    font-family: var(--font-ui);
+    font-size: 9px;
+    font-weight: 700;
+    background: var(--indigo);
+    color: var(--paper);
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
+  }
+  .pf-swatch {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+  }
+  .pf-toggle {
+    width: 38px; height: 22px;
+    background: var(--soft);
+    border-radius: 12px;
+    position: relative;
+    transition: background 200ms;
+  }
+  .pf-toggle-knob {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 18px; height: 18px;
+    background: var(--paper);
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    transition: left 200ms;
+  }
+  .pf-toggle-on {
+    background: var(--moss);
+  }
+  .pf-toggle-on .pf-toggle-knob {
+    left: 18px;
+  }
+
+
+
+
+
+  /* Floating Action Button */
+  .iphone-screen { position: relative; }
+  .fab {
+    position: absolute;
+    right: 18px;
+    bottom: 110px;
+    width: 56px;
+    height: 56px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--indigo);
+    color: var(--paper);
+    border: 0;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 6px 20px rgba(15, 24, 32, 0.20), 0 2px 6px rgba(15, 24, 32, 0.12);
+    z-index: 50;
+    transition: transform 140ms, box-shadow 140ms;
+  }
+  .fab:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(15, 24, 32, 0.25), 0 3px 8px rgba(15, 24, 32, 0.15);
+  }
+  .fab svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Inline "+ Add ..." button (Go, Step) */
+  .inline-add-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: transparent;
+    border: 1px dashed var(--hairline-strong);
+    border-radius: 10px;
+    color: var(--ink-4);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 140ms;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .inline-add-btn:hover {
+    border-color: var(--indigo);
+    border-style: solid;
+    color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+  .inline-add-btn span {
+    font-size: 16px;
+    line-height: 1;
+    font-weight: 400;
+  }
+
+  /* Lane add button (smaller, inside step lanes) */
+  .lane-add-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 9px 14px;
+    background: transparent;
+    border: 1px dashed var(--hairline-strong);
+    border-radius: 8px;
+    color: var(--ink-4);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 140ms;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .lane-add-btn:hover {
+    border-color: var(--gc);
+    border-style: solid;
+    color: var(--gc);
+    background: rgba(15, 24, 32, 0.02);
+  }
+  .lane-add-btn span {
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 400;
+  }
+
+  /* Goals segmented control (Kanban/Go/Step) */
+  .goals-segmented {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    padding: 3px;
+    background: var(--cream);
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+  .seg-btn {
+    height: 38px;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 140ms;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .seg-btn[data-active] {
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 1px 3px rgba(15, 24, 32, 0.08), 0 0 0 0.5px rgba(15, 24, 32, 0.04);
+    font-weight: 600;
+  }
+
+  /* Stubs for inline-styled or no-style elements */
+  .os-items {}
+  .rc-schedule {}
+  .sf-status-text {}
+  .sp-item-on-track {}
+  .sp-item-pending {}
+
+
+  /* Chart legend (multi-series line chart) */
+  .cc-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--hairline-faint);
+  }
+  .cc-legend-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .cc-legend-dot {
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  /* ════════ Frame label ════════ */
+  .frame-label {
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--ink-4);
+    max-width: 430px;
+    line-height: 1.45;
+  }
+
+  </style>
+</head>
+<body>
+  <div class="gallery">
+    <div class="intro">
+      <div class="intro-kicker">Jarvnote · Mobile</div>
+      <h1>Eight screens, <em>palm-sized</em>.</h1>
+      <p>iPhone 16 Pro · 402 × 874pt · bottom tab navigation. Same Indigo Editorial palette as desktop. Profile reachable via the avatar in top-right.</p>
+    </div>
+    <div class="phones-grid">
+      
+  <div class="frame-wrap">
+    <div class="frame-num">01 · NOTES</div>
+    
+    <div class="iphone">
+      <div class="iphone-screen">
+        
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-island"></div>
+        <div class="status-icons">
+          <span class="status-signal"><span></span><span></span><span></span><span></span></span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 7c4-3 9-3 13 0l-1 1c-3-2-7-2-11 0z M5 11c2-2 5-2 7 0l-1 1c-1-1-4-1-5 0z M9 15c1-1 2-1 3 0l-1 1z"/></svg>
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="1" y="1" width="20" height="10" rx="2"/><rect x="2.5" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+        
+      <div class="top-bar">
+        <div class="tb-side"><div class="tb-spacer"></div></div>
+        <div class="tb-center">
+          <div class="tb-title">Notes</div>
+          <div class="tb-sub">47 across 8 ways</div>
+        </div>
+        <div class="tb-side tb-side-right"><button class="tb-avatar">A</button></div>
+      </div>
+        
+      <main class="screen-content">
+
+        <div class="search-pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input placeholder="Search notes, tags, ways..." readonly>
+          <button class="sp-filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+        </div>
+
+        <div class="ways-pills">
+          <button class="wp-pill wp-pill-active">All ways · 47</button>
+          <button class="wp-pill">DDIA · 12</button>
+          <button class="wp-pill">Running · 8</button>
+          <button class="wp-pill">Cooking · 6</button>
+          <button class="wp-pill">Work · 11</button>
+          <button class="wp-pill">Travel · 4</button>
+        </div>
+
+        <div class="section-bar">
+          <span class="sec-title">Pinned</span>
+          <span class="sec-rule"></span>
+          <span class="sec-meta">2</span>
+        </div>
+
+        <div class="notes-list">
+          
+            <article class="note-card">
+              <header class="nc-head">
+                <div class="nc-way"><span class="note-pin">●</span>DDIA · Architecture</div>
+                <span class="nc-time">Tue · 14:22</span>
+              </header>
+              <h3 class="nc-title">Encoding & schema evolution</h3>
+              <p class="nc-preview">Avro vs Protobuf vs Thrift — schema-on-write vs schema-on-read tradeoffs. Forward and backward compatibility...</p>
+              <footer class="nc-foot"><span class="note-tag">#book</span><span class="note-tag">#systems</span></footer>
+            </article>
+            <article class="note-card">
+              <header class="nc-head">
+                <div class="nc-way">Work · Sprints</div>
+                <span class="nc-time">Mon · 18:30</span>
+              </header>
+              <h3 class="nc-title">Sprint retrospective · Q1</h3>
+              <p class="nc-preview">What went well: shipping discipline, async standups. What did not: estimation creep, bus factor on auth...</p>
+              <footer class="nc-foot"><span class="note-tag">#work</span><span class="note-tag">#process</span></footer>
+            </article>
+            <article class="note-card">
+              <header class="nc-head">
+                <div class="nc-way"><span class="note-pin">●</span>Running · Plans</div>
+                <span class="nc-time">May 4</span>
+              </header>
+              <h3 class="nc-title">Marathon training plan</h3>
+              <p class="nc-preview">12-week base + threshold cycle. Weekly long run progression: 8 → 14 km. Two threshold workouts per week...</p>
+              <footer class="nc-foot"><span class="note-tag">#running</span></footer>
+            </article>
+            <article class="note-card">
+              <header class="nc-head">
+                <div class="nc-way">Cooking · Shopping</div>
+                <span class="nc-time">May 3</span>
+              </header>
+              <h3 class="nc-title">Espresso bean shopping list</h3>
+              <p class="nc-preview">Try Onyx Coffee Lab — Mexico Tres Generaciones. Also pick up: 250g washed Ethiopian, V60 filters...</p>
+              <footer class="nc-foot"><span class="note-tag">#coffee</span></footer>
+            </article>
+            <article class="note-card">
+              <header class="nc-head">
+                <div class="nc-way">DDIA · Architecture</div>
+                <span class="nc-time">May 2</span>
+              </header>
+              <h3 class="nc-title">Why distributed transactions are hard</h3>
+              <p class="nc-preview">Two-phase commit blocks indefinitely on coordinator failure. Saga pattern lets you do compensating actions, but...</p>
+              <footer class="nc-foot"><span class="note-tag">#book</span><span class="note-tag">#systems</span></footer>
+            </article>
+            <article class="note-card">
+              <header class="nc-head">
+                <div class="nc-way">Travel · Plans</div>
+                <span class="nc-time">May 1</span>
+              </header>
+              <h3 class="nc-title">Berlin trip planning</h3>
+              <p class="nc-preview">Three days, two nights. Saturday: Tempelhof airfield, Markthalle Neun street food. Sunday: Mauerpark flea market...</p>
+              <footer class="nc-foot"><span class="note-tag">#travel</span></footer>
+            </article>
+        </div>
+
+      </main>
+      <button class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+              <nav class="tab-bar">
+          <button class="tab-btn" data-active>
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+            <span class="tab-label">Notes</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><polyline points="21 4 21 12 13 12"/></svg></span>
+            <span class="tab-label">Routines</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
+            <span class="tab-label">Goals</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 7h4l-3 7"/><path d="M8 22h8"/></svg></span>
+            <span class="tab-label">Sprints</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+            <span class="tab-label">Analysis</span>
+          </button>
+      </nav>
+        <div class="home-indicator"><div class="home-bar"></div></div>
+      </div>
+    </div>
+    <div class="frame-label">Knowledge base · pinned + filtered list</div>
+  </div>
+  <div class="frame-wrap">
+    <div class="frame-num">02 · GOALS</div>
+    
+    <div class="iphone">
+      <div class="iphone-screen">
+        
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-island"></div>
+        <div class="status-icons">
+          <span class="status-signal"><span></span><span></span><span></span><span></span></span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 7c4-3 9-3 13 0l-1 1c-3-2-7-2-11 0z M5 11c2-2 5-2 7 0l-1 1c-1-1-4-1-5 0z M9 15c1-1 2-1 3 0l-1 1z"/></svg>
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="1" y="1" width="20" height="10" rx="2"/><rect x="2.5" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+        
+      <div class="top-bar">
+        <div class="tb-side"><div class="tb-spacer"></div></div>
+        <div class="tb-center">
+          <div class="tb-title">Goals</div>
+          <div class="tb-sub">5 active · 3 in backlog</div>
+        </div>
+        <div class="tb-side tb-side-right"><button class="tb-avatar">A</button></div>
+      </div>
+        
+      <main class="screen-content">
+
+        <div class="goals-segmented"><button class="seg-btn" data-active>Kanban</button><button class="seg-btn">Go</button><button class="seg-btn">Step</button></div>
+
+        <div class="status-pills">
+          <button class="sp-pill sp-pill-active">Active · 5</button>
+          <button class="sp-pill">Backlog · 3</button>
+          <button class="sp-pill">Paused · 1</button>
+          <button class="sp-pill">Done · 8</button>
+        </div>
+
+        <div class="goal-cards">
+            <article class="goal-card" style="--gc:var(--moss)">
+              <div class="gc-bar"><div class="gc-bar-fill" style="width:67%"></div></div>
+              <header class="gc-head">
+                <h3 class="gc-title">Run sub-25 5K</h3>
+                <button class="gc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <p class="gc-desc">From a current 27:14. Twelve-week base + threshold cycle.</p>
+              <div class="gc-progress-row">
+                <span class="gc-pct">67<em>%</em></span>
+                <span class="gc-progress-label">complete</span>
+              </div>
+              <footer class="gc-foot">
+                <span class="gc-today gc-today-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 2/2 today</span>
+                <span class="gc-streak">↻ 7d</span>
+                <span class="gc-due">due Jun 8 · 33d</span>
+              </footer>
+            </article>
+            <article class="goal-card" style="--gc:var(--indigo)">
+              <div class="gc-bar"><div class="gc-bar-fill" style="width:33%"></div></div>
+              <header class="gc-head">
+                <h3 class="gc-title">Read DDIA</h3>
+                <button class="gc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <p class="gc-desc">On chapter 4 of 12. One per week.</p>
+              <div class="gc-progress-row">
+                <span class="gc-pct">33<em>%</em></span>
+                <span class="gc-progress-label">complete</span>
+              </div>
+              <footer class="gc-foot">
+                <span class="gc-today gc-today-pending">0/1 pending</span>
+                <span class="gc-streak">↻ 5d</span>
+                <span class="gc-due">due Aug 15 · 100d</span>
+              </footer>
+            </article>
+            <article class="goal-card" style="--gc:var(--ochre)">
+              <div class="gc-bar"><div class="gc-bar-fill" style="width:54%"></div></div>
+              <header class="gc-head">
+                <h3 class="gc-title">Save €5,000</h3>
+                <button class="gc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <p class="gc-desc">€2,700 saved. €2,300 to go.</p>
+              <div class="gc-progress-row">
+                <span class="gc-pct">54<em>%</em></span>
+                <span class="gc-progress-label">complete</span>
+              </div>
+              <footer class="gc-foot">
+                <span class="gc-today gc-today-mid">1/2 today</span>
+                <span class="gc-streak">↻ 12d</span>
+                <span class="gc-due">due Dec 31 · 238d</span>
+              </footer>
+            </article>
+            <article class="goal-card" style="--gc:var(--rust)">
+              <div class="gc-bar"><div class="gc-bar-fill" style="width:82%"></div></div>
+              <header class="gc-head">
+                <h3 class="gc-title">Launch portfolio site</h3>
+                <button class="gc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <p class="gc-desc">Deploy step remaining.</p>
+              <div class="gc-progress-row">
+                <span class="gc-pct">82<em>%</em></span>
+                <span class="gc-progress-label">complete</span>
+              </div>
+              <footer class="gc-foot">
+                
+                
+                <span class="gc-due">due May 20 · 14d</span>
+              </footer>
+            </article>
+            <article class="goal-card" style="--gc:var(--slate)">
+              <div class="gc-bar"><div class="gc-bar-fill" style="width:12%"></div></div>
+              <header class="gc-head">
+                <h3 class="gc-title">Learn German A2</h3>
+                <button class="gc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <p class="gc-desc">Vocab daily, grammar weekly.</p>
+              <div class="gc-progress-row">
+                <span class="gc-pct">12<em>%</em></span>
+                <span class="gc-progress-label">complete</span>
+              </div>
+              <footer class="gc-foot">
+                <span class="gc-today gc-today-pending">0/1 pending</span>
+                
+                <span class="gc-due gc-due-none">no deadline</span>
+              </footer>
+            </article>
+        </div>
+
+      </main>
+      <button class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+              <nav class="tab-bar">
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+            <span class="tab-label">Notes</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><polyline points="21 4 21 12 13 12"/></svg></span>
+            <span class="tab-label">Routines</span>
+          </button>
+          <button class="tab-btn" data-active>
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
+            <span class="tab-label">Goals</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 7h4l-3 7"/><path d="M8 22h8"/></svg></span>
+            <span class="tab-label">Sprints</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+            <span class="tab-label">Analysis</span>
+          </button>
+      </nav>
+        <div class="home-indicator"><div class="home-bar"></div></div>
+      </div>
+    </div>
+    <div class="frame-label">Active / Backlog / Paused / Done</div>
+  </div>
+  <div class="frame-wrap">
+    <div class="frame-num">03 · GO</div>
+    
+    <div class="iphone">
+      <div class="iphone-screen">
+        
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-island"></div>
+        <div class="status-icons">
+          <span class="status-signal"><span></span><span></span><span></span><span></span></span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 7c4-3 9-3 13 0l-1 1c-3-2-7-2-11 0z M5 11c2-2 5-2 7 0l-1 1c-1-1-4-1-5 0z M9 15c1-1 2-1 3 0l-1 1z"/></svg>
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="1" y="1" width="20" height="10" rx="2"/><rect x="2.5" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+        
+      <div class="top-bar">
+        <div class="tb-side"><button class="tb-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button></div>
+        <div class="tb-center">
+          <div class="tb-title">Go</div>
+          <div class="tb-sub">Wed · 6 May</div>
+        </div>
+        <div class="tb-side tb-side-right"><button class="tb-avatar">A</button></div>
+      </div>
+        
+      <main class="screen-content">
+
+        <div class="goals-segmented"><button class="seg-btn">Kanban</button><button class="seg-btn" data-active>Go</button><button class="seg-btn">Step</button></div>
+
+        <div class="time-pills">
+          <button class="tp-pill">Past</button>
+          <button class="tp-pill tp-pill-active">Today</button>
+          <button class="tp-pill">Future</button>
+        </div>
+
+        <div class="go-summary">
+          <div class="gs-block">
+            <div class="gs-num">2</div>
+            <div class="gs-lab">Done</div>
+          </div>
+          <div class="gs-block">
+            <div class="gs-num">3</div>
+            <div class="gs-lab">Pending</div>
+          </div>
+          <div class="gs-block">
+            <div class="gs-num">3<em>/4</em></div>
+            <div class="gs-lab">Goals</div>
+          </div>
+        </div>
+
+        <div class="section-bar">
+          <span class="sec-title">Today's targets</span>
+          <span class="sec-rule"></span>
+          <span class="sec-meta">5</span>
+        </div>
+
+        <div class="tg-list">
+            <article class="tg-card" data-done data-kind="numeric">
+              <header class="tg-card-head">
+                <div class="tg-meta-row">
+                  <span class="tg-kind-pill">numeric</span>
+                  <span class="tg-goal-pill" style="--gc:var(--moss)"><span class="tg-goal-dot"></span>Run sub-25 5K</span>
+                </div>
+                <button class="tg-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <h3 class="tg-title">3 km zone 2 run</h3>
+              
+              <div class="tg-numeric-block">
+                <div class="tg-num-display">
+                  <span class="tg-num-logged">3.2</span>
+                  <span class="tg-num-divider">/</span>
+                  <span class="tg-num-target">3.0</span>
+                  <span class="tg-num-unit">km</span>
+                </div>
+                <div class="tg-stepper">
+                  <button class="tg-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                  <button class="tg-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+                </div>
+              </div>
+              <div class="tg-progress-row">
+                <div class="tg-progress-bar"><div class="tg-progress-fill" style="width:100%"></div></div>
+                <span class="tg-progress-pct">100%</span>
+              </div>
+              <footer class="tg-foot"><span class="tg-status tg-status-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Logged 07:42</span></span><span class="tg-extra">· 27:14 pace</span></footer>
+            </article>
+            <article class="tg-card" data-partial data-kind="numeric">
+              <header class="tg-card-head">
+                <div class="tg-meta-row">
+                  <span class="tg-kind-pill">numeric</span>
+                  <span class="tg-goal-pill" style="--gc:var(--moss)"><span class="tg-goal-dot"></span>Run sub-25 5K</span>
+                </div>
+                <button class="tg-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <h3 class="tg-title">Push-ups · 50 reps</h3>
+              
+              <div class="tg-numeric-block">
+                <div class="tg-num-display">
+                  <span class="tg-num-logged">25</span>
+                  <span class="tg-num-divider">/</span>
+                  <span class="tg-num-target">50</span>
+                  <span class="tg-num-unit">reps</span>
+                </div>
+                <div class="tg-stepper">
+                  <button class="tg-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                  <button class="tg-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+                </div>
+              </div>
+              <div class="tg-progress-row">
+                <div class="tg-progress-bar"><div class="tg-progress-fill" style="width:50%"></div></div>
+                <span class="tg-progress-pct">50%</span>
+              </div>
+              <footer class="tg-foot"><span class="tg-status tg-status-partial">50% of target</span></footer>
+            </article>
+            <article class="tg-card" data-kind="boolean">
+              <header class="tg-card-head">
+                <div class="tg-meta-row">
+                  <span class="tg-kind-pill">boolean</span>
+                  <span class="tg-goal-pill" style="--gc:var(--moss)"><span class="tg-goal-dot"></span>Run sub-25 5K</span>
+                </div>
+                <button class="tg-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <h3 class="tg-title">Pre-run stretch · 10 min</h3>
+              
+              <div class="tg-bool-block">
+                <button class="tg-bool-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Mark as done</span></button>
+                <button class="tg-skip-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              </div>
+            </article>
+            <article class="tg-card" data-kind="numeric">
+              <header class="tg-card-head">
+                <div class="tg-meta-row">
+                  <span class="tg-kind-pill">numeric</span>
+                  <span class="tg-goal-pill" style="--gc:var(--indigo)"><span class="tg-goal-dot"></span>Read DDIA</span>
+                </div>
+                <button class="tg-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <h3 class="tg-title">Read 30 min</h3>
+              
+              <div class="tg-numeric-block">
+                <div class="tg-num-display">
+                  <span class="tg-num-logged">0</span>
+                  <span class="tg-num-divider">/</span>
+                  <span class="tg-num-target">30</span>
+                  <span class="tg-num-unit">min</span>
+                </div>
+                <div class="tg-stepper">
+                  <button class="tg-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                  <button class="tg-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+                </div>
+              </div>
+              <div class="tg-progress-row">
+                <div class="tg-progress-bar"><div class="tg-progress-fill" style="width:0%"></div></div>
+                <span class="tg-progress-pct">0%</span>
+              </div>
+              <footer class="tg-foot"><span class="tg-status tg-status-pending">Tap to log</span></footer>
+            </article>
+            <article class="tg-card" data-kind="numeric">
+              <header class="tg-card-head">
+                <div class="tg-meta-row">
+                  <span class="tg-kind-pill">numeric</span>
+                  <span class="tg-goal-pill" style="--gc:var(--ochre)"><span class="tg-goal-dot"></span>Save €5,000</span>
+                </div>
+                <button class="tg-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <h3 class="tg-title">Save €25</h3>
+              
+              <div class="tg-numeric-block">
+                <div class="tg-num-display">
+                  <span class="tg-num-logged">0</span>
+                  <span class="tg-num-divider">/</span>
+                  <span class="tg-num-target">25</span>
+                  <span class="tg-num-unit">€</span>
+                </div>
+                <div class="tg-stepper">
+                  <button class="tg-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                  <button class="tg-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+                </div>
+              </div>
+              <div class="tg-progress-row">
+                <div class="tg-progress-bar"><div class="tg-progress-fill" style="width:0%"></div></div>
+                <span class="tg-progress-pct">0%</span>
+              </div>
+              <footer class="tg-foot"><span class="tg-status tg-status-pending">Tap to log</span></footer>
+            </article>
+        </div>
+
+        <button class="inline-add-btn"><span>+</span> Add target to this goal</button>
+
+      </main>
+              <nav class="tab-bar">
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+            <span class="tab-label">Notes</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><polyline points="21 4 21 12 13 12"/></svg></span>
+            <span class="tab-label">Routines</span>
+          </button>
+          <button class="tab-btn" data-active>
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
+            <span class="tab-label">Goals</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 7h4l-3 7"/><path d="M8 22h8"/></svg></span>
+            <span class="tab-label">Sprints</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+            <span class="tab-label">Analysis</span>
+          </button>
+      </nav>
+        <div class="home-indicator"><div class="home-bar"></div></div>
+      </div>
+    </div>
+    <div class="frame-label">Today's targets · inline value capture</div>
+  </div>
+  <div class="frame-wrap">
+    <div class="frame-num">04 · STEP</div>
+    
+    <div class="iphone">
+      <div class="iphone-screen">
+        
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-island"></div>
+        <div class="status-icons">
+          <span class="status-signal"><span></span><span></span><span></span><span></span></span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 7c4-3 9-3 13 0l-1 1c-3-2-7-2-11 0z M5 11c2-2 5-2 7 0l-1 1c-1-1-4-1-5 0z M9 15c1-1 2-1 3 0l-1 1z"/></svg>
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="1" y="1" width="20" height="10" rx="2"/><rect x="2.5" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+        
+      <div class="top-bar">
+        <div class="tb-side"><button class="tb-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button></div>
+        <div class="tb-center">
+          <div class="tb-title">Step</div>
+          <div class="tb-sub">Apr — Sep 2026</div>
+        </div>
+        <div class="tb-side tb-side-right"><button class="tb-avatar">A</button></div>
+      </div>
+        
+      <main class="screen-content">
+
+        <div class="goals-segmented"><button class="seg-btn">Kanban</button><button class="seg-btn">Go</button><button class="seg-btn" data-active>Step</button></div>
+
+        <div class="step-summary">
+          <div class="ss-cell">
+            <div class="ss-num">2</div>
+            <div class="ss-lab">Done</div>
+          </div>
+          <div class="ss-cell">
+            <div class="ss-num">3</div>
+            <div class="ss-lab">Active</div>
+          </div>
+          <div class="ss-cell">
+            <div class="ss-num">1</div>
+            <div class="ss-lab">At risk</div>
+          </div>
+          <div class="ss-cell">
+            <div class="ss-num">5</div>
+            <div class="ss-lab">Upcoming</div>
+          </div>
+        </div>
+
+        <div class="step-lanes">
+            <div class="lane" style="--gc:var(--moss)">
+              <div class="lane-head">
+                <span class="lane-dot"></span>
+                <span class="lane-name">Run sub-25 5K</span>
+                <span class="lane-count">3 steps</span>
+              </div>
+              <div class="lane-steps">
+                <article class="step-card" data-status="on-track">
+                  <header class="step-card-head">
+                    <h4 class="step-card-title">Build aerobic base</h4>
+                    <button class="step-card-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+                  </header>
+                  <div class="step-card-meta">
+                    <span class="step-period">Apr 14 – May 14</span>
+                    <span class="step-days">8d left</span>
+                  </div>
+                  <div class="step-card-prog">
+                    <div class="step-card-bar"><div class="step-card-bar-fill" style="width:86%"></div></div>
+                    <span class="step-card-pct">86%</span>
+                  </div>
+                  <footer class="step-card-foot">
+                    <span class="step-status step-status-on">On track</span>
+                    <span class="step-gos">5/6 Gos</span>
+                  </footer>
+                </article>
+                <article class="step-card" data-status="upcoming">
+                  <header class="step-card-head">
+                    <h4 class="step-card-title">Lactate threshold work</h4>
+                    <button class="step-card-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+                  </header>
+                  <div class="step-card-meta">
+                    <span class="step-period">May 15 – Jun 14</span>
+                    <span class="step-days">9d left</span>
+                  </div>
+                  <div class="step-card-prog">
+                    <div class="step-card-bar"><div class="step-card-bar-fill" style="width:0%"></div></div>
+                    <span class="step-card-pct">0%</span>
+                  </div>
+                  <footer class="step-card-foot">
+                    <span class="step-status step-status-up">Upcoming</span>
+                    <span class="step-gos">0/5 Gos</span>
+                  </footer>
+                </article>
+                <article class="step-card" data-status="upcoming">
+                  <header class="step-card-head">
+                    <h4 class="step-card-title">Race preparation</h4>
+                    <button class="step-card-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+                  </header>
+                  <div class="step-card-meta">
+                    <span class="step-period">Jun 15 – Jul 9</span>
+                    
+                  </div>
+                  <div class="step-card-prog">
+                    <div class="step-card-bar"><div class="step-card-bar-fill" style="width:0%"></div></div>
+                    <span class="step-card-pct">0%</span>
+                  </div>
+                  <footer class="step-card-foot">
+                    <span class="step-status step-status-up">Upcoming</span>
+                    
+                  </footer>
+                </article>
+                <button class="lane-add-btn"><span>+</span> Add step</button>
+              </div>
+            </div>
+            <div class="lane" style="--gc:var(--indigo)">
+              <div class="lane-head">
+                <span class="lane-dot"></span>
+                <span class="lane-name">Read DDIA</span>
+                <span class="lane-count">3 steps</span>
+              </div>
+              <div class="lane-steps">
+                <article class="step-card" data-status="done">
+                  <header class="step-card-head">
+                    <h4 class="step-card-title">Foundations · ch 1–4</h4>
+                    <button class="step-card-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+                  </header>
+                  <div class="step-card-meta">
+                    <span class="step-period">Apr 1 – Apr 30</span>
+                    
+                  </div>
+                  <div class="step-card-prog">
+                    <div class="step-card-bar"><div class="step-card-bar-fill" style="width:100%"></div></div>
+                    <span class="step-card-pct">100%</span>
+                  </div>
+                  <footer class="step-card-foot">
+                    <span class="step-status step-status-done">Complete</span>
+                    <span class="step-gos">4/4 Gos</span>
+                  </footer>
+                </article>
+                <article class="step-card" data-status="on-track" data-selected>
+                  <header class="step-card-head">
+                    <h4 class="step-card-title">Distributed · ch 5–8</h4>
+                    <button class="step-card-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+                  </header>
+                  <div class="step-card-meta">
+                    <span class="step-period">May 1 – Jun 30</span>
+                    <span class="step-days">55d left</span>
+                  </div>
+                  <div class="step-card-prog">
+                    <div class="step-card-bar"><div class="step-card-bar-fill" style="width:22%"></div></div>
+                    <span class="step-card-pct">22%</span>
+                  </div>
+                  <footer class="step-card-foot">
+                    <span class="step-status step-status-on">On track</span>
+                    <span class="step-gos">2/5 Gos</span>
+                  </footer>
+                </article>
+                <article class="step-card" data-status="upcoming">
+                  <header class="step-card-head">
+                    <h4 class="step-card-title">Derived data · ch 9–12</h4>
+                    <button class="step-card-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+                  </header>
+                  <div class="step-card-meta">
+                    <span class="step-period">Jul 1 – Aug 31</span>
+                    
+                  </div>
+                  <div class="step-card-prog">
+                    <div class="step-card-bar"><div class="step-card-bar-fill" style="width:0%"></div></div>
+                    <span class="step-card-pct">0%</span>
+                  </div>
+                  <footer class="step-card-foot">
+                    <span class="step-status step-status-up">Upcoming</span>
+                    
+                  </footer>
+                </article>
+                <button class="lane-add-btn"><span>+</span> Add step</button>
+              </div>
+            </div>
+            <div class="lane" style="--gc:var(--slate)">
+              <div class="lane-head">
+                <span class="lane-dot"></span>
+                <span class="lane-name">Learn German A2</span>
+                <span class="lane-count">1 steps</span>
+              </div>
+              <div class="lane-steps">
+                <article class="step-card" data-status="at-risk">
+                  <header class="step-card-head">
+                    <h4 class="step-card-title">A1 vocabulary mastery</h4>
+                    <button class="step-card-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+                  </header>
+                  <div class="step-card-meta">
+                    <span class="step-period">May 1 – May 19</span>
+                    <span class="step-days">13d left</span>
+                  </div>
+                  <div class="step-card-prog">
+                    <div class="step-card-bar"><div class="step-card-bar-fill" style="width:18%"></div></div>
+                    <span class="step-card-pct">18%</span>
+                  </div>
+                  <footer class="step-card-foot">
+                    <span class="step-status step-status-risk">At risk</span>
+                    <span class="step-gos">1/4 Gos</span>
+                  </footer>
+                </article>
+                <button class="lane-add-btn"><span>+</span> Add step</button>
+              </div>
+            </div>
+        </div>
+
+      </main>
+              <nav class="tab-bar">
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+            <span class="tab-label">Notes</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><polyline points="21 4 21 12 13 12"/></svg></span>
+            <span class="tab-label">Routines</span>
+          </button>
+          <button class="tab-btn" data-active>
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
+            <span class="tab-label">Goals</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 7h4l-3 7"/><path d="M8 22h8"/></svg></span>
+            <span class="tab-label">Sprints</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+            <span class="tab-label">Analysis</span>
+          </button>
+      </nav>
+        <div class="home-indicator"><div class="home-bar"></div></div>
+      </div>
+    </div>
+    <div class="frame-label">Vertical timeline grouped by goal</div>
+  </div>
+  <div class="frame-wrap">
+    <div class="frame-num">05 · ROUTINES</div>
+    
+    <div class="iphone">
+      <div class="iphone-screen">
+        
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-island"></div>
+        <div class="status-icons">
+          <span class="status-signal"><span></span><span></span><span></span><span></span></span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 7c4-3 9-3 13 0l-1 1c-3-2-7-2-11 0z M5 11c2-2 5-2 7 0l-1 1c-1-1-4-1-5 0z M9 15c1-1 2-1 3 0l-1 1z"/></svg>
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="1" y="1" width="20" height="10" rx="2"/><rect x="2.5" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+        
+      <div class="top-bar">
+        <div class="tb-side"><div class="tb-spacer"></div></div>
+        <div class="tb-center">
+          <div class="tb-title">Routines</div>
+          <div class="tb-sub">5 of 12 done today</div>
+        </div>
+        <div class="tb-side tb-side-right"><button class="tb-avatar">A</button></div>
+      </div>
+        
+      <main class="screen-content">
+
+        <div class="rt-summary">
+          <div class="rt-sum-cell">
+            <div class="rt-sum-num">5<em>/12</em></div>
+            <div class="rt-sum-lab">Done today</div>
+          </div>
+          <div class="rt-sum-cell">
+            <div class="rt-sum-num">43<em>d</em></div>
+            <div class="rt-sum-lab">Best streak</div>
+          </div>
+          <div class="rt-sum-cell">
+            <div class="rt-sum-num">87<em>%</em></div>
+            <div class="rt-sum-lab">30d overall</div>
+          </div>
+        </div>
+
+        <div class="status-pills">
+          <button class="sp-pill sp-pill-active">All · 13</button>
+          <button class="sp-pill">Due today · 12</button>
+          <button class="sp-pill">Slipping · 3</button>
+          <button class="sp-pill">On hold · 1</button>
+        </div>
+
+        <div class="rt-list">
+            <article class="routine-card">
+              <header class="rc-head">
+                <div class="rc-text">
+                  <h3 class="rc-name">Morning meditation</h3>
+                  <div class="rc-meta">
+                    <span class="rc-schedule">Daily · 8 AM</span>
+                    <span class="rc-sep">·</span>
+                    <span class="rt-goal rt-goal-none">standalone</span>
+                  </div>
+                </div>
+                <button class="rc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <div class="rc-history">
+                <div class="rc-hist-cells"><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done" data-today></span></div>
+                <div class="rc-hist-stats">
+                  <span class="rt-streak rt-streak-strong">43<em>d</em></span>
+                  <span class="rc-stat-sep">·</span>
+                  <span class="rt-comp rt-comp-strong">96%</span>
+                </div>
+              </div>
+              <footer class="rc-actions">
+                <button class="rc-action rc-action-check" data-active>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="rc-action rc-action-skip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </footer>
+            </article>
+            <article class="routine-card">
+              <header class="rc-head">
+                <div class="rc-text">
+                  <h3 class="rc-name">Easy run</h3>
+                  <div class="rc-meta">
+                    <span class="rc-schedule">3×/week</span>
+                    <span class="rc-sep">·</span>
+                    <span class="rt-goal" style="--gc:var(--moss)"><span class="rt-goal-dot"></span>Run sub-25 5K</span>
+                  </div>
+                </div>
+                <button class="rc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <div class="rc-history">
+                <div class="rc-hist-cells"><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-empty"></span><span class="rh-cell rh-cell-empty"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-empty"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-empty" data-today></span></div>
+                <div class="rc-hist-stats">
+                  <span class="rt-streak">3<em>d</em></span>
+                  <span class="rc-stat-sep">·</span>
+                  <span class="rt-comp">71%</span>
+                </div>
+              </div>
+              <footer class="rc-actions">
+                <button class="rc-action rc-action-check">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="rc-action rc-action-skip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </footer>
+            </article>
+            <article class="routine-card">
+              <header class="rc-head">
+                <div class="rc-text">
+                  <h3 class="rc-name">Drink water · 2L</h3>
+                  <div class="rc-meta">
+                    <span class="rc-schedule">Daily</span>
+                    <span class="rc-sep">·</span>
+                    <span class="rt-goal rt-goal-none">standalone</span>
+                  </div>
+                </div>
+                <button class="rc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <div class="rc-history">
+                <div class="rc-hist-cells"><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-partial"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done" data-today></span></div>
+                <div class="rc-hist-stats">
+                  <span class="rt-streak">28<em>d</em></span>
+                  <span class="rc-stat-sep">·</span>
+                  <span class="rt-comp rt-comp-strong">94%</span>
+                </div>
+              </div>
+              <footer class="rc-actions">
+                <button class="rc-action rc-action-check" data-active>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="rc-action rc-action-skip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </footer>
+            </article>
+            <article class="routine-card">
+              <header class="rc-head">
+                <div class="rc-text">
+                  <h3 class="rc-name">Stretching</h3>
+                  <div class="rc-meta">
+                    <span class="rc-schedule">Daily · 10 min</span>
+                    <span class="rc-sep">·</span>
+                    <span class="rt-goal" style="--gc:var(--moss)"><span class="rt-goal-dot"></span>Run sub-25 5K</span>
+                  </div>
+                </div>
+                <button class="rc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <div class="rc-history">
+                <div class="rc-hist-cells"><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done" data-today></span></div>
+                <div class="rc-hist-stats">
+                  <span class="rt-streak">7<em>d</em></span>
+                  <span class="rc-stat-sep">·</span>
+                  <span class="rt-comp rt-comp-strong">91%</span>
+                </div>
+              </div>
+              <footer class="rc-actions">
+                <button class="rc-action rc-action-check" data-active>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="rc-action rc-action-skip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </footer>
+            </article>
+            <article class="routine-card">
+              <header class="rc-head">
+                <div class="rc-text">
+                  <h3 class="rc-name">Journal entry</h3>
+                  <div class="rc-meta">
+                    <span class="rc-schedule">Daily · evening</span>
+                    <span class="rc-sep">·</span>
+                    <span class="rt-goal rt-goal-none">standalone</span>
+                  </div>
+                </div>
+                <button class="rc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <div class="rc-history">
+                <div class="rc-hist-cells"><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-empty" data-today></span></div>
+                <div class="rc-hist-stats">
+                  <span class="rt-streak">21<em>d</em></span>
+                  <span class="rc-stat-sep">·</span>
+                  <span class="rt-comp rt-comp-strong">86%</span>
+                </div>
+              </div>
+              <footer class="rc-actions">
+                <button class="rc-action rc-action-check">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="rc-action rc-action-skip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </footer>
+            </article>
+            <article class="routine-card">
+              <header class="rc-head">
+                <div class="rc-text">
+                  <h3 class="rc-name">Read book · 30 min</h3>
+                  <div class="rc-meta">
+                    <span class="rc-schedule">Daily</span>
+                    <span class="rc-sep">·</span>
+                    <span class="rt-goal" style="--gc:var(--indigo)"><span class="rt-goal-dot"></span>Read DDIA</span>
+                  </div>
+                </div>
+                <button class="rc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <div class="rc-history">
+                <div class="rc-hist-cells"><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-empty"></span><span class="rh-cell rh-cell-empty" data-today></span></div>
+                <div class="rc-hist-stats">
+                  <span class="rt-streak">5<em>d</em></span>
+                  <span class="rc-stat-sep">·</span>
+                  <span class="rt-comp">71%</span>
+                </div>
+              </div>
+              <footer class="rc-actions">
+                <button class="rc-action rc-action-check">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="rc-action rc-action-skip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </footer>
+            </article>
+            <article class="routine-card">
+              <header class="rc-head">
+                <div class="rc-text">
+                  <h3 class="rc-name">Cold shower</h3>
+                  <div class="rc-meta">
+                    <span class="rc-schedule">Daily · morning</span>
+                    <span class="rc-sep">·</span>
+                    <span class="rt-goal rt-goal-none">standalone</span>
+                  </div>
+                </div>
+                <button class="rc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <div class="rc-history">
+                <div class="rc-hist-cells"><span class="rh-cell rh-cell-skipped"></span><span class="rh-cell rh-cell-skipped"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-skipped"></span><span class="rh-cell rh-cell-skipped"></span><span class="rh-cell rh-cell-skipped"></span><span class="rh-cell rh-cell-skipped" data-today></span></div>
+                <div class="rc-hist-stats">
+                  <span class="rt-streak rt-streak-zero">0<em>d</em></span>
+                  <span class="rc-stat-sep">·</span>
+                  <span class="rt-comp rt-comp-weak">18%</span>
+                </div>
+              </div>
+              <footer class="rc-actions">
+                <button class="rc-action rc-action-check">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="rc-action rc-action-skip" data-active>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </footer>
+            </article>
+            <article class="routine-card">
+              <header class="rc-head">
+                <div class="rc-text">
+                  <h3 class="rc-name">Push-ups · 50 reps</h3>
+                  <div class="rc-meta">
+                    <span class="rc-schedule">Daily</span>
+                    <span class="rc-sep">·</span>
+                    <span class="rt-goal rt-goal-none">standalone</span>
+                  </div>
+                </div>
+                <button class="rc-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <div class="rc-history">
+                <div class="rc-hist-cells"><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-empty"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done"></span><span class="rh-cell rh-cell-done" data-today></span></div>
+                <div class="rc-hist-stats">
+                  <span class="rt-streak">12<em>d</em></span>
+                  <span class="rc-stat-sep">·</span>
+                  <span class="rt-comp rt-comp-strong">86%</span>
+                </div>
+              </div>
+              <footer class="rc-actions">
+                <button class="rc-action rc-action-check" data-active>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="rc-action rc-action-skip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </footer>
+            </article>
+        </div>
+
+      </main>
+      <button class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+              <nav class="tab-bar">
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+            <span class="tab-label">Notes</span>
+          </button>
+          <button class="tab-btn" data-active>
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><polyline points="21 4 21 12 13 12"/></svg></span>
+            <span class="tab-label">Routines</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
+            <span class="tab-label">Goals</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 7h4l-3 7"/><path d="M8 22h8"/></svg></span>
+            <span class="tab-label">Sprints</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+            <span class="tab-label">Analysis</span>
+          </button>
+      </nav>
+        <div class="home-indicator"><div class="home-bar"></div></div>
+      </div>
+    </div>
+    <div class="frame-label">Daily practices with 7-day strip</div>
+  </div>
+  <div class="frame-wrap">
+    <div class="frame-num">06 · SPRINTS</div>
+    
+    <div class="iphone">
+      <div class="iphone-screen">
+        
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-island"></div>
+        <div class="status-icons">
+          <span class="status-signal"><span></span><span></span><span></span><span></span></span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 7c4-3 9-3 13 0l-1 1c-3-2-7-2-11 0z M5 11c2-2 5-2 7 0l-1 1c-1-1-4-1-5 0z M9 15c1-1 2-1 3 0l-1 1z"/></svg>
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="1" y="1" width="20" height="10" rx="2"/><rect x="2.5" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+        
+      <div class="top-bar">
+        <div class="tb-side"><div class="tb-spacer"></div></div>
+        <div class="tb-center">
+          <div class="tb-title">Sprints</div>
+          <div class="tb-sub">1 active · 1 in queue</div>
+        </div>
+        <div class="tb-side tb-side-right"><button class="tb-avatar">A</button></div>
+      </div>
+        
+      <main class="screen-content">
+
+        <article class="sprint-featured">
+          <header class="sf-head">
+            <div class="sf-status">
+              <span class="sf-status-dot"></span>
+              <span class="sf-status-text">On track</span>
+            </div>
+            <button class="sf-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+          </header>
+
+          <h2 class="sf-name">Q2 · The Aerobic Sprint</h2>
+          <p class="sf-period">Apr 1 – Jun 30 · 8 weeks remaining</p>
+          <p class="sf-desc">Tighten the running and reading rhythms. Eight weeks of consistent base + threshold work, paired with the systems book.</p>
+
+          <div class="sf-prog">
+            <div class="sf-prog-num">47<em>%</em></div>
+            <div class="sf-prog-bar"><div class="sf-prog-bar-fill" style="width:47%"></div></div>
+          </div>
+          <div class="sf-stats">
+            <span><b>6</b> of 12 items completed</span>
+          </div>
+
+          <div class="sf-items">
+            <div class="sf-items-head">
+              <span>Items in sprint</span>
+              <span class="sf-items-rule"></span>
+            </div>
+            <div class="sf-items-list">
+              
+                <div class="sp-item sp-item-on-track" style="--gc:var(--moss)">
+                  <span class="sp-item-kind">◯</span>
+                  <div class="sp-item-text">
+                    <div class="sp-item-title">Run sub-25 5K</div>
+                    <div class="sp-item-meta">67% · due Jun 8</div>
+                  </div>
+                </div>
+                <div class="sp-item sp-item-on-track" style="--gc:var(--indigo)">
+                  <span class="sp-item-kind">◯</span>
+                  <div class="sp-item-text">
+                    <div class="sp-item-title">Read DDIA</div>
+                    <div class="sp-item-meta">33% · due Aug 15</div>
+                  </div>
+                </div>
+                <div class="sp-item sp-item-on-track" style="--gc:var(--moss)">
+                  <span class="sp-item-kind">✓</span>
+                  <div class="sp-item-text">
+                    <div class="sp-item-title">Build aerobic base</div>
+                    <div class="sp-item-meta">86% · ends May 14</div>
+                  </div>
+                </div>
+                <div class="sp-item sp-item-on-track" style="--gc:var(--indigo)">
+                  <span class="sp-item-kind">✓</span>
+                  <div class="sp-item-text">
+                    <div class="sp-item-title">Distributed · ch 5–8</div>
+                    <div class="sp-item-meta">22% · ends Jun 30</div>
+                  </div>
+                </div>
+                <div class="sp-item sp-item-done" style="--gc:var(--moss)">
+                  <span class="sp-item-kind">⚡</span>
+                  <div class="sp-item-text">
+                    <div class="sp-item-title">Run 3km zone 2 today</div>
+                    <div class="sp-item-meta">logged 3.2 km</div>
+                  </div>
+                </div>
+                <div class="sp-item sp-item-pending" style="--gc:var(--indigo)">
+                  <span class="sp-item-kind">⚡</span>
+                  <div class="sp-item-text">
+                    <div class="sp-item-title">Read 30 min</div>
+                    <div class="sp-item-meta">pending</div>
+                  </div>
+                </div>
+            </div>
+            <footer class="sf-items-foot">
+              <span class="sf-items-foot-label">Add to sprint:</span>
+              <button class="sp-add">◯ Goal</button>
+              <button class="sp-add">✓ Step</button>
+              <button class="sp-add">⚡ Go</button>
+            </footer>
+          </div>
+        </article>
+
+        <div class="section-bar">
+          <span class="sec-title">Other sprints</span>
+          <span class="sec-rule"></span>
+          <span class="sec-meta">3</span>
+        </div>
+
+        <div class="other-sprints-list">
+            <article class="other-sprint">
+              <header class="os-head">
+                <span class="os-status os-status-done">Completed</span>
+                <button class="os-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <h3 class="os-name">Q1 · The Foundation</h3>
+              <div class="os-period">Jan 1 – Mar 31</div>
+              <div class="os-prog">
+                <div class="os-bar"><div class="os-bar-fill" style="width:100%"></div></div>
+                <span class="os-pct">100%</span>
+              </div>
+              <footer class="os-foot">
+                <span class="os-items">8/8 items</span>
+              </footer>
+            </article>
+            <article class="other-sprint">
+              <header class="os-head">
+                <span class="os-status os-status-on-track">Active</span>
+                <button class="os-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <h3 class="os-name">May Focus · Portfolio launch</h3>
+              <div class="os-period">May 1 – May 31</div>
+              <div class="os-prog">
+                <div class="os-bar"><div class="os-bar-fill" style="width:62%"></div></div>
+                <span class="os-pct">62%</span>
+              </div>
+              <footer class="os-foot">
+                <span class="os-items">5/8 items</span>
+              </footer>
+            </article>
+            <article class="other-sprint">
+              <header class="os-head">
+                <span class="os-status os-status-upcoming">Upcoming</span>
+                <button class="os-edit"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </header>
+              <h3 class="os-name">Q3 · Race & Ship</h3>
+              <div class="os-period">Jul 1 – Sep 30</div>
+              <div class="os-prog">
+                <div class="os-bar"><div class="os-bar-fill" style="width:0%"></div></div>
+                <span class="os-pct">0%</span>
+              </div>
+              <footer class="os-foot">
+                <span class="os-items">0/9 items</span>
+              </footer>
+            </article>
+        </div>
+
+      </main>
+      <button class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+              <nav class="tab-bar">
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+            <span class="tab-label">Notes</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><polyline points="21 4 21 12 13 12"/></svg></span>
+            <span class="tab-label">Routines</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
+            <span class="tab-label">Goals</span>
+          </button>
+          <button class="tab-btn" data-active>
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 7h4l-3 7"/><path d="M8 22h8"/></svg></span>
+            <span class="tab-label">Sprints</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+            <span class="tab-label">Analysis</span>
+          </button>
+      </nav>
+        <div class="home-indicator"><div class="home-bar"></div></div>
+      </div>
+    </div>
+    <div class="frame-label">Featured sprint + others</div>
+  </div>
+  <div class="frame-wrap">
+    <div class="frame-num">07 · ANALYSIS</div>
+    
+    <div class="iphone">
+      <div class="iphone-screen">
+        
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-island"></div>
+        <div class="status-icons">
+          <span class="status-signal"><span></span><span></span><span></span><span></span></span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 7c4-3 9-3 13 0l-1 1c-3-2-7-2-11 0z M5 11c2-2 5-2 7 0l-1 1c-1-1-4-1-5 0z M9 15c1-1 2-1 3 0l-1 1z"/></svg>
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="1" y="1" width="20" height="10" rx="2"/><rect x="2.5" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+        
+      <div class="top-bar">
+        <div class="tb-side"><div class="tb-spacer"></div></div>
+        <div class="tb-center">
+          <div class="tb-title">Analysis</div>
+          <div class="tb-sub">May 2026</div>
+        </div>
+        <div class="tb-side tb-side-right"><button class="tb-btn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button><button class="tb-avatar">A</button></div>
+      </div>
+        
+      <main class="screen-content">
+
+        <header class="ana-hero">
+          <div class="ana-eyebrow">May 2026, in figures</div>
+          <h1 class="ana-hero-title">A solid month,<br>with one <em>fading</em> habit.</h1>
+        </header>
+
+        <div class="kpi-grid">
+          <div class="kpi-tile"><div class="kpi-num">87<em>%</em></div><div class="kpi-lab">Routines on track</div><div class="kpi-trend kpi-up">+ 4%</div></div>
+          <div class="kpi-tile"><div class="kpi-num">4</div><div class="kpi-lab">Goals advancing</div><div class="kpi-trend kpi-up">+ 1</div></div>
+          <div class="kpi-tile"><div class="kpi-num">43<em>d</em></div><div class="kpi-lab">Longest streak</div><div class="kpi-trend kpi-up">PB</div></div>
+          <div class="kpi-tile"><div class="kpi-num">47</div><div class="kpi-lab">Notes added</div><div class="kpi-trend kpi-up">+ 18%</div></div>
+        </div>
+
+        <div class="time-pills time-pills-ana">
+          <button class="tp-pill">7d</button>
+          <button class="tp-pill tp-pill-active">30d</button>
+          <button class="tp-pill">90d</button>
+          <button class="tp-pill">1y</button>
+        </div>
+
+        <article class="chart-card">
+          <header class="cc-head">
+            <div>
+              <h3 class="cc-title">Daily completion</h3>
+              <p class="cc-sub">routines vs go-targets · 30 days</p>
+            </div>
+            <div class="cc-stat"><div class="cc-stat-num">87<em>%</em></div><div class="cc-stat-lab">routines avg</div></div>
+          </header>
+          <div class="cc-legend">
+            <span class="cc-legend-row"><span class="cc-legend-dot" style="background:var(--indigo)"></span>Routines · 87%</span>
+            <span class="cc-legend-row"><span class="cc-legend-dot" style="background:var(--moss)"></span>Go-targets · 71%</span>
+          </div>
+          <div class="cc-body"><svg viewBox="0 0 358 140" class="chart-svg"><line x1="32" y1="14.0" x2="348" y2="14.0" stroke="var(--hairline-faint)"/><line x1="32" y1="48.7" x2="348" y2="48.7" stroke="var(--hairline-faint)"/><line x1="32" y1="83.3" x2="348" y2="83.3" stroke="var(--hairline-faint)"/><line x1="32" y1="118.0" x2="348" y2="118.0" stroke="var(--hairline-faint)"/><text x="26" y="17.0" text-anchor="end" fill="var(--ink-5)" font-size="9" font-family="JetBrains Mono">94</text><text x="26" y="51.7" text-anchor="end" fill="var(--ink-5)" font-size="9" font-family="JetBrains Mono">75</text><text x="26" y="86.3" text-anchor="end" fill="var(--ink-5)" font-size="9" font-family="JetBrains Mono">56</text><text x="26" y="121.0" text-anchor="end" fill="var(--ink-5)" font-size="9" font-family="JetBrains Mono">36</text><text x="32.0" y="132" text-anchor="middle" fill="var(--ink-5)" font-size="9" font-family="JetBrains Mono">d-29</text><text x="97.4" y="132" text-anchor="middle" fill="var(--ink-5)" font-size="9" font-family="JetBrains Mono">d-23</text><text x="162.8" y="132" text-anchor="middle" fill="var(--ink-5)" font-size="9" font-family="JetBrains Mono">d-17</text><text x="228.1" y="132" text-anchor="middle" fill="var(--ink-5)" font-size="9" font-family="JetBrains Mono">d-11</text><text x="293.5" y="132" text-anchor="middle" fill="var(--ink-5)" font-size="9" font-family="JetBrains Mono">d-5</text><path d="M 32.0,118 L 32.0,47.5 L 42.9,54.7 L 53.8,56.5 L 64.7,61.9 L 75.6,58.3 L 86.5,54.7 L 97.4,49.3 L 108.3,56.5 L 119.2,56.5 L 130.1,63.7 L 141.0,67.4 L 151.9,67.4 L 162.8,74.6 L 173.7,78.2 L 184.6,76.4 L 195.4,76.4 L 206.3,80.0 L 217.2,78.2 L 228.1,74.6 L 239.0,81.8 L 249.9,76.4 L 260.8,74.6 L 271.7,76.4 L 282.6,81.8 L 293.5,74.6 L 304.4,76.4 L 315.3,83.6 L 326.2,85.4 L 337.1,80.0 L 348.0,78.2 L 348.0,118 Z" fill="var(--indigo)" fill-opacity="0.10"/><path d="M 32.0,47.5 L 42.9,54.7 L 53.8,56.5 L 64.7,61.9 L 75.6,58.3 L 86.5,54.7 L 97.4,49.3 L 108.3,56.5 L 119.2,56.5 L 130.1,63.7 L 141.0,67.4 L 151.9,67.4 L 162.8,74.6 L 173.7,78.2 L 184.6,76.4 L 195.4,76.4 L 206.3,80.0 L 217.2,78.2 L 228.1,74.6 L 239.0,81.8 L 249.9,76.4 L 260.8,74.6 L 271.7,76.4 L 282.6,81.8 L 293.5,74.6 L 304.4,76.4 L 315.3,83.6 L 326.2,85.4 L 337.1,80.0 L 348.0,78.2" fill="none" stroke="var(--indigo)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="348.0" cy="78.2" r="4" fill="var(--indigo)" opacity="0.25"/><circle cx="348.0" cy="78.2" r="2.6" fill="var(--indigo)"/><path d="M 32.0,118 L 32.0,61.9 L 42.9,56.5 L 53.8,56.5 L 64.7,45.7 L 75.6,49.3 L 86.5,49.3 L 97.4,43.9 L 108.3,40.3 L 119.2,33.1 L 130.1,33.1 L 141.0,29.5 L 151.9,40.3 L 162.8,47.5 L 173.7,52.9 L 184.6,63.7 L 195.4,71.0 L 206.3,81.8 L 217.2,87.2 L 228.1,85.4 L 239.0,89.0 L 249.9,92.6 L 260.8,101.6 L 271.7,107.0 L 282.6,98.0 L 293.5,96.2 L 304.4,94.4 L 315.3,103.4 L 326.2,98.0 L 337.1,107.0 L 348.0,110.6 L 348.0,118 Z" fill="var(--moss)" fill-opacity="0.10"/><path d="M 32.0,61.9 L 42.9,56.5 L 53.8,56.5 L 64.7,45.7 L 75.6,49.3 L 86.5,49.3 L 97.4,43.9 L 108.3,40.3 L 119.2,33.1 L 130.1,33.1 L 141.0,29.5 L 151.9,40.3 L 162.8,47.5 L 173.7,52.9 L 184.6,63.7 L 195.4,71.0 L 206.3,81.8 L 217.2,87.2 L 228.1,85.4 L 239.0,89.0 L 249.9,92.6 L 260.8,101.6 L 271.7,107.0 L 282.6,98.0 L 293.5,96.2 L 304.4,94.4 L 315.3,103.4 L 326.2,98.0 L 337.1,107.0 L 348.0,110.6" fill="none" stroke="var(--moss)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="348.0" cy="110.6" r="4" fill="var(--moss)" opacity="0.25"/><circle cx="348.0" cy="110.6" r="2.6" fill="var(--moss)"/></svg></div>
+        </article>
+
+        <article class="chart-card">
+          <header class="cc-head">
+            <div>
+              <h3 class="cc-title">Goals vs plan</h3>
+              <p class="cc-sub">Dashed line = expected today</p>
+            </div>
+            <div class="cc-stat"><div class="cc-stat-num">4<em>/5</em></div><div class="cc-stat-lab">on track</div></div>
+          </header>
+          <div class="cc-body"><svg viewBox="0 0 358 180" class="chart-svg"><rect x="0" y="6.0" width="358" height="27.6" rx="3" fill="var(--cream)"/><line x1="214.8" y1="4.0" x2="214.8" y2="35.6" stroke="var(--ink-4)" stroke-width="1.2" stroke-dasharray="3 2"/><rect x="0" y="6.0" width="239.9" height="27.6" rx="3" fill="var(--moss)"/><text x="10" y="23.8" fill="var(--paper)" font-size="11" font-family="Inter" font-weight="500">Run sub-25 5K</text><text x="352.0" y="23.8" text-anchor="end" fill="var(--ink)" font-size="11" font-family="JetBrains Mono" font-weight="500">67%</text><rect x="0" y="39.6" width="358" height="27.6" rx="3" fill="var(--cream)"/><line x1="136.0" y1="37.6" x2="136.0" y2="69.2" stroke="var(--ink-4)" stroke-width="1.2" stroke-dasharray="3 2"/><rect x="0" y="39.6" width="118.1" height="27.6" rx="3" fill="var(--indigo)"/><text x="10" y="57.4" fill="var(--paper)" font-size="11" font-family="Inter" font-weight="500">Read DDIA</text><text x="352.0" y="57.4" text-anchor="end" fill="var(--ink)" font-size="11" font-family="JetBrains Mono" font-weight="500">33%</text><rect x="0" y="73.2" width="358" height="27.6" rx="3" fill="var(--cream)"/><line x1="161.1" y1="71.2" x2="161.1" y2="102.8" stroke="var(--ink-4)" stroke-width="1.2" stroke-dasharray="3 2"/><rect x="0" y="73.2" width="193.3" height="27.6" rx="3" fill="var(--ochre)"/><text x="10" y="91.0" fill="var(--paper)" font-size="11" font-family="Inter" font-weight="500">Save €5,000</text><text x="352.0" y="91.0" text-anchor="end" fill="var(--ink)" font-size="11" font-family="JetBrains Mono" font-weight="500">54%</text><rect x="0" y="106.8" width="358" height="27.6" rx="3" fill="var(--cream)"/><line x1="250.6" y1="104.8" x2="250.6" y2="136.4" stroke="var(--ink-4)" stroke-width="1.2" stroke-dasharray="3 2"/><rect x="0" y="106.8" width="293.6" height="27.6" rx="3" fill="var(--rust)"/><text x="10" y="124.6" fill="var(--paper)" font-size="11" font-family="Inter" font-weight="500">Launch portfolio</text><text x="352.0" y="124.6" text-anchor="end" fill="var(--ink)" font-size="11" font-family="JetBrains Mono" font-weight="500">82%</text><rect x="0" y="140.4" width="358" height="27.6" rx="3" fill="var(--cream)"/><line x1="89.5" y1="138.4" x2="89.5" y2="170.0" stroke="var(--ink-4)" stroke-width="1.2" stroke-dasharray="3 2"/><rect x="0" y="140.4" width="43.0" height="27.6" rx="3" fill="var(--slate)"/><text x="10" y="158.2" fill="var(--paper)" font-size="11" font-family="Inter" font-weight="500">Learn German A2</text><text x="352.0" y="158.2" text-anchor="end" fill="var(--ink)" font-size="11" font-family="JetBrains Mono" font-weight="500">12%</text></svg></div>
+        </article>
+
+        <article class="chart-card">
+          <header class="cc-head">
+            <div>
+              <h3 class="cc-title">Routines by status</h3>
+              <p class="cc-sub">13 active</p>
+            </div>
+          </header>
+          <div class="donut-block-m">
+            <div class="donut-svg-wrap-m"><svg viewBox="0 0 140 140" class="donut-svg"><path d="M 70.00 6.00 A 64.00 64.00 0 0 1 85.32 132.14 L 80.05 110.78 A 42.00 42.00 0 0 0 70.00 28.00 Z" fill="var(--moss)"/><path d="M 85.32 132.14 A 64.00 64.00 0 0 1 6.47 62.29 L 28.31 64.94 A 42.00 42.00 0 0 0 80.05 110.78 Z" fill="var(--indigo)"/><path d="M 6.47 62.29 A 64.00 64.00 0 0 1 40.26 13.33 L 50.48 32.81 A 42.00 42.00 0 0 0 28.31 64.94 Z" fill="var(--ochre)"/><path d="M 40.26 13.33 A 64.00 64.00 0 0 1 70.00 6.00 L 70.00 28.00 A 42.00 42.00 0 0 0 50.48 32.81 Z" fill="var(--rust)"/><text x="70.0" y="68.0" text-anchor="middle" fill="var(--ink)" font-size="22" font-family="Fraunces" font-weight="500">13</text><text x="70.0" y="82.0" text-anchor="middle" fill="var(--ink-4)" font-size="8" font-family="Inter" font-weight="500" letter-spacing="0.10em">ROUTINES</text></svg></div>
+            <div class="dl-list"><div class="dl-row"><span class="dl-swatch" style="background:var(--moss)"></span><span class="dl-label">Strong streak</span><span class="dl-num">6</span></div><div class="dl-row"><span class="dl-swatch" style="background:var(--indigo)"></span><span class="dl-label">Active</span><span class="dl-num">4</span></div><div class="dl-row"><span class="dl-swatch" style="background:var(--ochre)"></span><span class="dl-label">Slipping</span><span class="dl-num">2</span></div><div class="dl-row"><span class="dl-swatch" style="background:var(--rust)"></span><span class="dl-label">On hold</span><span class="dl-num">1</span></div></div>
+          </div>
+        </article>
+
+        <article class="chart-card">
+          <header class="cc-head">
+            <div>
+              <h3 class="cc-title">Top streaks</h3>
+              <p class="cc-sub">trending</p>
+            </div>
+          </header>
+          <div class="ana-streak-list"><div class="ana-streak-row"><span class="asr-rank">1</span><span class="asr-name">Morning meditation</span><div class="asr-spark"><svg viewBox="0 0 64 18" class="spark-svg"><polyline points="0.0,17.0 5.3,14.5 10.7,13.3 16.0,10.8 21.3,9.6 26.7,8.4 32.0,7.2 37.3,5.9 42.7,4.7 48.0,3.5 53.3,3.5 58.7,2.2 64.0,1.0" fill="none" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="asr-days">43<em>d</em></span></div><div class="ana-streak-row"><span class="asr-rank">2</span><span class="asr-name">Drink water</span><div class="asr-spark"><svg viewBox="0 0 64 18" class="spark-svg"><polyline points="0.0,17.0 5.3,15.1 10.7,13.2 16.0,10.4 21.3,8.5 26.7,7.6 32.0,5.7 37.3,4.8 42.7,3.8 48.0,2.9 53.3,1.9 58.7,1.9 64.0,1.0" fill="none" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="asr-days">28<em>d</em></span></div><div class="ana-streak-row"><span class="asr-rank">3</span><span class="asr-name">Journal entry</span><div class="asr-spark"><svg viewBox="0 0 64 18" class="spark-svg"><polyline points="0.0,17.0 5.3,15.0 10.7,13.0 16.0,11.0 21.3,9.0 26.7,7.0 32.0,5.0 37.3,3.0 42.7,2.0 48.0,1.0 53.3,1.0 58.7,1.0 64.0,1.0" fill="none" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="asr-days">21<em>d</em></span></div><div class="ana-streak-row"><span class="asr-rank">4</span><span class="asr-name">Sleep 8 hours</span><div class="asr-spark"><svg viewBox="0 0 64 18" class="spark-svg"><polyline points="0.0,17.0 5.3,13.8 10.7,11.7 16.0,9.5 21.3,7.4 26.7,5.3 32.0,4.2 37.3,3.1 42.7,2.1 48.0,2.1 53.3,1.0 58.7,2.1 64.0,2.1" fill="none" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="asr-days">18<em>d</em></span></div></div>
+        </article>
+
+        <article class="chart-card">
+          <header class="cc-head">
+            <div>
+              <h3 class="cc-title">A year of practice</h3>
+              <p class="cc-sub">2,438 entries · 82% with activity</p>
+            </div>
+          </header>
+          <div class="cc-body"><div class="m-heat"><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="2"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="3"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="1"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="1"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span><span class="m-heat-cell"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span></div><div class="m-heat-week"><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="2"></span><span class="m-heat-cell" data-level="2"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="1"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell" data-level="1"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span><span class="m-heat-cell" data-level="4"></span><span class="m-heat-cell"></span><span class="m-heat-cell" data-level="3"></span></div><div class="m-heat-week"><span class="m-heat-cell" data-level="4" data-today></span><span class="m-heat-cell" style="visibility:hidden"></span><span class="m-heat-cell" style="visibility:hidden"></span><span class="m-heat-cell" style="visibility:hidden"></span><span class="m-heat-cell" style="visibility:hidden"></span><span class="m-heat-cell" style="visibility:hidden"></span><span class="m-heat-cell" style="visibility:hidden"></span></div></div></div>
+          <div class="m-heat-foot">
+            <span>Less</span>
+            <span class="ms-cell" style="background:var(--heat-0)"></span>
+            <span class="ms-cell" style="background:var(--heat-1)"></span>
+            <span class="ms-cell" style="background:var(--heat-2)"></span>
+            <span class="ms-cell" style="background:var(--heat-3)"></span>
+            <span class="ms-cell" style="background:var(--heat-4)"></span>
+            <span>More</span>
+          </div>
+        </article>
+
+      </main>
+              <nav class="tab-bar">
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+            <span class="tab-label">Notes</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><polyline points="21 4 21 12 13 12"/></svg></span>
+            <span class="tab-label">Routines</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
+            <span class="tab-label">Goals</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 7h4l-3 7"/><path d="M8 22h8"/></svg></span>
+            <span class="tab-label">Sprints</span>
+          </button>
+          <button class="tab-btn" data-active>
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+            <span class="tab-label">Analysis</span>
+          </button>
+      </nav>
+        <div class="home-indicator"><div class="home-bar"></div></div>
+      </div>
+    </div>
+    <div class="frame-label">Single page · charts stacked</div>
+  </div>
+  <div class="frame-wrap">
+    <div class="frame-num">08 · PROFILE</div>
+    
+    <div class="iphone">
+      <div class="iphone-screen">
+        
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-island"></div>
+        <div class="status-icons">
+          <span class="status-signal"><span></span><span></span><span></span><span></span></span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 7c4-3 9-3 13 0l-1 1c-3-2-7-2-11 0z M5 11c2-2 5-2 7 0l-1 1c-1-1-4-1-5 0z M9 15c1-1 2-1 3 0l-1 1z"/></svg>
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="1" y="1" width="20" height="10" rx="2"/><rect x="2.5" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+        
+      <div class="top-bar">
+        <div class="tb-side"><button class="tb-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button></div>
+        <div class="tb-center">
+          <div class="tb-title">Profile</div>
+          
+        </div>
+        <div class="tb-side tb-side-right"></div>
+      </div>
+        
+      <main class="screen-content screen-content-profile">
+
+        <header class="pf-header">
+          <div class="pf-avatar-big">A</div>
+          <div class="pf-info">
+            <h1 class="pf-name">Aleksandr</h1>
+            <p class="pf-tagline">Member since May 2024 · 47 weeks streak</p>
+          </div>
+        </header>
+
+        <div class="pf-stats">
+          <div class="pf-stat">
+            <div class="pf-stat-num">2,438</div>
+            <div class="pf-stat-lab">Entries</div>
+          </div>
+          <div class="pf-stat">
+            <div class="pf-stat-num">47</div>
+            <div class="pf-stat-lab">Weeks</div>
+          </div>
+          <div class="pf-stat">
+            <div class="pf-stat-num">13</div>
+            <div class="pf-stat-lab">Routines</div>
+          </div>
+          <div class="pf-stat">
+            <div class="pf-stat-num">8</div>
+            <div class="pf-stat-lab">Goals</div>
+          </div>
+        </div>
+
+        
+          <section class="pf-section">
+            <div class="pf-section-label">Account</div>
+            <div class="pf-section-body">
+              <button class="pf-row">
+                <span class="pf-row-label">Name</span>
+                <span class="pf-row-right"><span class="pf-row-value">Aleksandr</span><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">Email</span>
+                <span class="pf-row-right"><span class="pf-row-value">a@example.com</span><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">Plan</span>
+                <span class="pf-row-right"><span class="pf-badge">PRO</span><span class="pf-row-value">Pro · €8/mo</span><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+            </div>
+          </section>
+          <section class="pf-section">
+            <div class="pf-section-label">Appearance</div>
+            <div class="pf-section-body">
+              <button class="pf-row">
+                <span class="pf-row-label">Theme</span>
+                <span class="pf-row-right"><span class="pf-row-value">System</span><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">Accent color</span>
+                <span class="pf-row-right"><span class="pf-swatch" style="background:var(--indigo)"></span><span class="pf-row-value">Indigo</span><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">Reduce motion</span>
+                <span class="pf-row-right"><span class="pf-toggle"><span class="pf-toggle-knob"></span></span></span>
+              </button>
+            </div>
+          </section>
+          <section class="pf-section">
+            <div class="pf-section-label">Notifications</div>
+            <div class="pf-section-body">
+              <button class="pf-row">
+                <span class="pf-row-label">Daily summary</span>
+                <span class="pf-row-right"><span class="pf-row-value">08:00</span><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">Routine reminders</span>
+                <span class="pf-row-right"><span class="pf-toggle pf-toggle-on"><span class="pf-toggle-knob"></span></span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">Streak warnings</span>
+                <span class="pf-row-right"><span class="pf-toggle pf-toggle-on"><span class="pf-toggle-knob"></span></span></span>
+              </button>
+            </div>
+          </section>
+          <section class="pf-section">
+            <div class="pf-section-label">Data</div>
+            <div class="pf-section-body">
+              <button class="pf-row">
+                <span class="pf-row-label">Export to JSON</span>
+                <span class="pf-row-right"><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">Import from CSV</span>
+                <span class="pf-row-right"><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">Sync with iCloud</span>
+                <span class="pf-row-right"><span class="pf-toggle pf-toggle-on"><span class="pf-toggle-knob"></span></span></span>
+              </button>
+            </div>
+          </section>
+          <section class="pf-section">
+            <div class="pf-section-label">About</div>
+            <div class="pf-section-body">
+              <button class="pf-row">
+                <span class="pf-row-label">Version</span>
+                <span class="pf-row-right"><span class="pf-row-value">2.4.1 (build 1142)</span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">What's new</span>
+                <span class="pf-row-right"><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+              <button class="pf-row">
+                <span class="pf-row-label">Send feedback</span>
+                <span class="pf-row-right"><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+              <button class="pf-row pf-row-danger">
+                <span class="pf-row-label">Sign out</span>
+                <span class="pf-row-right"><span class="pf-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></span>
+              </button>
+            </div>
+          </section>
+
+      </main>
+              <nav class="tab-bar">
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+            <span class="tab-label">Notes</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><polyline points="21 4 21 12 13 12"/></svg></span>
+            <span class="tab-label">Routines</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
+            <span class="tab-label">Goals</span>
+          </button>
+          <button class="tab-btn">
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-3 7h4l-3 7"/><path d="M8 22h8"/></svg></span>
+            <span class="tab-label">Sprints</span>
+          </button>
+          <button class="tab-btn" data-active>
+            <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+            <span class="tab-label">Analysis</span>
+          </button>
+      </nav>
+        <div class="home-indicator"><div class="home-bar"></div></div>
+      </div>
+    </div>
+    <div class="frame-label">Settings · account · data · about</div>
+  </div>
+    </div>
+  </div>
+</body>
+</html>

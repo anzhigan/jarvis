@@ -1,26 +1,18 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { Loader2, BookOpen, BarChart3, Repeat, Zap, Target } from 'lucide-react';
-import MobileDrawer from '../components/MobileDrawer';
+import { lazy, Suspense, useCallback, useEffect, useRef } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
-import { useT } from '../store/i18n';
 import type { Tab } from './tabs';
 
 export type { Tab };
 
-const Notes     = lazy(() => import('../components/Notes'));
-const Tasks     = lazy(() => import('../components/Tasks'));
-const Routines  = lazy(() => import('../components/Routines'));
-const Sprints   = lazy(() => import('../components/Sprints'));
-const Dashboard = lazy(() => import('../components/Metrics'));
-const Profile   = lazy(() => import('../components/Profile'));
-
-const TABS: { key: Tab; labelKey: string; icon: React.ElementType; acc: string }[] = [
-  { key: 'notes',    labelKey: 'nav.notes',    icon: BookOpen,  acc: 'notes' },
-  { key: 'tasks',    labelKey: 'nav.tasks',    icon: Target,    acc: 'goals' },
-  { key: 'routines', labelKey: 'nav.routines', icon: Repeat,    acc: 'routines' },
-  { key: 'sprints',  labelKey: 'nav.sprints',  icon: Zap,       acc: 'sprints' },
-  { key: 'analysis', labelKey: 'nav.analysis', icon: BarChart3, acc: 'analysis' },
-];
+// Each screen lazy-loads its own bundle. Tabs visited get cached in the bundle
+// cache automatically by Vite/React; we don't keep them mounted.
+const MobileNotesScreen    = lazy(() => import('../features/mobile/screens/MobileNotesScreen'));
+const MobileGoalsScreen    = lazy(() => import('../features/mobile/screens/MobileGoalsScreen'));
+const MobileRoutinesScreen = lazy(() => import('../features/mobile/screens/MobileRoutinesScreen'));
+const MobileSprintsScreen  = lazy(() => import('../features/mobile/screens/MobileSprintsScreen'));
+const MobileAnalysisScreen = lazy(() => import('../features/mobile/screens/MobileAnalysisScreen'));
+const MobileProfileScreen  = lazy(() => import('../features/mobile/screens/MobileProfileScreen'));
 
 interface Props {
   tab: Tab;
@@ -31,74 +23,55 @@ interface Props {
 
 function TabFallback() {
   return (
-    <div className="size-full flex items-center justify-center">
-      <Loader2 size={24} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
+    <div style={{
+      display: 'grid', placeItems: 'center', height: '100dvh',
+      background: 'var(--paper)', color: 'var(--ink-4)',
+    }}>
+      <Loader2 size={24} className="animate-spin" />
     </div>
   );
 }
 
 export function MobileApp({ tab, onTabChange, dark, onToggleTheme }: Props) {
   const { user } = useAuthStore();
-  const t = useT();
 
-  const [visited, setVisited] = useState<Set<Tab>>(() => new Set([tab]));
+  // Track the previous (non-profile) tab so the Profile back-button returns
+  // to wherever the user came from instead of always landing on Notes.
+  const previousTabRef = useRef<Tab>(tab === 'profile' ? 'notes' : tab);
   useEffect(() => {
-    setVisited((prev) => prev.has(tab) ? prev : new Set([...prev, tab]));
+    if (tab !== 'profile') previousTabRef.current = tab;
   }, [tab]);
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  useEffect(() => {
-    const handler = () => setDrawerOpen(true);
-    window.addEventListener('jarvnote:drawerOpen', handler);
-    return () => window.removeEventListener('jarvnote:drawerOpen', handler);
-  }, []);
+  const onAvatarClick = useCallback(() => onTabChange('profile'), [onTabChange]);
 
   if (!user) return null;
 
   return (
-    <div className="app-root">
-      <MobileDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        user={user}
-        activeTab={tab}
-        onNavigate={(t) => onTabChange(t as Tab)}
-        dark={dark}
-        onToggleTheme={onToggleTheme}
-      />
-      <div className="app-shell">
-        <div className="app-workspace">
-          <main className="app-main">
-            <Suspense fallback={<TabFallback />}>
-              {visited.has('notes')    && <div className="app-page" data-visible={tab === 'notes'}><Notes /></div>}
-              {visited.has('tasks')    && <div className="app-page" data-visible={tab === 'tasks'}><Tasks /></div>}
-              {visited.has('routines') && <div className="app-page" data-visible={tab === 'routines'}><Routines /></div>}
-              {visited.has('sprints')  && <div className="app-page" data-visible={tab === 'sprints'}><Sprints /></div>}
-              {visited.has('analysis') && <div className="app-page" data-visible={tab === 'analysis'}><Dashboard /></div>}
-              {visited.has('profile')  && <div className="app-page" data-visible={tab === 'profile'}><Profile /></div>}
-            </Suspense>
-          </main>
-
-          <nav className="mobile-tabbar">
-            {TABS.map((tabDef) => {
-              const Icon = tabDef.icon;
-              const active = tab === tabDef.key;
-              return (
-                <button
-                  key={tabDef.key}
-                  onClick={() => onTabChange(tabDef.key)}
-                  className="mobile-tab"
-                  data-active={active}
-                  data-acc={tabDef.acc}
-                >
-                  <Icon className="icon" strokeWidth={active ? 2.2 : 1.7} />
-                  <span className="label">{t(tabDef.labelKey)}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      </div>
-    </div>
+    <Suspense fallback={<TabFallback />}>
+      {tab === 'notes' && (
+        <MobileNotesScreen tab={tab} onTabChange={onTabChange} onAvatarClick={onAvatarClick} />
+      )}
+      {tab === 'tasks' && (
+        <MobileGoalsScreen tab={tab} onTabChange={onTabChange} onAvatarClick={onAvatarClick} />
+      )}
+      {tab === 'routines' && (
+        <MobileRoutinesScreen tab={tab} onTabChange={onTabChange} onAvatarClick={onAvatarClick} />
+      )}
+      {tab === 'sprints' && (
+        <MobileSprintsScreen tab={tab} onTabChange={onTabChange} onAvatarClick={onAvatarClick} />
+      )}
+      {tab === 'analysis' && (
+        <MobileAnalysisScreen tab={tab} onTabChange={onTabChange} onAvatarClick={onAvatarClick} />
+      )}
+      {tab === 'profile' && (
+        <MobileProfileScreen
+          tab={tab}
+          previousTab={previousTabRef.current}
+          onTabChange={onTabChange}
+          dark={dark}
+          onToggleTheme={onToggleTheme}
+        />
+      )}
+    </Suspense>
   );
 }

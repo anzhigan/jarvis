@@ -154,6 +154,7 @@ class TaskOut(BaseModel):
     sprints: list[SprintOut] = []
     gos: list[GoOut] = []
     tags: list[TagOut] = []
+    routines: list["GoalRoutineLinkOut"] = []
     progress: int = 0
     created_at: datetime
     updated_at: datetime
@@ -241,6 +242,17 @@ class RoutineEntryUpsert(BaseModel):
     value: float
 
 
+class GoalRoutineLinkOut(BaseModel):
+    id: uuid.UUID
+    goal_id: uuid.UUID
+    routine_id: uuid.UUID
+    start_date: date
+    end_date: date | None
+    target_count: int | None
+    routine: RoutineOut
+    model_config = {"from_attributes": True}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # FocusSprint — temporal focus referencing existing entities
 # ═══════════════════════════════════════════════════════════════════════════
@@ -296,3 +308,6 @@ class FocusSprintItemAdd(BaseModel):
     step_id: uuid.UUID | None = None
     go_id: uuid.UUID | None = None
     routine_id: uuid.UUID | None = None
+
+
+TaskOut.model_rebuild()

@@ -25,38 +25,31 @@
   margin-right: 4px;
 }
 
-/* Filter chip emphasis — within a group, when *any* chip is active the
-   non-active ones dim, and the active one pops with the indigo brand. */
+/* Filter chip emphasis — within a group, the active one pops with the indigo
+   brand. Non-active chips stay readable (no opacity dimming) so single-select
+   groups like Status don't fade the alternatives into illegibility. */
 .kanban-filters-group .ui-chip {
-  background: transparent;
-  color: var(--ink-4);
-  box-shadow: 0 0 0 1px var(--hairline);
+  background: var(--paper);
+  color: var(--ink-2);
+  box-shadow: 0 0 0 1px var(--hairline-strong);
   transition:
     background var(--dur-fast) var(--ease),
     color var(--dur-fast) var(--ease),
-    box-shadow var(--dur-fast) var(--ease),
-    opacity var(--dur-fast) var(--ease);
+    box-shadow var(--dur-fast) var(--ease);
 }
 .kanban-filters-group .ui-chip:hover {
   background: var(--cream);
-  color: var(--ink-2);
-}
-.kanban-filters-group:has(.ui-chip[data-active="true"]) .ui-chip {
-  opacity: 0.55;
-}
-.kanban-filters-group:has(.ui-chip[data-active="true"]) .ui-chip:hover {
-  opacity: 0.85;
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink-4);
 }
 .kanban-filters-group .ui-chip[data-active="true"] {
   background: var(--indigo);
   color: var(--paper);
   box-shadow: 0 0 0 1px var(--indigo);
   font-weight: 600;
-  opacity: 1;
 }
 .kanban-filters-group .ui-chip[data-active="true"]:hover {
   filter: brightness(1.08);
-  opacity: 1;
 }
 
 .kanban {
@@ -127,6 +120,27 @@
 .kc-pri[data-pri="medium"] { background: var(--ochre); }
 .kc-pri[data-pri="low"]    { background: var(--ink-5); }
 
+/* Title row holds the title + a small priority flag pill on the right. */
+.kc-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.kc-title-row .kc-title { flex: 1; margin: 0; }
+.kc-pri-flag {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  border-radius: var(--r-pill);
+  flex-shrink: 0;
+  background: var(--cream);
+  color: var(--ink-4);
+}
+.kc-pri-flag[data-pri="high"]   { background: var(--rust-soft); color: var(--rust); }
+.kc-pri-flag[data-pri="medium"] { background: var(--ochre-soft); color: var(--ochre); }
+.kc-pri-flag[data-pri="low"]    { background: var(--cream); color: var(--ink-5); }
+
 .kc-title {
   font-family: var(--font-display);
   font-size: var(--text-md);
@@ -155,7 +169,7 @@
 }
 .kc-progress-fill {
   height: 100%;
-  background: var(--gc, var(--indigo));
+  background: var(--indigo);
   transition: width var(--dur-med) var(--ease);
 }
 .kc-progress-num {
@@ -170,13 +184,14 @@
   display: flex; gap: 6px; flex-wrap: wrap;
 }
 .kc-tag {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-ui);
   font-size: var(--text-2xs);
   font-weight: 500;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: var(--r-pill);
-  background: var(--cream);
-  color: var(--ink-3);
+  background: var(--paper);
 }
 .kc-foot {
   margin-top: 10px;
@@ -249,6 +264,7 @@
 .kc-child:hover { background: var(--soft); }
 .kc-child[data-kind="go"] { border-left-color: var(--moss); }
 .kc-child[data-kind="step"] { border-left-color: var(--gc, var(--indigo)); }
+.kc-child[data-kind="routine"] { border-left-color: var(--ochre); }
 
 .kc-child-row {
   display: flex; align-items: center; gap: 8px;
@@ -277,6 +293,56 @@
   color: var(--moss);
   box-shadow: none;
 }
+.kc-child[data-kind="routine"] .kc-child-pill {
+  background: var(--ochre-soft, rgba(202, 138, 4, 0.12));
+  color: var(--ochre);
+  box-shadow: none;
+}
+
+/* Detach (unlink) routine button — small icon at the top-right of the
+   routine subcard. Visible on hover so it doesn't clutter the row. */
+.kc-child-unlink {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-control);
+  color: var(--ink-4);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.55;
+  transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
+}
+.kc-child:hover .kc-child-unlink,
+.kc-child:focus-within .kc-child-unlink { opacity: 1; }
+.kc-child-unlink:hover { background: var(--rust-soft); color: var(--rust); }
+
+/* 7-day heatmap grid inside a routine subcard — uses the same .hg-cell-*
+   classes as RoutinesView so cells look identical (done / partial /
+   skipped / empty). The subcard variant is just a tighter 7-day window. */
+.kc-routine-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 6px;
+}
+.kc-routine-grid .hg-cell {
+  /* Override aspect-ratio so cells stay readable inside the narrow card. */
+  aspect-ratio: 1;
+  min-height: 14px;
+}
+
+/* Footer line under the heatmap: schedule meta on the left, action circles on the right. */
+.kc-routine-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.kc-routine-foot .rt-actions { gap: 4px; }
+.kc-routine-foot .rt-action  { width: 24px; height: 24px; }
+.kc-routine-foot .rt-action svg { width: 11px; height: 11px; }
 .kc-child[data-done] .kc-child-pill {
   background: var(--moss-soft);
   color: var(--moss);
@@ -341,10 +407,118 @@
   color: var(--ink-4);
 }
 .kc-child-check svg { width: 8px; height: 8px; }
-.kc-child[data-done] .kc-child-check {
+/* Use direct-row selector so the parent's data-done state doesn't bleed into
+   nested go subrows (which carry their own data-done on .kc-go-row). */
+.kc-child[data-done] > .kc-child-row > .kc-child-check {
   background: var(--moss);
   border-color: var(--moss);
   color: var(--paper);
+}
+.kc-go-row[data-done] .kc-child-check {
+  background: var(--moss);
+  border-color: var(--moss);
+  color: var(--paper);
+}
+
+/* Clickable check (replaces aria-hidden span when handler present). */
+.kc-child-check-btn {
+  padding: 0;
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+.kc-child-check-btn:hover {
+  border-color: var(--moss);
+  color: var(--moss);
+}
+.kc-child[data-done] > .kc-child-row > .kc-child-check-btn:hover,
+.kc-go-row[data-done] .kc-child-check-btn:hover {
+  background: var(--moss);
+  border-color: var(--moss);
+  color: var(--paper);
+  filter: brightness(1.05);
+}
+.kc-child-check-sm { width: 12px; height: 12px; }
+.kc-child-check-sm svg { width: 7px; height: 7px; }
+
+/* Section grouping inside expand area (Steps / Gos). */
+.kc-section {
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+.kc-section-label {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  padding: 2px 4px 0;
+}
+
+/* Linked-go rows nested inside a step subcard. */
+.kc-child-gos {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--hairline-faint);
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+.kc-go-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 0;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+.kc-go-row[data-done] .kc-go-row-title {
+  color: var(--ink-5);
+  text-decoration: line-through;
+  text-decoration-color: var(--moss);
+}
+.kc-go-row-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kc-go-row-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-5);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Section-wide add button — full-width dashed CTA under each Steps / Gos / Routines list. */
+.kc-add-btn {
+  width: 100%;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  background: transparent;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--r-control);
+  color: var(--ink-4);
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+.kc-add-btn:hover {
+  border-color: var(--indigo);
+  border-style: solid;
+  color: var(--indigo);
+  background: var(--indigo-soft);
+}
+/* Compact variant — used inside a Step subcard for "+ Go". */
+.kc-add-btn--sm {
+  margin-top: 6px;
+  padding: 4px 8px;
+  font-size: 9px;
+  letter-spacing: 0.10em;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1606,85 +1780,9 @@
   color: var(--ink);
 }
 
-/* ─── Go · today ─────────────────────────────────────────────────────────── */
-.go-hero {
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 56px 80px 32px;
-}
-.go-kicker {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.10em;
-  color: var(--ochre);
-  margin-bottom: 16px;
-}
-.go-hero-title {
-  font-family: var(--font-display);
-  font-size: var(--text-5xl);
-  font-weight: 500;
-  color: var(--ink);
-  line-height: 1.04;
-  letter-spacing: var(--tracking-display);
-  margin: 0 0 14px;
-}
-.go-hero-title em {
-  font-style: italic;
-  color: var(--indigo);
-  font-weight: 400;
-}
-.go-lede {
-  font-family: var(--font-body);
-  font-size: 18px;
-  color: var(--ink-3);
-  line-height: 1.55;
-  max-width: 600px;
-}
-
-.go-progress-strip {
-  max-width: 920px;
-  margin: 0 auto 40px;
-  padding: 18px 80px;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-}
-.ps-cell {
-  line-height: 1.2;
-  padding-right: 16px;
-}
-.ps-cell + .ps-cell {
-  border-left: 1px solid var(--hairline);
-  padding-left: 24px;
-}
-.ps-num {
-  font-family: var(--font-display);
-  font-size: 32px;
-  font-weight: 500;
-  letter-spacing: var(--tracking-display);
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-.ps-num em {
-  font-family: var(--font-body);
-  font-style: italic;
-  font-weight: 400;
-  color: var(--ink-4);
-  font-size: 22px;
-}
-.ps-label {
-  font-family: var(--font-ui);
-  font-size: var(--text-2xs);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.10em;
-  color: var(--ink-4);
-  margin-top: 8px;
-}
+/* Go-today hero + progress strip moved to desktop.css (global) so they work
+   on any feature view (SprintsView reuses them). Kept the .go-list family
+   below since it is goals-specific. */
 
 .go-list {
   max-width: 920px;

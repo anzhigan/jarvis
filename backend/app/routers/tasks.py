@@ -101,6 +101,45 @@ def _task_dict(t: Task) -> dict:
     # Only include top-level gos (no sprint) AND only one-off (routine_legacy → Routines)
     direct_gos = [g for g in t.gos if not g.sprint_id and g.item_kind != 'routine_legacy']
     gos_out = [_go_dict(g, task_title=t.title) for g in direct_gos]
+    routines_out = []
+    for link in getattr(t, "routine_links", []) or []:
+        r = link.routine
+        if r is None:
+            continue
+        routines_out.append({
+            "id": link.id,
+            "goal_id": link.goal_id,
+            "routine_id": link.routine_id,
+            "start_date": link.start_date,
+            "end_date": link.end_date,
+            "target_count": link.target_count,
+            "routine": {
+                "id": r.id,
+                "user_id": r.user_id,
+                "goal_id": r.goal_id,
+                "step_id": r.step_id,
+                "title": r.title,
+                "description": r.description or "",
+                "color": r.color,
+                "schedule_type": r.schedule_type,
+                "schedule_days": r.schedule_days or "",
+                "schedule_n_days": r.schedule_n_days,
+                "schedule_count_per_period": r.schedule_count_per_period,
+                "schedule_period": r.schedule_period,
+                "start_date": r.start_date,
+                "end_date": r.end_date,
+                "is_paused": r.is_paused,
+                "kind": r.kind,
+                "unit": r.unit or "",
+                "target_value": r.target_value,
+                "entries": [
+                    {"id": e.id, "routine_id": e.routine_id, "date": e.date, "value": e.value}
+                    for e in r.entries
+                ],
+                "created_at": r.created_at,
+                "updated_at": r.updated_at,
+            },
+        })
     return {
         "id": t.id,
         "title": t.title,
@@ -111,9 +150,11 @@ def _task_dict(t: Task) -> dict:
         "due_date": t.due_date,
         "is_completed": t.is_completed,
         "order": t.order,
+        "color": t.color,
         "sprints": sprints_out,
         "gos": gos_out,
         "tags": t.tags,
+        "routines": routines_out,
         "progress": _task_progress(t),
         "created_at": t.created_at,
         "updated_at": t.updated_at,
@@ -146,7 +187,7 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user), 
     t = Task(
         user_id=user.id, title=body.title, description=body.description, status=norm_status,
         priority=body.priority, start_date=body.start_date, due_date=body.due_date,
-        order=body.order, is_completed=norm_status == "done",
+        order=body.order, is_completed=norm_status == "done", color=body.color,
     )
     db.add(t)
     await db.flush()
@@ -162,7 +203,7 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user), 
                 pg_insert(task_tags).values([{"task_id": t.id, "tag_id": tid} for tid in valid])
                 .on_conflict_do_nothing()
             )
-    await db.refresh(t, ["sprints", "gos", "tags"])
+    await db.refresh(t, ["sprints", "gos", "tags", "routine_links"])
     return _task_dict(t)
 
 

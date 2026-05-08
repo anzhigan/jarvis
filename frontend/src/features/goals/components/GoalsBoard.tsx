@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Check, ChevronRight, Plus, Repeat } from 'lucide-react';
+import { memo, useMemo, useState } from 'react';
+import { Check, ChevronRight, Flag, Plus, Repeat, Unlink2, X } from 'lucide-react';
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor,
   useDraggable, useDroppable, useSensor, useSensors,
@@ -11,6 +11,20 @@ interface Props {
   onSelect: (id: string) => void;
   onAdd: (status: TaskStatus) => void;
   onMove: (id: string, status: TaskStatus) => void | Promise<void>;
+  /** Toggle today's value for a Go (1 / target_value when checking, 0 otherwise). */
+  onToggleGoDone: (go: import('../../../api/types').Go) => void | Promise<void>;
+  /** Quick-create a step under the goal — title prompted, sensible date defaults. */
+  onAddStep: (taskId: string) => void | Promise<void>;
+  /** Quick-create a go under the goal — boolean kind, no due date. */
+  onAddGo: (taskId: string, sprintId?: string | null) => void | Promise<void>;
+  /** Quick-create a routine and attach to the goal — title prompted. */
+  onAddRoutine: (taskId: string) => void | Promise<void>;
+  /** Toggle today's value for a Routine (1 if not done, 0 otherwise). */
+  onToggleRoutineDone: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
+  /** Mark today as skipped for a Routine (entry value = 0). */
+  onSkipRoutine: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
+  /** Detach the Routine from this Goal (deletes the GoalRoutineLink, keeps the Routine). */
+  onUnlinkRoutine: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
 }
 
 interface Column {
@@ -47,19 +61,33 @@ function fmtDue(due: string): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+interface CardCallbacks {
+  onToggleGoDone?: Props['onToggleGoDone'];
+  onAddStep?: Props['onAddStep'];
+  onAddGo?: Props['onAddGo'];
+  onAddRoutine?: Props['onAddRoutine'];
+  onToggleRoutineDone?: Props['onToggleRoutineDone'];
+  onSkipRoutine?: Props['onSkipRoutine'];
+  onUnlinkRoutine?: Props['onUnlinkRoutine'];
+}
+
 function GoalCardContent({
-  task, expanded, onToggleExpand,
+  task, expanded, onToggleExpand, callbacks,
 }: {
   task: Task;
   expanded?: boolean;
   onToggleExpand?: (e: React.MouseEvent | React.KeyboardEvent) => void;
+  callbacks?: CardCallbacks;
 }) {
   const pct = Math.round(task.progress ?? 0);
-  const showProgress = task.status === 'active' || task.status === 'paused';
-  const routinesCount = task.gos.length;
-  const primaryTag = task.tags[0];
+  // Always show progress so the goal card carries an at-a-glance % across all
+  // statuses (backlog, active, paused, done).
+  const showProgress = true;
+  const gosCount = task.gos.length;
+  const routinesCount = task.routines.length;
+  const tags = task.tags;
   const stepsTotal = task.sprints.length;
-  const childTotal = stepsTotal + routinesCount;
+  const childTotal = stepsTotal + gosCount + routinesCount;
 
   const foot: React.ReactNode[] = [];
   if (routinesCount > 0) {
@@ -76,7 +104,12 @@ function GoalCardContent({
   return (
     <>
       <span className="kc-pri" data-pri={task.priority as TaskPriority} />
-      <h3 className="kc-title">{task.title}</h3>
+      <div className="kc-title-row">
+        <h3 className="kc-title">{task.title}</h3>
+        <span className="kc-pri-flag" data-pri={task.priority} title={`Priority: ${task.priority}`}>
+          <Flag size={11} />
+        </span>
+      </div>
       {task.description && <p className="kc-desc">{task.description}</p>}
 
       {showProgress && (
@@ -88,50 +121,86 @@ function GoalCardContent({
         </div>
       )}
 
-      {primaryTag && (
+      {tags.length > 0 && (
         <div className="kc-tags">
-          <span className="kc-tag" style={{ color: primaryTag.color }}>{primaryTag.name}</span>
-        </div>
-      )}
-
-      {(foot.length > 0 || childTotal > 0) && (
-        <div className="kc-foot">
-          {foot.map((node, i) => (
-            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              {i > 0 && <span style={{ color: 'var(--ink-5)' }}>·</span>}
-              {node}
+          {tags.map((tag) => (
+            <span
+              key={tag.id}
+              className="kc-tag"
+              style={{ color: tag.color, boxShadow: `inset 0 0 0 1px ${tag.color}33` }}
+            >
+              <span
+                style={{
+                  width: 6, height: 6, borderRadius: 2,
+                  background: tag.color, display: 'inline-block', marginRight: 5,
+                }}
+              />
+              {tag.name}
             </span>
           ))}
-          {childTotal > 0 && onToggleExpand && (
-            <button
-              type="button"
-              className="kc-expand-btn"
-              data-open={expanded || undefined}
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(e); }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  onToggleExpand(e);
-                }
-              }}
-              aria-label={expanded ? 'Hide steps and gos' : 'Show steps and gos'}
-            >
-              <ChevronRight />
-              {childTotal} {childTotal === 1 ? 'item' : 'items'}
-            </button>
-          )}
         </div>
       )}
 
-      {expanded && childTotal > 0 && (
+      <div className="kc-foot">
+        {foot.map((node, i) => (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {i > 0 && <span style={{ color: 'var(--ink-5)' }}>·</span>}
+            {node}
+          </span>
+        ))}
+        {onToggleExpand && (
+          <button
+            type="button"
+            className="kc-expand-btn"
+            data-open={expanded || undefined}
+            onClick={(e) => { e.stopPropagation(); onToggleExpand(e); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.stopPropagation();
+                e.preventDefault();
+                onToggleExpand(e);
+              }
+            }}
+            aria-label={expanded ? 'Hide steps and gos' : 'Show steps and gos'}
+          >
+            <ChevronRight />
+            {childTotal === 0 ? 'Steps & gos' : `${childTotal} ${childTotal === 1 ? 'item' : 'items'}`}
+          </button>
+        )}
+      </div>
+
+      {expanded && (
         <div className="kc-children" onClick={(e) => e.stopPropagation()}>
+          <StepsAndGos task={task} callbacks={callbacks} />
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ── Sub-card list inside an expanded goal — steps with nested gos, then
+ *    standalone gos, then "+ Add" buttons. ──────────────────────────────── */
+
+function StepsAndGos({
+  task, callbacks,
+}: {
+  task: Task;
+  callbacks?: CardCallbacks;
+}) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const standaloneGos = task.gos.filter((g) => !g.sprint_id);
+
+  return (
+    <>
+      {(task.sprints.length > 0 || callbacks?.onAddStep) && (
+        <div className="kc-section">
+          <div className="kc-section-label">Steps</div>
           {task.sprints.map((s) => {
             const pct = Math.round(s.progress ?? 0);
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            const end = s.end_date ? new Date(s.end_date) : null;
             const start = s.start_date ? new Date(s.start_date) : null;
+            const end = s.end_date ? new Date(s.end_date) : null;
             const overdue = !s.is_completed && end && end < today;
+            const stepGos = s.gos;
             return (
               <div
                 key={s.id}
@@ -159,69 +228,300 @@ function GoalCardContent({
                     )}
                   </div>
                 )}
-              </div>
-            );
-          })}
-          {task.gos.map((g) => {
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            const due = g.due_date ? new Date(g.due_date) : null;
-            const overdue = due && !g.is_done_today && due < today;
-            const valueLabel = g.kind === 'numeric' && g.target_value
-              ? `${g.target_value}${g.unit ? ' ' + g.unit : ''}`
-              : null;
-            const meta: React.ReactNode[] = [];
-            if (valueLabel) meta.push(<span key="v">target {valueLabel}</span>);
-            if (due) {
-              meta.push(
-                <time key="due" className={overdue ? 'overdue' : undefined}>
-                  due {fmtDue(g.due_date!)}
-                  {overdue ? ' · overdue' : ''}
-                </time>,
-              );
-            }
-            return (
-              <div
-                key={g.id}
-                className="kc-child"
-                data-kind="go"
-                data-done={g.is_done_today || undefined}
-              >
-                <div className="kc-child-row">
-                  <span className="kc-child-pill">{g.kind === 'numeric' ? 'Numeric' : 'Go'}</span>
-                  <span className="kc-child-name">{g.title}</span>
-                  <span className="kc-child-check" aria-hidden>
-                    {g.is_done_today && <Check />}
-                  </span>
-                </div>
-                {meta.length > 0 && (
-                  <div className="kc-child-meta">
-                    {meta.map((node, i) => (
-                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {i > 0 && <span className="sep">·</span>}
-                        {node}
-                      </span>
+
+                {stepGos.length > 0 && (
+                  <div className="kc-child-gos">
+                    {stepGos.map((g) => (
+                      <GoSubrow key={g.id} go={g} onToggle={callbacks?.onToggleGoDone} />
                     ))}
                   </div>
+                )}
+
+                {callbacks?.onAddGo && (
+                  <button
+                    type="button"
+                    className="kc-add-btn kc-add-btn--sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      callbacks.onAddGo?.(task.id, s.id);
+                    }}
+                  ><Plus size={10} /> Go</button>
                 )}
               </div>
             );
           })}
+          {callbacks?.onAddStep && (
+            <button
+              type="button"
+              className="kc-add-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                callbacks.onAddStep?.(task.id);
+              }}
+            ><Plus size={11} /> Step</button>
+          )}
+        </div>
+      )}
+
+      {(standaloneGos.length > 0 || callbacks?.onAddGo) && (
+        <div className="kc-section">
+          <div className="kc-section-label">Gos</div>
+          {standaloneGos.map((g) => (
+            <GoSubcard key={g.id} go={g} onToggle={callbacks?.onToggleGoDone} />
+          ))}
+          {callbacks?.onAddGo && (
+            <button
+              type="button"
+              className="kc-add-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                callbacks.onAddGo?.(task.id, null);
+              }}
+            ><Plus size={11} /> Go</button>
+          )}
+        </div>
+      )}
+
+      {(task.routines.length > 0 || callbacks?.onAddRoutine) && (
+        <div className="kc-section">
+          <div className="kc-section-label">Routines</div>
+          {task.routines.map((link) => (
+            <RoutineSubcard
+              key={link.id}
+              link={link}
+              onToggle={callbacks?.onToggleRoutineDone}
+              onSkip={callbacks?.onSkipRoutine}
+              onUnlink={callbacks?.onUnlinkRoutine}
+            />
+          ))}
+          {callbacks?.onAddRoutine && (
+            <button
+              type="button"
+              className="kc-add-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                callbacks.onAddRoutine?.(task.id);
+              }}
+            ><Plus size={11} /> Routine</button>
+          )}
         </div>
       )}
     </>
   );
 }
 
+type RoutineCellState = 'done' | 'partial' | 'skipped' | 'empty';
+
+const ymdDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Routine attached to a Goal via GoalRoutineLink — same visual language as the
+ *  big Routines view: a 7-day cell heatmap (done / partial / skipped / empty)
+ *  plus two action circles (Done / Skip) for today.
+ */
+const RoutineSubcard = memo(function RoutineSubcard({
+  link, onToggle, onSkip, onUnlink,
+}: {
+  link: import('../../../api/types').GoalRoutineLink;
+  onToggle?: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
+  onSkip?:   (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
+  onUnlink?: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
+}) {
+  const r = link.routine;
+  // Entries change rarely; precompute lookups + 7-day strip once per render.
+  const { todayKey, todayState, days, scheduleLabel } = useMemo(() => {
+    const todayKey = ymdDate(new Date());
+    const entryByDate = new Map<string, number>();
+    for (const e of r.entries) entryByDate.set(e.date, e.value);
+    const cellState = (v: number | undefined): RoutineCellState => {
+      if (v === undefined) return 'empty';
+      if (v === 0) return 'skipped';
+      if (r.kind === 'numeric' && r.target_value && v < r.target_value) return 'partial';
+      return 'done';
+    };
+    const days: { date: Date; key: string; state: RoutineCellState }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0);
+      const key = ymdDate(d);
+      days.push({ date: d, key, state: cellState(entryByDate.get(key)) });
+    }
+    const scheduleLabel = r.schedule_type === 'daily'
+      ? 'Daily'
+      : r.schedule_type === 'weekly_on_days'
+        ? 'Weekly'
+        : r.schedule_type === 'every_n_days'
+          ? `Every ${r.schedule_n_days}d`
+          : `${r.schedule_count_per_period}× / ${r.schedule_period}`;
+    return {
+      todayKey,
+      todayState: cellState(entryByDate.get(todayKey)),
+      days,
+      scheduleLabel,
+    };
+  }, [r.entries, r.kind, r.target_value, r.schedule_type, r.schedule_days,
+      r.schedule_n_days, r.schedule_count_per_period, r.schedule_period]);
+
+  return (
+    <div className="kc-child" data-kind="routine" data-done={todayState === 'done' || undefined}>
+      <div className="kc-child-row">
+        <span className="kc-child-pill">
+          <Repeat size={10} style={{ verticalAlign: -1, marginRight: 3 }} />
+          Routine
+        </span>
+        <span className="kc-child-name">{r.title}</span>
+        {onUnlink && (
+          <button
+            type="button"
+            className="kc-child-unlink"
+            onClick={(e) => { e.stopPropagation(); onUnlink(link); }}
+            title="Detach routine from this goal"
+            aria-label="Detach routine from this goal"
+          >
+            <Unlink2 size={11} />
+          </button>
+        )}
+      </div>
+
+      <div className="kc-routine-grid" aria-hidden="true">
+        {days.map((d) => (
+          <span
+            key={d.key}
+            className={`hg-cell hg-cell-${d.state}`}
+            data-today={d.key === todayKey || undefined}
+            title={`${d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.state}`}
+          />
+        ))}
+      </div>
+
+      <div className="kc-routine-foot">
+        <div className="kc-child-meta" style={{ flex: 1, marginTop: 0 }}>
+          <span>{scheduleLabel}</span>
+          {r.kind === 'numeric' && r.target_value != null && (
+            <>
+              <span className="sep">·</span>
+              <span>target {r.target_value}{r.unit ? ` ${r.unit}` : ''}</span>
+            </>
+          )}
+          {r.is_paused && (
+            <>
+              <span className="sep">·</span>
+              <span style={{ color: 'var(--ochre)' }}>paused</span>
+            </>
+          )}
+        </div>
+        <div className="rt-actions">
+          <button
+            type="button"
+            className="rt-action rt-action-check"
+            data-active={todayState === 'done' || undefined}
+            onClick={(e) => { e.stopPropagation(); onToggle?.(link); }}
+            title="Mark done"
+            aria-label="Mark done"
+          >
+            <Check />
+          </button>
+          <button
+            type="button"
+            className="rt-action rt-action-skip"
+            data-active={todayState === 'skipped' || undefined}
+            onClick={(e) => { e.stopPropagation(); onSkip?.(link); }}
+            title="Skip today"
+            aria-label="Skip today"
+          >
+            <X />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/** Standalone go (no parent step) — big sub-card. */
+const GoSubcard = memo(function GoSubcard({
+  go, onToggle,
+}: {
+  go: import('../../../api/types').Go;
+  onToggle?: (go: import('../../../api/types').Go) => void | Promise<void>;
+}) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = go.due_date ? new Date(go.due_date) : null;
+  const overdue = due && !go.is_done_today && due < today;
+  const valueLabel = go.kind === 'numeric' && go.target_value
+    ? `${go.target_value}${go.unit ? ' ' + go.unit : ''}`
+    : null;
+  return (
+    <div
+      className="kc-child"
+      data-kind="go"
+      data-done={go.is_done_today || undefined}
+    >
+      <div className="kc-child-row">
+        <button
+          type="button"
+          className="kc-child-check kc-child-check-btn"
+          onClick={(e) => { e.stopPropagation(); onToggle?.(go); }}
+          title={go.is_done_today ? 'Mark not done' : 'Mark done'}
+          aria-label={go.is_done_today ? 'Mark not done' : 'Mark done'}
+        >
+          {go.is_done_today && <Check />}
+        </button>
+        <span className="kc-child-pill">{go.kind === 'numeric' ? 'Numeric' : 'Go'}</span>
+        <span className="kc-child-name">{go.title}</span>
+      </div>
+      {(valueLabel || due) && (
+        <div className="kc-child-meta">
+          {valueLabel && <span>target {valueLabel}</span>}
+          {valueLabel && due && <span className="sep">·</span>}
+          {due && (
+            <time className={overdue ? 'overdue' : undefined}>
+              due {fmtDue(go.due_date!)}{overdue ? ' · overdue' : ''}
+            </time>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+/** Compact single-line go row — used inside an expanded step. */
+const GoSubrow = memo(function GoSubrow({
+  go, onToggle,
+}: {
+  go: import('../../../api/types').Go;
+  onToggle?: (go: import('../../../api/types').Go) => void | Promise<void>;
+}) {
+  return (
+    <div className="kc-go-row" data-done={go.is_done_today || undefined}>
+      <button
+        type="button"
+        className="kc-child-check kc-child-check-btn kc-child-check-sm"
+        onClick={(e) => { e.stopPropagation(); onToggle?.(go); }}
+        title={go.is_done_today ? 'Mark not done' : 'Mark done'}
+        aria-label={go.is_done_today ? 'Mark not done' : 'Mark done'}
+      >
+        {go.is_done_today && <Check />}
+      </button>
+      <span className="kc-go-row-title">{go.title}</span>
+      {go.kind === 'numeric' && go.target_value !== null && (
+        <span className="kc-go-row-meta">
+          {go.target_value}{go.unit ? ` ${go.unit}` : ''}
+        </span>
+      )}
+    </div>
+  );
+});
+
 function DraggableCard({
-  task, onSelect, expanded, onToggleExpand,
+  task, onSelect, expanded, onToggleExpand, callbacks,
 }: {
   task: Task;
   onSelect: (id: string) => void;
   expanded: boolean;
   onToggleExpand: (id: string) => void;
+  callbacks: CardCallbacks;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
-  const accent = accentFor(task.id);
+  const accent = task.color || accentFor(task.id);
   return (
     <article
       ref={setNodeRef}
@@ -244,13 +544,14 @@ function DraggableCard({
         task={task}
         expanded={expanded}
         onToggleExpand={() => onToggleExpand(task.id)}
+        callbacks={callbacks}
       />
     </article>
   );
 }
 
 function DroppableColumn({
-  col, tasks, onSelect, onAdd, expandedIds, onToggleExpand,
+  col, tasks, onSelect, onAdd, expandedIds, onToggleExpand, callbacks,
 }: {
   col: Column;
   tasks: Task[];
@@ -258,6 +559,7 @@ function DroppableColumn({
   onAdd: (status: TaskStatus) => void;
   expandedIds: Set<string>;
   onToggleExpand: (id: string) => void;
+  callbacks: CardCallbacks;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
   return (
@@ -274,6 +576,7 @@ function DroppableColumn({
             onSelect={onSelect}
             expanded={expandedIds.has(t.id)}
             onToggleExpand={onToggleExpand}
+            callbacks={callbacks}
           />
         ))}
         <button className="kanban-add" onClick={() => onAdd(col.key)}>
@@ -284,7 +587,11 @@ function DroppableColumn({
   );
 }
 
-export function GoalsBoard({ tasks, onSelect, onAdd, onMove }: Props) {
+export function GoalsBoard({
+  tasks, onSelect, onAdd, onMove,
+  onToggleGoDone, onAddStep, onAddGo,
+  onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
+}: Props) {
   const byStatus = useMemo(() => {
     const out: Record<TaskStatus, Task[]> = { backlog: [], active: [], paused: [], done: [] };
     for (const t of tasks) out[t.status].push(t);
@@ -324,6 +631,16 @@ export function GoalsBoard({ tasks, onSelect, onAdd, onMove }: Props) {
     void onMove(taskId, newStatus);
   };
 
+  const callbacks: CardCallbacks = useMemo(() => ({
+    onToggleGoDone,
+    onAddStep,
+    onAddGo,
+    onAddRoutine,
+    onToggleRoutineDone,
+    onSkipRoutine,
+    onUnlinkRoutine,
+  }), [onToggleGoDone, onAddStep, onAddGo, onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine]);
+
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="kanban">
@@ -336,6 +653,7 @@ export function GoalsBoard({ tasks, onSelect, onAdd, onMove }: Props) {
             onAdd={onAdd}
             expandedIds={expandedIds}
             onToggleExpand={onToggleExpand}
+            callbacks={callbacks}
           />
         ))}
       </div>
@@ -346,7 +664,7 @@ export function GoalsBoard({ tasks, onSelect, onAdd, onMove }: Props) {
             style={{
               cursor: 'grabbing',
               boxShadow: 'var(--sh-popover)',
-              ['--gc' as any]: accentFor(activeTask.id),
+              ['--gc' as any]: activeTask.color || accentFor(activeTask.id),
             }}
           >
             <GoalCardContent task={activeTask} />

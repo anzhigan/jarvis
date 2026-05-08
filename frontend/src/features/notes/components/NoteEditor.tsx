@@ -4,13 +4,17 @@ import {
   Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
-import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus';
 import type { EditorHelpers } from '../../../components/RichTextEditor';
 import type { Note } from '../../../api/types';
 import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
 
 // Tiptap is heavy (~280 KB gzip). Lazy-load only when a note is opened.
 const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
+// BubbleMenu / FloatingMenu also live in their own chunk — they pull in
+// floating-ui and the @tiptap/react/menus plugin which we don't need on the
+// notes-library list view.
+const NoteBubbleMenu   = lazy(() => import('./NoteEditorMenus').then((m) => ({ default: m.NoteBubbleMenu })));
+const NoteFloatingMenu = lazy(() => import('./NoteEditorMenus').then((m) => ({ default: m.NoteFloatingMenu })));
 
 interface Props {
   note: Note | null;
@@ -480,26 +484,23 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       </div>
 
       {editor && (
-        <BubbleMenu
-          editor={editor}
-          className="note-bubble"
-          updateDelay={0}
-          shouldShow={bubbleShouldShow}
-          options={bubbleOptions}
-        >
-          <NoteToolbar editor={editor} helpers={helpers} />
-        </BubbleMenu>
-      )}
-
-      {editor && (
-        <FloatingMenu
-          editor={editor}
-          updateDelay={0}
-          shouldShow={floatingShouldShow}
-          options={floatingOptions}
-        >
-          <BlockInsertMenu editor={editor} helpers={helpers} />
-        </FloatingMenu>
+        <Suspense fallback={null}>
+          <NoteBubbleMenu
+            editor={editor}
+            className="note-bubble"
+            shouldShow={bubbleShouldShow}
+            options={bubbleOptions}
+          >
+            <NoteToolbar editor={editor} helpers={helpers} />
+          </NoteBubbleMenu>
+          <NoteFloatingMenu
+            editor={editor}
+            shouldShow={floatingShouldShow}
+            options={floatingOptions}
+          >
+            <BlockInsertMenu editor={editor} helpers={helpers} />
+          </NoteFloatingMenu>
+        </Suspense>
       )}
 
       <div className="content-scroll">

@@ -12,21 +12,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
-import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
-import { createLowlight } from 'lowlight';
-import bash from 'highlight.js/lib/languages/bash';
-import css from 'highlight.js/lib/languages/css';
-import javascript from 'highlight.js/lib/languages/javascript';
-import json from 'highlight.js/lib/languages/json';
-import python from 'highlight.js/lib/languages/python';
-import sql from 'highlight.js/lib/languages/sql';
-import typescript from 'highlight.js/lib/languages/typescript';
-import xml from 'highlight.js/lib/languages/xml';
-import yaml from 'highlight.js/lib/languages/yaml';
 import { mergeAttributes, Node } from '@tiptap/core';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
-import 'highlight.js/styles/github-dark.css';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { notesApi, injectImageToken, stripImageToken } from '../api/client';
@@ -36,13 +22,7 @@ import MathInsertSheet from './editor/MathInsertSheet';
 import TableInsertSheet from './editor/TableInsertSheet';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
-
-// Register a small set of grammars instead of `common` (~190 languages, ~250 KB).
-// Add more here when actually needed.
-const lowlight = createLowlight();
-lowlight.register({ bash, css, javascript, json, python, sql, typescript, xml, yaml });
-// Aliases for common labels used in code fences.
-lowlight.registerAlias({ javascript: ['js'], typescript: ['ts'], xml: ['html'] });
+import { loadEditorHeavy, getKatex, type EditorHeavy } from './editor/editorHeavy';
 
 /**
  * Downscale an image to `maxDim` (longer side) using a canvas. Preserves aspect
@@ -308,6 +288,11 @@ const InlineMathView = ({ node, updateAttributes, editor }: any) => {
   const [value, setValue] = useState<string>(node.attrs.latex || '');
 
   const rendered = (() => {
+    const katex = getKatex();
+    if (!katex) {
+      // KaTeX still loading — show the raw LaTeX until the chunk arrives.
+      return `<span style="font-family: var(--font-mono); color: var(--ink-4)">${node.attrs.latex || ''}</span>`;
+    }
     try {
       return katex.renderToString(node.attrs.latex || '', { throwOnError: false, displayMode: false });
     } catch {
@@ -408,6 +393,16 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
   const [dialogExtra, setDialogExtra] = useState<{ prevUrl?: string }>({});
 
+  // Heavy extensions (KaTeX + Lowlight + 9 highlight.js languages) are
+  // dynamically imported so they ship as their own chunk, not inside the
+  // editor's main bundle. Editor only mounts once the chunk has resolved.
+  const [heavy, setHeavy] = useState<EditorHeavy | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadEditorHeavy().then((h) => { if (!cancelled) setHeavy(h); });
+    return () => { cancelled = true; };
+  }, []);
+
   // Mobile keyboard detection — toolbar shows ONLY when editor is focused AND keyboard is up
   const isMobile = useIsMobile();
   const [editorFocused, setEditorFocused] = useState(false);
@@ -457,9 +452,9 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
       TableCell,
       TaskList.configure({ HTMLAttributes: { class: 'editor-task-list' } }),
       TaskItem.configure({ nested: true, HTMLAttributes: { class: 'editor-task-item' } }),
-      CodeBlockLowlight.configure({ lowlight, HTMLAttributes: { class: 'editor-code-block' } }),
+      heavy?.codeBlockExtension,
       InlineMath,
-    ],
+    ].filter(Boolean) as any[],
     content: injectImageToken(content),
     onUpdate: ({ editor }) => onChange(stripImageToken(editor.getHTML())),
     onFocus: handleEditorFocus,
@@ -509,7 +504,9 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
           .replace(/style\s*=\s*'\s*'/gi, '');
       },
     },
-  });
+  // Re-create the editor instance once the heavy chunk arrives so the new
+  // CodeBlockLowlight extension takes effect (saved content rehydrates).
+  }, [heavy]);
 
   // Lift the editor + helpers to the parent so it can render its own top-of-
   // content toolbar (matches gallery section 01). Fires once per editor instance.
@@ -550,10 +547,21 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
         ? await resizeImage(file, 1600).catch(() => file)
         : file;
       const result = await notesApi.uploadImage(noteId, toUpload);
+      // Backend returns a relative auth-protected URL like "/api/images/{key}".
+      // Add the access token query param so the <img> tag actually loads —
+      // otherwise the browser hits the endpoint unauthenticated and we see a
+      // broken image. On save, stripImageToken (in onUpdate) removes the token
+      // before persisting; injectImageToken adds it back when content reloads.
+      const token = typeof localStorage !== 'undefined'
+        ? localStorage.getItem('access_token')
+        : null;
+      const src = token
+        ? `${result.url}?token=${encodeURIComponent(token)}`
+        : result.url;
       editor
         .chain()
         .focus()
-        .insertContent({ type: 'image', attrs: { src: result.url, width: 'auto' } })
+        .insertContent({ type: 'image', attrs: { src, width: 'auto' } })
         .run();
       toast.success('Image uploaded');
     } catch (e: any) {

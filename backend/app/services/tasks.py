@@ -51,11 +51,15 @@ def normalize_status(s: str) -> str:
 def task_eager_options():
     """Eager-load the relationship tree we always need to render a Task.
     Centralized so endpoints don't drift on what's preloaded."""
+    from app.models.tasks import GoalRoutineLink, Routine
     return (
         selectinload(Task.sprints).selectinload(Sprint.gos).selectinload(Go.entries),
         selectinload(Task.gos).selectinload(Go.entries),
         selectinload(Task.gos).selectinload(Go.sprint),
         selectinload(Task.tags),
+        selectinload(Task.routine_links)
+            .selectinload(GoalRoutineLink.routine)
+            .selectinload(Routine.entries),
     )
 
 

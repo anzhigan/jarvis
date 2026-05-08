@@ -63,10 +63,11 @@ export function GoView({ gos, goals, onLog, onSkip, onSelectGoal }: Props) {
     return m;
   }, [goals]);
 
-  // Active goals that have at least one Go (today's targets).
+  // Goals that have at least one Go in the current day-filter view. We exclude
+  // 'done' (archived) goals so the list stays focused on actionable work.
   const activeGoals = useMemo(
     () => goals
-      .filter((t) => t.status === 'active' && (grouped.get(t.id)?.length ?? 0) > 0)
+      .filter((t) => t.status !== 'done' && (grouped.get(t.id)?.length ?? 0) > 0)
       .sort((a, b) => a.order - b.order),
     [goals, grouped],
   );
@@ -406,9 +407,9 @@ function TgCard({ go, parentTitle, onLog, onSkip }: TgProps) {
           </button>
           <button
             className="tg-skip-btn"
-            title="Skip"
+            title="Delete go"
             onClick={() => onSkip(go)}
-            aria-label="Skip"
+            aria-label="Delete go"
           >
             <X size={14} />
           </button>

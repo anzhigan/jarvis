@@ -128,6 +128,7 @@ export interface Task {
   sprints: Step[];
   gos: Go[];
   tags: Tag[];
+  routines: GoalRoutineLink[];
   progress: number;
   created_at: string;
   updated_at: string;
