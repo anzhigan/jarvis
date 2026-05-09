@@ -74,52 +74,17 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
   const offsetMag = Math.abs(visibleX);
   const reveal = Math.max(0, Math.min(1, offsetMag / OPEN_OFFSET));
 
+  const transition = startX.current == null
+    ? 'transform 180ms cubic-bezier(0.32, 0.72, 0.30, 1)'
+    : 'none';
+
   return (
     <div className="m-swipe" data-open={open || undefined}>
-      {/* Actions and card share a single grid cell so the actions panel
-          inherits the card's intrinsic height — no `top:0 bottom:0` math,
-          no surplus pixels above or below. Actions are NOT inside the
-          translated content, so the card slides out and reveals them. */}
-      <div
-        className="m-swipe-actions"
-        aria-hidden={!open}
-        style={{
-          opacity: reveal,
-          pointerEvents: reveal > 0.5 ? 'auto' : 'none',
-        }}
-      >
-        {onEdit && (
-          <button
-            type="button"
-            className="m-swipe-action m-swipe-action-edit"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false); setDragX(0);
-              onEdit();
-            }}
-          >
-            <Pencil size={16} /><span>{editLabel}</span>
-          </button>
-        )}
-        {onDelete && (
-          <button
-            type="button"
-            className="m-swipe-action m-swipe-action-delete"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false); setDragX(0);
-              onDelete();
-            }}
-          >
-            <Trash2 size={16} /><span>Delete</span>
-          </button>
-        )}
-      </div>
       <div
         className="m-swipe-content"
         style={{
           transform: `translateX(${visibleX}px)`,
-          transition: startX.current == null ? 'transform 180ms cubic-bezier(0.32, 0.72, 0.30, 1)' : 'none',
+          transition,
         }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -128,6 +93,48 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
         onClickCapture={handleContentClick}
       >
         {children}
+        {/* Actions are absolutely positioned INSIDE the moving content so
+            they share the card's intrinsic height (top:0 bottom:0 → exactly
+            card height; no grid surprises, no margin leaks). To keep them
+            anchored to the right edge of the wrapper despite the content's
+            transform, we apply an equal-and-opposite translate. */}
+        <div
+          className="m-swipe-actions"
+          aria-hidden={!open}
+          style={{
+            transform: `translateX(${-visibleX}px)`,
+            transition,
+            opacity: reveal,
+            pointerEvents: reveal > 0.5 ? 'auto' : 'none',
+          }}
+        >
+          {onEdit && (
+            <button
+              type="button"
+              className="m-swipe-action m-swipe-action-edit"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false); setDragX(0);
+                onEdit();
+              }}
+            >
+              <Pencil size={16} /><span>{editLabel}</span>
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="m-swipe-action m-swipe-action-delete"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false); setDragX(0);
+                onDelete();
+              }}
+            >
+              <Trash2 size={16} /><span>Delete</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

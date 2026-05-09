@@ -1980,30 +1980,32 @@
   .m-bs-btn-danger { background: var(--rust); color: var(--paper); }
 
   /* ── Swipe-to-action wrapper ────────────────────────────────────────── */
-  /* CSS-grid layout: actions and content occupy the SAME 1×1 cell. The cell
-     height adapts to whichever child is taller — content is the card so the
-     cell == card height. Actions stretch to that cell, never sticking out.
-     Z-index keeps content above actions; on swipe the content's transform
-     reveals the right edge actions. The wrapper itself clips overflow so
-     nothing leaks past its rounded outline. */
+  /* The wrapper clips overflow so the action buttons never leak past its
+     rounded outline. The card sits inside .m-swipe-content (transformable),
+     and the action panel is absolutely positioned within that same content
+     so its height matches the card exactly via top:0 bottom:0. Both the
+     content and actions transform — the actions transform inversely so
+     they appear stationary at the wrapper's right edge while the card
+     slides left. */
   .m-swipe {
     position: relative;
     overflow: hidden;
     border-radius: 10px;
     background: var(--paper);
-    display: grid;
-    grid-template-columns: 1fr;
+  }
+  .m-swipe-content {
+    position: relative;
+    will-change: transform;
   }
   .m-swipe-actions {
-    grid-area: 1 / 1;
-    justify-self: end;
-    align-self: stretch;
+    position: absolute;
+    top: 0; bottom: 0; right: 0;
     display: flex;
     align-items: stretch;
     gap: 8px;
     padding: 4px 12px 4px 8px;
     background: var(--paper);
-    pointer-events: auto;
+    will-change: transform;
   }
   .m-swipe-action {
     width: 56px;
@@ -2020,12 +2022,6 @@
   }
   .m-swipe-action-edit { background: var(--indigo); }
   .m-swipe-action-delete { background: var(--rust); }
-  .m-swipe-content {
-    grid-area: 1 / 1;
-    position: relative;
-    z-index: 1;
-    will-change: transform;
-  }
 
   /* Folder rows (ways / topics) — match note-card metrics so the list is
      visually consistent. */
