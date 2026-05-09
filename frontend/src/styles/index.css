@@ -876,7 +876,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .notes-editor-paper {
   max-width: 760px; margin: 0 auto;
   padding: 28px 56px 200px; position: relative;
-  background: var(--bg-elevated); color: var(--fg-primary);
+  background: transparent; color: var(--fg-primary);
 }
 @media (max-width: 768px) {
   .notes-editor-paper { padding: 0; }
@@ -2408,8 +2408,8 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
     border-bottom: 0.5px solid var(--line);
   }
 
-  /* Mobile Notes: paper-white background so title/tags/content match desktop */
-  .notes-editor-paper { background: var(--bg-elevated); color: var(--fg-primary); border-radius: var(--r-card); }
+  /* Mobile Notes: same surface as the rest of the app — no paper inset. */
+  .notes-editor-paper { background: transparent; color: var(--fg-primary); border-radius: 0; }
 
   /* Mobile tab bar: tighten gap */
   .mobile-tab { gap: 2px; }

@@ -11,7 +11,9 @@ import {
   ymd,
 } from '../../routines/lib/heatmap';
 import { useGoals } from '../../goals/hooks/useGoals';
-import { RoutineCreateDialog } from '../../routines/components/RoutineCreateDialog';
+import { RoutineForm } from '../components/MobileAddForms';
+import { SwipeableRow } from '../components/SwipeableRow';
+import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import { routinesApi } from '../../../api/client';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
@@ -63,6 +65,8 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
   const goalsLib = useGoals();
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<Routine | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Routine | null>(null);
 
   const todayDate = useMemo(() => new Date(), []);
   const todayKey = ymd(todayDate);
@@ -186,8 +190,12 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
       ) : (
         <div className="rt-list">
           {filtered.map((r) => (
-            <RoutineCard
+            <SwipeableRow
               key={r.id}
+              onEdit={() => setEditing(r)}
+              onDelete={() => setConfirmDelete(r)}
+            >
+            <RoutineCard
               routine={r}
               parent={r.goal_id ? goalById.get(r.goal_id) ?? null : null}
               todayKey={todayKey}
@@ -214,14 +222,32 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
                 } catch {/* noop */}
               }}
             />
+            </SwipeableRow>
           ))}
         </div>
       )}
 
-      <RoutineCreateDialog
+      <RoutineForm
         open={createOpen}
         onOpenChange={setCreateOpen}
         library={lib}
+      />
+      <RoutineForm
+        open={!!editing}
+        onOpenChange={(o) => { if (!o) setEditing(null); }}
+        library={lib}
+        editing={editing}
+      />
+      <MobileConfirmSheet
+        open={!!confirmDelete}
+        onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}
+        title={`Delete "${confirmDelete?.title ?? ''}"?`}
+        description="The routine and all its tracked entries will be permanently removed."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => {
+          if (confirmDelete) await lib.remove(confirmDelete.id);
+        }}
       />
     </MobileShell>
   );

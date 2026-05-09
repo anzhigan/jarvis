@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Loader2, MoreHorizontal, Plus } from 'lucide-react';
-import type { SprintItem } from '../../../api/types';
+import type { Sprint, SprintItem } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../../sprints/hooks/useSprints';
-import { SprintCreateDialog } from '../../sprints/components/SprintCreateDialog';
+import { SprintForm } from '../components/MobileAddForms';
+import { SwipeableRow } from '../components/SwipeableRow';
+import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
 import type { Tab } from '../../../app/tabs';
@@ -33,6 +35,8 @@ const ITEM_GLYPH: Record<SprintItem['item_type'], string> = {
 export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }: Props) {
   const lib = useSprints();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<Sprint | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Sprint | null>(null);
 
   const { featured, others } = useMemo(() => {
     const active = lib.decorated.filter((d) => d.bucket === 'active')
@@ -79,7 +83,14 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
         <Plus /> Sprint
       </button>
 
-      {featured && <FeaturedSprint row={featured} />}
+      {featured && (
+        <SwipeableRow
+          onEdit={() => setEditing(featured.sprint)}
+          onDelete={() => setConfirmDelete(featured.sprint)}
+        >
+          <FeaturedSprint row={featured} />
+        </SwipeableRow>
+      )}
 
       {others.length > 0 && (
         <>
@@ -89,7 +100,15 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
             <span className="sec-meta">{others.length}</span>
           </div>
           <div className="other-sprints-list">
-            {others.map((row) => <OtherSprint key={row.sprint.id} row={row} />)}
+            {others.map((row) => (
+              <SwipeableRow
+                key={row.sprint.id}
+                onEdit={() => setEditing(row.sprint)}
+                onDelete={() => setConfirmDelete(row.sprint)}
+              >
+                <OtherSprint row={row} />
+              </SwipeableRow>
+            ))}
           </div>
         </>
       )}
@@ -103,10 +122,27 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
         </div>
       )}
 
-      <SprintCreateDialog
+      <SprintForm
         open={createOpen}
         onOpenChange={setCreateOpen}
         library={lib}
+      />
+      <SprintForm
+        open={!!editing}
+        onOpenChange={(o) => { if (!o) setEditing(null); }}
+        library={lib}
+        editing={editing}
+      />
+      <MobileConfirmSheet
+        open={!!confirmDelete}
+        onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}
+        title={`Delete "${confirmDelete?.title ?? ''}"?`}
+        description="The sprint will be removed. Linked goals/steps/gos/routines will not be deleted."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => {
+          if (confirmDelete) await lib.remove(confirmDelete.id);
+        }}
       />
     </MobileShell>
   );

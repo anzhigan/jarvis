@@ -6,8 +6,12 @@ import { useGoals } from '../../goals/hooks/useGoals';
 import { useGos } from '../../goals/hooks/useGos';
 import { useSteps } from '../../goals/hooks/useSteps';
 import { routinesApi } from '../../../api/client';
+import { useRoutines } from '../../routines/hooks/useRoutines';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
+import { GoalForm, StepForm, GoForm, RoutineForm } from '../components/MobileAddForms';
+import { SwipeableRow } from '../components/SwipeableRow';
+import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import type { Tab } from '../../../app/tabs';
 
 type ViewMode = 'kanban' | 'go' | 'step';
@@ -45,10 +49,24 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
   const goals = useGoals();
   const gos   = useGos(goals);
   const steps = useSteps(goals);
+  const routines = useRoutines();
 
   const [mode, setMode] = useState<ViewMode>('kanban');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [dayFilter, setDayFilter] = useState<DayFilter>('today');
+
+  // Bottom-sheet forms.
+  const [goalFormOpen, setGoalFormOpen] = useState(false);
+  const [stepFormOpen, setStepFormOpen] = useState<{ goalId: string | null } | null>(null);
+  const [goFormOpen, setGoFormOpen] = useState<{ taskId: string | null; sprintId: string | null } | null>(null);
+  const [routineFormOpen, setRoutineFormOpen] = useState<{ goalId: string | null } | null>(null);
+  const [editGoal, setEditGoal] = useState<Task | null>(null);
+  const [editStep, setEditStep] = useState<import('../../../api/types').Step | null>(null);
+  const [editGo, setEditGo] = useState<Go | null>(null);
+  // Confirm-delete sheets
+  const [confirmDeleteGoal, setConfirmDeleteGoal] = useState<Task | null>(null);
+  const [confirmDeleteStep, setConfirmDeleteStep] = useState<import('../../../api/types').Step | null>(null);
+  const [confirmDeleteGo, setConfirmDeleteGo] = useState<Go | null>(null);
 
   const counts = useMemo(() => {
     const c: Record<TaskStatus, number> = { active: 0, backlog: 0, paused: 0, done: 0 };
@@ -58,12 +76,7 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
 
   const subtitle = `${counts.active} active · ${counts.backlog} in backlog`;
 
-  const handleAddTopBar = useCallback(async () => {
-    const title = window.prompt('Goal title')?.trim();
-    if (!title) return;
-    const created = await goals.createGoal({ title, status: 'active' });
-    if (created) toast.success('Goal created');
-  }, [goals]);
+  const handleAddTopBar = useCallback(() => setGoalFormOpen(true), []);
 
   const topBar = (
     <MobileTopBar
@@ -105,27 +118,15 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
             void gos.logToday(g.id, next);
           }}
           onToggleStepDone={(id, cur) => steps.toggleStepDone(id, cur)}
-          onAddStep={async (taskId) => {
-            const title = window.prompt('Step title')?.trim();
-            if (!title) return;
-            const today = new Date();
-            const end = new Date(today); end.setDate(end.getDate() + 30);
-            await steps.createStep({ task_id: taskId, title, start_date: ymd(today), end_date: ymd(end) });
-          }}
-          onAddGo={async (taskId, sprintId) => {
-            const title = window.prompt('Go title')?.trim();
-            if (!title) return;
-            await gos.createGo({ task_id: taskId, sprint_id: sprintId ?? null, title, kind: 'boolean' });
-          }}
-          onAddRoutine={async (taskId) => {
-            const title = window.prompt('Routine title')?.trim();
-            if (!title) return;
-            try {
-              const r = await routinesApi.create({ title, schedule_type: 'daily', kind: 'boolean' });
-              await routinesApi.createLink({ goal_id: taskId, routine_id: r.id, start_date: ymd(new Date()) });
-              await goals.refresh();
-            } catch (e: any) { toast.error(e?.detail ?? 'Failed to add routine'); }
-          }}
+          onAddStep={(taskId) => setStepFormOpen({ goalId: taskId })}
+          onAddGo={(taskId, sprintId) => setGoFormOpen({ taskId, sprintId: sprintId ?? null })}
+          onAddRoutine={(taskId) => setRoutineFormOpen({ goalId: taskId })}
+          onEditGoal={(t) => setEditGoal(t)}
+          onDeleteGoal={(t) => setConfirmDeleteGoal(t)}
+          onEditStep={(s) => setEditStep(s)}
+          onDeleteStep={(s) => setConfirmDeleteStep(s)}
+          onEditGo={(g) => setEditGo(g)}
+          onDeleteGo={(g) => setConfirmDeleteGo(g)}
           onToggleRoutineDone={async (link) => {
             const today = ymd(new Date());
             const entry = link.routine.entries.find((x) => x.date === today);
@@ -144,40 +145,102 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
           dayFilter={dayFilter}
           onDay={setDayFilter}
           onLog={(go, v) => { void gos.logToday(go.id, v); }}
-          onSkip={async (go) => {
-            if (!window.confirm(`Delete "${go.title}"?`)) return;
-            await gos.deleteGo(go.id);
-          }}
-          onAdd={async () => {
-            const title = window.prompt('Go title')?.trim();
-            if (!title) return;
-            await gos.createGo({ title, kind: 'boolean' });
-          }}
+          onSkip={(go) => setConfirmDeleteGo(go)}
+          onAdd={() => setGoFormOpen({ taskId: null, sprintId: null })}
         />
       )}
       {mode === 'step' && (
         <StepView
           tasks={goals.tasks}
           steps={steps}
-          onAdd={async () => {
+          onAdd={() => {
             const activeTasks = goals.tasks.filter((t) => t.status !== 'done');
-            if (activeTasks.length === 0) {
-              toast.error('Create a goal first');
-              return;
-            }
-            const labels = activeTasks.map((t, i) => `${i + 1}. ${t.title}`).join('\n');
-            const idx = window.prompt(`Step under which goal?\n\n${labels}\n\nEnter number:`);
-            const n = idx ? parseInt(idx, 10) - 1 : -1;
-            const goal = activeTasks[n];
-            if (!goal) return;
-            const title = window.prompt('Step title')?.trim();
-            if (!title) return;
-            const today = new Date();
-            const end = new Date(today); end.setDate(end.getDate() + 30);
-            await steps.createStep({ task_id: goal.id, title, start_date: ymd(today), end_date: ymd(end) });
+            if (activeTasks.length === 0) { toast.error('Create a goal first'); return; }
+            setStepFormOpen({ goalId: null });
           }}
         />
       )}
+
+      <GoalForm open={goalFormOpen} onOpenChange={setGoalFormOpen} library={goals} />
+      {stepFormOpen && (
+        <StepForm
+          open={!!stepFormOpen}
+          onOpenChange={(o) => { if (!o) setStepFormOpen(null); }}
+          steps={steps}
+          goals={goals.tasks.filter((t) => t.status !== 'done')}
+          initialGoalId={stepFormOpen.goalId}
+        />
+      )}
+      {goFormOpen && (
+        <GoForm
+          open={!!goFormOpen}
+          onOpenChange={(o) => { if (!o) setGoFormOpen(null); }}
+          gos={gos}
+          goals={goals.tasks}
+          initialTaskId={goFormOpen.taskId}
+          initialSprintId={goFormOpen.sprintId}
+        />
+      )}
+      {routineFormOpen && (
+        <RoutineForm
+          open={!!routineFormOpen}
+          onOpenChange={(o) => { if (!o) setRoutineFormOpen(null); }}
+          library={routines}
+          goalId={routineFormOpen.goalId}
+          goalsLibrary={goals}
+        />
+      )}
+
+      {/* Edit forms */}
+      <GoalForm
+        open={!!editGoal}
+        onOpenChange={(o) => { if (!o) setEditGoal(null); }}
+        library={goals}
+        editing={editGoal}
+      />
+      <StepForm
+        open={!!editStep}
+        onOpenChange={(o) => { if (!o) setEditStep(null); }}
+        steps={steps}
+        goals={goals.tasks}
+        editing={editStep}
+      />
+      <GoForm
+        open={!!editGo}
+        onOpenChange={(o) => { if (!o) setEditGo(null); }}
+        gos={gos}
+        goals={goals.tasks}
+        editing={editGo}
+      />
+
+      {/* Confirm-delete sheets */}
+      <MobileConfirmSheet
+        open={!!confirmDeleteGoal}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteGoal(null); }}
+        title={`Delete "${confirmDeleteGoal?.title ?? ''}"?`}
+        description="The goal and all its steps, gos, and routine links will be removed."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => { if (confirmDeleteGoal) await goals.deleteGoal(confirmDeleteGoal.id); }}
+      />
+      <MobileConfirmSheet
+        open={!!confirmDeleteStep}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteStep(null); }}
+        title={`Delete step "${confirmDeleteStep?.title ?? ''}"?`}
+        description="Linked gos will be detached but not deleted."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => { if (confirmDeleteStep) await steps.deleteStep(confirmDeleteStep.id); }}
+      />
+      <MobileConfirmSheet
+        open={!!confirmDeleteGo}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteGo(null); }}
+        title={`Delete "${confirmDeleteGo?.title ?? ''}"?`}
+        description="The go and all its tracked entries will be removed."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => { if (confirmDeleteGo) await gos.deleteGo(confirmDeleteGo.id); }}
+      />
     </MobileShell>
   );
 }
@@ -191,6 +254,12 @@ interface KanbanCallbacks {
   onAddGo: (taskId: string, sprintId?: string | null) => void;
   onAddRoutine: (taskId: string) => void;
   onToggleRoutineDone: (link: GoalRoutineLink) => void;
+  onEditGoal: (task: Task) => void;
+  onDeleteGoal: (task: Task) => void;
+  onEditStep: (step: import('../../../api/types').Step) => void;
+  onDeleteStep: (step: import('../../../api/types').Step) => void;
+  onEditGo: (go: Go) => void;
+  onDeleteGo: (go: Go) => void;
 }
 
 function KanbanView({
@@ -231,7 +300,15 @@ function KanbanView({
         <EmptyHint>No goals in this column.</EmptyHint>
       ) : (
         <div className="goal-cards">
-          {filtered.map((t) => <GoalCard key={t.id} task={t} cb={cb} />)}
+          {filtered.map((t) => (
+            <SwipeableRow
+              key={t.id}
+              onEdit={() => cb.onEditGoal(t)}
+              onDelete={() => cb.onDeleteGoal(t)}
+            >
+              <GoalCard task={t} cb={cb} />
+            </SwipeableRow>
+          ))}
         </div>
       )}
     </>

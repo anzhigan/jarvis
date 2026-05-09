@@ -1,9 +1,12 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, FolderOpen, Loader2, Plus, Search, StickyNote } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FolderOpen, Loader2, Plus, Search } from 'lucide-react';
 import type { Note, Topic, Way } from '../../../api/types';
 import { useNotesLibrary } from '../../notes/hooks/useNotesLibrary';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
+import { WayForm, TopicForm, NoteForm } from '../components/MobileAddForms';
+import { SwipeableRow } from '../components/SwipeableRow';
+import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import type { Tab } from '../../../app/tabs';
 
 // Full-screen note editor — opened when a card is tapped.
@@ -47,6 +50,19 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState<CurrentLevel>({ kind: 'root' });
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+
+  // Bottom-sheet add forms
+  const [wayFormOpen, setWayFormOpen] = useState(false);
+  const [topicFormOpen, setTopicFormOpen] = useState<{ wayId: string; wayName: string } | null>(null);
+  const [noteFormOpen, setNoteFormOpen] = useState<{ target: { way_id?: string; topic_id?: string }; parentName: string } | null>(null);
+  // Edit forms
+  const [editWay, setEditWay] = useState<Way | null>(null);
+  const [editTopic, setEditTopic] = useState<{ topic: Topic; wayName: string } | null>(null);
+  const [editNote, setEditNote] = useState<Note | null>(null);
+  // Confirm-delete sheets
+  const [confirmWay, setConfirmWay] = useState<Way | null>(null);
+  const [confirmTopic, setConfirmTopic] = useState<Topic | null>(null);
+  const [confirmNote, setConfirmNote] = useState<Note | null>(null);
 
   const allNotes = useMemo(() => {
     let n = 0;
@@ -104,24 +120,14 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
     );
   }
 
-  // ── Add handlers ──────────────────────────────────────────────────────────
-  const handleAddWay = async () => {
-    const name = window.prompt('Way name')?.trim();
-    if (!name) return;
-    const w = await lib.createWay(name);
-    if (w) setLevel({ kind: 'way', wayId: w.id });
+  // ── Add handlers — open bottom-sheet forms instead of prompts ────────────
+  const handleAddWay = () => setWayFormOpen(true);
+  const handleAddTopic = (wayId: string) => {
+    const w = lib.ways.find((x) => x.id === wayId);
+    if (w) setTopicFormOpen({ wayId: w.id, wayName: w.name });
   };
-  const handleAddTopic = async (wayId: string) => {
-    const name = window.prompt('Topic name')?.trim();
-    if (!name) return;
-    const t = await lib.createTopic(wayId, name);
-    if (t) setLevel({ kind: 'topic', wayId, topicId: t.id });
-  };
-  const handleAddNote = async (target: { way_id?: string; topic_id?: string }) => {
-    const name = window.prompt('Note title')?.trim();
-    if (!name) return;
-    const n = await lib.createNote(target, name);
-    if (n) setOpenNoteId(n.id);
+  const handleAddNote = (target: { way_id?: string; topic_id?: string }, parentName: string) => {
+    setNoteFormOpen({ target, parentName });
   };
 
   // ── Top bar — varies by level ─────────────────────────────────────────────
@@ -167,7 +173,11 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
           onOpenWay={(id) => setLevel({ kind: 'way', wayId: id })}
           onOpenNote={setOpenNoteId}
           onAddWay={handleAddWay}
-          onAddNote={(t) => handleAddNote(t)}
+          onAddNote={(target, parentName) => handleAddNote(target, parentName)}
+          onEditWay={(w) => setEditWay(w)}
+          onDeleteWay={(w) => setConfirmWay(w)}
+          onEditNote={(n) => setEditNote(n)}
+          onDeleteNote={(n) => setConfirmNote(n)}
         />
       )}
 
@@ -180,20 +190,109 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
           onOpenTopic={(id) => setLevel({ kind: 'topic', wayId: currentWay.id, topicId: id })}
           onOpenNote={setOpenNoteId}
           onAddTopic={() => handleAddTopic(currentWay.id)}
-          onAddNote={() => handleAddNote({ way_id: currentWay.id })}
+          onAddNote={() => handleAddNote({ way_id: currentWay.id }, currentWay.name)}
+          onEditTopic={(t) => setEditTopic({ topic: t, wayName: currentWay.name })}
+          onDeleteTopic={(t) => setConfirmTopic(t)}
+          onEditNote={(n) => setEditNote(n)}
+          onDeleteNote={(n) => setConfirmNote(n)}
         />
       )}
 
-      {level.kind === 'topic' && currentTopic && (
+      {level.kind === 'topic' && currentTopic && currentWay && (
         <TopicLevel
           topic={currentTopic}
           search={search}
           onSearch={setSearch}
           matchesQuery={matchesQuery}
           onOpenNote={setOpenNoteId}
-          onAddNote={() => handleAddNote({ topic_id: currentTopic.id })}
+          onAddNote={() => handleAddNote({ topic_id: currentTopic.id }, `${currentWay.name} · ${currentTopic.name}`)}
+          onEditNote={(n) => setEditNote(n)}
+          onDeleteNote={(n) => setConfirmNote(n)}
         />
       )}
+
+      <WayForm
+        open={wayFormOpen}
+        onOpenChange={setWayFormOpen}
+        library={lib}
+        onCreated={(id) => setLevel({ kind: 'way', wayId: id })}
+      />
+      {topicFormOpen && (
+        <TopicForm
+          open={!!topicFormOpen}
+          onOpenChange={(o) => { if (!o) setTopicFormOpen(null); }}
+          library={lib}
+          wayId={topicFormOpen.wayId}
+          wayName={topicFormOpen.wayName}
+          onCreated={(tid) => setLevel({ kind: 'topic', wayId: topicFormOpen.wayId, topicId: tid })}
+        />
+      )}
+      {noteFormOpen && (
+        <NoteForm
+          open={!!noteFormOpen}
+          onOpenChange={(o) => { if (!o) setNoteFormOpen(null); }}
+          library={lib}
+          target={noteFormOpen.target}
+          parentName={noteFormOpen.parentName}
+          onCreated={(nid) => setOpenNoteId(nid)}
+        />
+      )}
+
+      {/* Edit forms */}
+      {editWay && (
+        <WayForm
+          open={!!editWay}
+          onOpenChange={(o) => { if (!o) setEditWay(null); }}
+          library={lib}
+          editing={editWay}
+        />
+      )}
+      {editTopic && (
+        <TopicForm
+          open={!!editTopic}
+          onOpenChange={(o) => { if (!o) setEditTopic(null); }}
+          library={lib}
+          wayId={editTopic.topic.way_id}
+          wayName={editTopic.wayName}
+          editing={editTopic.topic}
+        />
+      )}
+      {editNote && (
+        <NoteForm
+          open={!!editNote}
+          onOpenChange={(o) => { if (!o) setEditNote(null); }}
+          library={lib}
+          editing={editNote}
+        />
+      )}
+
+      <MobileConfirmSheet
+        open={!!confirmWay}
+        onOpenChange={(o) => { if (!o) setConfirmWay(null); }}
+        title={`Delete "${confirmWay?.name ?? ''}"?`}
+        description="This way and all its topics & notes will be permanently removed."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => { if (confirmWay) await lib.deleteWay(confirmWay.id); }}
+      />
+      <MobileConfirmSheet
+        open={!!confirmTopic}
+        onOpenChange={(o) => { if (!o) setConfirmTopic(null); }}
+        title={`Delete topic "${confirmTopic?.name ?? ''}"?`}
+        description="The topic and all its notes will be permanently removed."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => { if (confirmTopic) await lib.deleteTopic(confirmTopic.id); }}
+      />
+      <MobileConfirmSheet
+        open={!!confirmNote}
+        onOpenChange={(o) => { if (!o) setConfirmNote(null); }}
+        title={`Delete "${confirmNote?.name || 'Untitled'}"?`}
+        description="This note will be permanently removed."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => { if (confirmNote) await lib.deleteNote(confirmNote.id); }}
+      />
     </MobileShell>
   );
 }
@@ -202,6 +301,7 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
 
 function RootLevel({
   ways, search, onSearch, matchesQuery, onOpenWay, onOpenNote, onAddWay, onAddNote,
+  onEditWay, onDeleteWay, onEditNote, onDeleteNote,
 }: {
   ways: Way[];
   search: string;
@@ -210,7 +310,11 @@ function RootLevel({
   onOpenWay: (id: string) => void;
   onOpenNote: (id: string) => void;
   onAddWay: () => void;
-  onAddNote: (target: { way_id?: string; topic_id?: string }) => void;
+  onAddNote: (target: { way_id?: string; topic_id?: string }, parentName: string) => void;
+  onEditWay: (w: Way) => void;
+  onDeleteWay: (w: Way) => void;
+  onEditNote: (n: Note) => void;
+  onDeleteNote: (n: Note) => void;
 }) {
   // Search results (when q is set, surface matched notes from any way/topic).
   const q = search.trim();
@@ -245,7 +349,15 @@ function RootLevel({
           </div>
           <div className="notes-list">
             {searchResults.map((r) => (
-              <NoteCard key={r.note.id} row={r} onClick={() => onOpenNote(r.note.id)} />
+              <SwipeableRow
+                key={r.note.id}
+                onClick={() => onOpenNote(r.note.id)}
+                onEdit={() => onEditNote(r.note)}
+                onDelete={() => onDeleteNote(r.note)}
+                editLabel="Rename"
+              >
+                <NoteCard row={r} onClick={() => onOpenNote(r.note.id)} />
+              </SwipeableRow>
             ))}
           </div>
         </>
@@ -265,13 +377,20 @@ function RootLevel({
               {ways.map((w) => {
                 const total = w.notes.length + w.topics.reduce((a, t) => a + t.notes.length, 0);
                 return (
-                  <FolderRow
+                  <SwipeableRow
                     key={w.id}
-                    icon={<FolderOpen size={14} />}
-                    name={w.name}
-                    meta={`${w.topics.length} topic${w.topics.length === 1 ? '' : 's'} · ${total} note${total === 1 ? '' : 's'}`}
                     onClick={() => onOpenWay(w.id)}
-                  />
+                    onEdit={() => onEditWay(w)}
+                    onDelete={() => onDeleteWay(w)}
+                    editLabel="Rename"
+                  >
+                    <FolderRow
+                      icon={<FolderOpen size={14} />}
+                      name={w.name}
+                      meta={`${w.topics.length} topic${w.topics.length === 1 ? '' : 's'} · ${total} note${total === 1 ? '' : 's'}`}
+                      onClick={() => onOpenWay(w.id)}
+                    />
+                  </SwipeableRow>
                 );
               })}
             </div>
@@ -286,11 +405,14 @@ function RootLevel({
               type="button"
               className="m-add-btn"
               onClick={() => {
-                if (ways.length === 1) { onAddNote({ way_id: ways[0].id }); return; }
+                if (ways.length === 1) {
+                  onAddNote({ way_id: ways[0].id }, ways[0].name);
+                  return;
+                }
                 const labels = ways.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
                 const idx = window.prompt(`Note in which way?\n\n${labels}\n\nEnter number:`);
                 const n = idx ? parseInt(idx, 10) - 1 : -1;
-                if (ways[n]) onAddNote({ way_id: ways[n].id });
+                if (ways[n]) onAddNote({ way_id: ways[n].id }, ways[n].name);
               }}
             >
               <Plus /> Note
@@ -306,6 +428,7 @@ function RootLevel({
 
 function WayLevel({
   way, search, onSearch, matchesQuery, onOpenTopic, onOpenNote, onAddTopic, onAddNote,
+  onEditTopic, onDeleteTopic, onEditNote, onDeleteNote,
 }: {
   way: Way;
   search: string;
@@ -315,6 +438,10 @@ function WayLevel({
   onOpenNote: (id: string) => void;
   onAddTopic: () => void;
   onAddNote: () => void;
+  onEditTopic: (t: Topic) => void;
+  onDeleteTopic: (t: Topic) => void;
+  onEditNote: (n: Note) => void;
+  onDeleteNote: (n: Note) => void;
 }) {
   const directNotes = way.notes.filter(matchesQuery)
     .sort((a, b) => {
@@ -344,13 +471,20 @@ function WayLevel({
           </div>
           <div className="notes-list">
             {way.topics.map((t) => (
-              <FolderRow
+              <SwipeableRow
                 key={t.id}
-                icon={<FolderOpen size={14} />}
-                name={t.name}
-                meta={`${t.notes.length} note${t.notes.length === 1 ? '' : 's'}`}
                 onClick={() => onOpenTopic(t.id)}
-              />
+                onEdit={() => onEditTopic(t)}
+                onDelete={() => onDeleteTopic(t)}
+                editLabel="Rename"
+              >
+                <FolderRow
+                  icon={<FolderOpen size={14} />}
+                  name={t.name}
+                  meta={`${t.notes.length} note${t.notes.length === 1 ? '' : 's'}`}
+                  onClick={() => onOpenTopic(t.id)}
+                />
+              </SwipeableRow>
             ))}
           </div>
         </>
@@ -363,13 +497,25 @@ function WayLevel({
       {directNotes.length > 0 && (
         <>
           <div className="section-bar">
-            <span className="sec-title">Notes in this way</span>
+            <span className="sec-title">Notes</span>
             <span className="sec-rule" />
             <span className="sec-meta">{directNotes.length}</span>
           </div>
           <div className="notes-list">
             {directNotes.map((n) => (
-              <NoteCard key={n.id} row={{ note: n, way, topic: null }} onClick={() => onOpenNote(n.id)} />
+              <SwipeableRow
+                key={n.id}
+                onClick={() => onOpenNote(n.id)}
+                onEdit={() => onEditNote(n)}
+                onDelete={() => onDeleteNote(n)}
+                editLabel="Rename"
+              >
+                <NoteCard
+                  row={{ note: n, way, topic: null }}
+                  hideWayLabel
+                  onClick={() => onOpenNote(n.id)}
+                />
+              </SwipeableRow>
             ))}
           </div>
         </>
@@ -389,7 +535,7 @@ function WayLevel({
 // ── Topic: notes in the topic ─────────────────────────────────────────────
 
 function TopicLevel({
-  topic, search, onSearch, matchesQuery, onOpenNote, onAddNote,
+  topic, search, onSearch, matchesQuery, onOpenNote, onAddNote, onEditNote, onDeleteNote,
 }: {
   topic: Topic;
   search: string;
@@ -397,6 +543,8 @@ function TopicLevel({
   matchesQuery: (n: Note) => boolean;
   onOpenNote: (id: string) => void;
   onAddNote: () => void;
+  onEditNote: (n: Note) => void;
+  onDeleteNote: (n: Note) => void;
 }) {
   const notes = topic.notes.filter(matchesQuery)
     .sort((a, b) => {
@@ -416,19 +564,31 @@ function TopicLevel({
         />
       </div>
 
-      {notes.length === 0 ? (
-        <EmptyHint>No notes in this topic yet.</EmptyHint>
-      ) : (
-        <div className="notes-list">
-          {notes.map((n) => (
-            <NoteCard
-              key={n.id}
-              row={{ note: n, way: { id: '', name: '', topics: [], notes: [], order: 0, created_at: '', updated_at: '' }, topic }}
-              hideWayLabel
-              onClick={() => onOpenNote(n.id)}
-            />
-          ))}
-        </div>
+      {notes.length > 0 && (
+        <>
+          <div className="section-bar">
+            <span className="sec-title">Notes</span>
+            <span className="sec-rule" />
+            <span className="sec-meta">{notes.length}</span>
+          </div>
+          <div className="notes-list">
+            {notes.map((n) => (
+              <SwipeableRow
+                key={n.id}
+                onClick={() => onOpenNote(n.id)}
+                onEdit={() => onEditNote(n)}
+                onDelete={() => onDeleteNote(n)}
+                editLabel="Rename"
+              >
+                <NoteCard
+                  row={{ note: n, way: { id: '', name: '', topics: [], notes: [], order: 0, created_at: '', updated_at: '' }, topic }}
+                  hideWayLabel
+                  onClick={() => onOpenNote(n.id)}
+                />
+              </SwipeableRow>
+            ))}
+          </div>
+        </>
       )}
 
       <button type="button" className="m-add-btn" onClick={onAddNote}>
@@ -444,31 +604,11 @@ function FolderRow({
   icon, name, meta, onClick,
 }: { icon: React.ReactNode; name: string; meta: string; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        width: '100%',
-        textAlign: 'left', cursor: 'pointer',
-        padding: '8px 12px',
-        background: 'var(--paper)',
-        border: '1px solid var(--hairline)',
-        borderRadius: 8,
-        font: 'inherit', color: 'inherit',
-      }}
-    >
-      <span style={{ color: 'var(--indigo)', display: 'inline-flex', flexShrink: 0 }}>{icon}</span>
-      <span style={{
-        flex: 1, minWidth: 0,
-        fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 500,
-        color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>{name}</span>
-      <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: 10.5,
-        color: 'var(--ink-5)', flexShrink: 0,
-      }}>{meta}</span>
-      <ChevronRight size={12} style={{ color: 'var(--ink-5)', flexShrink: 0 }} />
+    <button type="button" onClick={onClick} className="m-folder-row">
+      <span className="m-folder-icon">{icon}</span>
+      <span className="m-folder-name">{name}</span>
+      <span className="m-folder-meta">{meta}</span>
+      <span className="m-folder-chev"><ChevronRight size={14} /></span>
     </button>
   );
 }
@@ -481,9 +621,7 @@ function NoteCard({
   onClick: () => void;
 }) {
   const { note, way, topic } = row;
-  const wayLabel = hideWayLabel
-    ? null
-    : topic ? `${way.name} · ${topic.name}` : way.name;
+  const wayLabel = topic ? `${way.name} · ${topic.name}` : way.name;
   return (
     <article
       className="note-card"
@@ -493,13 +631,18 @@ function NoteCard({
       onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
       style={{ cursor: 'pointer' }}
     >
-      <header className="nc-head">
-        <div className="nc-way">
-          {note.pinned && <span className="note-pin">●</span>}
-          {wayLabel ?? <StickyNote size={10} />}
-        </div>
-        <span className="nc-time">{formatTimestamp(note.updated_at)}</span>
-      </header>
+      {!hideWayLabel && (
+        <header className="nc-head">
+          <div className="nc-way">
+            {note.pinned && <span className="note-pin">●</span>}
+            {wayLabel}
+          </div>
+          <span className="nc-time">{formatTimestamp(note.updated_at)}</span>
+        </header>
+      )}
+      {hideWayLabel && note.pinned && (
+        <span className="note-pin" style={{ float: 'right' }}>●</span>
+      )}
       <h3 className="nc-title">{note.name || 'Untitled'}</h3>
       {note.content && <p className="nc-preview">{previewText(note.content)}</p>}
       {note.tags.length > 0 && (
