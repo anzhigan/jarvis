@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Loader2, MoreHorizontal, Plus } from 'lucide-react';
-import type { Sprint, SprintItem } from '../../../api/types';
+import type { SprintItem } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../../sprints/hooks/useSprints';
 import { SprintCreateDialog } from '../../sprints/components/SprintCreateDialog';
 import { MobileTopBar } from '../components/MobileTopBar';

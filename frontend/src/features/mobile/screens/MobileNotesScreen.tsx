@@ -42,7 +42,7 @@ type CurrentLevel =
   | { kind: 'way';   wayId: string }
   | { kind: 'topic'; wayId: string; topicId: string };
 
-export function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: Props) {
+export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: Props) {
   const lib = useNotesLibrary();
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState<CurrentLevel>({ kind: 'root' });
