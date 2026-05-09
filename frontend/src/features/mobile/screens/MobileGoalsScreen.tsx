@@ -1,17 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Check, ChevronRight, Flag, Loader2, Minus, Plus, Repeat } from 'lucide-react';
+import { Check, ChevronRight, Flag, Layers, Loader2, Minus, Plus } from 'lucide-react';
+import { MiniGoContent, MiniStepContent } from '../components/MiniCards';
 import { toast } from 'sonner';
 import type { Go, GoalRoutineLink, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { useGoals } from '../../goals/hooks/useGoals';
 import { useGos } from '../../goals/hooks/useGos';
 import { useSteps } from '../../goals/hooks/useSteps';
-import { routinesApi } from '../../../api/client';
+import { gosApi, routinesApi, stepsApi } from '../../../api/client';
 import { useRoutines } from '../../routines/hooks/useRoutines';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
 import { GoalForm, StepForm, GoForm, RoutineForm } from '../components/MobileAddForms';
 import { SwipeableRow } from '../components/SwipeableRow';
 import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
+import { MobilePickerSheet } from '../components/MobilePickerSheet';
 import type { Tab } from '../../../app/tabs';
 
 type ViewMode = 'kanban' | 'go' | 'step';
@@ -67,6 +69,10 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
   const [confirmDeleteGoal, setConfirmDeleteGoal] = useState<Task | null>(null);
   const [confirmDeleteStep, setConfirmDeleteStep] = useState<import('../../../api/types').Step | null>(null);
   const [confirmDeleteGo, setConfirmDeleteGo] = useState<Go | null>(null);
+  // Pickers — let the user pick existing entities first, with a "Create new"
+  // CTA inside the picker that defers to the create form when needed.
+  const [pickStepFor, setPickStepFor] = useState<string | null>(null); // goalId
+  const [pickGoFor, setPickGoFor] = useState<{ taskId: string; sprintId: string | null } | null>(null);
 
   const counts = useMemo(() => {
     const c: Record<TaskStatus, number> = { active: 0, backlog: 0, paused: 0, done: 0 };
@@ -118,8 +124,8 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
             void gos.logToday(g.id, next);
           }}
           onToggleStepDone={(id, cur) => steps.toggleStepDone(id, cur)}
-          onAddStep={(taskId) => setStepFormOpen({ goalId: taskId })}
-          onAddGo={(taskId, sprintId) => setGoFormOpen({ taskId, sprintId: sprintId ?? null })}
+          onAddStep={(taskId) => setPickStepFor(taskId)}
+          onAddGo={(taskId, sprintId) => setPickGoFor({ taskId, sprintId: sprintId ?? null })}
           onAddRoutine={(taskId) => setRoutineFormOpen({ goalId: taskId })}
           onEditGoal={(t) => setEditGoal(t)}
           onDeleteGoal={(t) => setConfirmDeleteGoal(t)}
@@ -161,16 +167,21 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
           }}
           onEdit={(s) => setEditStep(s)}
           onDelete={(s) => setConfirmDeleteStep(s)}
+          onToggleGoDone={(g) => {
+            const next = g.is_done_today ? 0 : (g.kind === 'numeric' ? (g.target_value ?? 1) : 1);
+            void gos.logToday(g.id, next);
+          }}
         />
       )}
 
-      <GoalForm open={goalFormOpen} onOpenChange={setGoalFormOpen} library={goals} />
+      <GoalForm open={goalFormOpen} onOpenChange={setGoalFormOpen} library={goals} gos={gos} stepsLib={steps} />
       {stepFormOpen && (
         <StepForm
           open={!!stepFormOpen}
           onOpenChange={(o) => { if (!o) setStepFormOpen(null); }}
           steps={steps}
           goals={goals.tasks.filter((t) => t.status !== 'done')}
+          gos={gos}
           initialGoalId={stepFormOpen.goalId}
         />
       )}
@@ -199,6 +210,8 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
         open={!!editGoal}
         onOpenChange={(o) => { if (!o) setEditGoal(null); }}
         library={goals}
+        gos={gos}
+        stepsLib={steps}
         editing={editGoal}
       />
       <StepForm
@@ -206,6 +219,7 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
         onOpenChange={(o) => { if (!o) setEditStep(null); }}
         steps={steps}
         goals={goals.tasks}
+        gos={gos}
         editing={editStep}
       />
       <GoForm
@@ -244,6 +258,65 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
         destructive
         onConfirm={async () => { if (confirmDeleteGo) await gos.deleteGo(confirmDeleteGo.id); }}
       />
+
+      {/* Add-step picker — pick from existing steps not already in this goal,
+          or "Create new step" CTA opens the StepForm. */}
+      {pickStepFor !== null && (
+        <MobilePickerSheet
+          open={!!pickStepFor}
+          onOpenChange={(o) => { if (!o) setPickStepFor(null); }}
+          title="Add step"
+          entity="Step"
+          items={steps.allSteps.filter((s) => s.task_id !== pickStepFor)}
+          onConfirm={async (selected) => {
+            const goalId = pickStepFor;
+            if (!goalId || selected.size === 0) return;
+            try {
+              await Promise.all([...selected].map((id) => stepsApi.update(id, { task_id: goalId })));
+              await goals.refresh();
+            } catch (e: any) { toast.error(e?.detail ?? 'Failed to attach step'); }
+          }}
+          onCreate={() => setStepFormOpen({ goalId: pickStepFor })}
+          matches={(s, q) => s.title.toLowerCase().includes(q) || (s.goal?.title?.toLowerCase().includes(q) ?? false)}
+          render={(s) => (
+            <>
+              <div style={{ fontWeight: 500 }}>{s.title}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>from {s.goal.title}</div>
+            </>
+          )}
+        />
+      )}
+
+      {/* Add-go picker — pick existing gos to attach to a goal (or to a step). */}
+      {pickGoFor !== null && (
+        <MobilePickerSheet
+          open={!!pickGoFor}
+          onOpenChange={(o) => { if (!o) setPickGoFor(null); }}
+          title={pickGoFor.sprintId ? 'Add go to step' : 'Add go to goal'}
+          entity="Go"
+          items={gos.gos.filter((g) => {
+            // Exclude gos already in this exact slot (goal-level if no sprintId,
+            // step-level otherwise).
+            if (pickGoFor!.sprintId) return g.sprint_id !== pickGoFor!.sprintId;
+            return !(g.task_id === pickGoFor!.taskId && !g.sprint_id);
+          })}
+          onConfirm={async (selected) => {
+            const target = pickGoFor;
+            if (!target || selected.size === 0) return;
+            try {
+              await Promise.all([...selected].map((id) => gosApi.update(id, {
+                task_id: target.taskId,
+                sprint_id: target.sprintId,
+              })));
+              await Promise.all([gos.refresh(), goals.refresh()]);
+              setPickGoFor(null);
+            } catch (e: any) { toast.error(e?.detail ?? 'Failed to attach go'); }
+          }}
+          onCreate={() => setGoFormOpen({ taskId: pickGoFor!.taskId, sprintId: pickGoFor!.sprintId })}
+          matches={(g, q) => g.title.toLowerCase().includes(q)}
+          render={(g) => g.title}
+        />
+      )}
     </MobileShell>
   );
 }
@@ -274,9 +347,35 @@ function KanbanView({
   onStatus: (s: StatusFilter) => void;
   onAddGoal: () => void;
 } & KanbanCallbacks) {
+  const [priorityFilter, setPriorityFilter] = useState<Set<TaskPriority>>(new Set());
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+
+  // Collect unique tags across all goals (for the filter row).
+  const allTags = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; color: string }>();
+    for (const t of tasks) for (const tg of t.tags) m.set(tg.id, tg);
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [tasks]);
+
+  const togglePriority = (p: TaskPriority) => setPriorityFilter((cur) => {
+    const next = new Set(cur);
+    if (next.has(p)) next.delete(p); else next.add(p);
+    return next;
+  });
+  const toggleTag = (id: string) => setTagFilter((cur) => {
+    const next = new Set(cur);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
   const filtered = useMemo(() => {
-    return statusFilter === 'all' ? tasks : tasks.filter((t) => t.status === statusFilter);
-  }, [tasks, statusFilter]);
+    return tasks.filter((t) => {
+      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+      if (priorityFilter.size > 0 && !priorityFilter.has(t.priority)) return false;
+      if (tagFilter.size > 0 && !t.tags.some((tg) => tagFilter.has(tg.id))) return false;
+      return true;
+    });
+  }, [tasks, statusFilter, priorityFilter, tagFilter]);
 
   return (
     <>
@@ -295,12 +394,65 @@ function KanbanView({
         ))}
       </div>
 
+      {/* Priority filter — multi-select; empty = all priorities. */}
+      <div className="filter-row">
+        <span className="filter-row-label">Priority</span>
+        <div className="filter-pills">
+          {(['high', 'medium', 'low'] as TaskPriority[]).map((p) => {
+            const active = priorityFilter.has(p);
+            const palette = priorityFlagColor(p);
+            return (
+              <button
+                key={p}
+                type="button"
+                className={`fp-pill${active ? ' fp-pill-active' : ''}`}
+                onClick={() => togglePriority(p)}
+                style={active ? { background: palette.bg, color: palette.fg, borderColor: palette.fg } : undefined}
+              >
+                <Flag size={10} />
+                {p[0].toUpperCase() + p.slice(1)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tag filter — only shown when there is at least one tag in the goals. */}
+      {allTags.length > 0 && (
+        <div className="filter-row">
+          <span className="filter-row-label">Tags</span>
+          <div className="filter-pills filter-pills-scroll">
+            {allTags.map((tg) => {
+              const active = tagFilter.has(tg.id);
+              return (
+                <button
+                  key={tg.id}
+                  type="button"
+                  className={`fp-pill${active ? ' fp-pill-active' : ''}`}
+                  onClick={() => toggleTag(tg.id)}
+                  style={active
+                    ? { background: `${tg.color}20`, color: tg.color, borderColor: tg.color }
+                    : undefined}
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: 2, background: tg.color }} />
+                  {tg.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <button type="button" className="m-add-btn" onClick={onAddGoal}>
         <Plus /> Goal
       </button>
 
       {filtered.length === 0 ? (
-        <EmptyHint>No goals in this column.</EmptyHint>
+        <EmptyHint>
+          {priorityFilter.size > 0 || tagFilter.size > 0
+            ? 'No goals match the active filters.'
+            : 'No goals in this column.'}
+        </EmptyHint>
       ) : (
         <div className="goal-cards">
           {filtered.map((t) => (
@@ -341,12 +493,11 @@ function GoalCard({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
     : `${todayDone}/${todayItems.length} today`;
 
   const flagColors = priorityFlagColor(task.priority);
-  const childCount = task.sprints.length + task.gos.filter((g) => !g.sprint_id).length + task.routines.length;
+  // Routines no longer counted — they have their own dedicated screen.
+  const childCount = task.sprints.length + task.gos.filter((g) => !g.sprint_id).length;
 
   return (
     <article className="goal-card" style={{ ['--gc' as any]: accent }}>
-      <div className="gc-bar"><div className="gc-bar-fill" style={{ width: `${pct}%` }} /></div>
-
       <header className="gc-head" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
         <h3 className="gc-title" style={{ flex: 1, margin: 0 }}>{task.title}</h3>
         <span
@@ -364,61 +515,103 @@ function GoalCard({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
 
       {task.description && <p className="gc-desc">{task.description}</p>}
 
-      <div className="gc-progress-row">
-        <span className="gc-pct">{pct}<em>%</em></span>
-        <span className="gc-progress-label">complete</span>
+      {/* Progress as a single horizontal bar — no separate "0% complete" text. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0 4px' }}>
+        <div style={{
+          flex: 1, height: 6,
+          background: 'var(--cream)', borderRadius: 999, overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%',
+            width: `${pct}%`,
+            background: 'var(--indigo)',
+            transition: 'width 220ms ease',
+          }} />
+        </div>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500,
+          color: 'var(--ink)', flexShrink: 0,
+        }}>{pct}%</span>
       </div>
 
       {task.tags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
           {task.tags.map((tag) => (
             <span
               key={tag.id}
               style={{
-                fontFamily: 'var(--font-ui)', fontSize: 10.5, fontWeight: 500,
-                padding: '2px 7px', borderRadius: 999,
+                fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 500,
+                padding: '5px 12px', borderRadius: 999,
                 color: tag.color,
-                boxShadow: `inset 0 0 0 1px ${tag.color}33`,
-                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: `${tag.color}14`,
+                boxShadow: `inset 0 0 0 1px ${tag.color}40`,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
               }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: 2, background: tag.color }} />
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: tag.color }} />
               {tag.name}
             </span>
           ))}
         </div>
       )}
 
-      <footer className="gc-foot">
-        {todayLabel && (
-          <span className={`gc-today ${todayClass ?? ''}`}>
-            {todayClass === 'gc-today-done' && <Check size={9} />}
-            {todayLabel}
-          </span>
-        )}
-        {task.due_date ? (
-          <span className="gc-due">due {fmtDue(task.due_date)} · {daysUntil(task.due_date)}d</span>
-        ) : (
-          <span className="gc-due gc-due-none">no deadline</span>
-        )}
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          style={{
-            marginLeft: 'auto',
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            background: 'transparent', border: 0, cursor: 'pointer',
-            color: 'var(--ink-4)', fontSize: 'var(--text-2xs)',
-            padding: '4px 8px', borderRadius: 6,
-          }}
-        >
-          <ChevronRight
-            size={12}
-            style={{ transition: 'transform 140ms', transform: expanded ? 'rotate(90deg)' : 'none' }}
-          />
-          {childCount === 0 ? 'Add items' : `${childCount} ${childCount === 1 ? 'item' : 'items'}`}
-        </button>
-      </footer>
+      <div className="gc-stats">
+        <div className={`gc-stat ${todayClass ?? ''}`}>
+          <div className="gc-stat-lab">Today</div>
+          <div className="gc-stat-val">
+            {todayLabel ? (
+              <>
+                {todayClass === 'gc-today-done' && <Check size={14} />}
+                {todayLabel}
+              </>
+            ) : (
+              <span className="gc-stat-empty">—</span>
+            )}
+          </div>
+        </div>
+        <div className={`gc-stat ${task.due_date ? '' : 'gc-stat-empty-row'}`}>
+          <div className="gc-stat-lab">Deadline</div>
+          <div className="gc-stat-val">
+            {task.due_date ? (
+              <>
+                {fmtDue(task.due_date)}
+                <span className="gc-stat-sub">{daysUntil(task.due_date)}d</span>
+              </>
+            ) : (
+              <span className="gc-stat-empty">No deadline</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Big centered "items" toggle button at the bottom of the card. */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          marginTop: 12,
+          width: '100%',
+          height: 44,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          background: 'transparent',
+          border: '1px dashed var(--hairline-strong)',
+          borderRadius: 10,
+          color: 'var(--ink-3)',
+          fontFamily: 'var(--font-ui)',
+          fontSize: 14,
+          fontWeight: 500,
+          cursor: 'pointer',
+          transition: 'border-color 140ms, color 140ms, background 140ms',
+        }}
+      >
+        <ChevronRight
+          size={14}
+          style={{ transition: 'transform 140ms', transform: expanded ? 'rotate(90deg)' : 'none' }}
+        />
+        {childCount === 0
+          ? 'Add items'
+          : (expanded ? `Hide ${childCount} item${childCount === 1 ? '' : 's'}` : `Show ${childCount} item${childCount === 1 ? '' : 's'}`)}
+      </button>
 
       {expanded && <ExpandedSection task={task} cb={cb} />}
     </article>
@@ -426,157 +619,84 @@ function GoalCard({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
 }
 
 function ExpandedSection({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
+  // Steps appear first as their own mini-cards (with their own go-children
+  // toggle); Gos directly attached to the goal (no step parent) appear as
+  // mini go-cards on equal footing — same nesting rule as Sprint items list.
   const standaloneGos = task.gos.filter((g) => !g.sprint_id);
 
   return (
-    <div style={{
-      marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--hairline)',
-      display: 'flex', flexDirection: 'column', gap: 12,
-    }}>
-      {/* Steps */}
-      <div>
-        <div className="kc-section-label" style={{ marginBottom: 4 }}>Steps</div>
-        {task.sprints.length === 0 ? (
-          <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-5)', padding: '4px 0' }}>None yet</div>
-        ) : (
-          task.sprints.map((s) => {
-            const stepGos = s.gos;
-            return (
-              <div key={s.id} style={{
-                padding: 8, borderRadius: 6, background: 'var(--cream)',
-                marginBottom: 6, fontSize: 'var(--text-xs)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button
-                    type="button"
-                    onClick={() => cb.onToggleStepDone(s.id, s.is_completed)}
-                    style={{
-                      width: 14, height: 14, borderRadius: 999,
-                      border: `1.5px solid ${s.is_completed ? 'var(--moss)' : 'var(--hairline-strong)'}`,
-                      background: s.is_completed ? 'var(--moss)' : 'transparent',
-                      color: 'var(--paper)', display: 'inline-flex',
-                      alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0,
-                    }}
-                  >
-                    {s.is_completed && <Check size={9} />}
-                  </button>
-                  <span style={{ flex: 1, fontWeight: 500 }}>{s.title}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>{Math.round(s.progress ?? 0)}%</span>
-                </div>
-                {stepGos.length > 0 && (
-                  <div style={{ marginTop: 6, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {stepGos.map((g) => (
-                      <GoSubrow key={g.id} go={g} onToggle={cb.onToggleGoDone} />
-                    ))}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => cb.onAddGo(task.id, s.id)}
-                  style={{
-                    marginTop: 6, fontSize: 'var(--text-2xs)', color: 'var(--ink-4)',
-                    background: 'transparent', border: 0, cursor: 'pointer', padding: '2px 0',
-                  }}
-                >+ Go to step</button>
-              </div>
-            );
-          })
-        )}
+    <div className="m-gc-expanded">
+      {task.sprints.map((step) => (
+        <NestedStepInGoal
+          key={step.id}
+          step={step}
+          onToggleGoDone={cb.onToggleGoDone}
+          onAddGoToStep={() => cb.onAddGo(task.id, step.id)}
+        />
+      ))}
+
+      {standaloneGos.map((g) => (
+        <article key={g.id} className="m-mc m-mc-go" data-done={g.is_done_today || undefined}>
+          <span className="m-mc-kind">Go</span>
+          <MiniGoContent go={g} onLog={() => cb.onToggleGoDone(g)} />
+        </article>
+      ))}
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button type="button" className="lane-add-btn" onClick={() => cb.onAddStep(task.id)}>
           <Plus size={11} /> Add step
         </button>
-      </div>
-
-      {/* Standalone Gos */}
-      {(standaloneGos.length > 0 || true) && (
-        <div>
-          <div className="kc-section-label" style={{ marginBottom: 4 }}>Gos</div>
-          {standaloneGos.length === 0 ? (
-            <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-5)', padding: '4px 0' }}>None yet</div>
-          ) : (
-            standaloneGos.map((g) => (
-              <div key={g.id} style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
-                borderRadius: 6, background: 'var(--cream)', marginBottom: 4,
-                fontSize: 'var(--text-xs)',
-              }}>
-                <GoSubrow go={g} onToggle={cb.onToggleGoDone} />
-              </div>
-            ))
-          )}
-          <button type="button" className="lane-add-btn" onClick={() => cb.onAddGo(task.id, null)}>
-            <Plus size={11} /> Add go
-          </button>
-        </div>
-      )}
-
-      {/* Routines */}
-      <div>
-        <div className="kc-section-label" style={{ marginBottom: 4 }}>Routines</div>
-        {task.routines.length === 0 ? (
-          <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-5)', padding: '4px 0' }}>None linked</div>
-        ) : (
-          task.routines.map((link) => {
-            const today = ymd(new Date());
-            const e = link.routine.entries.find((x) => x.date === today);
-            const done = (e?.value ?? 0) > 0;
-            return (
-              <div key={link.id} style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
-                borderRadius: 6, background: 'var(--cream)', marginBottom: 4,
-                fontSize: 'var(--text-xs)',
-              }}>
-                <button
-                  type="button"
-                  onClick={() => cb.onToggleRoutineDone(link)}
-                  style={{
-                    width: 14, height: 14, borderRadius: 999,
-                    border: `1.5px solid ${done ? 'var(--moss)' : 'var(--hairline-strong)'}`,
-                    background: done ? 'var(--moss)' : 'transparent',
-                    color: 'var(--paper)', display: 'inline-flex',
-                    alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0,
-                  }}
-                >{done && <Check size={9} />}</button>
-                <Repeat size={11} style={{ color: 'var(--ochre)' }} />
-                <span style={{ flex: 1 }}>{link.routine.title}</span>
-              </div>
-            );
-          })
-        )}
-        <button type="button" className="lane-add-btn" onClick={() => cb.onAddRoutine(task.id)}>
-          <Plus size={11} /> Add routine
+        <button type="button" className="lane-add-btn" onClick={() => cb.onAddGo(task.id, null)}>
+          <Plus size={11} /> Add go
         </button>
       </div>
     </div>
   );
 }
 
-function GoSubrow({ go, onToggle }: { go: Go; onToggle: (g: Go) => void }) {
+function NestedStepInGoal({
+  step, onToggleGoDone, onAddGoToStep,
+}: {
+  step: import('../../../api/types').Step;
+  onToggleGoDone: (g: Go) => void;
+  onAddGoToStep: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const goCount = step.gos.length;
+  const goDone = step.gos.filter((g) => g.is_done_today).length;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-xs)' }}>
-      <button
-        type="button"
-        onClick={() => onToggle(go)}
-        style={{
-          width: 12, height: 12, borderRadius: 999,
-          border: `1.5px solid ${go.is_done_today ? 'var(--moss)' : 'var(--hairline-strong)'}`,
-          background: go.is_done_today ? 'var(--moss)' : 'transparent',
-          color: 'var(--paper)', display: 'inline-flex',
-          alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0,
-        }}
-      >
-        {go.is_done_today && <Check size={8} />}
-      </button>
-      <span style={{
-        flex: 1, color: go.is_done_today ? 'var(--ink-5)' : 'var(--ink-2)',
-        textDecoration: go.is_done_today ? 'line-through' : 'none',
-      }}>{go.title}</span>
-      {go.kind === 'numeric' && go.target_value !== null && (
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)' }}>
-          {go.target_value}{go.unit ? ` ${go.unit}` : ''}
-        </span>
+    <article className="m-mc m-mc-step" data-done={step.is_completed || undefined}>
+      <span className="m-mc-kind">Step</span>
+      <MiniStepContent step={step} />
+
+      {goCount > 0 && (
+        <button
+          type="button"
+          className="m-mc-toggle"
+          data-open={open || undefined}
+          onClick={() => setOpen(!open)}
+        >
+          <ChevronRight size={12} />
+          {open
+            ? `Hide ${goCount} go${goCount === 1 ? '' : 's'}`
+            : `Show ${goDone}/${goCount} go${goCount === 1 ? '' : 's'}`}
+        </button>
       )}
-    </div>
+
+      {open && (
+        <div className="m-mc-children">
+          {step.gos.map((g) => (
+            <article key={g.id} className="m-mc m-mc-go" data-done={g.is_done_today || undefined}>
+              <span className="m-mc-kind">Go</span>
+              <MiniGoContent go={g} onLog={() => onToggleGoDone(g)} />
+            </article>
+          ))}
+          <button type="button" className="lane-add-btn" onClick={onAddGoToStep}>
+            <Plus size={11} /> Add go to step
+          </button>
+        </div>
+      )}
+    </article>
   );
 }
 
@@ -698,6 +818,20 @@ function TgCard({
   const step = go.target_value !== null && Number.isInteger(go.target_value) ? 1 : 0.1;
   const round = (n: number) => Math.round(n * 10) / 10;
 
+  // Where this Go is attached: prefer step, fall back to goal, then standalone.
+  const attachLabel = go.sprint_title
+    ? `Step · ${go.sprint_title}`
+    : go.task_title
+    ? `Goal · ${go.task_title}`
+    : 'Standalone';
+  const attachIsStep = !!go.sprint_title;
+
+  // Period of execution (start – due). Show whatever is set.
+  let periodLabel: string | null = null;
+  if (go.start_date && go.due_date) periodLabel = `${fmtDue(go.start_date)} – ${fmtDue(go.due_date)}`;
+  else if (go.due_date)             periodLabel = `due ${fmtDue(go.due_date)}`;
+  else if (go.start_date)           periodLabel = `from ${fmtDue(go.start_date)}`;
+
   return (
     <article
       className="tg-card"
@@ -707,12 +841,15 @@ function TgCard({
     >
       <header className="tg-card-head">
         <div className="tg-meta-row">
-          <span className="tg-kind-pill">{go.kind}</span>
-          {parent && (
-            <span className="tg-goal-pill" style={{ ['--gc' as any]: accentForGoal(parent) }}>
-              <span className="tg-goal-dot" />{parent.title}
-            </span>
-          )}
+          <span
+            className="tg-attach-pill"
+            data-step={attachIsStep || undefined}
+            style={parent ? { ['--gc' as any]: accentForGoal(parent) } : undefined}
+          >
+            {attachIsStep ? <Layers size={10} /> : <span className="tg-attach-dot" />}
+            {attachLabel}
+          </span>
+          {periodLabel && <span className="tg-period-pill">{periodLabel}</span>}
         </div>
       </header>
       <h3 className="tg-title">{go.title}</h3>
@@ -759,12 +896,13 @@ function TgCard({
 
 // ── Step (lanes by goal) ─────────────────────────────────────────────────────
 
-function StepView({ tasks, steps, onAdd, onEdit, onDelete }: {
+function StepView({ tasks, steps, onAdd, onEdit, onDelete, onToggleGoDone }: {
   tasks: Task[];
   steps: ReturnType<typeof useSteps>;
   onAdd: () => void;
   onEdit: (s: import('../../../api/types').Step) => void;
   onDelete: (s: import('../../../api/types').Step) => void;
+  onToggleGoDone: (g: Go) => void;
 }) {
   const today = ymd(new Date());
 
@@ -802,48 +940,12 @@ function StepView({ tasks, steps, onAdd, onEdit, onDelete }: {
             const accent = accentForGoal(t);
             return (
               <div key={t.id} className="lane" style={{ ['--gc' as any]: accent }}>
-                <div className="lane-head">
-                  <span className="lane-dot" />
-                  <span className="lane-name">{t.title}</span>
-                  <span className="lane-count">{t.sprints.length} step{t.sprints.length === 1 ? '' : 's'}</span>
-                </div>
                 <div className="lane-steps">
-                  {t.sprints.map((s) => {
-                    const pct = Math.round(s.progress ?? 0);
-                    let status: 'on-track' | 'upcoming' | 'at-risk' | 'done';
-                    if (s.is_completed) status = 'done';
-                    else if (s.start_date > today) status = 'upcoming';
-                    else if (s.end_date < today) status = 'at-risk';
-                    else status = 'on-track';
-                    const daysLeft = !s.is_completed && s.end_date >= today
-                      ? `${daysUntil(s.end_date)}d left`
-                      : null;
-                    const goCount = s.gos.length;
-                    const goDone  = s.gos.filter((g) => g.is_done_today).length;
-                    return (
-                      <SwipeableRow key={s.id} onEdit={() => onEdit(s)} onDelete={() => onDelete(s)}>
-                        <article className="step-card" data-status={status}>
-                          <header className="step-card-head">
-                            <h4 className="step-card-title">{s.title}</h4>
-                          </header>
-                          <div className="step-card-meta">
-                            <span className="step-period">{fmtDue(s.start_date)} – {fmtDue(s.end_date)}</span>
-                            {daysLeft && <span className="step-days">{daysLeft}</span>}
-                          </div>
-                          <div className="step-card-prog">
-                            <div className="step-card-bar"><div className="step-card-bar-fill" style={{ width: `${pct}%` }} /></div>
-                            <span className="step-card-pct">{pct}%</span>
-                          </div>
-                          <footer className="step-card-foot">
-                            <span className={`step-status step-status-${status === 'on-track' ? 'on' : status === 'upcoming' ? 'up' : status === 'at-risk' ? 'risk' : 'done'}`}>
-                              {status === 'on-track' ? 'On track' : status === 'upcoming' ? 'Upcoming' : status === 'at-risk' ? 'At risk' : 'Complete'}
-                            </span>
-                            {goCount > 0 && <span className="step-gos">{goDone}/{goCount} Gos</span>}
-                          </footer>
-                        </article>
-                      </SwipeableRow>
-                    );
-                  })}
+                  {t.sprints.map((s) => (
+                    <SwipeableRow key={s.id} onEdit={() => onEdit(s)} onDelete={() => onDelete(s)}>
+                      <StepCard step={s} parent={t} today={today} onToggleGoDone={onToggleGoDone} />
+                    </SwipeableRow>
+                  ))}
                 </div>
               </div>
             );
@@ -852,6 +954,92 @@ function StepView({ tasks, steps, onAdd, onEdit, onDelete }: {
       )}
     </>
   );
+}
+
+function StepCard({ step, parent, today, onToggleGoDone }: {
+  step: import('../../../api/types').Step;
+  parent: Task;
+  today: string;
+  onToggleGoDone: (g: Go) => void;
+}) {
+  const accent = accentForGoal(parent);
+
+  let status: 'on-track' | 'upcoming' | 'at-risk' | 'done';
+  if (step.is_completed) status = 'done';
+  else if (step.start_date > today) status = 'upcoming';
+  else if (step.end_date < today) status = 'at-risk';
+  else status = 'on-track';
+
+  const statusLabel = status === 'on-track' ? 'On track'
+    : status === 'upcoming' ? 'Upcoming'
+    : status === 'at-risk' ? 'At risk'
+    : 'Complete';
+  const statusKey = status === 'on-track' ? 'on'
+    : status === 'upcoming' ? 'up'
+    : status === 'at-risk' ? 'risk'
+    : 'done';
+
+  const daysLeft = !step.is_completed && step.end_date >= today
+    ? `${daysUntil(step.end_date)}d left`
+    : null;
+
+  const goCount = step.gos.length;
+  const goDone  = step.gos.filter((g) => g.is_done_today).length;
+  // First not-done go = "current" node; gets a halo & accent ring.
+  const currentIdx = step.gos.findIndex((g) => !g.is_done_today);
+  // Drop labels when too many gos to avoid crowding (~5+ gets cramped on mobile).
+  const showLabels = goCount > 0 && goCount <= 4;
+
+  return (
+    <article className="goal-card goal-card-step step-constellation" data-status={status} style={{ ['--gc' as any]: accent }}>
+      <header className="step-cn-head">
+        <h3 className="gc-title" style={{ flex: 1, minWidth: 0 }}>{step.title}</h3>
+        <span className="step-cn-period">
+          {fmtDue(step.start_date)} — {fmtDue(step.end_date)}
+        </span>
+      </header>
+
+      {goCount > 0 ? (
+        <div className={`step-nodes${showLabels ? '' : ' step-nodes-compact'}`}>
+          {step.gos.map((g, i) => {
+            const isDone = g.is_done_today;
+            const isCurrent = !isDone && i === currentIdx;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                className={`step-node${isDone ? ' step-node-done' : ''}${isCurrent ? ' step-node-current' : ''}`}
+                onClick={() => onToggleGoDone(g)}
+                aria-label={`${g.title} (${isDone ? 'done' : 'pending'})`}
+                title={g.title}
+              >
+                <span className="step-node-dot">
+                  {isDone ? <Check size={12} /> : (i + 1)}
+                </span>
+                {showLabels && (
+                  <span className="step-node-label">{stepNodeLabel(g.title)}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="step-cn-empty">No gos yet — swipe to edit and link some.</div>
+      )}
+
+      <footer className="gc-foot step-cn-foot">
+        <span className={`step-status step-status-${statusKey}`}>{statusLabel}</span>
+        <span className="gc-due">
+          {goDone}/{goCount} done{daysLeft ? ` · ${daysLeft}` : ''}
+        </span>
+      </footer>
+    </article>
+  );
+}
+
+function stepNodeLabel(title: string): string {
+  const word = title.trim().split(/\s+/)[0] ?? '';
+  return word.length > 8 ? word.slice(0, 7) + '…' : word;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

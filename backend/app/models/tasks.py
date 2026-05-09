@@ -31,7 +31,7 @@ class Task(Base):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     order: Mapped[int] = mapped_column(Integer, default=0)
-    color: Mapped[str] = mapped_column(String(20), default="#5B5BD6", server_default="#5B5BD6")
+    color: Mapped[str] = mapped_column(String(20), default="#2C4A60", server_default="#2C4A60")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

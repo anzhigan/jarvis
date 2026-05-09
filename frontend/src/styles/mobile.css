@@ -287,6 +287,132 @@
     overflow: hidden;
     box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
+  /* Step card — Constellation variant. Each go is a node on a dotted path
+     between start/finish; done = filled with --gc, current = haloed,
+     pending = outlined. Tap a node to toggle the go done. */
+  .goal-card-step { background: var(--paper); }
+  .step-cn-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .step-cn-period {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-top: 4px;
+  }
+  .step-nodes {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 4px;
+    margin: 16px 0 14px;
+    position: relative;
+    padding: 0 2px;
+  }
+  /* Dotted path connecting nodes (sits behind dots, runs through their center). */
+  .step-nodes::before {
+    content: '';
+    position: absolute;
+    top: 13px; /* dot center: 28px / 2 = 14, minus 1px to align nicely */
+    left: 16px;
+    right: 16px;
+    height: 2px;
+    background: repeating-linear-gradient(
+      to right,
+      var(--hairline-strong) 0 4px,
+      transparent 4px 8px
+    );
+    z-index: 0;
+  }
+  .step-nodes-compact { gap: 0; }
+  .step-nodes-compact::before { top: 11px; left: 12px; right: 12px; }
+  .step-node {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    padding: 0 2px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .step-node-dot {
+    width: 28px; height: 28px;
+    border-radius: 999px;
+    background: var(--paper);
+    border: 2px solid var(--hairline-strong);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-4);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    transition: background 160ms, border-color 160ms, color 160ms, box-shadow 160ms;
+  }
+  .step-nodes-compact .step-node-dot {
+    width: 22px; height: 22px;
+    font-size: 11px;
+  }
+  .step-node-done .step-node-dot {
+    background: var(--gc);
+    border-color: var(--gc);
+    color: var(--paper);
+  }
+  .step-node-current .step-node-dot {
+    background: var(--paper);
+    border-color: var(--gc);
+    color: var(--gc);
+    box-shadow: 0 0 0 4px var(--moss-soft);
+  }
+  /* Override halo to use the parent goal's accent (semi-transparent). */
+  .step-node-current .step-node-dot {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--gc) 18%, transparent);
+  }
+  .step-node-label {
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    color: var(--ink-4);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .step-node-done .step-node-label { color: var(--ink); font-weight: 500; }
+  .step-node-current .step-node-label { color: var(--gc); font-weight: 600; }
+  .step-cn-empty {
+    margin: 14px 0;
+    padding: 12px;
+    border: 1px dashed var(--hairline-strong);
+    border-radius: 10px;
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--ink-4);
+  }
+  .step-cn-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-left: 0;
+    font-size: 12.5px;
+  }
   .gc-bar {
     position: absolute;
     left: 0; top: 0; bottom: 0;
@@ -400,6 +526,116 @@
     color: var(--ink-5);
   }
 
+  /* Goal-card meta stats — 2-column grid that balances the card visually
+     and gives "Today / Deadline" room to breathe at a larger font size. */
+  .gc-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding-left: 10px;
+  }
+  .gc-stat {
+    background: var(--cream);
+    border-radius: 8px;
+    padding: 9px 12px;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+  .gc-stat-lab {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-5);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .gc-stat-val {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    line-height: 1.1;
+  }
+  .gc-stat-val svg { width: 14px; height: 14px; align-self: center; color: var(--moss); }
+  .gc-stat-sub {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-4);
+    font-weight: 400;
+  }
+  .gc-stat-empty {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-style: italic;
+    color: var(--ink-5);
+    font-weight: 400;
+  }
+  /* Status-coloured tints for the "Today" stat. */
+  .gc-stat.gc-today-done    { background: var(--moss-soft); }
+  .gc-stat.gc-today-done    .gc-stat-val { color: var(--moss); }
+  .gc-stat.gc-today-pending { background: var(--ochre-soft); }
+  .gc-stat.gc-today-pending .gc-stat-val { color: var(--ochre); }
+  .gc-stat.gc-today-mid     { background: var(--indigo-soft); }
+  .gc-stat.gc-today-mid     .gc-stat-val { color: var(--indigo); }
+
+  /* Filter row (priority / tags) above goal cards in Kanban. */
+  .filter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .filter-row-label {
+    flex-shrink: 0;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-5);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  .filter-pills-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .filter-pills-scroll::-webkit-scrollbar { display: none; }
+  .fp-pill {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 11px;
+    background: var(--paper);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-3);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 140ms, color 140ms, border-color 140ms;
+  }
+  .fp-pill:hover { background: var(--cream); }
+  .fp-pill-active { font-weight: 600; }
+  .fp-pill svg { width: 10px; height: 10px; }
+
   /* ════════ GO ════════ */
   .go-summary {
     display: grid;
@@ -476,38 +712,42 @@
     gap: 5px;
     align-items: center;
   }
-  .tg-kind-pill {
-    font-family: var(--font-ui);
-    font-size: 9px;
-    font-weight: 600;
-    color: var(--indigo);
-    text-transform: uppercase;
-    letter-spacing: 0.10em;
-    padding: 2px 7px;
-    background: var(--indigo-soft);
-    border-radius: 999px;
-  }
-  .tg-card[data-kind="boolean"] .tg-kind-pill {
-    color: var(--slate);
-    background: var(--slate-soft);
-  }
-  .tg-card[data-done] .tg-kind-pill {
-    color: var(--moss);
-    background: rgba(107,122,79,0.18);
-  }
-  .tg-goal-pill {
+  /* Attach pill — shows where the Go is attached (Step / Goal / Standalone). */
+  .tg-attach-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     font-family: var(--font-ui);
-    font-size: 10px;
-    color: var(--gc);
+    font-size: 11px;
     font-weight: 500;
+    color: var(--gc, var(--ink-3));
+    padding: 3px 9px;
+    background: var(--cream);
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .tg-goal-dot {
+  .tg-attach-pill[data-step] {
+    /* Step badge — slightly stronger to signal "more specific than goal". */
+    background: var(--paper);
+    border-color: var(--gc, var(--hairline-strong));
+  }
+  .tg-attach-dot {
     width: 6px; height: 6px;
     border-radius: 50%;
     background: var(--gc);
+    flex-shrink: 0;
+  }
+  .tg-period-pill {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+    padding: 3px 9px;
+    background: var(--cream);
+    border-radius: 999px;
   }
   .tg-edit {
     width: 26px; height: 26px;
@@ -727,33 +967,8 @@
     gap: 18px;
   }
   .lane {
-    border-left: 3px solid var(--gc);
-    padding-left: 12px;
-  }
-  .lane-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .lane-dot {
-    width: 8px; height: 8px;
-    border-radius: 2px;
-    background: var(--gc);
-    flex-shrink: 0;
-  }
-  .lane-name {
-    flex: 1;
-    font-family: var(--font-display);
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--ink);
-    letter-spacing: -0.02em;
-  }
-  .lane-count {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--ink-5);
+    /* Goal-grouping wrapper — visual indicators removed, used only as
+       a structural container so steps from different goals stay grouped. */
   }
   .lane-steps {
     display: flex;
@@ -1270,6 +1485,476 @@
     color: var(--indigo);
     background: var(--indigo-soft);
     border-style: solid;
+  }
+
+  /* ════════ SPRINT — Disc design (active/featured card) ════════ */
+  .sd-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .sprint-disc {
+    background: var(--paper);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
+    position: relative;
+    overflow: hidden;
+  }
+  /* Top accent strip — paints the sprint's chosen color (--gc). */
+  .sd-accent {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: var(--gc, var(--indigo));
+  }
+  .sd-disc-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 14px;
+    align-items: center;
+  }
+  .sd-disc-svg-wrap {
+    position: relative;
+    width: 130px;
+    height: 130px;
+  }
+  .sd-disc-svg { width: 130px; height: 130px; display: block; }
+  .sd-ring-bg    { stroke: var(--cream); }
+  /* Outer ring (time) takes the sprint's chosen color. */
+  .sd-ring-time  { stroke: var(--gc, var(--indigo)); transition: stroke-dashoffset 320ms ease; }
+  .sd-ring-items { stroke: var(--ochre);  transition: stroke-dashoffset 320ms ease; }
+  .sd-disc-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .sd-disc-num {
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .sd-disc-cap {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    margin-top: 4px;
+  }
+  .sd-pre-title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-5);
+    margin-bottom: 4px;
+  }
+  .sd-title {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .sd-period {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+    margin-bottom: 12px;
+  }
+  .sd-legend {
+    display: grid;
+    gap: 7px;
+  }
+  .sd-leg {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .sd-leg-swatch {
+    width: 10px; height: 10px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .sd-leg-time  { background: var(--gc, var(--indigo)); }
+  .sd-leg-items { background: var(--ochre); }
+  .sd-leg-text {
+    flex: 1;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+  }
+  .sd-leg-lab {
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--ink-5);
+  }
+  .sd-leg-val {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .sd-leg-val em {
+    font-style: normal;
+    color: var(--ink-4);
+    font-size: 11px;
+    margin-left: 4px;
+  }
+  .sd-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+    color: var(--ink-4);
+    font-size: 13px;
+  }
+  .sd-pace {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .sd-toggle {
+    margin-top: 12px;
+    width: 100%;
+    height: 42px;
+    border: 1px dashed var(--hairline-strong);
+    border-radius: 10px;
+    background: transparent;
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink-3);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .sd-toggle svg { transition: transform 140ms; }
+  .sd-toggle[data-open] svg { transform: rotate(90deg); }
+  /* Add-items variant — solid accent so it reads as a primary CTA on an
+     otherwise empty sprint. */
+  .sd-toggle.sd-toggle-add {
+    border-style: solid;
+    border-color: var(--indigo);
+    background: var(--indigo-soft);
+    color: var(--indigo);
+  }
+  .sd-toggle.sd-toggle-add svg { transform: none; }
+  /* Inline variant — slim "+ Add item" button below the items list. */
+  .sd-toggle.sd-add-inline {
+    margin-top: 4px;
+    height: 36px;
+    font-size: 12.5px;
+  }
+  .sd-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  /* ════════ Mini-card — used inside Sprint disc items list ════════ */
+  .m-mc {
+    --gc: var(--moss);
+    position: relative;
+    background: var(--paper);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 10px;
+    padding: 11px 12px;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
+    overflow: hidden;
+  }
+  /* Done items: gold tint background, title strikethrough. */
+  .m-mc[data-done] {
+    background: var(--ochre-soft);
+    border-color: transparent;
+  }
+  .m-mc[data-done] .m-mc-title {
+    text-decoration: line-through;
+    text-decoration-color: var(--ochre);
+    text-decoration-thickness: 1.5px;
+    color: var(--ink-3);
+  }
+  .m-mc-kind {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-5);
+  }
+  .m-mc[data-done] .m-mc-kind { color: var(--ochre); }
+  .m-mc-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding-right: 56px;
+  }
+  .m-mc-title {
+    flex: 1;
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 14.5px;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+  }
+  .m-mc-flag {
+    width: 18px; height: 18px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .m-mc-flag svg { width: 9px; height: 9px; }
+  .m-mc-period {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+  .m-mc-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .m-mc-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--cream);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .m-mc[data-done] .m-mc-bar { background: rgba(255,255,255,0.5); }
+  .m-mc-bar > i {
+    display: block;
+    height: 100%;
+    background: var(--indigo);
+  }
+  .m-mc[data-done] .m-mc-bar > i { background: var(--ochre); }
+  .m-mc-pct {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .m-mc-meta {
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-4);
+    letter-spacing: 0.04em;
+  }
+  /* Mini step constellation row. */
+  .m-mc-nodes {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding: 0 2px;
+    height: 18px;
+  }
+  .m-mc-nodes::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    right: 12px;
+    height: 2px;
+    transform: translateY(-50%);
+    background: repeating-linear-gradient(
+      to right,
+      var(--hairline-strong) 0 4px,
+      transparent 4px 7px
+    );
+    z-index: 0;
+  }
+  .m-mc-node {
+    position: relative;
+    z-index: 1;
+    width: 14px; height: 14px;
+    border-radius: 999px;
+    background: var(--paper);
+    border: 2px solid var(--hairline-strong);
+  }
+  .m-mc-node.done {
+    background: var(--ochre);
+    border-color: var(--ochre);
+  }
+  .m-mc-node.cur {
+    border-color: var(--ochre);
+    box-shadow: 0 0 0 3px var(--ochre-soft);
+  }
+  /* Mini Go: pill row + bool/numeric block. */
+  .m-mc-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding-right: 56px;
+    margin-bottom: 6px;
+  }
+  .m-mc-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    background: var(--cream);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .m-mc-bool {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--cream);
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+  .m-mc-bool-done {
+    background: var(--ochre);
+    color: var(--paper);
+  }
+  .m-mc-bool .check {
+    width: 12px; height: 12px;
+    border-radius: 999px;
+    border: 1.5px solid currentColor;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .m-mc-bool-done .check {
+    background: var(--paper);
+    color: var(--ochre);
+    border-color: var(--paper);
+  }
+  .m-mc-num {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-top: 6px;
+    font-family: var(--font-display);
+    font-size: 16px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .m-mc-num .div { color: var(--ink-5); }
+  .m-mc-num .unit { font-family: var(--font-ui); font-size: 11px; color: var(--ink-4); }
+  /* Mini Routine: schedule + history strip. */
+  .m-mc-hist {
+    display: flex;
+    gap: 3px;
+    margin-top: 8px;
+  }
+  .m-mc-cell {
+    flex: 1;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--cream);
+  }
+  .m-mc[data-done] .m-mc-cell { background: rgba(255,255,255,0.4); }
+  .m-mc-cell.on { background: var(--ochre); }
+  /* Per-card expand toggle (Goal/Step children). */
+  .m-mc-toggle {
+    margin-top: 10px;
+    width: 100%;
+    height: 32px;
+    border: 1px dashed var(--hairline-strong);
+    border-radius: 8px;
+    background: transparent;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .m-mc-toggle svg { transition: transform 140ms; }
+  .m-mc-toggle[data-open] svg { transform: rotate(90deg); }
+  /* Children container — golden left rail signals "inside this parent". */
+  .m-mc-children {
+    margin-top: 10px;
+    padding-top: 10px;
+    padding-left: 12px;
+    border-top: 1px solid var(--hairline);
+    border-left: 2px solid var(--ochre);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .m-mc-children .m-mc {
+    padding: 9px 10px;
+    border-radius: 8px;
+  }
+  .m-mc-children .m-mc-kind { font-size: 8.5px; top: 7px; right: 9px; }
+
+  /* Goal-card expanded section — uses the same mini-card layout as Sprint
+     items list but lives inline at the bottom of a full-size GoalCard. */
+  .m-gc-expanded {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  /* Footer row inside mini-cards — status pill on the left, secondary meta
+     on the right. Mirrors the gc-foot / step-card-foot layout of the
+     full-size cards in their tabs. */
+  .m-mc-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .m-mc-foot-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
   }
 
   /* Other sprints */
@@ -1978,6 +2663,65 @@
   }
   .m-bs-btn-ghost:hover { background: var(--soft); color: var(--ink); }
   .m-bs-btn-danger { background: var(--rust); color: var(--paper); }
+
+  /* "Add …" picker-trigger button inside forms — opens MobilePickerSheet. */
+  .m-attach-btn {
+    height: 44px;
+    padding: 0 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px;
+    flex: 1;
+    border: 1px dashed var(--hairline-strong);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    position: relative;
+    transition: all 140ms;
+  }
+  .m-attach-btn:hover {
+    border-color: var(--indigo);
+    border-style: solid;
+    color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+  .m-attach-btn .m-attach-badge {
+    position: absolute;
+    top: 4px; right: 4px;
+    min-width: 18px; height: 18px;
+    padding: 0 6px;
+    background: var(--indigo);
+    color: var(--paper);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* Chip showing an item already attached — appears below the attach button. */
+  .m-attach-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 8px 5px 10px;
+    border-radius: 999px;
+    background: var(--cream);
+    color: var(--ink-2);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    box-shadow: 0 0 0 1px var(--hairline);
+  }
+  .m-attach-chip-x {
+    width: 18px; height: 18px;
+    border-radius: 50%; border: 0;
+    background: transparent; color: var(--ink-4);
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .m-attach-chip-x:hover { background: var(--hairline); color: var(--rust); }
 
   /* ── Swipe-to-action wrapper ────────────────────────────────────────── */
   /* The wrapper clips overflow so the action buttons never leak past its

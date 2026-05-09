@@ -124,7 +124,7 @@ class TaskCreate(BaseModel):
     start_date: date | None = None
     due_date: date | None = None
     order: int = 0
-    color: str = "#5B5BD6"
+    color: str = "#2C4A60"
     tag_ids: list[uuid.UUID] = []
 
 
@@ -150,7 +150,7 @@ class TaskOut(BaseModel):
     due_date: date | None
     is_completed: bool
     order: int
-    color: str = "#5B5BD6"
+    color: str = "#2C4A60"
     sprints: list[SprintOut] = []
     gos: list[GoOut] = []
     tags: list[TagOut] = []
