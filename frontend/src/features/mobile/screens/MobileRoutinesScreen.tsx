@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Loader2, MoreHorizontal, Plus, X } from 'lucide-react';
+import { Check, Loader2, Plus, X } from 'lucide-react';
 import type { Routine, RoutineEntry, Task } from '../../../api/types';
 import { useRoutines } from '../../routines/hooks/useRoutines';
 import { todayState as routineTodayState } from '../../routines/hooks/useRoutinesToday';
@@ -307,7 +307,6 @@ function RoutineCard({
             )}
           </div>
         </div>
-        <button className="rc-edit" aria-label="More"><MoreHorizontal /></button>
       </header>
 
       <div className="rc-history">

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Check, ChevronRight, Flag, Loader2, Minus, MoreHorizontal, Plus, Repeat, X } from 'lucide-react';
+import { Check, ChevronRight, Flag, Loader2, Minus, Plus, Repeat } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Go, GoalRoutineLink, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { useGoals } from '../../goals/hooks/useGoals';
@@ -146,6 +146,7 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
           onDay={setDayFilter}
           onLog={(go, v) => { void gos.logToday(go.id, v); }}
           onSkip={(go) => setConfirmDeleteGo(go)}
+          onEdit={(go) => setEditGo(go)}
           onAdd={() => setGoFormOpen({ taskId: null, sprintId: null })}
         />
       )}
@@ -158,6 +159,8 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
             if (activeTasks.length === 0) { toast.error('Create a goal first'); return; }
             setStepFormOpen({ goalId: null });
           }}
+          onEdit={(s) => setEditStep(s)}
+          onDelete={(s) => setConfirmDeleteStep(s)}
         />
       )}
 
@@ -357,7 +360,6 @@ function GoalCard({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
         >
           <Flag size={11} />
         </span>
-        <button className="gc-edit" aria-label="More"><MoreHorizontal /></button>
       </header>
 
       {task.description && <p className="gc-desc">{task.description}</p>}
@@ -581,7 +583,7 @@ function GoSubrow({ go, onToggle }: { go: Go; onToggle: (g: Go) => void }) {
 // ── Go (today's targets) ─────────────────────────────────────────────────────
 
 function GoView({
-  tasks, gos, dayFilter, onDay, onLog, onSkip, onAdd,
+  tasks, gos, dayFilter, onDay, onLog, onSkip, onAdd, onEdit,
 }: {
   tasks: Task[];
   gos: Go[];
@@ -590,6 +592,7 @@ function GoView({
   onLog: (go: Go, v: number) => void;
   onSkip: (go: Go) => void | Promise<void>;
   onAdd: () => void;
+  onEdit: (go: Go) => void;
 }) {
   const today = ymd(new Date());
   const goalById = useMemo(() => {
@@ -654,13 +657,18 @@ function GoView({
       ) : (
         <div className="tg-list">
           {filtered.map((g) => (
-            <TgCard
+            <SwipeableRow
               key={g.id}
-              go={g}
-              parent={g.task_id ? goalById.get(g.task_id) ?? null : null}
-              onLog={onLog}
-              onSkip={onSkip}
-            />
+              onEdit={() => onEdit(g)}
+              onDelete={() => onSkip(g)}
+            >
+              <TgCard
+                go={g}
+                parent={g.task_id ? goalById.get(g.task_id) ?? null : null}
+                onLog={onLog}
+                onSkip={onSkip}
+              />
+            </SwipeableRow>
           ))}
         </div>
       )}
@@ -706,9 +714,6 @@ function TgCard({
             </span>
           )}
         </div>
-        <button className="tg-edit" aria-label="Delete" onClick={() => void onSkip(go)}>
-          <X size={13} />
-        </button>
       </header>
       <h3 className="tg-title">{go.title}</h3>
 
@@ -754,10 +759,12 @@ function TgCard({
 
 // ── Step (lanes by goal) ─────────────────────────────────────────────────────
 
-function StepView({ tasks, steps, onAdd }: {
+function StepView({ tasks, steps, onAdd, onEdit, onDelete }: {
   tasks: Task[];
   steps: ReturnType<typeof useSteps>;
   onAdd: () => void;
+  onEdit: (s: import('../../../api/types').Step) => void;
+  onDelete: (s: import('../../../api/types').Step) => void;
 }) {
   const today = ymd(new Date());
 
@@ -814,26 +821,27 @@ function StepView({ tasks, steps, onAdd }: {
                     const goCount = s.gos.length;
                     const goDone  = s.gos.filter((g) => g.is_done_today).length;
                     return (
-                      <article key={s.id} className="step-card" data-status={status}>
-                        <header className="step-card-head">
-                          <h4 className="step-card-title">{s.title}</h4>
-                          <button className="step-card-edit" aria-label="More"><MoreHorizontal /></button>
-                        </header>
-                        <div className="step-card-meta">
-                          <span className="step-period">{fmtDue(s.start_date)} – {fmtDue(s.end_date)}</span>
-                          {daysLeft && <span className="step-days">{daysLeft}</span>}
-                        </div>
-                        <div className="step-card-prog">
-                          <div className="step-card-bar"><div className="step-card-bar-fill" style={{ width: `${pct}%` }} /></div>
-                          <span className="step-card-pct">{pct}%</span>
-                        </div>
-                        <footer className="step-card-foot">
-                          <span className={`step-status step-status-${status === 'on-track' ? 'on' : status === 'upcoming' ? 'up' : status === 'at-risk' ? 'risk' : 'done'}`}>
-                            {status === 'on-track' ? 'On track' : status === 'upcoming' ? 'Upcoming' : status === 'at-risk' ? 'At risk' : 'Complete'}
-                          </span>
-                          {goCount > 0 && <span className="step-gos">{goDone}/{goCount} Gos</span>}
-                        </footer>
-                      </article>
+                      <SwipeableRow key={s.id} onEdit={() => onEdit(s)} onDelete={() => onDelete(s)}>
+                        <article className="step-card" data-status={status}>
+                          <header className="step-card-head">
+                            <h4 className="step-card-title">{s.title}</h4>
+                          </header>
+                          <div className="step-card-meta">
+                            <span className="step-period">{fmtDue(s.start_date)} – {fmtDue(s.end_date)}</span>
+                            {daysLeft && <span className="step-days">{daysLeft}</span>}
+                          </div>
+                          <div className="step-card-prog">
+                            <div className="step-card-bar"><div className="step-card-bar-fill" style={{ width: `${pct}%` }} /></div>
+                            <span className="step-card-pct">{pct}%</span>
+                          </div>
+                          <footer className="step-card-foot">
+                            <span className={`step-status step-status-${status === 'on-track' ? 'on' : status === 'upcoming' ? 'up' : status === 'at-risk' ? 'risk' : 'done'}`}>
+                              {status === 'on-track' ? 'On track' : status === 'upcoming' ? 'Upcoming' : status === 'at-risk' ? 'At risk' : 'Complete'}
+                            </span>
+                            {goCount > 0 && <span className="step-gos">{goDone}/{goCount} Gos</span>}
+                          </footer>
+                        </article>
+                      </SwipeableRow>
                     );
                   })}
                 </div>

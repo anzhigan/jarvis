@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Loader2, MoreHorizontal, Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import type { Sprint, SprintItem } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../../sprints/hooks/useSprints';
 import { SprintForm } from '../components/MobileAddForms';
@@ -165,7 +165,6 @@ function FeaturedSprint({ row }: { row: SprintWithProgress }) {
           <span className="sf-status-dot" />
           <span className="sf-status-text">{status}</span>
         </div>
-        <button className="sf-edit" aria-label="More"><MoreHorizontal /></button>
       </header>
 
       <h2 className="sf-name">{sprint.title}</h2>
@@ -233,7 +232,6 @@ function OtherSprint({ row }: { row: SprintWithProgress }) {
     <article className="other-sprint">
       <header className="os-head">
         <span className={`os-status ${statusClass}`}>{statusLabel}</span>
-        <button className="os-edit" aria-label="More"><MoreHorizontal /></button>
       </header>
       <h3 className="os-name">{sprint.title}</h3>
       <div className="os-period">{fmtPeriod(sprint.start_date, sprint.end_date)}</div>

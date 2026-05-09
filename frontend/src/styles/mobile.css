@@ -210,9 +210,10 @@
   }
   .note-card {
     background: var(--paper);
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--hairline-strong);
     border-radius: 10px;
     padding: 14px 14px 12px;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
   .nc-head {
     display: flex;
@@ -280,10 +281,11 @@
   .goal-card {
     position: relative;
     background: var(--paper);
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--hairline-strong);
     border-radius: 10px;
     padding: 14px;
     overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
   .gc-bar {
     position: absolute;
@@ -448,9 +450,10 @@
   }
   .tg-card {
     background: var(--paper);
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--hairline-strong);
     border-radius: 10px;
     padding: 14px;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
   .tg-card[data-done] {
     background: var(--moss-soft);
@@ -759,9 +762,10 @@
   }
   .step-card {
     background: var(--paper);
-    border: 1px solid var(--hairline);
-    border-radius: 8px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 10px;
     padding: 12px;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
   .step-card[data-status="done"] {
     background: var(--moss-soft);
@@ -918,9 +922,10 @@
   }
   .routine-card {
     background: var(--paper);
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--hairline-strong);
     border-radius: 10px;
     padding: 12px 14px;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
   .rc-head {
     display: flex;
@@ -1069,10 +1074,11 @@
   /* ════════ SPRINTS ════════ */
   .sprint-featured {
     background: var(--paper);
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--hairline-strong);
     border-radius: 12px;
     padding: 16px 14px;
     margin-bottom: 18px;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
   .sf-head {
     display: flex;
@@ -1274,9 +1280,10 @@
   }
   .other-sprint {
     background: var(--paper);
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--hairline-strong);
     border-radius: 10px;
     padding: 12px 14px;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
   .os-head {
     display: flex;
@@ -1973,21 +1980,36 @@
   .m-bs-btn-danger { background: var(--rust); color: var(--paper); }
 
   /* ── Swipe-to-action wrapper ────────────────────────────────────────── */
+  /* The wrapper clips its overflow so the action buttons stay tucked behind
+     the card until it's swiped left. Border-radius matches the cards
+     (10px); cards with bigger radii (sprint-featured 12px) lose only a
+     hairline corner, which is invisible behind the card itself. */
   .m-swipe {
     position: relative;
     overflow: hidden;
     border-radius: 10px;
   }
+  /* Actions are pinned to the right edge of the wrapper. Padding builds the
+     spacing: 8px between the card edge and the Edit button, 8px between
+     the two buttons, and 12px on the outer right — bigger than the cards'
+     border-radius (10px) so colored buttons never peek through the card's
+     transparent corners. Total reveal = 8+56+8+56+12 = 140.
+     The block itself is paper-colored so that whatever DOES show through a
+     card's rounded corner blends with the app surface. */
   .m-swipe-actions {
     position: absolute;
-    inset: 0 0 0 auto;
+    top: 0; bottom: 0; right: 0;
     display: flex;
     align-items: stretch;
+    gap: 8px;
+    padding: 4px 12px 4px 8px;
+    background: var(--paper);
     pointer-events: auto;
   }
   .m-swipe-action {
-    width: 66px;
+    width: 56px;
     border: 0;
+    border-radius: 14px;
     color: var(--paper);
     font-family: var(--font-ui);
     font-size: 11px;
@@ -2003,7 +2025,6 @@
     position: relative;
     z-index: 1;
     will-change: transform;
-    background: var(--paper); /* keep underlying actions hidden when closed */
   }
 
   /* Folder rows (ways / topics) — match note-card metrics so the list is
@@ -2014,13 +2035,14 @@
     text-align: left; cursor: pointer;
     padding: 14px 14px;
     background: var(--paper);
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--hairline-strong);
     border-radius: 10px;
     font-family: var(--font-ui); font-size: 14px;
     color: var(--ink);
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
     transition: border-color 140ms;
   }
-  .m-folder-row:hover { border-color: var(--hairline-strong); }
+  .m-folder-row:hover { border-color: var(--ink-4); }
   .m-folder-row .m-folder-icon { color: var(--indigo); display: inline-flex; flex-shrink: 0; }
   .m-folder-row .m-folder-name {
     flex: 1; min-width: 0;

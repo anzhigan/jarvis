@@ -14,8 +14,9 @@ interface Props {
 
 /** How far the row needs to be dragged before it snaps to the open state. */
 const OPEN_THRESHOLD = 60;
-/** How far the action panel ends up sticking out when open. */
-const OPEN_OFFSET = 132;
+/** How far the action panel ends up sticking out when open.
+ *  Matches `.m-swipe-actions` layout: 8 + 56 + 8 + 56 + 12 = 140. */
+const OPEN_OFFSET = 140;
 /** Multi-finger interactions are ignored — this guards drag from accidental
  *  zoom gestures. */
 
