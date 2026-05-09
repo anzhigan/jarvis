@@ -1988,6 +1988,10 @@
     position: relative;
     overflow: hidden;
     border-radius: 10px;
+    /* Paper-bg on the wrapper itself: anything that bleeds through a card's
+       rounded corner blends with the app surface so action buttons never
+       peek through. */
+    background: var(--paper);
   }
   /* Actions are pinned to the right edge of the wrapper. Padding builds the
      spacing: 8px between the card edge and the Edit button, 8px between
@@ -2025,6 +2029,13 @@
     position: relative;
     z-index: 1;
     will-change: transform;
+  }
+  /* Card wrapper sits above the absolute actions in the same stacking
+     context — without `position: relative + z-index`, an unpositioned block
+     paints below absolute siblings. */
+  .m-swipe-card {
+    position: relative;
+    z-index: 1;
   }
 
   /* Folder rows (ways / topics) — match note-card metrics so the list is

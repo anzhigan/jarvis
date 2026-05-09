@@ -70,34 +70,6 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
 
   return (
     <div className="m-swipe">
-      <div className="m-swipe-actions" aria-hidden={!open}>
-        {onEdit && (
-          <button
-            type="button"
-            className="m-swipe-action m-swipe-action-edit"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false); setDragX(0);
-              onEdit();
-            }}
-          >
-            <Pencil size={16} /><span>{editLabel}</span>
-          </button>
-        )}
-        {onDelete && (
-          <button
-            type="button"
-            className="m-swipe-action m-swipe-action-delete"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false); setDragX(0);
-              onDelete();
-            }}
-          >
-            <Trash2 size={16} /><span>Delete</span>
-          </button>
-        )}
-      </div>
       <div
         className="m-swipe-content"
         style={{
@@ -110,7 +82,41 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
         onTouchCancel={onTouchEnd}
         onClickCapture={handleContentClick}
       >
-        {children}
+        {/* Actions are siblings of the card *inside* the moving content so
+            they share the card's intrinsic height — top:0 bottom:0 always
+            matches the card, never sticking out below it. */}
+        <div className="m-swipe-actions" aria-hidden={!open}>
+          {onEdit && (
+            <button
+              type="button"
+              className="m-swipe-action m-swipe-action-edit"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false); setDragX(0);
+                onEdit();
+              }}
+            >
+              <Pencil size={16} /><span>{editLabel}</span>
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="m-swipe-action m-swipe-action-delete"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false); setDragX(0);
+                onDelete();
+              }}
+            >
+              <Trash2 size={16} /><span>Delete</span>
+            </button>
+          )}
+        </div>
+        {/* Wrap the card in a positioned div so it paints ABOVE the absolute
+            actions (positioned siblings would otherwise stack above an
+            unpositioned card and cover its right edge). */}
+        <div className="m-swipe-card">{children}</div>
       </div>
     </div>
   );
