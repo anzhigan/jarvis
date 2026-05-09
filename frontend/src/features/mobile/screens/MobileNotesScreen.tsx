@@ -167,7 +167,6 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
           onOpenWay={(id) => setLevel({ kind: 'way', wayId: id })}
           onOpenNote={setOpenNoteId}
           onAddWay={handleAddWay}
-          onAddTopic={handleAddTopic}
           onAddNote={(t) => handleAddNote(t)}
         />
       )}
@@ -199,11 +198,10 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
   );
 }
 
-// ── Root: list of ways + pinned + add (way / topic / note) ────────────────
+// ── Root: list of ways + add buttons after each section ──────────────────
 
 function RootLevel({
-  ways, search, onSearch, matchesQuery, onOpenWay, onOpenNote,
-  onAddWay, onAddTopic, onAddNote,
+  ways, search, onSearch, matchesQuery, onOpenWay, onOpenNote, onAddWay, onAddNote,
 }: {
   ways: Way[];
   search: string;
@@ -212,26 +210,16 @@ function RootLevel({
   onOpenWay: (id: string) => void;
   onOpenNote: (id: string) => void;
   onAddWay: () => void;
-  onAddTopic: (wayId: string) => void;
   onAddNote: (target: { way_id?: string; topic_id?: string }) => void;
 }) {
-  // Pinned across all ways (after search).
-  const pinned: { note: Note; way: Way; topic: Topic | null }[] = [];
-  for (const w of ways) {
-    for (const n of w.notes) if (n.pinned && matchesQuery(n)) pinned.push({ note: n, way: w, topic: null });
-    for (const t of w.topics) for (const n of t.notes)
-      if (n.pinned && matchesQuery(n)) pinned.push({ note: n, way: w, topic: t });
-  }
-  pinned.sort((a, b) => b.note.updated_at.localeCompare(a.note.updated_at));
-
-  // Search results (when q is set, also surface matched non-pinned notes).
+  // Search results (when q is set, surface matched notes from any way/topic).
   const q = search.trim();
   const searchResults: { note: Note; way: Way; topic: Topic | null }[] = [];
   if (q) {
     for (const w of ways) {
-      for (const n of w.notes) if (!n.pinned && matchesQuery(n)) searchResults.push({ note: n, way: w, topic: null });
+      for (const n of w.notes) if (matchesQuery(n)) searchResults.push({ note: n, way: w, topic: null });
       for (const t of w.topics) for (const n of t.notes)
-        if (!n.pinned && matchesQuery(n)) searchResults.push({ note: n, way: w, topic: t });
+        if (matchesQuery(n)) searchResults.push({ note: n, way: w, topic: t });
     }
     searchResults.sort((a, b) => b.note.updated_at.localeCompare(a.note.updated_at));
   }
@@ -247,57 +235,6 @@ function RootLevel({
           onChange={(e) => onSearch(e.target.value)}
         />
       </div>
-
-      <div className="m-add-row">
-        <button type="button" className="m-add-btn" onClick={onAddWay}>
-          <Plus /> Way
-        </button>
-        {ways.length > 0 && (
-          <button
-            type="button"
-            className="m-add-btn"
-            onClick={() => {
-              if (ways.length === 1) { onAddTopic(ways[0].id); return; }
-              const labels = ways.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
-              const idx = window.prompt(`Topic in which way?\n\n${labels}\n\nEnter number:`);
-              const n = idx ? parseInt(idx, 10) - 1 : -1;
-              if (ways[n]) onAddTopic(ways[n].id);
-            }}
-          >
-            <Plus /> Topic
-          </button>
-        )}
-        {ways.length > 0 && (
-          <button
-            type="button"
-            className="m-add-btn"
-            onClick={() => {
-              if (ways.length === 1) { onAddNote({ way_id: ways[0].id }); return; }
-              const labels = ways.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
-              const idx = window.prompt(`Note in which way?\n\n${labels}\n\nEnter number:`);
-              const n = idx ? parseInt(idx, 10) - 1 : -1;
-              if (ways[n]) onAddNote({ way_id: ways[n].id });
-            }}
-          >
-            <Plus /> Note
-          </button>
-        )}
-      </div>
-
-      {pinned.length > 0 && !q && (
-        <>
-          <div className="section-bar">
-            <span className="sec-title">Pinned</span>
-            <span className="sec-rule" />
-            <span className="sec-meta">{pinned.length}</span>
-          </div>
-          <div className="notes-list">
-            {pinned.map((r) => (
-              <NoteCard key={r.note.id} row={r} onClick={() => onOpenNote(r.note.id)} />
-            ))}
-          </div>
-        </>
-      )}
 
       {q && searchResults.length > 0 && (
         <>
@@ -322,7 +259,7 @@ function RootLevel({
             <span className="sec-meta">{ways.length}</span>
           </div>
           {ways.length === 0 ? (
-            <EmptyHint>Tap “+ Way” to create your first folder.</EmptyHint>
+            <EmptyHint>Tap “+ Way” below to create your first folder.</EmptyHint>
           ) : (
             <div className="notes-list">
               {ways.map((w) => {
@@ -330,7 +267,7 @@ function RootLevel({
                 return (
                   <FolderRow
                     key={w.id}
-                    icon={<FolderOpen size={16} />}
+                    icon={<FolderOpen size={14} />}
                     name={w.name}
                     meta={`${w.topics.length} topic${w.topics.length === 1 ? '' : 's'} · ${total} note${total === 1 ? '' : 's'}`}
                     onClick={() => onOpenWay(w.id)}
@@ -338,6 +275,26 @@ function RootLevel({
                 );
               })}
             </div>
+          )}
+
+          <button type="button" className="m-add-btn" onClick={onAddWay}>
+            <Plus /> Way
+          </button>
+
+          {ways.length > 0 && (
+            <button
+              type="button"
+              className="m-add-btn"
+              onClick={() => {
+                if (ways.length === 1) { onAddNote({ way_id: ways[0].id }); return; }
+                const labels = ways.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
+                const idx = window.prompt(`Note in which way?\n\n${labels}\n\nEnter number:`);
+                const n = idx ? parseInt(idx, 10) - 1 : -1;
+                if (ways[n]) onAddNote({ way_id: ways[n].id });
+              }}
+            >
+              <Plus /> Note
+            </button>
           )}
         </>
       )}
@@ -360,7 +317,11 @@ function WayLevel({
   onAddNote: () => void;
 }) {
   const directNotes = way.notes.filter(matchesQuery)
-    .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    .sort((a, b) => {
+      // Pinned first, then most recently updated.
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return b.updated_at.localeCompare(a.updated_at);
+    });
 
   return (
     <>
@@ -374,15 +335,6 @@ function WayLevel({
         />
       </div>
 
-      <div className="m-add-row">
-        <button type="button" className="m-add-btn" onClick={onAddTopic}>
-          <Plus /> Topic
-        </button>
-        <button type="button" className="m-add-btn" onClick={onAddNote}>
-          <Plus /> Note
-        </button>
-      </div>
-
       {way.topics.length > 0 && (
         <>
           <div className="section-bar">
@@ -394,7 +346,7 @@ function WayLevel({
             {way.topics.map((t) => (
               <FolderRow
                 key={t.id}
-                icon={<FolderOpen size={16} />}
+                icon={<FolderOpen size={14} />}
                 name={t.name}
                 meta={`${t.notes.length} note${t.notes.length === 1 ? '' : 's'}`}
                 onClick={() => onOpenTopic(t.id)}
@@ -404,7 +356,11 @@ function WayLevel({
         </>
       )}
 
-      {(directNotes.length > 0 || way.notes.length > 0) && (
+      <button type="button" className="m-add-btn" onClick={onAddTopic}>
+        <Plus /> Topic
+      </button>
+
+      {directNotes.length > 0 && (
         <>
           <div className="section-bar">
             <span className="sec-title">Notes in this way</span>
@@ -419,8 +375,12 @@ function WayLevel({
         </>
       )}
 
-      {way.topics.length === 0 && way.notes.length === 0 && (
-        <EmptyHint>This way is empty. Use the buttons above to add a topic or a note.</EmptyHint>
+      <button type="button" className="m-add-btn" onClick={onAddNote}>
+        <Plus /> Note
+      </button>
+
+      {way.topics.length === 0 && directNotes.length === 0 && (
+        <EmptyHint>This way is empty. Add a topic or a note below.</EmptyHint>
       )}
     </>
   );
@@ -439,7 +399,10 @@ function TopicLevel({
   onAddNote: () => void;
 }) {
   const notes = topic.notes.filter(matchesQuery)
-    .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return b.updated_at.localeCompare(a.updated_at);
+    });
 
   return (
     <>
@@ -452,10 +415,6 @@ function TopicLevel({
           onChange={(e) => onSearch(e.target.value)}
         />
       </div>
-
-      <button type="button" className="m-add-btn" onClick={onAddNote}>
-        <Plus /> Note
-      </button>
 
       {notes.length === 0 ? (
         <EmptyHint>No notes in this topic yet.</EmptyHint>
@@ -471,6 +430,10 @@ function TopicLevel({
           ))}
         </div>
       )}
+
+      <button type="button" className="m-add-btn" onClick={onAddNote}>
+        <Plus /> Note
+      </button>
     </>
   );
 }
@@ -484,24 +447,28 @@ function FolderRow({
     <button
       type="button"
       onClick={onClick}
-      className="note-card"
       style={{
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: 'flex', alignItems: 'center', gap: 8,
+        width: '100%',
         textAlign: 'left', cursor: 'pointer',
+        padding: '8px 12px',
+        background: 'var(--paper)',
+        border: '1px solid var(--hairline)',
+        borderRadius: 8,
+        font: 'inherit', color: 'inherit',
       }}
     >
-      <span style={{ color: 'var(--indigo)', flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500,
-          color: 'var(--ink)', letterSpacing: '-0.02em', lineHeight: 1.2,
-        }}>{name}</div>
-        <div style={{
-          fontFamily: 'var(--font-mono)', fontSize: 10.5,
-          color: 'var(--ink-5)', marginTop: 2,
-        }}>{meta}</div>
-      </div>
-      <ChevronRight size={14} style={{ color: 'var(--ink-5)', flexShrink: 0 }} />
+      <span style={{ color: 'var(--indigo)', display: 'inline-flex', flexShrink: 0 }}>{icon}</span>
+      <span style={{
+        flex: 1, minWidth: 0,
+        fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 500,
+        color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{name}</span>
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 10.5,
+        color: 'var(--ink-5)', flexShrink: 0,
+      }}>{meta}</span>
+      <ChevronRight size={12} style={{ color: 'var(--ink-5)', flexShrink: 0 }} />
     </button>
   );
 }

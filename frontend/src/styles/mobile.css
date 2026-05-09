@@ -982,16 +982,19 @@
   .rc-hist-cells {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+    gap: 2px;
     flex: 1;
   }
   .rh-cell {
     aspect-ratio: 1;
-    max-width: 24px;
-    border-radius: 3px;
+    max-width: 32px;
+    border-radius: 4px;
     background: var(--cream);
     border: 1px solid var(--hairline-faint);
+    cursor: pointer;
+    transition: transform 100ms;
   }
+  .rh-cell:hover { transform: scale(1.05); }
   .rh-cell-done { background: var(--moss); border-color: var(--moss); }
   .rh-cell-partial {
     background: linear-gradient(180deg, var(--moss) 50%, var(--cream) 50%);
@@ -999,7 +1002,8 @@
   }
   .rh-cell-skipped { background: var(--rust); border-color: var(--rust); }
   .rh-cell-empty { background: var(--cream); border: 1px dashed var(--hairline-strong); }
-  .rh-cell[data-today] { box-shadow: 0 0 0 1.5px var(--indigo); }
+  .rh-cell[data-today]    { box-shadow: 0 0 0 1.5px var(--indigo); }
+  .rh-cell[data-selected] { box-shadow: 0 0 0 2px var(--indigo); transform: scale(1.08); }
   .rc-hist-stats {
     display: inline-flex;
     align-items: baseline;

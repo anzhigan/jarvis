@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, FileText, Pin, Plus, Search } from 'lucide-react';
+import { ChevronRight, FileText, Plus, Search } from 'lucide-react';
 import type { NotesLibrary } from '../hooks/useNotesLibrary';
 import type { Way } from '../../../api/types';
 
@@ -26,7 +26,7 @@ interface Props {
 export function NotesPane({
   library, selectedNoteId, collapsed, onSelectNote,
 }: Props) {
-  const { ways, pinnedNotes, createWay, createTopic, createNote } = library;
+  const { ways, createWay, createTopic, createNote } = library;
   const [expandedWays, setExpandedWays]     = useState<Set<string>>(readSet(EXP_WAYS_KEY));
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(readSet(EXP_TOPICS_KEY));
   const [search, setSearch] = useState('');
@@ -138,23 +138,6 @@ export function NotesPane({
       </div>
 
       <div className="pane-body">
-        {pinnedNotes.length > 0 && (
-          <div className="pane-section">
-            <div className="pane-section-label">Pinned</div>
-            {pinnedNotes.map(({ note }) => (
-              <button
-                key={note.id}
-                className="lib-row tree-row"
-                data-active={selectedNoteId === note.id || undefined}
-                onClick={() => onSelectNote(note.id)}
-              >
-                <span className="ico" style={{ color: 'var(--ochre)' }}><Pin size={11} /></span>
-                <span className="name">{note.name || 'Untitled'}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
         <div className="pane-section">
           <div className="pane-section-label">
             Ways

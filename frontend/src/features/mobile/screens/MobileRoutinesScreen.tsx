@@ -12,6 +12,7 @@ import {
 } from '../../routines/lib/heatmap';
 import { useGoals } from '../../goals/hooks/useGoals';
 import { RoutineCreateDialog } from '../../routines/components/RoutineCreateDialog';
+import { routinesApi } from '../../../api/client';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
 import type { Tab } from '../../../app/tabs';
@@ -190,8 +191,28 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
               routine={r}
               parent={r.goal_id ? goalById.get(r.goal_id) ?? null : null}
               todayKey={todayKey}
-              onCheck={() => { void lib.toggleDoneToday(r); }}
-              onSkip={() => { void lib.skipToday(r.id); }}
+              onCheckDate={async (routine, dateKey) => {
+                const cur = routine.entries.find((e) => e.date === dateKey);
+                try {
+                  if (cur && cur.value > 0) {
+                    await routinesApi.deleteEntry(routine.id, dateKey);
+                  } else {
+                    await routinesApi.upsertEntry(routine.id, dateKey, 1);
+                  }
+                  await lib.refresh();
+                } catch {/* noop — toast handled inside library */}
+              }}
+              onSkipDate={async (routine, dateKey) => {
+                const cur = routine.entries.find((e) => e.date === dateKey);
+                try {
+                  if (cur && cur.value === 0) {
+                    await routinesApi.deleteEntry(routine.id, dateKey);
+                  } else {
+                    await routinesApi.upsertEntry(routine.id, dateKey, 0);
+                  }
+                  await lib.refresh();
+                } catch {/* noop */}
+              }}
             />
           ))}
         </div>
@@ -207,15 +228,19 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
 }
 
 function RoutineCard({
-  routine, parent, todayKey, onCheck, onSkip,
+  routine, parent, todayKey, onCheckDate, onSkipDate,
 }: {
   routine: Routine;
   parent: Task | null;
   todayKey: string;
-  onCheck: () => void;
-  onSkip: () => void;
+  onCheckDate: (routine: Routine, dateKey: string) => void | Promise<void>;
+  onSkipDate:  (routine: Routine, dateKey: string) => void | Promise<void>;
 }) {
   const r = routine;
+  // Selected date for the action buttons. Default = today; tap any cell to
+  // pick a different day and re-use the same Done/Skip buttons for it.
+  const [selectedKey, setSelectedKey] = useState<string>(todayKey);
+
   const entryByDate = new Map<string, RoutineEntry>();
   for (const e of r.entries) entryByDate.set(e.date, e);
 
@@ -227,12 +252,17 @@ function RoutineCard({
     days.push({ key, state: cellStateOf(r, entryByDate.get(key)), isToday: key === todayKey });
   }
 
-  const todayEntry = entryByDate.get(todayKey);
-  const todayCell = cellStateOf(r, todayEntry);
+  const selectedEntry = entryByDate.get(selectedKey);
+  const selectedCell = cellStateOf(r, selectedEntry);
   const streak = currentStreak(r);
   const compRate = completionRate(r, 30);
   const compClass = compRate >= 80 ? 'rt-comp-strong' : compRate < 50 ? 'rt-comp-weak' : '';
   const streakClass = streak >= 7 ? 'rt-streak-strong' : streak === 0 ? 'rt-streak-zero' : '';
+
+  const selectedDate = new Date(selectedKey);
+  const selectedLabel = selectedKey === todayKey
+    ? 'Today'
+    : selectedDate.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
     <article className="routine-card">
@@ -257,11 +287,15 @@ function RoutineCard({
       <div className="rc-history">
         <div className="rc-hist-cells">
           {days.map((d) => (
-            <span
+            <button
               key={d.key}
+              type="button"
               className={`rh-cell rh-cell-${d.state}`}
               data-today={d.isToday || undefined}
+              data-selected={d.key === selectedKey || undefined}
+              onClick={() => setSelectedKey(d.key)}
               title={`${d.key} · ${d.state}`}
+              aria-label={`${d.key} — ${d.state}`}
             />
           ))}
         </div>
@@ -272,19 +306,23 @@ function RoutineCard({
         </div>
       </div>
 
-      <footer className="rc-actions">
+      <footer className="rc-actions" style={{ alignItems: 'center', gap: 10 }}>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)',
+          marginRight: 'auto',
+        }}>{selectedLabel}</span>
         <button
           className="rc-action rc-action-check"
-          data-active={todayCell === 'done' || undefined}
-          onClick={onCheck}
+          data-active={selectedCell === 'done' || undefined}
+          onClick={() => { void onCheckDate(r, selectedKey); }}
           aria-label="Mark done"
         >
           <Check size={16} strokeWidth={2.6} />
         </button>
         <button
           className="rc-action rc-action-skip"
-          data-active={todayCell === 'skipped' || undefined}
-          onClick={onSkip}
+          data-active={selectedCell === 'skipped' || undefined}
+          onClick={() => { void onSkipDate(r, selectedKey); }}
           aria-label="Skip"
         >
           <X size={16} strokeWidth={2.4} />
