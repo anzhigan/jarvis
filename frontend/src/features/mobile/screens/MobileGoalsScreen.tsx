@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Check, Loader2, Minus, MoreHorizontal, Plus, X } from 'lucide-react';
+import { Check, ChevronRight, Flag, Loader2, Minus, MoreHorizontal, Plus, Repeat, X } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Go, Task, TaskStatus } from '../../../api/types';
+import type { Go, GoalRoutineLink, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { useGoals } from '../../goals/hooks/useGoals';
 import { useGos } from '../../goals/hooks/useGos';
 import { useSteps } from '../../goals/hooks/useSteps';
+import { routinesApi } from '../../../api/client';
 import { MobileTopBar } from '../components/MobileTopBar';
-import { MobileFab } from '../components/MobileFab';
 import { MobileShell } from '../components/MobileShell';
 import type { Tab } from '../../../app/tabs';
 
@@ -65,7 +65,16 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
     if (created) toast.success('Goal created');
   }, [goals]);
 
-  const topBar = <MobileTopBar title="Goals" subtitle={subtitle} onAvatarClick={onAvatarClick} />;
+  const addLabel = mode === 'kanban' ? 'New goal' : mode === 'go' ? '+ Go' : '+ Step';
+  const topBar = (
+    <MobileTopBar
+      title="Goals"
+      subtitle={subtitle}
+      onAvatarClick={onAvatarClick}
+      addLabel={addLabel}
+      onAdd={handleAddTopBar}
+    />
+  );
 
   if (goals.loading || gos.loading) {
     return (
@@ -78,12 +87,7 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
   }
 
   return (
-    <MobileShell
-      topBar={topBar}
-      fab={<MobileFab onClick={handleAddTopBar} ariaLabel="New goal" />}
-      tab={tab}
-      onTabChange={onTabChange}
-    >
+    <MobileShell topBar={topBar} tab={tab} onTabChange={onTabChange}>
       <div className="goals-segmented">
         <button className="seg-btn" data-active={mode === 'kanban' || undefined} onClick={() => setMode('kanban')}>Kanban</button>
         <button className="seg-btn" data-active={mode === 'go'     || undefined} onClick={() => setMode('go')}>Go</button>
@@ -96,6 +100,43 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
           counts={counts}
           statusFilter={statusFilter}
           onStatus={setStatusFilter}
+          onToggleGoDone={(g) => {
+            const next = g.is_done_today
+              ? 0
+              : (g.kind === 'numeric' ? (g.target_value ?? 1) : 1);
+            void gos.logToday(g.id, next);
+          }}
+          onToggleStepDone={(id, cur) => steps.toggleStepDone(id, cur)}
+          onAddStep={async (taskId) => {
+            const title = window.prompt('Step title')?.trim();
+            if (!title) return;
+            const today = new Date();
+            const end = new Date(today); end.setDate(end.getDate() + 30);
+            await steps.createStep({ task_id: taskId, title, start_date: ymd(today), end_date: ymd(end) });
+          }}
+          onAddGo={async (taskId, sprintId) => {
+            const title = window.prompt('Go title')?.trim();
+            if (!title) return;
+            await gos.createGo({ task_id: taskId, sprint_id: sprintId ?? null, title, kind: 'boolean' });
+          }}
+          onAddRoutine={async (taskId) => {
+            const title = window.prompt('Routine title')?.trim();
+            if (!title) return;
+            try {
+              const r = await routinesApi.create({ title, schedule_type: 'daily', kind: 'boolean' });
+              await routinesApi.createLink({ goal_id: taskId, routine_id: r.id, start_date: ymd(new Date()) });
+              await goals.refresh();
+            } catch (e: any) { toast.error(e?.detail ?? 'Failed to add routine'); }
+          }}
+          onToggleRoutineDone={async (link) => {
+            const today = ymd(new Date());
+            const entry = link.routine.entries.find((x) => x.date === today);
+            try {
+              if ((entry?.value ?? 0) > 0) await routinesApi.deleteEntry(link.routine.id, today);
+              else                        await routinesApi.upsertEntry(link.routine.id, today, 1);
+              await goals.refresh();
+            } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
+          }}
         />
       )}
       {mode === 'go' && (
@@ -120,14 +161,23 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
 
 // ── Kanban ───────────────────────────────────────────────────────────────────
 
+interface KanbanCallbacks {
+  onToggleGoDone: (go: Go) => void;
+  onToggleStepDone: (id: string, current: boolean) => void;
+  onAddStep: (taskId: string) => void;
+  onAddGo: (taskId: string, sprintId?: string | null) => void;
+  onAddRoutine: (taskId: string) => void;
+  onToggleRoutineDone: (link: GoalRoutineLink) => void;
+}
+
 function KanbanView({
-  tasks, counts, statusFilter, onStatus,
+  tasks, counts, statusFilter, onStatus, ...cb
 }: {
   tasks: Task[];
   counts: Record<TaskStatus, number>;
   statusFilter: StatusFilter;
   onStatus: (s: StatusFilter) => void;
-}) {
+} & KanbanCallbacks) {
   const filtered = useMemo(() => {
     return statusFilter === 'all' ? tasks : tasks.filter((t) => t.status === statusFilter);
   }, [tasks, statusFilter]);
@@ -153,16 +203,24 @@ function KanbanView({
         <EmptyHint>No goals in this column.</EmptyHint>
       ) : (
         <div className="goal-cards">
-          {filtered.map((t) => <GoalCard key={t.id} task={t} />)}
+          {filtered.map((t) => <GoalCard key={t.id} task={t} cb={cb} />)}
         </div>
       )}
     </>
   );
 }
 
-function GoalCard({ task }: { task: Task }) {
+function priorityFlagColor(p: TaskPriority): { bg: string; fg: string } {
+  if (p === 'high')   return { bg: 'var(--rust-soft)',  fg: 'var(--rust)'  };
+  if (p === 'medium') return { bg: 'var(--ochre-soft)', fg: 'var(--ochre)' };
+  return                     { bg: 'var(--cream)',      fg: 'var(--ink-5)' };
+}
+
+function GoalCard({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
   const accent = accentForGoal(task);
   const pct = Math.round(task.progress ?? 0);
+  const [expanded, setExpanded] = useState(false);
+
   const todayItems = task.gos.filter((g) => !g.due_date || g.due_date === ymd(new Date()) || g.is_done_today);
   const todayDone  = todayItems.filter((g) => g.is_done_today).length;
   const todayClass = todayItems.length === 0 ? null
@@ -174,18 +232,56 @@ function GoalCard({ task }: { task: Task }) {
     : todayDone === 0 ? `0/${todayItems.length} pending`
     : `${todayDone}/${todayItems.length} today`;
 
+  const flagColors = priorityFlagColor(task.priority);
+  const childCount = task.sprints.length + task.gos.filter((g) => !g.sprint_id).length + task.routines.length;
+
   return (
     <article className="goal-card" style={{ ['--gc' as any]: accent }}>
       <div className="gc-bar"><div className="gc-bar-fill" style={{ width: `${pct}%` }} /></div>
-      <header className="gc-head">
-        <h3 className="gc-title">{task.title}</h3>
+
+      <header className="gc-head" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+        <h3 className="gc-title" style={{ flex: 1, margin: 0 }}>{task.title}</h3>
+        <span
+          title={`Priority: ${task.priority}`}
+          aria-label={`Priority ${task.priority}`}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 22, height: 22, borderRadius: 999,
+            background: flagColors.bg, color: flagColors.fg, flexShrink: 0,
+          }}
+        >
+          <Flag size={11} />
+        </span>
         <button className="gc-edit" aria-label="More"><MoreHorizontal /></button>
       </header>
+
       {task.description && <p className="gc-desc">{task.description}</p>}
+
       <div className="gc-progress-row">
         <span className="gc-pct">{pct}<em>%</em></span>
         <span className="gc-progress-label">complete</span>
       </div>
+
+      {task.tags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+          {task.tags.map((tag) => (
+            <span
+              key={tag.id}
+              style={{
+                fontFamily: 'var(--font-ui)', fontSize: 10.5, fontWeight: 500,
+                padding: '2px 7px', borderRadius: 999,
+                color: tag.color,
+                boxShadow: `inset 0 0 0 1px ${tag.color}33`,
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: 2, background: tag.color }} />
+              {tag.name}
+            </span>
+          ))}
+        </div>
+      )}
+
       <footer className="gc-foot">
         {todayLabel && (
           <span className={`gc-today ${todayClass ?? ''}`}>
@@ -198,8 +294,182 @@ function GoalCard({ task }: { task: Task }) {
         ) : (
           <span className="gc-due gc-due-none">no deadline</span>
         )}
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          style={{
+            marginLeft: 'auto',
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: 'transparent', border: 0, cursor: 'pointer',
+            color: 'var(--ink-4)', fontSize: 'var(--text-2xs)',
+            padding: '4px 8px', borderRadius: 6,
+          }}
+        >
+          <ChevronRight
+            size={12}
+            style={{ transition: 'transform 140ms', transform: expanded ? 'rotate(90deg)' : 'none' }}
+          />
+          {childCount === 0 ? 'Add items' : `${childCount} ${childCount === 1 ? 'item' : 'items'}`}
+        </button>
       </footer>
+
+      {expanded && <ExpandedSection task={task} cb={cb} />}
     </article>
+  );
+}
+
+function ExpandedSection({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
+  const standaloneGos = task.gos.filter((g) => !g.sprint_id);
+
+  return (
+    <div style={{
+      marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--hairline)',
+      display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      {/* Steps */}
+      <div>
+        <div className="kc-section-label" style={{ marginBottom: 4 }}>Steps</div>
+        {task.sprints.length === 0 ? (
+          <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-5)', padding: '4px 0' }}>None yet</div>
+        ) : (
+          task.sprints.map((s) => {
+            const stepGos = s.gos;
+            return (
+              <div key={s.id} style={{
+                padding: 8, borderRadius: 6, background: 'var(--cream)',
+                marginBottom: 6, fontSize: 'var(--text-xs)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => cb.onToggleStepDone(s.id, s.is_completed)}
+                    style={{
+                      width: 14, height: 14, borderRadius: 999,
+                      border: `1.5px solid ${s.is_completed ? 'var(--moss)' : 'var(--hairline-strong)'}`,
+                      background: s.is_completed ? 'var(--moss)' : 'transparent',
+                      color: 'var(--paper)', display: 'inline-flex',
+                      alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0,
+                    }}
+                  >
+                    {s.is_completed && <Check size={9} />}
+                  </button>
+                  <span style={{ flex: 1, fontWeight: 500 }}>{s.title}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>{Math.round(s.progress ?? 0)}%</span>
+                </div>
+                {stepGos.length > 0 && (
+                  <div style={{ marginTop: 6, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {stepGos.map((g) => (
+                      <GoSubrow key={g.id} go={g} onToggle={cb.onToggleGoDone} />
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => cb.onAddGo(task.id, s.id)}
+                  style={{
+                    marginTop: 6, fontSize: 'var(--text-2xs)', color: 'var(--ink-4)',
+                    background: 'transparent', border: 0, cursor: 'pointer', padding: '2px 0',
+                  }}
+                >+ Go to step</button>
+              </div>
+            );
+          })
+        )}
+        <button type="button" className="lane-add-btn" onClick={() => cb.onAddStep(task.id)}>
+          <Plus size={11} /> Add step
+        </button>
+      </div>
+
+      {/* Standalone Gos */}
+      {(standaloneGos.length > 0 || true) && (
+        <div>
+          <div className="kc-section-label" style={{ marginBottom: 4 }}>Gos</div>
+          {standaloneGos.length === 0 ? (
+            <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-5)', padding: '4px 0' }}>None yet</div>
+          ) : (
+            standaloneGos.map((g) => (
+              <div key={g.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
+                borderRadius: 6, background: 'var(--cream)', marginBottom: 4,
+                fontSize: 'var(--text-xs)',
+              }}>
+                <GoSubrow go={g} onToggle={cb.onToggleGoDone} />
+              </div>
+            ))
+          )}
+          <button type="button" className="lane-add-btn" onClick={() => cb.onAddGo(task.id, null)}>
+            <Plus size={11} /> Add go
+          </button>
+        </div>
+      )}
+
+      {/* Routines */}
+      <div>
+        <div className="kc-section-label" style={{ marginBottom: 4 }}>Routines</div>
+        {task.routines.length === 0 ? (
+          <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-5)', padding: '4px 0' }}>None linked</div>
+        ) : (
+          task.routines.map((link) => {
+            const today = ymd(new Date());
+            const e = link.routine.entries.find((x) => x.date === today);
+            const done = (e?.value ?? 0) > 0;
+            return (
+              <div key={link.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
+                borderRadius: 6, background: 'var(--cream)', marginBottom: 4,
+                fontSize: 'var(--text-xs)',
+              }}>
+                <button
+                  type="button"
+                  onClick={() => cb.onToggleRoutineDone(link)}
+                  style={{
+                    width: 14, height: 14, borderRadius: 999,
+                    border: `1.5px solid ${done ? 'var(--moss)' : 'var(--hairline-strong)'}`,
+                    background: done ? 'var(--moss)' : 'transparent',
+                    color: 'var(--paper)', display: 'inline-flex',
+                    alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0,
+                  }}
+                >{done && <Check size={9} />}</button>
+                <Repeat size={11} style={{ color: 'var(--ochre)' }} />
+                <span style={{ flex: 1 }}>{link.routine.title}</span>
+              </div>
+            );
+          })
+        )}
+        <button type="button" className="lane-add-btn" onClick={() => cb.onAddRoutine(task.id)}>
+          <Plus size={11} /> Add routine
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GoSubrow({ go, onToggle }: { go: Go; onToggle: (g: Go) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-xs)' }}>
+      <button
+        type="button"
+        onClick={() => onToggle(go)}
+        style={{
+          width: 12, height: 12, borderRadius: 999,
+          border: `1.5px solid ${go.is_done_today ? 'var(--moss)' : 'var(--hairline-strong)'}`,
+          background: go.is_done_today ? 'var(--moss)' : 'transparent',
+          color: 'var(--paper)', display: 'inline-flex',
+          alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0,
+        }}
+      >
+        {go.is_done_today && <Check size={8} />}
+      </button>
+      <span style={{
+        flex: 1, color: go.is_done_today ? 'var(--ink-5)' : 'var(--ink-2)',
+        textDecoration: go.is_done_today ? 'line-through' : 'none',
+      }}>{go.title}</span>
+      {go.kind === 'numeric' && go.target_value !== null && (
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)' }}>
+          {go.target_value}{go.unit ? ` ${go.unit}` : ''}
+        </span>
+      )}
+    </div>
   );
 }
 

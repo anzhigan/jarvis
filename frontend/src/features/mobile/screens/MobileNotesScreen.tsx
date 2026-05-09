@@ -1,19 +1,19 @@
-import { useMemo, useState } from 'react';
-import { Loader2, Search } from 'lucide-react';
+import { lazy, Suspense, useMemo, useState } from 'react';
+import { Loader2, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Note, Way, Topic } from '../../../api/types';
 import { useNotesLibrary } from '../../notes/hooks/useNotesLibrary';
 import { MobileTopBar } from '../components/MobileTopBar';
-import { MobileFab } from '../components/MobileFab';
 import { MobileShell } from '../components/MobileShell';
 import type { Tab } from '../../../app/tabs';
+
+// Full-screen note editor — opened when a card is tapped.
+const MobileNoteEditor = lazy(() => import('./MobileNoteEditor'));
 
 interface Props {
   tab: Tab;
   onTabChange: (tab: Tab) => void;
   onAvatarClick: () => void;
-  /** Open the editor for a specific note (full-screen). */
-  onOpenNote?: (id: string) => void;
 }
 
 interface NoteWithLocation {
@@ -45,10 +45,25 @@ function previewText(html: string): string {
   return (tmp.textContent ?? '').trim();
 }
 
-export function MobileNotesScreen({ tab, onTabChange, onAvatarClick, onOpenNote }: Props) {
+export function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: Props) {
   const lib = useNotesLibrary();
   const [search, setSearch] = useState('');
   const [activeWay, setActiveWay] = useState<string | 'all'>('all');
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+
+  const openedNote = openNoteId ? lib.findNote(openNoteId)?.note ?? null : null;
+  if (openedNote) {
+    return (
+      <Suspense fallback={null}>
+        <MobileNoteEditor
+          note={openedNote}
+          library={lib}
+          onBack={() => setOpenNoteId(null)}
+        />
+      </Suspense>
+    );
+  }
+  const onOpenNote = (id: string) => setOpenNoteId(id);
 
   // Flatten all notes once with their parent way/topic — used to drive the
   // pinned section and the main feed below.
@@ -95,12 +110,32 @@ export function MobileNotesScreen({ tab, onTabChange, onAvatarClick, onOpenNote 
       wayId = created.id;
     }
     const note = await lib.createNote({ way_id: wayId }, name);
-    if (note && onOpenNote) onOpenNote(note.id);
+    if (note) setOpenNoteId(note.id);
+  };
+
+  const handleAddWay = async () => {
+    const name = window.prompt('Way name')?.trim();
+    if (!name) return;
+    const way = await lib.createWay(name);
+    if (way) setActiveWay(way.id);
+  };
+
+  const handleAddTopic = async () => {
+    if (activeWay === 'all') return;
+    const name = window.prompt('Topic name')?.trim();
+    if (!name) return;
+    await lib.createTopic(activeWay, name);
   };
 
   const subtitle = `${allNotes.length} across ${lib.ways.length} way${lib.ways.length === 1 ? '' : 's'}`;
   const topBar = (
-    <MobileTopBar title="Notes" subtitle={subtitle} onAvatarClick={onAvatarClick} />
+    <MobileTopBar
+      title="Notes"
+      subtitle={subtitle}
+      onAvatarClick={onAvatarClick}
+      addLabel="New note"
+      onAdd={handleAdd}
+    />
   );
 
   if (lib.loading) {
@@ -117,12 +152,7 @@ export function MobileNotesScreen({ tab, onTabChange, onAvatarClick, onOpenNote 
   }
 
   return (
-    <MobileShell
-      topBar={topBar}
-      fab={<MobileFab onClick={handleAdd} ariaLabel="New note" />}
-      tab={tab}
-      onTabChange={onTabChange}
-    >
+    <MobileShell topBar={topBar} tab={tab} onTabChange={onTabChange}>
       <div className="search-pill">
         <Search />
         <input
@@ -147,6 +177,26 @@ export function MobileNotesScreen({ tab, onTabChange, onAvatarClick, onOpenNote 
             onClick={() => setActiveWay(w.id)}
           >{w.name} · {wayCounts.get(w.id) ?? 0}</button>
         ))}
+        <button
+          type="button"
+          className="wp-pill"
+          onClick={handleAddWay}
+          aria-label="New way"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        >
+          <Plus size={11} /> Way
+        </button>
+        {activeWay !== 'all' && (
+          <button
+            type="button"
+            className="wp-pill"
+            onClick={handleAddTopic}
+            aria-label="New topic"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            <Plus size={11} /> Topic
+          </button>
+        )}
       </div>
 
       {pinned.length > 0 && (
@@ -158,7 +208,7 @@ export function MobileNotesScreen({ tab, onTabChange, onAvatarClick, onOpenNote 
           </div>
           <div className="notes-list">
             {pinned.map((r) => (
-              <NoteCard key={r.note.id} row={r} onClick={() => onOpenNote?.(r.note.id)} />
+              <NoteCard key={r.note.id} row={r} onClick={() => onOpenNote(r.note.id)} />
             ))}
           </div>
         </>
@@ -173,7 +223,7 @@ export function MobileNotesScreen({ tab, onTabChange, onAvatarClick, onOpenNote 
           </div>
           <div className="notes-list">
             {recent.map((r) => (
-              <NoteCard key={r.note.id} row={r} onClick={() => onOpenNote?.(r.note.id)} />
+              <NoteCard key={r.note.id} row={r} onClick={() => onOpenNote(r.note.id)} />
             ))}
           </div>
         </>

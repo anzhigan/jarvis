@@ -13,7 +13,6 @@ import {
 import { useGoals } from '../../goals/hooks/useGoals';
 import { RoutineCreateDialog } from '../../routines/components/RoutineCreateDialog';
 import { MobileTopBar } from '../components/MobileTopBar';
-import { MobileFab } from '../components/MobileFab';
 import { MobileShell } from '../components/MobileShell';
 import type { Tab } from '../../../app/tabs';
 
@@ -118,7 +117,15 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
   const subtitle = lib.routines.length === 0
     ? 'No routines yet'
     : `${summary.doneToday} of ${summary.scheduledToday} done today`;
-  const topBar = <MobileTopBar title="Routines" subtitle={subtitle} onAvatarClick={onAvatarClick} />;
+  const topBar = (
+    <MobileTopBar
+      title="Routines"
+      subtitle={subtitle}
+      onAvatarClick={onAvatarClick}
+      addLabel="New routine"
+      onAdd={() => setCreateOpen(true)}
+    />
+  );
 
   if (lib.loading) {
     return (
@@ -133,7 +140,6 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
   return (
     <MobileShell
       topBar={topBar}
-      fab={<MobileFab onClick={() => setCreateOpen(true)} ariaLabel="New routine" />}
       tab={tab}
       onTabChange={onTabChange}
     >

@@ -9,8 +9,9 @@
     height: 56px;
     padding: 0 14px;
     display: grid;
-    grid-template-columns: 56px 1fr 56px;
+    grid-template-columns: minmax(56px, auto) 1fr minmax(56px, auto);
     align-items: center;
+    gap: 8px;
     border-bottom: 1px solid var(--hairline-faint);
     background: var(--paper);
     position: relative;
@@ -1788,34 +1789,6 @@
     overflow: hidden;
   }
   .m-shell .screen-content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 16px 12px; }
-
-  /* Floating Action Button */
-  .fab {
-    position: absolute;
-    right: 18px;
-    bottom: 110px;
-    width: 56px;
-    height: 56px;
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background: var(--indigo);
-    color: var(--paper);
-    border: 0;
-    cursor: pointer;
-    display: grid;
-    place-items: center;
-    box-shadow: 0 6px 20px rgba(15, 24, 32, 0.20), 0 2px 6px rgba(15, 24, 32, 0.12);
-    z-index: 50;
-    transition: transform 140ms, box-shadow 140ms;
-  }
-  .fab:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(15, 24, 32, 0.25), 0 3px 8px rgba(15, 24, 32, 0.15);
-  }
-  .fab svg {
-    width: 22px;
-    height: 22px;
-  }
 
   /* Inline "+ Add ..." button (Go, Step) */
   .inline-add-btn {

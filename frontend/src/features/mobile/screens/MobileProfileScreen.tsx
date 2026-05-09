@@ -138,7 +138,7 @@ export default function MobileProfileScreen({
       </Section>
 
       <Section label="About">
-        <Row label="Version" value={`${__APP_VERSION__ ?? '2.4.1'}`} />
+        <Row label="Version" value="1.0.0" />
         <Row label="Send feedback" arrow onClick={() => window.open('mailto:support@jarvnote.ru', '_blank')} />
         <Row label="Sign out" arrow danger onClick={handleSignOut} />
       </Section>
@@ -181,5 +181,3 @@ function Row({
   );
 }
 
-// Vite injects __APP_VERSION__ via define if configured; fallback string used otherwise.
-declare const __APP_VERSION__: string | undefined;

@@ -4,7 +4,6 @@ import type { Sprint, SprintItem } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../../sprints/hooks/useSprints';
 import { SprintCreateDialog } from '../../sprints/components/SprintCreateDialog';
 import { MobileTopBar } from '../components/MobileTopBar';
-import { MobileFab } from '../components/MobileFab';
 import { MobileShell } from '../components/MobileShell';
 import type { Tab } from '../../../app/tabs';
 
@@ -52,7 +51,15 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
   }, [lib.decorated]);
 
   const subtitle = `${lib.counts.active} active · ${lib.counts.upcoming} in queue`;
-  const topBar = <MobileTopBar title="Sprints" subtitle={subtitle} onAvatarClick={onAvatarClick} />;
+  const topBar = (
+    <MobileTopBar
+      title="Sprints"
+      subtitle={subtitle}
+      onAvatarClick={onAvatarClick}
+      addLabel="New sprint"
+      onAdd={() => setCreateOpen(true)}
+    />
+  );
 
   if (lib.loading) {
     return (
@@ -67,7 +74,6 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
   return (
     <MobileShell
       topBar={topBar}
-      fab={<MobileFab onClick={() => setCreateOpen(true)} ariaLabel="New sprint" />}
       tab={tab}
       onTabChange={onTabChange}
     >
