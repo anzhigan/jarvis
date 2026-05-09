@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, FolderOpen, Loader2, Plus, Search, StickyNote } from 'lucide-react';
 import type { Note, Topic, Way } from '../../../api/types';
 import { useNotesLibrary } from '../../notes/hooks/useNotesLibrary';
@@ -57,6 +57,25 @@ export function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: Props) {
     return n;
   }, [lib.ways]);
 
+  // ── Resolve the current way / topic ───────────────────────────────────────
+  // Computed every render — must run before any early returns so the React
+  // hooks order stays stable.
+  const currentWay: Way | null = level.kind !== 'root'
+    ? lib.ways.find((w) => w.id === level.wayId) ?? null
+    : null;
+  const currentTopic: Topic | null = level.kind === 'topic' && currentWay
+    ? currentWay.topics.find((t) => t.id === level.topicId) ?? null
+    : null;
+
+  // If the underlying entity disappeared (rename/delete), step back up.
+  useEffect(() => {
+    if (level.kind !== 'root' && !lib.loading && !currentWay) {
+      setLevel({ kind: 'root' });
+    } else if (level.kind === 'topic' && !lib.loading && !currentTopic) {
+      setLevel({ kind: 'way', wayId: level.wayId });
+    }
+  }, [level, currentWay, currentTopic, lib.loading]);
+
   // ── Note editor (full-screen overlay) ─────────────────────────────────────
   const openedNote = openNoteId ? lib.findNote(openNoteId)?.note ?? null : null;
   if (openedNote) {
@@ -83,24 +102,6 @@ export function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: Props) {
         </div>
       </MobileShell>
     );
-  }
-
-  // ── Resolve the current way / topic ───────────────────────────────────────
-  const currentWay: Way | null = level.kind !== 'root'
-    ? lib.ways.find((w) => w.id === level.wayId) ?? null
-    : null;
-  const currentTopic: Topic | null = level.kind === 'topic' && currentWay
-    ? currentWay.topics.find((t) => t.id === level.topicId) ?? null
-    : null;
-
-  // If the underlying entity disappeared (rename/delete), step back up.
-  if (level.kind !== 'root' && !currentWay) {
-    setLevel({ kind: 'root' });
-    return null;
-  }
-  if (level.kind === 'topic' && !currentTopic) {
-    setLevel({ kind: 'way', wayId: level.wayId });
-    return null;
   }
 
   // ── Add handlers ──────────────────────────────────────────────────────────
