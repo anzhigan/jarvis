@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Loader2, MoreHorizontal } from 'lucide-react';
+import { Loader2, MoreHorizontal, Plus } from 'lucide-react';
 import type { Sprint, SprintItem } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../../sprints/hooks/useSprints';
 import { SprintCreateDialog } from '../../sprints/components/SprintCreateDialog';
@@ -56,8 +56,6 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
       title="Sprints"
       subtitle={subtitle}
       onAvatarClick={onAvatarClick}
-      addLabel="New sprint"
-      onAdd={() => setCreateOpen(true)}
     />
   );
 
@@ -77,6 +75,10 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
       tab={tab}
       onTabChange={onTabChange}
     >
+      <button type="button" className="m-add-btn" onClick={() => setCreateOpen(true)}>
+        <Plus /> Sprint
+      </button>
+
       {featured && <FeaturedSprint row={featured} />}
 
       {others.length > 0 && (

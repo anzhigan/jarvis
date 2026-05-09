@@ -65,14 +65,11 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
     if (created) toast.success('Goal created');
   }, [goals]);
 
-  const addLabel = mode === 'kanban' ? 'New goal' : mode === 'go' ? '+ Go' : '+ Step';
   const topBar = (
     <MobileTopBar
       title="Goals"
       subtitle={subtitle}
       onAvatarClick={onAvatarClick}
-      addLabel={addLabel}
-      onAdd={handleAddTopBar}
     />
   );
 
@@ -100,6 +97,7 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
           counts={counts}
           statusFilter={statusFilter}
           onStatus={setStatusFilter}
+          onAddGoal={handleAddTopBar}
           onToggleGoDone={(g) => {
             const next = g.is_done_today
               ? 0
@@ -150,10 +148,35 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
             if (!window.confirm(`Delete "${go.title}"?`)) return;
             await gos.deleteGo(go.id);
           }}
+          onAdd={async () => {
+            const title = window.prompt('Go title')?.trim();
+            if (!title) return;
+            await gos.createGo({ title, kind: 'boolean' });
+          }}
         />
       )}
       {mode === 'step' && (
-        <StepView tasks={goals.tasks} steps={steps} />
+        <StepView
+          tasks={goals.tasks}
+          steps={steps}
+          onAdd={async () => {
+            const activeTasks = goals.tasks.filter((t) => t.status !== 'done');
+            if (activeTasks.length === 0) {
+              toast.error('Create a goal first');
+              return;
+            }
+            const labels = activeTasks.map((t, i) => `${i + 1}. ${t.title}`).join('\n');
+            const idx = window.prompt(`Step under which goal?\n\n${labels}\n\nEnter number:`);
+            const n = idx ? parseInt(idx, 10) - 1 : -1;
+            const goal = activeTasks[n];
+            if (!goal) return;
+            const title = window.prompt('Step title')?.trim();
+            if (!title) return;
+            const today = new Date();
+            const end = new Date(today); end.setDate(end.getDate() + 30);
+            await steps.createStep({ task_id: goal.id, title, start_date: ymd(today), end_date: ymd(end) });
+          }}
+        />
       )}
     </MobileShell>
   );
@@ -171,12 +194,13 @@ interface KanbanCallbacks {
 }
 
 function KanbanView({
-  tasks, counts, statusFilter, onStatus, ...cb
+  tasks, counts, statusFilter, onStatus, onAddGoal, ...cb
 }: {
   tasks: Task[];
   counts: Record<TaskStatus, number>;
   statusFilter: StatusFilter;
   onStatus: (s: StatusFilter) => void;
+  onAddGoal: () => void;
 } & KanbanCallbacks) {
   const filtered = useMemo(() => {
     return statusFilter === 'all' ? tasks : tasks.filter((t) => t.status === statusFilter);
@@ -198,6 +222,10 @@ function KanbanView({
           >{p.label}</button>
         ))}
       </div>
+
+      <button type="button" className="m-add-btn" onClick={onAddGoal}>
+        <Plus /> Goal
+      </button>
 
       {filtered.length === 0 ? (
         <EmptyHint>No goals in this column.</EmptyHint>
@@ -476,7 +504,7 @@ function GoSubrow({ go, onToggle }: { go: Go; onToggle: (g: Go) => void }) {
 // ── Go (today's targets) ─────────────────────────────────────────────────────
 
 function GoView({
-  tasks, gos, dayFilter, onDay, onLog, onSkip,
+  tasks, gos, dayFilter, onDay, onLog, onSkip, onAdd,
 }: {
   tasks: Task[];
   gos: Go[];
@@ -484,6 +512,7 @@ function GoView({
   onDay: (d: DayFilter) => void;
   onLog: (go: Go, v: number) => void;
   onSkip: (go: Go) => void | Promise<void>;
+  onAdd: () => void;
 }) {
   const today = ymd(new Date());
   const goalById = useMemo(() => {
@@ -517,6 +546,10 @@ function GoView({
           >{p[0].toUpperCase() + p.slice(1)}</button>
         ))}
       </div>
+
+      <button type="button" className="m-add-btn" onClick={onAdd}>
+        <Plus /> Go
+      </button>
 
       <div className="go-summary">
         <div className="gs-block">
@@ -644,9 +677,10 @@ function TgCard({
 
 // ── Step (lanes by goal) ─────────────────────────────────────────────────────
 
-function StepView({ tasks, steps }: {
+function StepView({ tasks, steps, onAdd }: {
   tasks: Task[];
   steps: ReturnType<typeof useSteps>;
+  onAdd: () => void;
 }) {
   const today = ymd(new Date());
 
@@ -671,6 +705,10 @@ function StepView({ tasks, steps }: {
         <div className="ss-cell"><div className="ss-num">{atRisk}</div>  <div className="ss-lab">At risk</div></div>
         <div className="ss-cell"><div className="ss-num">{upcoming}</div><div className="ss-lab">Upcoming</div></div>
       </div>
+
+      <button type="button" className="m-add-btn" onClick={onAdd}>
+        <Plus /> Step
+      </button>
 
       {tasksWithSteps.length === 0 ? (
         <EmptyHint>No steps yet. Open a goal on desktop to add steps.</EmptyHint>

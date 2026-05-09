@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Loader2, MoreHorizontal, X } from 'lucide-react';
+import { Check, Loader2, MoreHorizontal, Plus, X } from 'lucide-react';
 import type { Routine, RoutineEntry, Task } from '../../../api/types';
 import { useRoutines } from '../../routines/hooks/useRoutines';
 import { todayState as routineTodayState } from '../../routines/hooks/useRoutinesToday';
@@ -122,8 +122,6 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
       title="Routines"
       subtitle={subtitle}
       onAvatarClick={onAvatarClick}
-      addLabel="New routine"
-      onAdd={() => setCreateOpen(true)}
     />
   );
 
@@ -172,6 +170,10 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
           >{p.label}</button>
         ))}
       </div>
+
+      <button type="button" className="m-add-btn" onClick={() => setCreateOpen(true)}>
+        <Plus /> Routine
+      </button>
 
       {filtered.length === 0 ? (
         <div style={{

@@ -1790,6 +1790,39 @@
   }
   .m-shell .screen-content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 16px 12px; }
 
+  /* Full-width dashed "Add …" button — sits between section filters and the
+     list/cards. Half the height of the cards below it, transparent fill, dashed
+     hairline border that solidifies and highlights indigo on hover. */
+  .m-add-btn {
+    width: 100%;
+    margin: 6px 0 12px;
+    padding: 0 12px;
+    height: 32px;
+    background: transparent;
+    border: 1px dashed var(--hairline-strong);
+    border-radius: var(--r-control);
+    color: var(--ink-4);
+    font-family: var(--font-ui);
+    font-size: var(--text-2xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 4px;
+    transition: all 140ms;
+  }
+  .m-add-btn:hover {
+    border-color: var(--indigo);
+    border-style: solid;
+    color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+  .m-add-btn svg { width: 11px; height: 11px; }
+  /* Stack of two add-buttons inline in a row (e.g. Way + Topic). */
+  .m-add-row { display: flex; gap: 8px; margin: 6px 0 12px; }
+  .m-add-row .m-add-btn { margin: 0; flex: 1; }
+
   /* Inline "+ Add ..." button (Go, Step) */
   .inline-add-btn {
     width: 100%;
