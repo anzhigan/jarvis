@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<!--
+  Export options for sideload distribution. "development" method produces an
+  IPA signed with a development certificate, installable on devices that are
+  registered in this Apple Developer account (up to 100 per device family).
+
+  Used by `scripts/build-and-export.sh` after `xcodebuild archive`. The
+  signing team is read from the active scheme — if you have multiple teams,
+  add `<key>teamID</key><string>YOUR_TEAM_ID</string>` here.
+
+  See https://developer.apple.com/documentation/xcode/distributing-your-app-to-registered-devices
+  for the full option reference.
+-->
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>
+
+    <!-- Automatic = let Xcode pick a matching dev certificate + profile.
+         For unattended CI, switch to "manual" and pin signingCertificate
+         + provisioningProfiles below. -->
+    <key>signingStyle</key>
+    <string>automatic</string>
+
+    <!-- Strip Apple-internal symbols from the binary in the IPA. We don't
+         publish dSYMs to a crash reporter yet, so debug symbols stay local. -->
+    <key>stripSwiftSymbols</key>
+    <true/>
+
+    <!-- Bitcode is deprecated since Xcode 14 — embed=NO produces smaller IPAs. -->
+    <key>compileBitcode</key>
+    <false/>
+
+    <!-- Don't strip swiftSupport from the IPA: required for .ipa to launch
+         on iOS versions older than the device this was archived on. -->
+    <key>uploadSymbols</key>
+    <false/>
+</dict>
+</plist>

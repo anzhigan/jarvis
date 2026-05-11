@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<!--
+  Ad-hoc export options. Same as development, but with a distribution
+  certificate so the IPA can be installed on any device registered for
+  ad-hoc distribution (different 100-device pool than development).
+
+  Use this when you want testers outside your dev account to install the
+  app via AltStore / Sideloadly without going through TestFlight.
+-->
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>ad-hoc</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>compileBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <false/>
+</dict>
+</plist>

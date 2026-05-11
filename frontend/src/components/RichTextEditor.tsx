@@ -393,6 +393,12 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
   const [dialogExtra, setDialogExtra] = useState<{ prevUrl?: string }>({});
 
+  // editorProps closures are captured once when the editor is created, so drop/
+  // paste handlers can't see the live `editor`/`noteId`. Route them through a
+  // ref that we keep in sync.
+  const editorRef = useRef<Editor | null>(null);
+  const uploadAndInsertRef = useRef<(file: File, at?: number) => Promise<boolean>>(async () => false);
+
   // Heavy extensions (KaTeX + Lowlight + 9 highlight.js languages) are
   // dynamically imported so they ship as their own chunk, not inside the
   // editor's main bundle. Editor only mounts once the chunk has resolved.
@@ -489,6 +495,56 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
         }
         return false;
       },
+      // Drag-and-drop image files (e.g. screenshot from Finder) at the cursor
+      // position under the pointer. Returning true tells ProseMirror we handled
+      // the event so it doesn't fall back to inserting a file:// URL.
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false; // internal node drag — let Tiptap handle it
+        const dt = (event as DragEvent).dataTransfer;
+        if (!dt || !dt.files || dt.files.length === 0) return false;
+        const files = Array.from(dt.files).filter((f) => f.type.startsWith('image/'));
+        if (files.length === 0) return false;
+        event.preventDefault();
+        const coords = view.posAtCoords({
+          left: (event as DragEvent).clientX,
+          top: (event as DragEvent).clientY,
+        });
+        void (async () => {
+          let insertAt = coords?.pos;
+          for (const f of files) {
+            const ok = await uploadAndInsertRef.current(f, insertAt);
+            if (ok && typeof insertAt === 'number') insertAt += 1; // advance past the inline image node
+          }
+        })();
+        return true;
+      },
+      // Paste image from clipboard (Cmd+V after Cmd+Shift+4 on macOS).
+      handlePaste: (_view, event) => {
+        const cd = (event as ClipboardEvent).clipboardData;
+        if (!cd) return false;
+        const files: File[] = [];
+        if (cd.files && cd.files.length) {
+          for (const f of Array.from(cd.files)) {
+            if (f.type.startsWith('image/')) files.push(f);
+          }
+        }
+        if (files.length === 0 && cd.items) {
+          for (const it of Array.from(cd.items)) {
+            if (it.kind === 'file' && it.type.startsWith('image/')) {
+              const f = it.getAsFile();
+              if (f) files.push(f);
+            }
+          }
+        }
+        if (files.length === 0) return false;
+        event.preventDefault();
+        void (async () => {
+          for (const f of files) {
+            await uploadAndInsertRef.current(f);
+          }
+        })();
+        return true;
+      },
       // Strip inline font-size / line-height / font-family from pasted HTML
       // so that user's global font-size setting applies to pasted content
       // (common issue when copying from Telegram, Notion, Google Docs, etc.)
@@ -531,18 +587,20 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
 
   // Note: content changes between notes are handled via `key` prop remount in parent.
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !editor) return;
+  // Single code path for "take a File, upload it, insert <img> at a given doc
+  // position (or current selection)". Shared by the file picker, drag-and-drop,
+  // and clipboard paste.
+  const uploadAndInsertImage = useCallback(async (file: File, at?: number): Promise<boolean> => {
+    const ed = editorRef.current;
+    if (!ed) return false;
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file');
-      return;
+      return false;
     }
-
     setUploadingImage(true);
     try {
-      // Client-side resize before upload — phone photos can be 4-10 MB.
-      // Skip GIF (animation) and tiny files.
+      // Client-side resize before upload — phone photos / retina screenshots
+      // can be 4-10 MB. Skip GIF (animation) and tiny files.
       const toUpload = (file.type !== 'image/gif' && file.size > 200 * 1024)
         ? await resizeImage(file, 1600).catch(() => file)
         : file;
@@ -558,16 +616,33 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
       const src = token
         ? `${result.url}?token=${encodeURIComponent(token)}`
         : result.url;
-      editor
-        .chain()
-        .focus()
-        .insertContent({ type: 'image', attrs: { src, width: 'auto' } })
-        .run();
+      const node = { type: 'image', attrs: { src, width: 'auto' } };
+      if (typeof at === 'number') {
+        ed.chain().focus().insertContentAt(at, node).run();
+      } else {
+        ed.chain().focus().insertContent(node).run();
+      }
       toast.success('Image uploaded');
+      return true;
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to upload image');
+      return false;
     } finally {
       setUploadingImage(false);
+    }
+  }, [noteId]);
+
+  // Keep refs in sync so the drop/paste handlers (captured at editor-create
+  // time) can call the up-to-date uploader against the live editor.
+  useEffect(() => { editorRef.current = editor; }, [editor]);
+  useEffect(() => { uploadAndInsertRef.current = uploadAndInsertImage; }, [uploadAndInsertImage]);
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadAndInsertImage(file);
+    } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };

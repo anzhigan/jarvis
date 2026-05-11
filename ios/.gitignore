@@ -1,0 +1,24 @@
+# xcodegen artifacts — regenerated from project.yml on demand.
+*.xcodeproj/
+*.xcworkspace/
+
+# Per-developer Xcode state — never commit.
+xcuserdata/
+*.xcscheme
+DerivedData/
+
+# Build outputs
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM/
+
+# CocoaPods (not used yet, but reserved if a plugin pulls them in)
+Pods/
+
+# SPM
+.swiftpm/
+.build/
+
+# Mac noise
+.DS_Store

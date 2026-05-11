@@ -691,12 +691,15 @@
     padding: 14px;
     box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
+  /* Tinted backgrounds use color-mix instead of rgba(*-soft) so they stay
+     opaque — translucent fills bleed swipe-action buttons through the card
+     during gestures. */
   .tg-card[data-done] {
-    background: var(--moss-soft);
+    background: color-mix(in srgb, var(--moss) 16%, var(--paper));
     border-color: rgba(107,122,79,0.3);
   }
   .tg-card[data-partial] {
-    background: var(--ochre-soft);
+    background: color-mix(in srgb, var(--ochre) 14%, var(--paper));
     border-color: var(--ochre);
   }
   .tg-card-head {
@@ -983,7 +986,7 @@
     box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
   .step-card[data-status="done"] {
-    background: var(--moss-soft);
+    background: color-mix(in srgb, var(--moss) 16%, var(--paper));
     border-color: rgba(107,122,79,0.3);
     opacity: 0.85;
   }
@@ -1684,9 +1687,10 @@
     box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
     overflow: hidden;
   }
-  /* Done items: gold tint background, title strikethrough. */
+  /* Done items: opaque gold tint (color-mix keeps it opaque so swipe-action
+     buttons don't bleed through the card during gestures), title strikethrough. */
   .m-mc[data-done] {
-    background: var(--ochre-soft);
+    background: color-mix(in srgb, var(--ochre) 14%, var(--paper));
     border-color: transparent;
   }
   .m-mc[data-done] .m-mc-title {
@@ -1757,7 +1761,7 @@
     border-radius: 999px;
     overflow: hidden;
   }
-  .m-mc[data-done] .m-mc-bar { background: rgba(255,255,255,0.5); }
+  .m-mc[data-done] .m-mc-bar { background: var(--paper); }
   .m-mc-bar > i {
     display: block;
     height: 100%;
@@ -1892,7 +1896,7 @@
     border-radius: 3px;
     background: var(--cream);
   }
-  .m-mc[data-done] .m-mc-cell { background: rgba(255,255,255,0.4); }
+  .m-mc[data-done] .m-mc-cell { background: var(--paper); }
   .m-mc-cell.on { background: var(--ochre); }
   /* Per-card expand toggle (Goal/Step children). */
   .m-mc-toggle {
