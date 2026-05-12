@@ -320,9 +320,13 @@
 .share-revoke:hover { background: rgba(180, 60, 40, 0.08); border-color: var(--rust); }
 .share-revoke:disabled { opacity: 0.5; cursor: default; }
 
-/* ─── Public reader shell (anonymous /share/<token>) ───────────────────── */
+/* ─── Public reader shell (anonymous /share/<token>) ─────────────────────
+   The app root has body{overflow:hidden} so any internal scrolling has to
+   happen inside a child with a bounded height. Pin the shell to viewport
+   height and let it scroll internally. */
 .public-note-shell {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh; /* honor mobile dynamic viewport (browser chrome shrinks) */
   background: var(--bg-app, var(--paper));
   color: var(--ink);
   overflow-y: auto;
