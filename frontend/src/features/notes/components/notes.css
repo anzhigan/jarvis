@@ -381,7 +381,17 @@
   color: var(--ink-4);
   display: flex; flex-wrap: wrap; gap: 8px;
   align-items: center;
-  margin: 0 0 36px;
+  margin: 0 0 72px;
+}
+/* Static <h1> variant of the title used on the public share page — same
+   typography as the editable <input.doc-title-input>, no input behavior. */
+.doc-title-static {
+  font-weight: 500;
+  line-height: 1.0;
+  letter-spacing: var(--tracking-display);
+  margin: 0 0 24px;
+  display: block;
+  word-break: break-word;
 }
 .doc-meta-item    { display: inline-flex; align-items: center; gap: 4px; }
 .doc-meta-item time { font-variant-numeric: tabular-nums; }

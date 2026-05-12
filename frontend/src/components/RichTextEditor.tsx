@@ -381,13 +381,15 @@ interface RichTextEditorProps {
   content: string;
   onChange: (content: string) => void;
   children?: ReactNode;
+  /** When false, the editor is read-only — no edits, no upload, no toolbar. */
+  editable?: boolean;
   /** Called once the Tiptap editor is ready — lets the parent render its own
    *  top-of-content toolbar (matching gallery section 01) wired to commands. */
   onEditorReady?: (editor: Editor, helpers: EditorHelpers) => void;
 }
 
 // ─── Main Editor ─────────────────────────────────────────────────────────────
-export default function RichTextEditor({ noteId, content, onChange, children, onEditorReady }: RichTextEditorProps) {
+export default function RichTextEditor({ noteId, content, onChange, children, editable = true, onEditorReady }: RichTextEditorProps) {
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
@@ -434,6 +436,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
 
 
   const editor = useEditor({
+    editable,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
@@ -714,7 +717,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, on
 
     {/* Desktop uses NoteEditor's top-of-content .note-toolbar (gallery section 01)
         wired via onEditorReady. The legacy EditorToolbar is mobile-only now. */}
-    {isMobile && editorFocused && (
+    {editable && isMobile && editorFocused && (
       <EditorToolbar
         editor={editor}
         variant="mobile"

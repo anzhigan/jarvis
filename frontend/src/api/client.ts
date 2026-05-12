@@ -221,8 +221,10 @@ export interface ShareInfo {
 export interface PublicNote {
   name: string;
   content: string;
+  created_at: string;
   updated_at: string;
   shared_at: string;
+  tags: Tag[];
 }
 
 // ── Tags ──────────────────────────────────────────────────────────────────────

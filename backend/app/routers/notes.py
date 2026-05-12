@@ -519,7 +519,7 @@ async def _share_or_404(token: str, db: AsyncSession) -> tuple[NoteShare, Note]:
         await db.execute(
             select(Note)
             .where(Note.id == share.note_id)
-            .options(selectinload(Note.images))
+            .options(selectinload(Note.images), selectinload(Note.tags))
         )
     ).scalar_one_or_none()
     if not note:
@@ -540,8 +540,10 @@ async def public_get_note(token: str, db: AsyncSession = Depends(get_db)):
     return PublicNoteOut(
         name=note.name,
         content=rewritten,
+        created_at=note.created_at,
         updated_at=note.updated_at,
         shared_at=share.created_at,
+        tags=list(note.tags),
     )
 
 

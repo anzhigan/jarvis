@@ -140,5 +140,7 @@ class PublicNoteOut(BaseModel):
     are rewritten by the server to anonymous-accessible paths before serialization."""
     name: str
     content: str
+    created_at: datetime
     updated_at: datetime
     shared_at: datetime
+    tags: list[TagOut] = []
