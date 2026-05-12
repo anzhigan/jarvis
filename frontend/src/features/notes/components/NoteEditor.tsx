@@ -28,6 +28,20 @@ interface Props {
 }
 
 
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+function fmtRelative(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
+  if (dayStart.getTime() === today.getTime()) {
+    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) + ' today';
+  }
+  return fmtDate(iso);
+}
+
 function SavedPill({ saving, savedAt }: { saving: boolean; savedAt: number | null }) {
   const [, force] = useState(0);
   useEffect(() => {
@@ -528,8 +542,6 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
               </button>
             </div>
           </div>
-          {/* No header section — kicker + dates + tags removed. Title stays as a
-              plain inline input at the top of the content. */}
           <input
             className="doc-title-input"
             value={localTitle}
@@ -541,6 +553,21 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
             placeholder="Untitled"
             aria-label="Note title"
           />
+          <p className="doc-meta">
+            <span className="doc-meta-item">Started <time>{fmtDate(note.created_at)}</time></span>
+            <span className="doc-meta-sep">·</span>
+            <span className="doc-meta-item">Updated <time>{fmtRelative(note.updated_at)}</time></span>
+            {note.tags.length > 0 && (
+              <>
+                <span className="doc-meta-sep">·</span>
+                <span className="doc-meta-tags">
+                  {note.tags.map((t) => (
+                    <span key={t.id} className="doc-tag">{t.name}</span>
+                  ))}
+                </span>
+              </>
+            )}
+          </p>
 
           <div className="doc-body">
             <Suspense fallback={<EditorFallback />}>
