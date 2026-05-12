@@ -1,6 +1,6 @@
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Copy, Moon, Sun, Trash2 } from 'lucide-react';
 
 const SUPPORTED_LANGS = [
   { value: 'plaintext', label: 'Plain text' },
@@ -17,8 +17,9 @@ const SUPPORTED_LANGS = [
 
 const COLLAPSE_THRESHOLD_LINES = 15;
 
-export default function CodeBlockView({ node, updateAttributes, editor }: NodeViewProps) {
+export default function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeViewProps) {
   const language: string = node.attrs.language || 'plaintext';
+  const theme: 'light' | 'dark' = node.attrs.theme === 'light' ? 'light' : 'dark';
   const text = node.textContent;
   const lineCount = text.length === 0 ? 1 : text.split('\n').length;
   const overflowed = lineCount > COLLAPSE_THRESHOLD_LINES;
@@ -45,9 +46,23 @@ export default function CodeBlockView({ node, updateAttributes, editor }: NodeVi
     updateAttributes({ language: e.target.value });
   };
 
+  const toggleTheme = () => {
+    updateAttributes({ theme: theme === 'dark' ? 'light' : 'dark' });
+  };
+
+  // Selects the entire code block as a NodeSelection, then deletes it. We
+  // use getPos to find the block's start position in the doc.
+  const deleteBlock = () => {
+    if (!editing) return;
+    const pos = typeof getPos === 'function' ? getPos() : null;
+    if (typeof pos !== 'number') return;
+    editor.chain().focus().setNodeSelection(pos).deleteSelection().run();
+  };
+
   return (
     <NodeViewWrapper
       className="cb-wrap"
+      data-theme={theme}
       data-collapsed={overflowed && !expanded ? 'true' : undefined}
     >
       {/* contentEditable=false on header/footer so ProseMirror doesn't try to
@@ -64,16 +79,38 @@ export default function CodeBlockView({ node, updateAttributes, editor }: NodeVi
             <option key={l.value} value={l.value}>{l.label}</option>
           ))}
         </select>
-        <button
-          type="button"
-          className="cb-copy"
-          onClick={copy}
-          title={copied ? 'Copied' : 'Copy'}
-          aria-label="Copy code"
-        >
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-          <span>{copied ? 'Copied' : 'Copy'}</span>
-        </button>
+        <div className="cb-head-actions">
+          <button
+            type="button"
+            className="cb-iconbtn"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+            aria-label="Toggle code block theme"
+            disabled={!editing}
+          >
+            {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+          </button>
+          <button
+            type="button"
+            className="cb-copy"
+            onClick={copy}
+            title={copied ? 'Copied' : 'Copy'}
+            aria-label="Copy code"
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            <span>{copied ? 'Copied' : 'Copy'}</span>
+          </button>
+          <button
+            type="button"
+            className="cb-iconbtn cb-iconbtn--danger"
+            onClick={deleteBlock}
+            title="Удалить блок"
+            aria-label="Delete code block"
+            disabled={!editing}
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
       <pre className="cb-pre">
         {/* NodeViewContent's `as` is typed too narrowly in @tiptap/react —

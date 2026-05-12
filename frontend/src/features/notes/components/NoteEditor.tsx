@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
+  AlignCenter, AlignLeft, AlignRight,
   Bold, Check, Image as ImageIcon, Italic, Link as LinkIcon, Loader2, Plus,
   Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
 } from 'lucide-react';
@@ -198,6 +199,32 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
           active={editor.isActive('strike')}
           onClick={cmd((c) => c.toggleStrike())}
         ><Strikethrough /></Btn>
+      </div>
+      <div className="ntb-sep" />
+
+      {/* Alignment */}
+      <div className="ntb-group">
+        <Btn
+          title="Выровнять по левому краю"
+          active={editor.isActive({ textAlign: 'left' })}
+          onClick={cmd((c) => c.setTextAlign('left'))}
+        >
+          <AlignLeft size={15} strokeWidth={1.8} />
+        </Btn>
+        <Btn
+          title="Выровнять по центру"
+          active={editor.isActive({ textAlign: 'center' })}
+          onClick={cmd((c) => c.setTextAlign('center'))}
+        >
+          <AlignCenter size={15} strokeWidth={1.8} />
+        </Btn>
+        <Btn
+          title="Выровнять по правому краю"
+          active={editor.isActive({ textAlign: 'right' })}
+          onClick={cmd((c) => c.setTextAlign('right'))}
+        >
+          <AlignRight size={15} strokeWidth={1.8} />
+        </Btn>
       </div>
       <div className="ntb-sep" />
 

@@ -72,6 +72,19 @@ export function loadEditorHeavy(): Promise<EditorHeavy> {
           HTMLAttributes: { class: 'editor-code-block' },
         })
         .extend({
+          // Per-block theme attribute — persisted as data-theme on the <pre>.
+          // Defaults to 'dark' so existing notes keep their current look.
+          addAttributes() {
+            return {
+              ...this.parent?.(),
+              theme: {
+                default: 'dark',
+                parseHTML: (el: HTMLElement) => el.getAttribute('data-theme') || 'dark',
+                renderHTML: (attrs: { theme?: string }) =>
+                  attrs.theme ? { 'data-theme': attrs.theme } : {},
+              },
+            };
+          },
           addNodeView() {
             return ReactNodeViewRenderer(CodeBlockView);
           },

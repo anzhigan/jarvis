@@ -316,30 +316,57 @@
 .doc-body pre code { background: transparent; padding: 0; font-size: inherit; }
 
 /* ─── Rich code block (CodeBlockView NodeView) ─────────────────────────────
-   IDE-like dark surface with header (language + copy) and collapse for long
-   listings. Highlight.js's github-dark stylesheet colors the tokens inside
-   `.hljs`; we override its background so the wrapper's surface shows through. */
+   IDE-like surface with header (language + copy + theme + delete) and collapse
+   for long listings. Theme is per-block via [data-theme=dark|light]; we expose
+   the palette via CSS variables so the rules below stay DRY.
+
+   Highlight.js's github-dark.css colors the tokens inside `.hljs`. We override
+   its background so the wrapper's surface shows through, and we re-color the
+   tokens for the light theme using GitHub-light's palette. */
 .cb-wrap {
+  --cb-bg: #0d1117;
+  --cb-fg: #c9d1d9;
+  --cb-border: rgba(255, 255, 255, 0.08);
+  --cb-head-bg: rgba(255, 255, 255, 0.03);
+  --cb-head-border: rgba(255, 255, 255, 0.06);
+  --cb-head-fg: rgba(255, 255, 255, 0.55);
+  --cb-head-fg-hover: #fff;
+  --cb-hover-bg: rgba(255, 255, 255, 0.08);
+  --cb-fade: linear-gradient(to bottom, rgba(13, 17, 23, 0), #0d1117 85%);
+  --cb-danger: #f87171;
   position: relative;
   margin: 24px 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--cb-border);
   border-radius: var(--r-card);
   overflow: hidden;
-  background: #0d1117;
-  color: #c9d1d9;
+  background: var(--cb-bg);
+  color: var(--cb-fg);
+}
+.cb-wrap[data-theme="light"] {
+  --cb-bg: #f6f8fa;
+  --cb-fg: #24292f;
+  --cb-border: rgba(0, 0, 0, 0.10);
+  --cb-head-bg: rgba(0, 0, 0, 0.03);
+  --cb-head-border: rgba(0, 0, 0, 0.06);
+  --cb-head-fg: rgba(0, 0, 0, 0.55);
+  --cb-head-fg-hover: #000;
+  --cb-hover-bg: rgba(0, 0, 0, 0.06);
+  --cb-fade: linear-gradient(to bottom, rgba(246, 248, 250, 0), #f6f8fa 85%);
+  --cb-danger: #b91c1c;
 }
 .cb-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px 6px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--cb-head-bg);
+  border-bottom: 1px solid var(--cb-head-border);
   font-family: var(--font-ui);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--cb-head-fg);
   user-select: none;
 }
+.cb-head-actions { display: inline-flex; align-items: center; gap: 2px; }
 .cb-lang {
   background: transparent;
   border: 0;
@@ -351,23 +378,29 @@
   padding: 2px 4px;
   border-radius: 4px;
 }
-.cb-lang:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.cb-lang:hover { color: var(--cb-head-fg-hover); background: var(--cb-hover-bg); }
 .cb-lang:disabled { cursor: default; }
-.cb-lang option { background: #0d1117; color: #c9d1d9; }
-.cb-copy {
+.cb-lang option { background: var(--cb-bg); color: var(--cb-fg); }
+.cb-copy,
+.cb-iconbtn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   background: transparent;
   border: 0;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--cb-head-fg);
   font-family: var(--font-ui);
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 4px;
 }
-.cb-copy:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.cb-copy:hover,
+.cb-iconbtn:hover { background: var(--cb-hover-bg); color: var(--cb-head-fg-hover); }
+.cb-iconbtn { padding: 4px 6px; }
+.cb-iconbtn:disabled { opacity: 0.4; cursor: default; }
+.cb-iconbtn:disabled:hover { background: transparent; color: var(--cb-head-fg); }
+.cb-iconbtn--danger:hover { color: var(--cb-danger); }
 .doc-body .cb-wrap .cb-pre {
   margin: 0;
   padding: 14px 16px;
@@ -376,7 +409,7 @@
   font-family: var(--font-mono);
   font-size: 13.5px;
   line-height: 1.62;
-  color: #c9d1d9;
+  color: var(--cb-fg);
   overflow-x: auto;
 }
 /* highlight.js's github-dark.css sets a background on `.hljs`; strip it so
@@ -386,10 +419,6 @@
   max-height: 360px;
   overflow: hidden;
 }
-.cb-wrap[data-collapsed="true"] .cb-pre::after {
-  /* Pseudo isn't enough on pre directly (overflow:hidden clips it); use a
-     wrapper-level fade overlay instead. */
-}
 .cb-wrap[data-collapsed="true"]::before {
   content: '';
   position: absolute;
@@ -397,7 +426,7 @@
   right: 0;
   bottom: 36px; /* sits above the toggle button */
   height: 80px;
-  background: linear-gradient(to bottom, rgba(13, 17, 23, 0), #0d1117 85%);
+  background: var(--cb-fade);
   pointer-events: none;
   z-index: 1;
 }
@@ -405,10 +434,10 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--cb-head-bg);
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
+  border-top: 1px solid var(--cb-head-border);
+  color: var(--cb-head-fg);
   font-family: var(--font-ui);
   font-size: 12px;
   padding: 9px 10px;
@@ -418,7 +447,42 @@
   gap: 6px;
   cursor: pointer;
 }
-.cb-toggle:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.cb-toggle:hover { background: var(--cb-hover-bg); color: var(--cb-head-fg-hover); }
+
+/* ─── Light-theme token overrides (GitHub Light palette) ──────────────────
+   github-dark.css colors hljs tokens for the dark theme. For [data-theme=light]
+   we re-color the same tokens; selector specificity is high enough to win over
+   the stylesheet. */
+.cb-wrap[data-theme="light"] .hljs-comment,
+.cb-wrap[data-theme="light"] .hljs-quote { color: #6a737d; font-style: italic; }
+.cb-wrap[data-theme="light"] .hljs-keyword,
+.cb-wrap[data-theme="light"] .hljs-selector-tag,
+.cb-wrap[data-theme="light"] .hljs-literal,
+.cb-wrap[data-theme="light"] .hljs-type,
+.cb-wrap[data-theme="light"] .hljs-doctag { color: #d73a49; }
+.cb-wrap[data-theme="light"] .hljs-string,
+.cb-wrap[data-theme="light"] .hljs-regexp { color: #032f62; }
+.cb-wrap[data-theme="light"] .hljs-number,
+.cb-wrap[data-theme="light"] .hljs-built_in,
+.cb-wrap[data-theme="light"] .hljs-attr,
+.cb-wrap[data-theme="light"] .hljs-attribute,
+.cb-wrap[data-theme="light"] .hljs-meta,
+.cb-wrap[data-theme="light"] .hljs-link,
+.cb-wrap[data-theme="light"] .hljs-symbol { color: #005cc5; }
+.cb-wrap[data-theme="light"] .hljs-title,
+.cb-wrap[data-theme="light"] .hljs-section,
+.cb-wrap[data-theme="light"] .hljs-class .hljs-title,
+.cb-wrap[data-theme="light"] .hljs-title.class_,
+.cb-wrap[data-theme="light"] .hljs-title.function_ { color: #6f42c1; }
+.cb-wrap[data-theme="light"] .hljs-tag,
+.cb-wrap[data-theme="light"] .hljs-name,
+.cb-wrap[data-theme="light"] .hljs-selector-id,
+.cb-wrap[data-theme="light"] .hljs-selector-class { color: #22863a; }
+.cb-wrap[data-theme="light"] .hljs-variable,
+.cb-wrap[data-theme="light"] .hljs-template-variable,
+.cb-wrap[data-theme="light"] .hljs-params { color: #e36209; }
+.cb-wrap[data-theme="light"] .hljs-emphasis { font-style: italic; }
+.cb-wrap[data-theme="light"] .hljs-strong { font-weight: 600; }
 
 /* ─── Alignment for images and text ────────────────────────────────────────
    TextAlign is configured for headings/paragraphs; the inline ResizableImage
