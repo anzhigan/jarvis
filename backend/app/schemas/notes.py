@@ -123,3 +123,22 @@ class ImageOut(BaseModel):
     size_bytes: int
 
     model_config = {"from_attributes": True}
+
+
+# ── Share ─────────────────────────────────────────────────────────────────────
+
+class ShareOut(BaseModel):
+    """Returned when a share is created or fetched. `url` is the public link
+    relative to the API base — the frontend prepends window.location.origin."""
+    token: str
+    url: str
+    created_at: datetime
+
+
+class PublicNoteOut(BaseModel):
+    """Subset of the note exposed to anonymous readers. Image URLs in `content`
+    are rewritten by the server to anonymous-accessible paths before serialization."""
+    name: str
+    content: str
+    updated_at: datetime
+    shared_at: datetime

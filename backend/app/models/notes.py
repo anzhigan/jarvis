@@ -114,6 +114,26 @@ class NoteImage(Base):
     note: Mapped["Note"] = relationship(back_populates="images")
 
 
+class NoteShare(Base):
+    """Public read-only share link for a single Note.
+
+    The `token` is a high-entropy urlsafe string used as the public URL slug.
+    A Note can have at most one active share at a time (enforced at the
+    application layer in the share endpoint; the table allows multiple
+    historical rows so we can keep a revoked-link audit trail).
+    """
+    __tablename__ = "note_shares"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    note_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("notes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Tag(Base):
     __tablename__ = "tags"
 

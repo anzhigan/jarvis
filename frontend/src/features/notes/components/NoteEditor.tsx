@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } 
 import {
   AlignCenter, AlignLeft, AlignRight,
   Bold, Check, Image as ImageIcon, Italic, Link as LinkIcon, Loader2, Plus,
-  Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
+  Share2, Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { EditorHelpers } from '../../../components/RichTextEditor';
@@ -11,6 +11,7 @@ import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
 
 // Tiptap is heavy (~280 KB gzip). Lazy-load only when a note is opened.
 const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
+const ShareDialog = lazy(() => import('./ShareDialog'));
 // BubbleMenu / FloatingMenu also live in their own chunk — they pull in
 // floating-ui and the @tiptap/react/menus plugin which we don't need on the
 // notes-library list view.
@@ -422,6 +423,7 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   const [localTitle, setLocalTitle] = useState(note?.name ?? '');
   const [editor, setEditor] = useState<Editor | null>(null);
   const [helpers, setHelpers] = useState<EditorHelpers | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Just sync localTitle when the note id changes — DON'T touch editor/helpers
   // here. Two reasons:
@@ -507,8 +509,24 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     <main className="content">
       <div className="content-bar">
         <Breadcrumb items={breadcrumbs} />
-        <SavedPill saving={saving} savedAt={savedAt} />
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          <SavedPill saving={saving} savedAt={savedAt} />
+          <button
+            type="button"
+            className="share-btn"
+            onClick={() => setShareOpen(true)}
+            title="Поделиться"
+            aria-label="Поделиться"
+          >
+            <Share2 size={14} />
+            <span>Поделиться</span>
+          </button>
+        </div>
       </div>
+
+      <Suspense fallback={null}>
+        <ShareDialog noteId={note.id} open={shareOpen} onOpenChange={setShareOpen} />
+      </Suspense>
 
       {editor && (
         <Suspense fallback={null}>

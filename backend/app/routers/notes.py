@@ -5,9 +5,15 @@ Notes hierarchy:
   /notes                         — Create note (at any level)
   /notes/{note_id}               — Read / Update / Delete
   /notes/{note_id}/images        — Upload image
+  /notes/{note_id}/share         — Create / revoke public read-only share
+  /public/notes/{token}          — Anonymous read of a shared note
+  /public/notes/{token}/images/  — Anonymous image fetch for a shared note
 """
 import asyncio
+import re
+import secrets
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, status
 from jose import JWTError
@@ -19,7 +25,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.rate_limit import limiter
 from app.core.security import decode_token
-from app.models.notes import Note, NoteImage, Topic, Way
+from app.models.notes import Note, NoteImage, NoteShare, Topic, Way
 from app.models.user import User
 from app.schemas.notes import (
     ImageOut,
@@ -27,6 +33,8 @@ from app.schemas.notes import (
     NoteOut,
     NoteReparent,
     NoteUpdate,
+    PublicNoteOut,
+    ShareOut,
     TopicCreate,
     TopicOut,
     TopicUpdate,
@@ -423,3 +431,133 @@ async def delete_note_image(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
     await delete_image(img.s3_key)
     await db.delete(img)
+
+
+# ─── Public sharing ──────────────────────────────────────────────────────────
+
+# Match /api/images/<key> AND /api/v1/images/<key> in stored HTML, with an
+# optional ?token=... that the editor appends client-side so <img> tags load
+# under JWT auth. We strip everything after the s3 key when rewriting.
+_IMAGE_URL_RE = re.compile(r'/api(?:/v\d+)?/images/([^"\'\s?]+)(\?[^"\'\s]*)?')
+
+
+async def _active_share_for(note_id: uuid.UUID, db: AsyncSession) -> NoteShare | None:
+    row = (
+        await db.execute(
+            select(NoteShare)
+            .where(NoteShare.note_id == note_id, NoteShare.is_active.is_(True))
+            .order_by(NoteShare.created_at.desc())
+        )
+    ).scalar_one_or_none()
+    return row
+
+
+@router.post("/notes/{note_id}/share", response_model=ShareOut)
+async def create_share(
+    note_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create (or return existing) public share for a note. Idempotent — calling
+    twice returns the same active link."""
+    await _get_note_or_404(note_id, user, db)
+    existing = await _active_share_for(note_id, db)
+    if existing:
+        return ShareOut(
+            token=existing.token,
+            url=f"/share/{existing.token}",
+            created_at=existing.created_at,
+        )
+    token = secrets.token_urlsafe(32)
+    share = NoteShare(note_id=note_id, token=token)
+    db.add(share)
+    await db.flush()
+    return ShareOut(token=token, url=f"/share/{token}", created_at=share.created_at)
+
+
+@router.get("/notes/{note_id}/share", response_model=ShareOut | None)
+async def get_share(
+    note_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the active share for a note, or null if not shared. Used by the
+    Share dialog to know whether to show 'Create' or 'Copy/Stop'."""
+    await _get_note_or_404(note_id, user, db)
+    row = await _active_share_for(note_id, db)
+    if not row:
+        return None
+    return ShareOut(token=row.token, url=f"/share/{row.token}", created_at=row.created_at)
+
+
+@router.delete("/notes/{note_id}/share", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_share(
+    note_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke the active share. Subsequent visits to /share/<token> return 404."""
+    await _get_note_or_404(note_id, user, db)
+    row = await _active_share_for(note_id, db)
+    if not row:
+        return  # already not shared — idempotent
+    row.is_active = False
+    row.revoked_at = datetime.now(timezone.utc)
+    await db.flush()
+
+
+async def _share_or_404(token: str, db: AsyncSession) -> tuple[NoteShare, Note]:
+    share = (
+        await db.execute(
+            select(NoteShare).where(NoteShare.token == token, NoteShare.is_active.is_(True))
+        )
+    ).scalar_one_or_none()
+    if not share:
+        # Generic 404 — don't reveal whether the link was revoked vs never existed.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    note = (
+        await db.execute(
+            select(Note)
+            .where(Note.id == share.note_id)
+            .options(selectinload(Note.images))
+        )
+    ).scalar_one_or_none()
+    if not note:
+        # The underlying note was deleted; share should be considered dead.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    return share, note
+
+
+@router.get("/public/notes/{token}", response_model=PublicNoteOut)
+async def public_get_note(token: str, db: AsyncSession = Depends(get_db)):
+    """Anonymous read of a shared note. Image URLs in the HTML body are rewritten
+    so they go through the matching public image endpoint scoped to this token."""
+    share, note = await _share_or_404(token, db)
+    rewritten = _IMAGE_URL_RE.sub(
+        lambda m: f"/api/v1/public/notes/{token}/images/{m.group(1)}",
+        note.content or "",
+    )
+    return PublicNoteOut(
+        name=note.name,
+        content=rewritten,
+        updated_at=note.updated_at,
+        shared_at=share.created_at,
+    )
+
+
+@router.get("/public/notes/{token}/images/{s3_key:path}")
+async def public_get_image(token: str, s3_key: str, db: AsyncSession = Depends(get_db)):
+    """Stream an image of a shared note. Authorization happens by verifying that
+    `s3_key` is one of NoteImage.s3_key for that share's note — no JWT involved."""
+    _share, note = await _share_or_404(token, db)
+    owns = any(img.s3_key == s3_key for img in note.images)
+    if not owns:
+        # The s3 key isn't an image of the shared note (could be the user's
+        # other private note's image), so deny without revealing existence.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    data, content_type = await get_image_bytes(s3_key)
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=300"},
+    )

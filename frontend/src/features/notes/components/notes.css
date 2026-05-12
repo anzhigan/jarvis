@@ -162,6 +162,134 @@
   padding: 64px 32px 120px;
   font-family: var(--font-body);
 }
+
+/* ─── Share button & dialog ────────────────────────────────────────────── */
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 5px 11px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.share-btn:hover {
+  background: var(--cream);
+  color: var(--ink);
+  border-color: var(--ink-5);
+}
+.share-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-4);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  padding: 12px 0;
+}
+.share-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.share-create {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--indigo);
+  color: var(--paper);
+  border: 0;
+  border-radius: var(--r-control);
+  padding: 8px 14px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.share-create:hover { background: var(--indigo-2); }
+.share-create:disabled { opacity: 0.6; cursor: default; }
+.share-active {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.share-url-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.share-url {
+  flex: 1;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--cream);
+  color: var(--ink);
+  min-width: 0;
+}
+.share-url:focus { outline: 2px solid var(--indigo); outline-offset: -1px; }
+.share-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  border: 0;
+  border-radius: var(--r-control);
+  padding: 0 14px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.share-copy:hover { background: var(--ink-2); }
+.share-copy:disabled { opacity: 0.6; cursor: default; }
+.share-revoke {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  padding: 6px 12px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--rust);
+  cursor: pointer;
+}
+.share-revoke:hover { background: rgba(180, 60, 40, 0.08); border-color: var(--rust); }
+.share-revoke:disabled { opacity: 0.5; cursor: default; }
+
+/* ─── Public reader shell (anonymous /share/<token>) ───────────────────── */
+.public-note-shell {
+  min-height: 100vh;
+  background: var(--bg-app, var(--paper));
+  color: var(--ink);
+  overflow-y: auto;
+}
+.public-note-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 60vh;
+  color: var(--ink-4);
+  font-family: var(--font-ui);
+  font-size: 14px;
+}
 .doc-head {
   margin-bottom: 48px;
   padding-bottom: 36px;

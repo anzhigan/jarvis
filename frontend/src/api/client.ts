@@ -195,7 +195,35 @@ export const notesApi = {
     request<void>(`/notes/${noteId}/tags/${tagId}`, { method: 'POST' }),
   detachTag: (noteId: string, tagId: string) =>
     request<void>(`/notes/${noteId}/tags/${tagId}`, { method: 'DELETE' }),
+  getShare: (noteId: string) =>
+    request<ShareInfo | null>(`/notes/${noteId}/share`),
+  createShare: (noteId: string) =>
+    request<ShareInfo>(`/notes/${noteId}/share`, { method: 'POST' }),
+  revokeShare: (noteId: string) =>
+    request<void>(`/notes/${noteId}/share`, { method: 'DELETE' }),
 };
+
+/** Public read of a shared note — no JWT, no auth refresh on 401. */
+export async function fetchPublicNote(token: string): Promise<PublicNote> {
+  const res = await fetch(`${BASE_URL}/public/notes/${encodeURIComponent(token)}`);
+  if (!res.ok) {
+    throw new ApiError(res.status, res.status === 404 ? 'Note not found' : 'Failed to load');
+  }
+  return res.json();
+}
+
+export interface ShareInfo {
+  token: string;
+  url: string;
+  created_at: string;
+}
+
+export interface PublicNote {
+  name: string;
+  content: string;
+  updated_at: string;
+  shared_at: string;
+}
 
 // ── Tags ──────────────────────────────────────────────────────────────────────
 export const tagsApi = {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import AuthPage from '../components/AuthPage';
@@ -9,7 +9,33 @@ import { MobileApp } from './MobileApp';
 import { DesktopApp } from './DesktopApp';
 import { VALID_TABS, type Tab } from './tabs';
 
+const PublicNoteView = lazy(() => import('../features/notes/components/PublicNoteView'));
+
+/** Match /share/<token> at any depth — returns the token or null. */
+function publicShareToken(): string | null {
+  const m = window.location.pathname.match(/^\/share\/([A-Za-z0-9_-]+)\/?$/);
+  return m ? m[1] : null;
+}
+
 export default function App() {
+  // Public reader route: short-circuit BEFORE any auth init so unauthenticated
+  // visitors never hit /auth/me or get redirected to the login screen.
+  const [shareToken] = useState(() => publicShareToken());
+  if (shareToken) {
+    return (
+      <Suspense fallback={
+        <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg-app)' }}>
+          <Loader2 size={28} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
+        </div>
+      }>
+        <PublicNoteView token={shareToken} />
+      </Suspense>
+    );
+  }
+  return <AuthenticatedApp />;
+}
+
+function AuthenticatedApp() {
   const { user, isReady, init } = useAuthStore();
   const isMobile = useIsMobile();
 
