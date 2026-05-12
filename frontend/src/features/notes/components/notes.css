@@ -157,9 +157,9 @@
 
 /* ─── Editorial doc layout ─────────────────────────────────────────────── */
 .doc {
-  max-width: 720px;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 64px 48px 120px;
+  padding: 64px 32px 120px;
   font-family: var(--font-body);
 }
 .doc-head {
