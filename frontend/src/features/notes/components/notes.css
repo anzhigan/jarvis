@@ -22,15 +22,22 @@
 .saved-pill[data-state="saving"] svg { color: var(--ink-4); }
 .saved-pill svg { width: 12px; height: 12px; }
 
-/* Row of action capsules at the very top of the doc (saved + share).
-   In normal flow — scrolls away with the page. */
+/* Row of action capsules at the top of the doc (saved + share).
+   position: sticky pins them to the top of .content-scroll so they remain
+   visible while the page scrolls. The capsules carry their own backgrounds,
+   so they stay legible when floating over body content. */
 .doc-actions {
+  position: sticky;
+  top: 12px;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
   margin-bottom: 24px;
+  pointer-events: none; /* let clicks fall through the empty stretch */
 }
+.doc-actions > * { pointer-events: auto; }
 
 /* Breadcrumb in the notes section reads as a capsule and stays in the topbar
    (.content-bar already pins itself; nothing extra needed). Overrides the

@@ -27,25 +27,6 @@ interface Props {
   onContentChange: (id: string, html: string) => void;
 }
 
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-}
-function fmtRelative(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
-  if (dayStart.getTime() === today.getTime()) {
-    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) + ' today';
-  }
-  return fmtDate(iso);
-}
-function wordCount(html: string): number {
-  return html.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
-}
-function readMinutes(html: string): number {
-  return Math.max(1, Math.round(wordCount(html) / 200));
-}
 
 function SavedPill({ saving, savedAt }: { saving: boolean; savedAt: number | null }) {
   const [, force] = useState(0);
@@ -503,8 +484,6 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     );
   }
 
-  const minutes = readMinutes(note.content || '');
-
   return (
     <main className="content">
       <div className="content-bar">
@@ -550,37 +529,19 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
               <span>Поделиться</span>
             </button>
           </div>
-          <header className="doc-head">
-            <div className="doc-kicker">
-              Notes · {minutes} minute{minutes === 1 ? '' : 's'} read
-            </div>
-            <input
-              className="doc-title-input"
-              value={localTitle}
-              onChange={(e) => {
-                const v = e.target.value;
-                setLocalTitle(v);
-                onTitleChange(note.id, v);
-              }}
-              placeholder="Untitled"
-              aria-label="Note title"
-            />
-            <p className="doc-meta">
-              <span className="doc-meta-item">Started <time>{fmtDate(note.created_at)}</time></span>
-              <span className="doc-meta-sep">·</span>
-              <span className="doc-meta-item">Updated <time>{fmtRelative(note.updated_at)}</time></span>
-              {note.tags.length > 0 && (
-                <>
-                  <span className="doc-meta-sep">·</span>
-                  <span className="doc-meta-tags">
-                    {note.tags.map((t) => (
-                      <span key={t.id} className="doc-tag">{t.name}</span>
-                    ))}
-                  </span>
-                </>
-              )}
-            </p>
-          </header>
+          {/* No header section — kicker + dates + tags removed. Title stays as a
+              plain inline input at the top of the content. */}
+          <input
+            className="doc-title-input"
+            value={localTitle}
+            onChange={(e) => {
+              const v = e.target.value;
+              setLocalTitle(v);
+              onTitleChange(note.id, v);
+            }}
+            placeholder="Untitled"
+            aria-label="Note title"
+          />
 
           <div className="doc-body">
             <Suspense fallback={<EditorFallback />}>
