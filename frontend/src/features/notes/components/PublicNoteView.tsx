@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { fetchPublicNote, type PublicNote } from '../../../api/client';
+// Notes section styles (.doc, .doc-body, code blocks, etc.) — normally loaded
+// by NotesView for authenticated users, but the anonymous share page never
+// mounts that, so import them here.
+import './notes.css';
 
 interface Props {
   token: string;
