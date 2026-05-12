@@ -5,6 +5,8 @@
  * keeping the main JS bundle slim.
  */
 import type { Extension } from '@tiptap/core';
+import { ReactNodeViewRenderer } from '@tiptap/react';
+import CodeBlockView from './CodeBlockView';
 
 export interface EditorHeavy {
   /** Configured CodeBlockLowlight extension instance ready to drop into useEditor. */
@@ -60,10 +62,20 @@ export function loadEditorHeavy(): Promise<EditorHeavy> {
     lowlight.registerAlias({ javascript: ['js'], typescript: ['ts'], xml: ['html'] });
 
     cache = {
-      codeBlockExtension: cblMod.CodeBlockLowlight.configure({
-        lowlight,
-        HTMLAttributes: { class: 'editor-code-block' },
-      }) as unknown as Extension,
+      // React NodeView gives us a language picker, copy button, and collapse
+      // toggle around the code. Lowlight's syntax highlighting runs as
+      // ProseMirror decorations on the contentDOM, so it's unaffected by the
+      // NodeView override.
+      codeBlockExtension: cblMod.CodeBlockLowlight
+        .configure({
+          lowlight,
+          HTMLAttributes: { class: 'editor-code-block' },
+        })
+        .extend({
+          addNodeView() {
+            return ReactNodeViewRenderer(CodeBlockView);
+          },
+        }) as unknown as Extension,
       katex: katexMod.default,
     };
     return cache;

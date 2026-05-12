@@ -314,6 +314,126 @@
   overflow-x: auto;
 }
 .doc-body pre code { background: transparent; padding: 0; font-size: inherit; }
+
+/* ─── Rich code block (CodeBlockView NodeView) ─────────────────────────────
+   IDE-like dark surface with header (language + copy) and collapse for long
+   listings. Highlight.js's github-dark stylesheet colors the tokens inside
+   `.hljs`; we override its background so the wrapper's surface shows through. */
+.cb-wrap {
+  position: relative;
+  margin: 24px 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: #0d1117;
+  color: #c9d1d9;
+}
+.cb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 6px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  user-select: none;
+}
+.cb-lang {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.cb-lang:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.cb-lang:disabled { cursor: default; }
+.cb-lang option { background: #0d1117; color: #c9d1d9; }
+.cb-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.cb-copy:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.doc-body .cb-wrap .cb-pre {
+  margin: 0;
+  padding: 14px 16px;
+  background: transparent;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: #c9d1d9;
+  overflow-x: auto;
+}
+/* highlight.js's github-dark.css sets a background on `.hljs`; strip it so
+   our wrapper's surface is what the user sees. */
+.doc-body .cb-wrap .hljs { background: transparent; padding: 0; color: inherit; }
+.cb-wrap[data-collapsed="true"] .cb-pre {
+  max-height: 360px;
+  overflow: hidden;
+}
+.cb-wrap[data-collapsed="true"] .cb-pre::after {
+  /* Pseudo isn't enough on pre directly (overflow:hidden clips it); use a
+     wrapper-level fade overlay instead. */
+}
+.cb-wrap[data-collapsed="true"]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 36px; /* sits above the toggle button */
+  height: 80px;
+  background: linear-gradient(to bottom, rgba(13, 17, 23, 0), #0d1117 85%);
+  pointer-events: none;
+  z-index: 1;
+}
+.cb-toggle {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 9px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.cb-toggle:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+/* ─── Alignment for images and text ────────────────────────────────────────
+   TextAlign is configured for headings/paragraphs; the inline ResizableImage
+   inside a paragraph follows the paragraph's text-align. Make sure no
+   inherited margin: auto / float fights the alignment. */
+.doc-body p[style*="text-align: center"],
+.doc-body h1[style*="text-align: center"],
+.doc-body h2[style*="text-align: center"],
+.doc-body h3[style*="text-align: center"] { text-align: center; }
+.doc-body p[style*="text-align: right"],
+.doc-body h1[style*="text-align: right"],
+.doc-body h2[style*="text-align: right"],
+.doc-body h3[style*="text-align: right"] { text-align: right; }
+.doc-body p[style*="text-align"] img,
+.doc-body p[style*="text-align"] .ProseMirror-selectednode { margin-left: 0; margin-right: 0; }
 .doc-body hr {
   border: 0;
   border-top: 1px solid var(--hairline);
