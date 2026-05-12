@@ -32,6 +32,12 @@ function fmtDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
+function wordCount(html: string): number {
+  return html.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
+}
+function readMinutes(html: string): number {
+  return Math.max(1, Math.round(wordCount(html) / 200));
+}
 function fmtRelative(iso: string): string {
   const d = new Date(iso);
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -498,6 +504,8 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     );
   }
 
+  const minutes = readMinutes(note.content || '');
+
   return (
     <main className="content">
       <Suspense fallback={null}>
@@ -541,6 +549,9 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
                 <span>Поделиться</span>
               </button>
             </div>
+          </div>
+          <div className="doc-kicker">
+            Notes · {minutes} minute{minutes === 1 ? '' : 's'} read
           </div>
           <input
             className="doc-title-input"
