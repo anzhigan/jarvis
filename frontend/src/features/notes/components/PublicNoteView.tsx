@@ -6,12 +6,6 @@ interface Props {
   token: string;
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: 'numeric', month: 'short', year: 'numeric',
-  });
-}
-
 /** Anonymous reader for a shared note. No auth, no sidebar, no tabs — just the
  *  rendered HTML body inside the same `.doc` layout as the editor. The HTML is
  *  trusted (it's already in the user's own note) and image URLs were rewritten
@@ -61,19 +55,8 @@ export default function PublicNoteView({ token }: Props) {
   return (
     <div className="public-note-shell">
       <article className="doc">
-        <header className="doc-head">
-          <div className="doc-kicker">Published note</div>
-          <h1 className="doc-title-input" style={{ pointerEvents: 'none' }}>
-            {note.name || 'Untitled'}
-          </h1>
-          <p className="doc-meta">
-            <span className="doc-meta-item">Опубликовано <time>{fmtDate(note.shared_at)}</time></span>
-            <span className="doc-meta-sep">·</span>
-            <span className="doc-meta-item">Обновлено <time>{fmtDate(note.updated_at)}</time></span>
-          </p>
-        </header>
-        {/* Trusted HTML — this is the user's own content as stored in their
-            note. Sanitization at write-time is enforced by Tiptap's schema. */}
+        {/* No header / kicker / meta — the user wanted just the note body
+            occupying the full width of the doc, matching the editor surface. */}
         <div
           className="doc-body"
           dangerouslySetInnerHTML={{ __html: note.content }}

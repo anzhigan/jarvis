@@ -509,19 +509,6 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     <main className="content">
       <div className="content-bar">
         <Breadcrumb items={breadcrumbs} />
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-          <SavedPill saving={saving} savedAt={savedAt} />
-          <button
-            type="button"
-            className="share-btn"
-            onClick={() => setShareOpen(true)}
-            title="Поделиться"
-            aria-label="Поделиться"
-          >
-            <Share2 size={14} />
-            <span>Поделиться</span>
-          </button>
-        </div>
       </div>
 
       <Suspense fallback={null}>
@@ -550,6 +537,19 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
 
       <div className="content-scroll">
         <article className="doc">
+          <div className="doc-actions">
+            <SavedPill saving={saving} savedAt={savedAt} />
+            <button
+              type="button"
+              className="share-btn"
+              onClick={() => setShareOpen(true)}
+              title="Поделиться"
+              aria-label="Поделиться"
+            >
+              <Share2 size={14} />
+              <span>Поделиться</span>
+            </button>
+          </div>
           <header className="doc-head">
             <div className="doc-kicker">
               Notes · {minutes} minute{minutes === 1 ? '' : 's'} read
