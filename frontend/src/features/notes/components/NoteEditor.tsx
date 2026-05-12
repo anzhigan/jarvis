@@ -486,10 +486,6 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
 
   return (
     <main className="content">
-      <div className="content-bar">
-        <Breadcrumb items={breadcrumbs} />
-      </div>
-
       <Suspense fallback={null}>
         <ShareDialog noteId={note.id} open={shareOpen} onOpenChange={setShareOpen} />
       </Suspense>
@@ -516,18 +512,21 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
 
       <div className="content-scroll">
         <article className="doc">
-          <div className="doc-actions">
-            <SavedPill saving={saving} savedAt={savedAt} />
-            <button
-              type="button"
-              className="share-btn"
-              onClick={() => setShareOpen(true)}
-              title="Поделиться"
-              aria-label="Поделиться"
-            >
-              <Share2 size={14} />
-              <span>Поделиться</span>
-            </button>
+          <div className="doc-topline">
+            <Breadcrumb items={breadcrumbs} />
+            <div className="doc-actions">
+              <SavedPill saving={saving} savedAt={savedAt} />
+              <button
+                type="button"
+                className="share-btn"
+                onClick={() => setShareOpen(true)}
+                title="Поделиться"
+                aria-label="Поделиться"
+              >
+                <Share2 size={14} />
+                <span>Поделиться</span>
+              </button>
+            </div>
           </div>
           {/* No header section — kicker + dates + tags removed. Title stays as a
               plain inline input at the top of the content. */}

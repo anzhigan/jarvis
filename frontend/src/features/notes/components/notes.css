@@ -22,35 +22,47 @@
 .saved-pill[data-state="saving"] svg { color: var(--ink-4); }
 .saved-pill svg { width: 12px; height: 12px; }
 
-/* Row of action capsules at the top of the doc (saved + share).
-   position: sticky pins them to the top of .content-scroll so they remain
-   visible while the page scrolls. The capsules carry their own backgrounds,
-   so they stay legible when floating over body content. */
+/* Top line inside .doc — breadcrumb path on the left, action capsules on the
+   right. The path scrolls away naturally with the page; .doc-actions is
+   sticky so Saved + Share stay visible. They share the same row only at
+   initial scroll position. */
+.doc-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.doc-topline .breadcrumb {
+  /* Override the global capsule/flex:1 styling — here the path is just a
+     small uppercase label, not a chip. */
+  flex: 0 1 auto;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  font-weight: 500;
+  min-width: 0;
+}
+.doc-topline .breadcrumb b { color: var(--ink); font-weight: 600; }
+
+/* Saved + Share capsules — sticky so they stay onscreen while scrolling.
+   Positioned at the right end of the topline; sticky top: 12 pins them to
+   the top of the scrolling .content-scroll container. */
 .doc-actions {
   position: sticky;
   top: 12px;
   z-index: 5;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 8px;
-  margin-bottom: 24px;
-  pointer-events: none; /* let clicks fall through the empty stretch */
+  flex-shrink: 0;
 }
-.doc-actions > * { pointer-events: auto; }
-
-/* Breadcrumb in the notes section reads as a capsule and stays in the topbar
-   (.content-bar already pins itself; nothing extra needed). Overrides the
-   global flex:1/no-padding look from desktop.css. */
-.content-bar > .breadcrumb {
-  flex: 0 1 auto;
-  background: var(--cream);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-pill);
-  padding: 4px 12px;
-  color: var(--ink-3);
-}
-.content-bar > .breadcrumb b { color: var(--ink); }
 
 /* ─── Selection-anchored formatting bubble (Tiptap BubbleMenu) ────────── */
 /* Wraps the toolbar; appears only when there is a text selection. */
