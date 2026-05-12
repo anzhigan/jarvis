@@ -70,13 +70,10 @@ export interface GoEntry {
   value: number;
 }
 
-// API field naming note: backend exposes sprint_id/sprint_title (model name is Sprint).
-// On the frontend this entity is called "Step" — see Step interface below.
 export interface Go {
   id: string;
   user_id: string;
   task_id: string | null;
-  sprint_id: string | null;
   title: string;
   description: string;
   kind: GoKind;
@@ -88,29 +85,9 @@ export interface Go {
   color: string;
   entries: GoEntry[];
   task_title: string | null;
-  sprint_title: string | null;
   total_value: number;
   is_done_today: boolean;
   created_at: string;
-}
-
-// Step — period-bound milestone inside a Goal/Task (backend model: Sprint, table: sprints).
-// API endpoints: /api/sprints/* — field names task_id/task_title come from the API shape.
-export interface Step {
-  id: string;
-  task_id: string;
-  user_id: string;
-  title: string;
-  description: string;
-  start_date: string;
-  end_date: string;
-  is_completed: boolean;
-  color: string;
-  gos: Go[];
-  task_title: string | null;
-  progress: number;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface Task {
@@ -124,8 +101,6 @@ export interface Task {
   is_completed: boolean;
   order: number;
   color: string;
-  // API field name is "sprints" (backend model = Sprint); on the FE this is a list of Steps.
-  sprints: Step[];
   gos: Go[];
   tags: Tag[];
   routines: GoalRoutineLink[];
@@ -151,7 +126,6 @@ export interface Routine {
   id: string;
   user_id: string;
   goal_id: string | null;
-  step_id: string | null;
   title: string;
   description: string;
   color: string;
@@ -191,13 +165,12 @@ export interface GoalRoutineLink {
 // API endpoints: /api/focus-sprints/*
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type SprintItemType = 'goal' | 'step' | 'go' | 'routine';
+export type SprintItemType = 'goal' | 'go' | 'routine';
 
 export interface SprintItem {
   id: string;
   item_type: SprintItemType;
   goal_id: string | null;
-  step_id: string | null;
   go_id: string | null;
   routine_id: string | null;
   // Hydrated by backend

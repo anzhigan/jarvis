@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.tasks import Go, GoEntry, Sprint, Task
+from app.models.tasks import Go, GoEntry, Task
 from app.models.user import User
 from app.schemas.tasks import (
     GoCreate,
@@ -17,9 +17,6 @@ from app.schemas.tasks import (
     GoEntryUpsert,
     GoOut,
     GoUpdate,
-    SprintCreate,
-    SprintOut,
-    SprintUpdate,
     TaskCreate,
     TaskOut,
     TaskUpdate,
@@ -30,12 +27,10 @@ from app.services.tasks import (
     VALID_RECURRENCE,
     VALID_STATUSES,
     get_go_or_404 as _get_go,
-    get_sprint_or_404 as _get_sprint,
     get_task_or_404 as _get_task,
     go_total_value as _go_total_value,
     is_go_done_today as _is_go_done_today,
     normalize_status as _normalize_status,
-    sprint_progress_pct as _sprint_progress,
     task_eager_options as _task_opts,
     task_progress_pct as _task_progress,
 )
@@ -45,12 +40,11 @@ router = APIRouter(tags=["tasks"])
 
 # ─── Serializers ─────────────────────────────────────────────────────────────
 
-def _go_dict(g: Go, task_title: str | None = None, sprint_title: str | None = None) -> dict:
+def _go_dict(g: Go, task_title: str | None = None) -> dict:
     return {
         "id": g.id,
         "user_id": g.user_id,
         "task_id": g.task_id,
-        "sprint_id": g.sprint_id,
         "title": g.title,
         "description": g.description or "",
         "kind": g.kind,
@@ -65,41 +59,15 @@ def _go_dict(g: Go, task_title: str | None = None, sprint_title: str | None = No
             for e in g.entries
         ],
         "task_title": task_title,
-        "sprint_title": sprint_title,
         "total_value": _go_total_value(g),
         "is_done_today": _is_go_done_today(g),
         "created_at": g.created_at,
     }
 
 
-def _sprint_dict(s: Sprint, task_title: str | None = None) -> dict:
-    gos_out = []
-    for g in s.gos:
-        if g.item_kind == 'routine_legacy':
-            continue
-        gos_out.append(_go_dict(g, task_title=s.task.title if s.task else task_title, sprint_title=s.title))
-    return {
-        "id": s.id,
-        "task_id": s.task_id,
-        "user_id": s.user_id,
-        "title": s.title,
-        "description": s.description,
-        "start_date": s.start_date,
-        "end_date": s.end_date,
-        "is_completed": s.is_completed,
-        "color": s.color,
-        "gos": gos_out,
-        "task_title": task_title,
-        "progress": _sprint_progress(s),
-        "created_at": s.created_at,
-        "updated_at": s.updated_at,
-    }
-
-
 def _task_dict(t: Task) -> dict:
-    sprints_out = [_sprint_dict(s, task_title=t.title) for s in t.sprints]
-    # Only include top-level gos (no sprint) AND only one-off (routine_legacy → Routines)
-    direct_gos = [g for g in t.gos if not g.sprint_id and g.item_kind != 'routine_legacy']
+    # Only one-off Gos belong here (routine_legacy → Routines).
+    direct_gos = [g for g in t.gos if g.item_kind != 'routine_legacy']
     gos_out = [_go_dict(g, task_title=t.title) for g in direct_gos]
     routines_out = []
     for link in getattr(t, "routine_links", []) or []:
@@ -117,7 +85,6 @@ def _task_dict(t: Task) -> dict:
                 "id": r.id,
                 "user_id": r.user_id,
                 "goal_id": r.goal_id,
-                "step_id": r.step_id,
                 "title": r.title,
                 "description": r.description or "",
                 "color": r.color,
@@ -151,7 +118,6 @@ def _task_dict(t: Task) -> dict:
         "is_completed": t.is_completed,
         "order": t.order,
         "color": t.color,
-        "sprints": sprints_out,
         "gos": gos_out,
         "tags": t.tags,
         "routines": routines_out,
@@ -203,7 +169,7 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user), 
                 pg_insert(task_tags).values([{"task_id": t.id, "tag_id": tid} for tid in valid])
                 .on_conflict_do_nothing()
             )
-    await db.refresh(t, ["sprints", "gos", "tags", "routine_links"])
+    await db.refresh(t, ["gos", "tags", "routine_links"])
     return _task_dict(t)
 
 
@@ -230,70 +196,6 @@ async def delete_task(task_id: uuid.UUID, user: User = Depends(get_current_user)
     await db.delete(t)
 
 
-# ─── Sprint endpoints ────────────────────────────────────────────────────────
-
-@router.post("/sprints", response_model=SprintOut, status_code=status.HTTP_201_CREATED)
-async def create_sprint(body: SprintCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    task = await _get_task(body.task_id, user, db)
-    if body.start_date > body.end_date:
-        raise HTTPException(400, "start_date must be <= end_date")
-    s = Sprint(
-        task_id=task.id, user_id=user.id, title=body.title, description=body.description,
-        start_date=body.start_date, end_date=body.end_date, color=body.color,
-    )
-    db.add(s)
-    await db.flush()
-    await db.refresh(s, ["gos", "task"])
-    return _sprint_dict(s, task_title=task.title)
-
-
-@router.patch("/sprints/{sprint_id}", response_model=SprintOut)
-async def update_sprint(sprint_id: uuid.UUID, body: SprintUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    s = await _get_sprint(sprint_id, user, db)
-    fields = body.model_dump(exclude_unset=True)
-    new_task_id = fields.pop("task_id", None)
-    for k, v in fields.items():
-        setattr(s, k, v)
-    if new_task_id is not None:
-        task = await _get_task(new_task_id, user, db)
-        s.task_id = task.id
-    if s.start_date > s.end_date:
-        raise HTTPException(400, "start_date must be <= end_date")
-    await db.flush()
-    await db.refresh(s, ["gos", "task"])
-    return _sprint_dict(s, task_title=s.task.title if s.task else None)
-
-
-@router.delete("/sprints/{sprint_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_sprint(sprint_id: uuid.UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    s = await _get_sprint(sprint_id, user, db)
-    await db.delete(s)
-
-
-@router.post("/sprints/{sprint_id}/attach/{go_id}", response_model=GoOut)
-async def attach_go_to_sprint(sprint_id: uuid.UUID, go_id: uuid.UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    s = await _get_sprint(sprint_id, user, db)
-    g = await _get_go(go_id, user, db)
-    if g.task_id and g.task_id != s.task_id:
-        raise HTTPException(400, "Go belongs to a different task")
-    g.sprint_id = s.id
-    if not g.task_id:
-        g.task_id = s.task_id
-    await db.flush()
-    return _go_dict(g, task_title=g.task.title if g.task else None, sprint_title=s.title)
-
-
-@router.post("/sprints/{sprint_id}/detach/{go_id}", response_model=GoOut)
-async def detach_go_from_sprint(sprint_id: uuid.UUID, go_id: uuid.UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    s = await _get_sprint(sprint_id, user, db)
-    g = await _get_go(go_id, user, db)
-    if g.sprint_id != s.id:
-        raise HTTPException(400, "Go is not attached to this sprint")
-    g.sprint_id = None
-    await db.flush()
-    return _go_dict(g, task_title=g.task.title if g.task else None, sprint_title=None)
-
-
 # ─── Go endpoints ────────────────────────────────────────────────────────────
 
 @router.post("/gos", response_model=GoOut, status_code=status.HTTP_201_CREATED)
@@ -303,22 +205,11 @@ async def create_go(body: GoCreate, user: User = Depends(get_current_user), db: 
     if body.recurrence not in VALID_RECURRENCE:
         raise HTTPException(400, f"Invalid recurrence: {body.recurrence}")
 
-    task = None
-    sprint = None
-    if body.task_id:
-        task = await _get_task(body.task_id, user, db)
-    if body.sprint_id:
-        sprint = await _get_sprint(body.sprint_id, user, db)
-        if body.task_id and sprint.task_id != body.task_id:
-            raise HTTPException(400, "Sprint belongs to a different task")
-        # if only sprint_id is given, inherit task_id from sprint
-        if not body.task_id:
-            task = await _get_task(sprint.task_id, user, db)
+    task = await _get_task(body.task_id, user, db) if body.task_id else None
 
     g = Go(
         user_id=user.id,
         task_id=task.id if task else None,
-        sprint_id=sprint.id if sprint else None,
         title=body.title, description=body.description, kind=body.kind, unit=body.unit,
         target_value=body.target_value,
         recurrence=body.recurrence, start_date=body.start_date, due_date=body.due_date,
@@ -327,35 +218,18 @@ async def create_go(body: GoCreate, user: User = Depends(get_current_user), db: 
     db.add(g)
     await db.flush()
     await db.refresh(g, ["entries"])
-    return _go_dict(
-        g,
-        task_title=task.title if task else None,
-        sprint_title=sprint.title if sprint else None,
-    )
+    return _go_dict(g, task_title=task.title if task else None)
 
 
 @router.patch("/gos/{go_id}", response_model=GoOut)
 async def update_go(go_id: uuid.UUID, body: GoUpdate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     g = await _get_go(go_id, user, db)
     data = body.model_dump(exclude_unset=True)
-
-    # Validate sprint_id change
-    if "sprint_id" in data and data["sprint_id"]:
-        sp = await _get_sprint(data["sprint_id"], user, db)
-        if g.task_id and sp.task_id != g.task_id:
-            raise HTTPException(400, "Sprint belongs to a different task")
-        if not g.task_id:
-            data["task_id"] = sp.task_id
-
     for k, v in data.items():
         setattr(g, k, v)
     await db.flush()
-    await db.refresh(g, ["entries", "task", "sprint"])
-    return _go_dict(
-        g,
-        task_title=g.task.title if g.task else None,
-        sprint_title=g.sprint.title if g.sprint else None,
-    )
+    await db.refresh(g, ["entries", "task"])
+    return _go_dict(g, task_title=g.task.title if g.task else None)
 
 
 @router.delete("/gos/{go_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -390,14 +264,13 @@ async def list_all_gos(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all (non-routine-legacy) Gos for the user — used by sprint pickers."""
+    """List all (non-routine-legacy) Gos for the user."""
     q = await db.execute(
         select(Go).where(Go.user_id == user.id, Go.item_kind != 'routine_legacy')
-        .options(selectinload(Go.entries), selectinload(Go.task), selectinload(Go.sprint))
+        .options(selectinload(Go.entries), selectinload(Go.task))
         .order_by(Go.created_at.desc())
     )
-    return [_go_dict(g, task_title=g.task.title if g.task else None,
-                     sprint_title=g.sprint.title if g.sprint else None)
+    return [_go_dict(g, task_title=g.task.title if g.task else None)
             for g in q.scalars().all()]
 
 
@@ -411,7 +284,7 @@ async def gos_agenda(
     today = date_cls.today()
     q = await db.execute(
         select(Go).where(Go.user_id == user.id, Go.item_kind != 'routine_legacy')
-        .options(selectinload(Go.entries), selectinload(Go.task), selectinload(Go.sprint))
+        .options(selectinload(Go.entries), selectinload(Go.task))
     )
     all_gos = list(q.scalars().all())
 
@@ -423,24 +296,20 @@ async def gos_agenda(
                 include = True
             elif g.due_date == today:
                 include = True
+            elif g.start_date and g.due_date and g.start_date <= today <= g.due_date:
+                # Period-bound one-off Go covering today.
+                include = True
             if include:
-                result.append(_go_dict(
-                    g,
-                    task_title=g.task.title if g.task else None,
-                    sprint_title=g.sprint.title if g.sprint else None,
-                ))
+                result.append(_go_dict(g, task_title=g.task.title if g.task else None))
 
     elif section == "future":
         for g in all_gos:
             if g.recurrence != "none":
                 continue
-            if g.due_date and g.due_date > today:
-                result.append(_go_dict(
-                    g,
-                    task_title=g.task.title if g.task else None,
-                    sprint_title=g.sprint.title if g.sprint else None,
-                ))
-        result.sort(key=lambda d: d["due_date"] or "9999")
+            anchor = g.start_date or g.due_date
+            if anchor and anchor > today:
+                result.append(_go_dict(g, task_title=g.task.title if g.task else None))
+        result.sort(key=lambda d: d["start_date"] or d["due_date"] or "9999")
 
     elif section == "past":
         cutoff = today - timedelta(days=days_back)
@@ -448,48 +317,7 @@ async def gos_agenda(
             if g.recurrence != "none":
                 continue
             if g.due_date and cutoff <= g.due_date < today:
-                result.append(_go_dict(
-                    g,
-                    task_title=g.task.title if g.task else None,
-                    sprint_title=g.sprint.title if g.sprint else None,
-                ))
+                result.append(_go_dict(g, task_title=g.task.title if g.task else None))
         result.sort(key=lambda d: d["due_date"] or "0000", reverse=True)
-
-    return result
-
-
-@router.get("/sprints/agenda")
-async def sprints_agenda(
-    section: str = "current",  # current | future | past
-    days_back: int = 90,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    today = date_cls.today()
-    q = await db.execute(
-        select(Sprint).where(Sprint.user_id == user.id)
-        .options(selectinload(Sprint.gos).selectinload(Go.entries), selectinload(Sprint.task))
-    )
-    all_sprints = list(q.scalars().all())
-
-    result = []
-    if section == "current":
-        for s in all_sprints:
-            if s.start_date <= today <= s.end_date:
-                result.append(_sprint_dict(s, task_title=s.task.title if s.task else None))
-        result.sort(key=lambda d: (d["end_date"], d["start_date"]))
-
-    elif section == "future":
-        for s in all_sprints:
-            if s.start_date > today:
-                result.append(_sprint_dict(s, task_title=s.task.title if s.task else None))
-        result.sort(key=lambda d: d["start_date"])
-
-    elif section == "past":
-        cutoff = today - timedelta(days=days_back)
-        for s in all_sprints:
-            if s.end_date < today and s.end_date >= cutoff:
-                result.append(_sprint_dict(s, task_title=s.task.title if s.task else None))
-        result.sort(key=lambda d: d["end_date"], reverse=True)
 
     return result

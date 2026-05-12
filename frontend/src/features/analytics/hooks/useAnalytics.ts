@@ -39,7 +39,7 @@ export interface StatusSlice {
 export interface GoalProgressRow {
   task: Task;
   pct: number;
-  steps: { done: number; total: number };
+  gos: { done: number; total: number };
   routines: number;
   due: string | null;
   overdue: boolean;
@@ -239,16 +239,14 @@ export function useAnalytics() {
     return tasks
       .filter((t) => t.status !== 'backlog')
       .map<GoalProgressRow>((t) => {
-        const stepsTotal = t.sprints.length;
-        const stepsDone = t.sprints.filter((s) => s.is_completed).length;
-        const pct = t.status === 'done' ? 100
-          : stepsTotal > 0 ? Math.round((stepsDone / stepsTotal) * 100)
-          : Math.round(t.progress);
+        const gosTotal = t.gos.length;
+        const gosDone = t.gos.filter((g) => g.is_done_today).length;
+        const pct = t.status === 'done' ? 100 : Math.round(t.progress);
         return {
           task: t,
           pct,
-          steps: { done: stepsDone, total: stepsTotal },
-          routines: 0,
+          gos: { done: gosDone, total: gosTotal },
+          routines: t.routines.length,
           due: t.due_date,
           overdue: !!(t.due_date && t.due_date < todayStr && t.status !== 'done'),
         };

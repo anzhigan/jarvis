@@ -1,18 +1,11 @@
-"""Business logic for the Tasks domain.
+"""Business logic for the Tasks (Goal) domain.
 
 This module owns:
   • status normalization + validation constants
   • progress / completion calculations (pure, deterministic, unit-testable)
-  • DB loaders for Task / Sprint / Go entities
+  • DB loaders for Task / Go entities
 
 Routers stay thin: parse request → call a service function → return.
-
-Why "service" and not just "models" or "queries"?
-  • Models are SQLAlchemy ORM declarations — no business logic in there
-  • Queries here are read-side; mutations also live here for symmetry, but each
-    one takes an `AsyncSession` so it can be composed in a transaction
-  • Pure helpers (progress %, completion ratio) live alongside so unit tests
-    don't need a database round-trip
 """
 import uuid
 from datetime import date as date_cls
@@ -22,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.tasks import Go, Sprint, Task
+from app.models.tasks import Go, Task
 from app.models.user import User
 
 # ─── Vocabularies ────────────────────────────────────────────────────────────
@@ -53,9 +46,7 @@ def task_eager_options():
     Centralized so endpoints don't drift on what's preloaded."""
     from app.models.tasks import GoalRoutineLink, Routine
     return (
-        selectinload(Task.sprints).selectinload(Sprint.gos).selectinload(Go.entries),
         selectinload(Task.gos).selectinload(Go.entries),
-        selectinload(Task.gos).selectinload(Go.sprint),
         selectinload(Task.tags),
         selectinload(Task.routine_links)
             .selectinload(GoalRoutineLink.routine)
@@ -75,23 +66,11 @@ async def get_task_or_404(task_id: uuid.UUID, user: User, db: AsyncSession) -> T
     return t
 
 
-async def get_sprint_or_404(sprint_id: uuid.UUID, user: User, db: AsyncSession) -> Sprint:
-    r = await db.execute(
-        select(Sprint)
-        .where(Sprint.id == sprint_id, Sprint.user_id == user.id)
-        .options(selectinload(Sprint.gos).selectinload(Go.entries), selectinload(Sprint.task))
-    )
-    s = r.scalar_one_or_none()
-    if not s:
-        raise HTTPException(404, "Sprint not found")
-    return s
-
-
 async def get_go_or_404(go_id: uuid.UUID, user: User, db: AsyncSession) -> Go:
     r = await db.execute(
         select(Go)
         .where(Go.id == go_id, Go.user_id == user.id)
-        .options(selectinload(Go.entries), selectinload(Go.task), selectinload(Go.sprint))
+        .options(selectinload(Go.entries), selectinload(Go.task))
     )
     g = r.scalar_one_or_none()
     if not g:
@@ -171,27 +150,13 @@ def go_completion_ratio(
     return 1.0 if total > 0 else 0.0
 
 
-def sprint_progress_pct(sprint: Sprint) -> int:
-    """Progress % = average completion ratio across non-routine gos in the sprint."""
-    gos = [g for g in sprint.gos if g.item_kind != "routine_legacy"]
+def task_progress_pct(task: Task) -> int:
+    """Average completion % across all non-routine Gos in the task."""
+    gos = [g for g in task.gos if g.item_kind != "routine_legacy"]
     if not gos:
         return 0
-    ratios = [go_completion_ratio(g, sprint.start_date, sprint.end_date) for g in gos]
-    return int(round(100 * sum(ratios) / len(ratios)))
-
-
-def task_progress_pct(task: Task) -> int:
-    """Average % of all sprints + non-sprint, non-routine direct gos."""
-    direct_gos = [
-        g for g in task.gos
-        if not g.sprint_id and g.item_kind != "routine_legacy"
-    ]
-    sprint_pcts = [sprint_progress_pct(s) for s in task.sprints]
-    direct_pcts = [
+    pcts = [
         go_completion_ratio(g, task.start_date, task.due_date) * 100
-        for g in direct_gos
+        for g in gos
     ]
-    all_values = sprint_pcts + direct_pcts
-    if not all_values:
-        return 0
-    return int(round(sum(all_values) / len(all_values)))
+    return int(round(sum(pcts) / len(pcts)))

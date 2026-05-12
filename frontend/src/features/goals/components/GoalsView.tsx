@@ -5,15 +5,12 @@ import type { Go, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types
 import { routinesApi } from '../../../api/client';
 import { useGoals } from '../hooks/useGoals';
 import { useGos } from '../hooks/useGos';
-import { useSteps } from '../hooks/useSteps';
 import { useGoalsView, type GoalsViewMode } from '../hooks/useGoalsView';
 import { GoalsBoard } from './GoalsBoard';
 import { GoView } from './GoView';
-import { StepView } from './StepView';
 import { GoalDetailPanel } from './GoalDetailPanel';
 import { GoalCreateDialog } from './GoalCreateDialog';
 import {
-  StepCreateDialog,
   GoCreateDialog,
   RoutineCreateForGoalDialog,
 } from './GoalChildDialogs';
@@ -28,7 +25,6 @@ const ymdStr = (d: Date) =>
 const VIEW_LABELS: Record<GoalsViewMode, string> = {
   goals: 'Kanban',
   go:    'Go',
-  step:  'Step',
 };
 
 type DayFilter = 'past' | 'today' | 'future';
@@ -53,7 +49,6 @@ const ymd = (d: Date) =>
 export default function GoalsView() {
   const goals = useGoals();
   const gos   = useGos(goals);
-  const steps = useSteps(goals);
   const view  = useGoalsView();
 
   // Day-bucket filter for Go mode (Past / Today / Future).
@@ -72,9 +67,8 @@ export default function GoalsView() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createStatus, setCreateStatus] = useState<TaskStatus>('active');
 
-  // Dialogs for creating step/go/routine inside an expanded goal card.
-  const [stepDialogTaskId,    setStepDialogTaskId]    = useState<string | null>(null);
-  const [goDialogTask,        setGoDialogTask]        = useState<{ taskId: string; sprintId: string | null } | null>(null);
+  // Dialogs for creating go/routine inside an expanded goal card.
+  const [goDialogTaskId,      setGoDialogTaskId]      = useState<string | null>(null);
   const [routineDialogTaskId, setRoutineDialogTaskId] = useState<string | null>(null);
 
   const onAddGoal = useCallback((status: TaskStatus) => {
@@ -84,13 +78,6 @@ export default function GoalsView() {
   const onSelectGoal = useCallback((id: string) => setDetailGoalId(id), []);
 
   // ── Stable callbacks for the kanban + sub-views ──────────────────────────
-  // Each is wrapped in useCallback so memoized children (GoalsBoard cards,
-  // GoView rows, etc.) skip re-render when unrelated state changes.
-
-  const onToggleStepDone = useCallback(
-    (id: string, current: boolean) => steps.toggleStepDone(id, current),
-    [steps],
-  );
 
   const onToggleGoDone = useCallback((go: Go) => {
     const next = go.is_done_today
@@ -99,12 +86,7 @@ export default function GoalsView() {
     void gos.logToday(go.id, next);
   }, [gos]);
 
-  const onAddStep    = useCallback((taskId: string) => setStepDialogTaskId(taskId), []);
-  const onAddGo      = useCallback(
-    (taskId: string, sprintId?: string | null) =>
-      setGoDialogTask({ taskId, sprintId: sprintId ?? null }),
-    [],
-  );
+  const onAddGo      = useCallback((taskId: string) => setGoDialogTaskId(taskId), []);
   const onAddRoutine = useCallback((taskId: string) => setRoutineDialogTaskId(taskId), []);
 
   const onToggleRoutineDone = useCallback(async (link: import('../../../api/types').GoalRoutineLink) => {
@@ -152,14 +134,12 @@ export default function GoalsView() {
     await gos.deleteGo(go.id);
   }, [gos]);
 
-  const onGoalCreated = useCallback((taskId: string, followUp: 'none' | 'step' | 'go' | 'routine') => {
-    if (followUp === 'step')    setStepDialogTaskId(taskId);
-    if (followUp === 'go')      setGoDialogTask({ taskId, sprintId: null });
+  const onGoalCreated = useCallback((taskId: string, followUp: 'none' | 'go' | 'routine') => {
+    if (followUp === 'go')      setGoDialogTaskId(taskId);
     if (followUp === 'routine') setRoutineDialogTaskId(taskId);
   }, []);
 
-  const closeStepDialog    = useCallback((o: boolean) => { if (!o) setStepDialogTaskId(null); }, []);
-  const closeGoDialog      = useCallback((o: boolean) => { if (!o) setGoDialogTask(null); }, []);
+  const closeGoDialog      = useCallback((o: boolean) => { if (!o) setGoDialogTaskId(null); }, []);
   const closeRoutineDialog = useCallback((o: boolean) => { if (!o) setRoutineDialogTaskId(null); }, []);
   const closeDetail        = useCallback((o: boolean) => { if (!o) setDetailGoalId(null); }, []);
 
@@ -241,11 +221,6 @@ export default function GoalsView() {
                 role="tab" aria-selected={view.mode === 'go'}
                 onClick={() => view.setMode('go')}
               >Go</button>
-              <button
-                className={view.mode === 'step' ? 'on' : ''}
-                role="tab" aria-selected={view.mode === 'step'}
-                onClick={() => view.setMode('step')}
-              >Step</button>
             </div>
           </div>
 
@@ -264,7 +239,7 @@ export default function GoalsView() {
               </div>
             )}
             <button className="new-btn" onClick={() => onAddGoal('active')}>
-              <Plus /> {view.mode === 'go' ? 'Add go' : view.mode === 'step' ? 'New step' : 'New goal'}
+              <Plus /> {view.mode === 'go' ? 'Add go' : 'New goal'}
             </button>
           </div>
         </div>
@@ -276,13 +251,6 @@ export default function GoalsView() {
             onLog={onLogGo}
             onSkip={onDeleteGo}
             onSelectGoal={onSelectGoal}
-          />
-        ) : view.mode === 'step' ? (
-          <StepView
-            steps={steps.allSteps}
-            goals={goals.tasks}
-            onSelect={onSelectGoal}
-            onToggleDone={onToggleStepDone}
           />
         ) : (
           <div className="content-scroll" style={{ overflowX: 'auto' }}>
@@ -375,7 +343,6 @@ export default function GoalsView() {
               onAdd={onAddGoal}
               onMove={goals.moveStatus}
               onToggleGoDone={onToggleGoDone}
-              onAddStep={onAddStep}
               onAddGo={onAddGo}
               onAddRoutine={onAddRoutine}
               onToggleRoutineDone={onToggleRoutineDone}
@@ -402,18 +369,10 @@ export default function GoalsView() {
         onCreated={onGoalCreated}
       />
 
-      <StepCreateDialog
-        open={stepDialogTaskId !== null}
-        onOpenChange={closeStepDialog}
-        taskId={stepDialogTaskId}
-        steps={steps}
-      />
-
       <GoCreateDialog
-        open={goDialogTask !== null}
+        open={goDialogTaskId !== null}
         onOpenChange={closeGoDialog}
-        taskId={goDialogTask?.taskId ?? null}
-        sprintId={goDialogTask?.sprintId ?? null}
+        taskId={goDialogTaskId}
         gos={gos}
       />
 

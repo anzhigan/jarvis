@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Repeat, Target, Zap, ListChecks } from 'lucide-react';
+import { Loader2, Plus, Repeat, Target, Zap } from 'lucide-react';
 import type { Sprint, SprintItem } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../hooks/useSprints';
 import { useSprintsFilters, type ViewFilter } from '../hooks/useSprintsFilters';
@@ -25,12 +25,11 @@ function fmtClosed(end: string): string {
 
 const ITEM_ICON: Record<SprintItem['item_type'], React.ElementType> = {
   goal:    Target,
-  step:    ListChecks,
   go:      Zap,
   routine: Repeat,
 };
 const ITEM_KIND_LABEL: Record<SprintItem['item_type'], string> = {
-  goal: 'Goal', step: 'Step', go: 'Go', routine: 'Routine',
+  goal: 'Goal', go: 'Go', routine: 'Routine',
 };
 
 function FeaturedSprint({ row, onSelect }: { row: SprintWithProgress; onSelect: (id: string) => void }) {

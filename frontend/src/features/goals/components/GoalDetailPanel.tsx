@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2, Calendar, Flag, Tag as TagIcon, Box, ListChecks } from 'lucide-react';
+import { Trash2, Calendar, Flag, Tag as TagIcon, Box } from 'lucide-react';
 import { Button, Drawer, Input } from '../../../components/ui';
 import type { Task, TaskPriority, TaskStatus } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
@@ -57,7 +57,6 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
     onOpenChange(false);
   };
 
-  const stepsDone = goal.sprints.filter((s) => s.is_completed).length;
   const gosDone   = goal.gos.filter((g) => g.is_done_today).length;
 
   return (
@@ -164,14 +163,6 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
         )}
       </div>
 
-      <div className="ui-field-row">
-        <span className="label"><ListChecks size={11} /> Steps</span>
-        <span className="value">
-          {goal.sprints.length === 0
-            ? <span style={{ color: 'var(--ink-4)' }}>None yet</span>
-            : <>{stepsDone} / {goal.sprints.length} done</>}
-        </span>
-      </div>
       <div className="ui-field-row">
         <span className="label"><Box size={11} /> Gos</span>
         <span className="value">

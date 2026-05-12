@@ -10,7 +10,6 @@ import type {
   GoKind,
   GoRecurrence,
   GoalRoutineLink,
-  Step,
   Topic,
   User,
   Way,
@@ -267,7 +266,6 @@ export const gosApi = {
     due_date?: string | null;
     color?: string;
     task_id?: string | null;
-    sprint_id?: string | null;
   }) => request<Go>('/gos', { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id: string, data: {
@@ -281,7 +279,6 @@ export const gosApi = {
     due_date?: string | null;
     color?: string;
     task_id?: string | null;
-    sprint_id?: string | null;
   }) => request<Go>(`/gos/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   delete: (id: string) => request<void>(`/gos/${id}`, { method: 'DELETE' }),
@@ -294,41 +291,6 @@ export const gosApi = {
 
   agenda: (section: 'today' | 'future' | 'past', daysBack = 30) =>
     request<Go[]>(`/gos/agenda?section=${section}&days_back=${daysBack}`),
-};
-
-// Steps API — period-bound milestones inside a Goal/Task.
-// Backend model is named "Sprint" (table: sprints, URL: /api/sprints/*) for legacy reasons;
-// on the frontend this entity is called Step.
-export const stepsApi = {
-  create: (data: {
-    task_id: string;
-    title: string;
-    description?: string;
-    start_date: string;
-    end_date: string;
-    color?: string;
-  }) => request<Step>('/sprints', { method: 'POST', body: JSON.stringify(data) }),
-
-  update: (id: string, data: {
-    title?: string;
-    description?: string;
-    start_date?: string;
-    end_date?: string;
-    is_completed?: boolean;
-    color?: string;
-    task_id?: string | null;
-  }) => request<Step>(`/sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-
-  delete: (id: string) => request<void>(`/sprints/${id}`, { method: 'DELETE' }),
-
-  attachGo: (stepId: string, goId: string) =>
-    request<Go>(`/sprints/${stepId}/attach/${goId}`, { method: 'POST' }),
-
-  detachGo: (stepId: string, goId: string) =>
-    request<Go>(`/sprints/${stepId}/detach/${goId}`, { method: 'POST' }),
-
-  agenda: (section: 'current' | 'future' | 'past', daysBack = 90) =>
-    request<Step[]>(`/sprints/agenda?section=${section}&days_back=${daysBack}`),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -348,7 +310,6 @@ export const routinesApi = {
     description?: string;
     color?: string;
     goal_id?: string | null;
-    step_id?: string | null;
     schedule_type?: 'daily' | 'weekly_on_days' | 'every_n_days' | 'times_per_week';
     schedule_days?: string;
     schedule_n_days?: number;
@@ -417,7 +378,6 @@ export const sprintsApi = {
   addItem: (id: string, item: {
     item_type: SprintItemType;
     goal_id?: string | null;
-    step_id?: string | null;
     go_id?: string | null;
     routine_id?: string | null;
   }) => request<Sprint>(`/focus-sprints/${id}/items`, {

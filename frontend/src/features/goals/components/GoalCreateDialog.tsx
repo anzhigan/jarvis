@@ -7,7 +7,7 @@ import type { Tag, TaskPriority, TaskStatus } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
 import type { GosLibrary } from '../hooks/useGos';
 
-type FollowUp = 'none' | 'step' | 'go' | 'routine';
+type FollowUp = 'none' | 'go' | 'routine';
 
 interface Props {
   open: boolean;
@@ -49,7 +49,6 @@ const COLORS: { value: string; name: string }[] = [
 
 const FOLLOW_UPS: { value: FollowUp; label: string }[] = [
   { value: 'none',    label: 'Just save'  },
-  { value: 'step',    label: '+ Step'     },
   { value: 'go',      label: '+ Go'       },
   { value: 'routine', label: '+ Routine'  },
 ];
@@ -152,7 +151,7 @@ export function GoalCreateDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="New goal"
-      description="Long-running outcome with steps, gos, routines, and a deadline."
+      description="Long-running outcome with gos, routines, and a deadline."
       size="lg"
       footer={
         <>

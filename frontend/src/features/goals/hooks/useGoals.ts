@@ -6,9 +6,8 @@ import type { Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
 /**
  * Loads all goals (Tasks) and tags. Exposes refresh + mutations.
  *
- * Tasks include nested `sprints` (Steps) and `gos` from the backend payload —
- * the Step view derives its data from `tasks.flatMap(t => t.sprints)` instead
- * of a separate fetch.
+ * Tasks include nested `gos` from the backend payload — the Go list view
+ * derives its data from `tasks.flatMap(t => t.gos)` instead of a separate fetch.
  */
 export function useGoals() {
   const [tasks, setTasks] = useState<Task[]>([]);

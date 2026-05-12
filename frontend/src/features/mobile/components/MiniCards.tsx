@@ -5,7 +5,7 @@
 // toggles, nested children).
 
 import { Check, Flag } from 'lucide-react';
-import type { Go, Routine, Step, Task } from '../../../api/types';
+import type { Go, Routine, Task } from '../../../api/types';
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -35,43 +35,6 @@ export function MiniGoalContent({ goal }: { goal: Task }) {
       {goal.due_date && (
         <div className="m-mc-meta">Due {fmtDate(goal.due_date)}</div>
       )}
-    </>
-  );
-}
-
-export function MiniStepContent({ step }: { step: Step }) {
-  const today = ymd(new Date());
-  const currentIdx = step.gos.findIndex((g) => !g.is_done_today);
-  const goDone = step.gos.filter((g) => g.is_done_today).length;
-  const goCount = step.gos.length;
-  const daysLeft = !step.is_completed && step.end_date >= today
-    ? Math.max(0, Math.round((new Date(step.end_date).getTime() - new Date(today).getTime()) / 86_400_000))
-    : null;
-
-  return (
-    <>
-      <div className="m-mc-head">
-        <h4 className="m-mc-title">{step.title}</h4>
-        <span className="m-mc-period">
-          {fmtDate(step.start_date)} — {fmtDate(step.end_date)}
-        </span>
-      </div>
-      {goCount > 0 && (
-        <div className="m-mc-nodes">
-          {step.gos.map((g, i) => {
-            const cls = g.is_done_today ? 'done'
-              : (!g.is_done_today && i === currentIdx) ? 'cur'
-              : '';
-            return <span key={g.id} className={`m-mc-node ${cls}`} />;
-          })}
-        </div>
-      )}
-      <div className="m-mc-foot">
-        <span className="m-mc-foot-meta">
-          {goCount > 0 ? `${goDone}/${goCount} done` : 'No gos'}
-          {daysLeft !== null && ` · ${daysLeft}d left`}
-        </span>
-      </div>
     </>
   );
 }

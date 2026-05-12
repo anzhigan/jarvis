@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Loader2, Plus, X } from 'lucide-react';
-import type { Go, Routine, Sprint, Step, Task } from '../../../api/types';
+import type { Go, Routine, Sprint, Task } from '../../../api/types';
 import { useSprints, type SprintWithProgress, type SprintsLibrary } from '../../sprints/hooks/useSprints';
 import { SprintForm } from '../components/MobileAddForms';
 import { SwipeableRow } from '../components/SwipeableRow';
@@ -8,11 +8,10 @@ import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import { MobileBottomSheet } from '../components/MobileBottomSheet';
 import { MobilePickerSheet } from '../components/MobilePickerSheet';
 import {
-  MiniGoalContent, MiniStepContent, MiniGoContent, MiniRoutineContent,
+  MiniGoalContent, MiniGoContent, MiniRoutineContent,
 } from '../components/MiniCards';
 import { useGoals } from '../../goals/hooks/useGoals';
 import { useGos } from '../../goals/hooks/useGos';
-import { useSteps } from '../../goals/hooks/useSteps';
 import { useRoutines } from '../../routines/hooks/useRoutines';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
@@ -39,7 +38,6 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
   const lib = useSprints();
   const goalsLib = useGoals();
   const gosLib = useGos(goalsLib);
-  const stepsLib = useSteps(goalsLib);
   const routinesLib = useRoutines();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Sprint | null>(null);
@@ -108,7 +106,6 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
                   <FeaturedSprint
                     row={row}
                     goals={goalsLib.tasks}
-                    steps={stepsLib.allSteps}
                     gos={gosLib.gos}
                     routines={routinesLib.routines}
                     onAddItems={() => setAddItemsTo(row.sprint)}
@@ -135,7 +132,6 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
         library={lib}
         goalsLib={goalsLib}
         gosLib={gosLib}
-        stepsLib={stepsLib}
         routinesLib={routinesLib}
       />
       <SprintForm
@@ -144,7 +140,6 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
         library={lib}
         goalsLib={goalsLib}
         gosLib={gosLib}
-        stepsLib={stepsLib}
         routinesLib={routinesLib}
         editing={editing}
       />
@@ -155,7 +150,6 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
           onOpenChange={(o) => { if (!o) setAddItemsTo(null); }}
           library={lib}
           goalsLib={goalsLib}
-          stepsLib={stepsLib}
           gosLib={gosLib}
           routinesLib={routinesLib}
         />
@@ -164,7 +158,7 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
         open={!!confirmDelete}
         onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}
         title={`Delete "${confirmDelete?.title ?? ''}"?`}
-        description="The sprint will be removed. Linked goals/steps/gos/routines will not be deleted."
+        description="The sprint will be removed. Linked goals/gos/routines will not be deleted."
         confirmLabel="Delete"
         destructive
         onConfirm={async () => {
@@ -180,20 +174,13 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
 // Two SVG rings at the top: outer (indigo) = % time elapsed, inner (gold)
 // = % items completed. Center: days-remaining number. Right side: title,
 // period, legend.
-//
-// The sprint's flat `items[]` is reshaped into a tree before rendering so
-// children (steps under their parent goal, gos under their parent step/goal,
-// routines under their parent goal/step) stay visually subordinate. Items
-// whose parent is NOT in this sprint surface at the top level on equal
-// footing with goals.
 
 interface SprintTreeNode {
   key: string;
-  itemType: 'goal' | 'step' | 'go' | 'routine';
+  itemType: 'goal' | 'go' | 'routine';
   title: string;
   done: boolean;
   goal?: Task;
-  step?: Step;
   go?: Go;
   routine?: Routine;
   children: SprintTreeNode[];
@@ -202,30 +189,18 @@ interface SprintTreeNode {
 function buildSprintTree(
   sprint: Sprint,
   goalsById: Map<string, Task>,
-  stepsById: Map<string, Step>,
   gosById:   Map<string, Go>,
   routinesById: Map<string, Routine>,
   today: string,
 ): { tree: SprintTreeNode[]; total: number; done: number } {
   const goalIds    = new Set<string>();
-  const stepIds    = new Set<string>();
-  const goIds      = new Set<string>();
-  const routineIds = new Set<string>();
   for (const item of sprint.items) {
-    if (item.item_type === 'goal'    && item.goal_id)    goalIds.add(item.goal_id);
-    if (item.item_type === 'step'    && item.step_id)    stepIds.add(item.step_id);
-    if (item.item_type === 'go'      && item.go_id)      goIds.add(item.go_id);
-    if (item.item_type === 'routine' && item.routine_id) routineIds.add(item.routine_id);
+    if (item.item_type === 'goal' && item.goal_id) goalIds.add(item.goal_id);
   }
 
-  // Helpers — produce a fresh SprintTreeNode for each entity type.
   const makeGoalNode = (g: Task): SprintTreeNode => ({
     key: `goal-${g.id}`, itemType: 'goal', title: g.title,
     done: g.is_completed || g.status === 'done', goal: g, children: [],
-  });
-  const makeStepNode = (s: Step): SprintTreeNode => ({
-    key: `step-${s.id}`, itemType: 'step', title: s.title,
-    done: s.is_completed, step: s, children: [],
   });
   const makeGoNode = (g: Go): SprintTreeNode => ({
     key: `go-${g.id}`, itemType: 'go', title: g.title,
@@ -237,39 +212,20 @@ function buildSprintTree(
     routine: r, children: [],
   });
 
-  // Build a node and recursively populate children with the entity's full
-  // sub-hierarchy. This makes "Show items" always meaningful — even when a
-  // goal was added to the sprint without its child steps/gos.
+  // Goal's children: all its Gos + any Routine linked to the goal.
   const buildGoalChildren = (goal: Task): SprintTreeNode[] => {
     const out: SprintTreeNode[] = [];
-    for (const step of goal.sprints) {
-      const sNode = makeStepNode(step);
-      for (const g of step.gos) sNode.children.push(makeGoNode(g));
-      out.push(sNode);
-    }
-    for (const g of goal.gos.filter((x) => !x.sprint_id)) {
-      out.push(makeGoNode(g));
-    }
+    for (const g of goal.gos) out.push(makeGoNode(g));
     for (const r of routinesById.values()) {
-      if (r.goal_id === goal.id && !r.step_id) out.push(makeRoutineNode(r));
-    }
-    return out;
-  };
-  const buildStepChildren = (step: Step): SprintTreeNode[] => {
-    const out: SprintTreeNode[] = [];
-    for (const g of step.gos) out.push(makeGoNode(g));
-    for (const r of routinesById.values()) {
-      if (r.step_id === step.id) out.push(makeRoutineNode(r));
+      if (r.goal_id === goal.id) out.push(makeRoutineNode(r));
     }
     return out;
   };
 
   // Top-level: walk sprint.items in order. For each item:
   //  - goal → top-level, full sub-hierarchy as children
-  //  - step → top-level only if its parent goal is NOT in sprint, otherwise
-  //    skip (it appears as a child of the goal already)
-  //  - go   → top-level only if neither parent step nor parent goal is in sprint
-  //  - routine → top-level only if neither parent step nor goal is in sprint
+  //  - go   → top-level only if its parent goal is NOT in sprint
+  //  - routine → top-level only if its parent goal is NOT in sprint
   const tree: SprintTreeNode[] = [];
   const seen = new Set<string>();
   for (const item of sprint.items) {
@@ -282,20 +238,9 @@ function buildSprintTree(
       const node = makeGoalNode(goal);
       node.children = buildGoalChildren(goal);
       tree.push(node);
-    } else if (item.item_type === 'step' && item.step_id) {
-      const step = stepsById.get(item.step_id);
-      if (!step) continue;
-      if (step.task_id && goalIds.has(step.task_id)) continue; // nested
-      const key = `step-${step.id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const node = makeStepNode(step);
-      node.children = buildStepChildren(step);
-      tree.push(node);
     } else if (item.item_type === 'go' && item.go_id) {
       const go = gosById.get(item.go_id);
       if (!go) continue;
-      if (go.sprint_id && stepIds.has(go.sprint_id)) continue;
       if (go.task_id && goalIds.has(go.task_id)) continue;
       const key = `go-${go.id}`;
       if (seen.has(key)) continue;
@@ -304,7 +249,6 @@ function buildSprintTree(
     } else if (item.item_type === 'routine' && item.routine_id) {
       const r = routinesById.get(item.routine_id);
       if (!r) continue;
-      if (r.step_id && stepIds.has(r.step_id)) continue;
       if (r.goal_id && goalIds.has(r.goal_id)) continue;
       const key = `routine-${r.id}`;
       if (seen.has(key)) continue;
@@ -329,10 +273,9 @@ const ITEMS_R = 34;
 const TIME_C  = 2 * Math.PI * TIME_R;
 const ITEMS_C = 2 * Math.PI * ITEMS_R;
 
-function FeaturedSprint({ row, goals, steps, gos, routines, onAddItems }: {
+function FeaturedSprint({ row, goals, gos, routines, onAddItems }: {
   row: SprintWithProgress;
   goals: Task[];
-  steps: Step[];
   gos: Go[];
   routines: Routine[];
   onAddItems: () => void;
@@ -343,11 +286,10 @@ function FeaturedSprint({ row, goals, steps, gos, routines, onAddItems }: {
 
   const { tree, total, done } = useMemo(() => {
     const goalsById    = new Map(goals.map((g) => [g.id, g]));
-    const stepsById    = new Map(steps.map((s) => [s.id, s as Step]));
     const gosById      = new Map(gos.map((g) => [g.id, g]));
     const routinesById = new Map(routines.map((r) => [r.id, r]));
-    return buildSprintTree(sprint, goalsById, stepsById, gosById, routinesById, today);
-  }, [sprint, goals, steps, gos, routines, today]);
+    return buildSprintTree(sprint, goalsById, gosById, routinesById, today);
+  }, [sprint, goals, gos, routines, today]);
 
   const elapsedPct = Math.round(progress * 100);
   const itemsPct   = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -355,7 +297,6 @@ function FeaturedSprint({ row, goals, steps, gos, routines, onAddItems }: {
   const itemsOffset = ITEMS_C * (1 - itemsPct / 100);
 
   // Pace in days = how many days "ahead" or "behind" pace items completion is.
-  // (itemsPct - elapsedPct) / 100 * daysTotal — positive = ahead, negative = behind.
   const paceDays = daysTotal > 0
     ? Math.round(((itemsPct - elapsedPct) / 100) * daysTotal)
     : 0;
@@ -378,8 +319,6 @@ function FeaturedSprint({ row, goals, steps, gos, routines, onAddItems }: {
       className="sprint-disc"
       style={{ ['--gc' as any]: sprint.color || 'var(--indigo)' }}
     >
-      {/* Top accent strip — paints the sprint's chosen color across the
-          full width so it's the first thing the eye lands on. */}
       <div className="sd-accent" />
       <div className="sd-disc-row">
         <div className="sd-disc-svg-wrap">
@@ -481,7 +420,6 @@ function SprintNode({ node }: { node: SprintTreeNode }) {
   const [open, setOpen] = useState(false);
   const hasChildren = node.children.length > 0;
   const kindLabel = node.itemType === 'goal' ? 'Goal'
-    : node.itemType === 'step' ? 'Step'
     : node.itemType === 'go' ? 'Go'
     : 'Routine';
 
@@ -489,7 +427,6 @@ function SprintNode({ node }: { node: SprintTreeNode }) {
     <article className={`m-mc m-mc-${node.itemType}`} data-done={node.done || undefined}>
       <span className="m-mc-kind">{kindLabel}</span>
       {node.itemType === 'goal'    && node.goal    && <MiniGoalContent    goal={node.goal} />}
-      {node.itemType === 'step'    && node.step    && <MiniStepContent    step={node.step} />}
       {node.itemType === 'go'      && node.go      && <MiniGoContent      go={node.go} />}
       {node.itemType === 'routine' && node.routine && <MiniRoutineContent routine={node.routine} />}
 
@@ -515,38 +452,30 @@ function SprintNode({ node }: { node: SprintTreeNode }) {
 }
 
 
-
 // ── AddItemsToSprintSheet — focused sheet for attaching existing entities ──
-//
-// Lives separate from SprintForm so the user can add items to an existing
-// sprint without having to wade through title/dates/color fields. Mirrors
-// the same picker-per-type flow.
 
 function AddItemsToSprintSheet({
   sprint, open, onOpenChange, library,
-  goalsLib, stepsLib, gosLib, routinesLib,
+  goalsLib, gosLib, routinesLib,
 }: {
   sprint: Sprint;
   open: boolean;
   onOpenChange: (o: boolean) => void;
   library: SprintsLibrary;
   goalsLib: ReturnType<typeof useGoals>;
-  stepsLib: ReturnType<typeof useSteps>;
   gosLib: ReturnType<typeof useGos>;
   routinesLib: ReturnType<typeof useRoutines>;
 }) {
   const [attachGoals, setAttachGoals] = useState<Set<string>>(new Set());
-  const [attachSteps, setAttachSteps] = useState<Set<string>>(new Set());
   const [attachGos, setAttachGos] = useState<Set<string>>(new Set());
   const [attachRoutines, setAttachRoutines] = useState<Set<string>>(new Set());
-  const [openPicker, setOpenPicker] = useState<'goal' | 'step' | 'go' | 'routine' | null>(null);
+  const [openPicker, setOpenPicker] = useState<'goal' | 'go' | 'routine' | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Reset on each open so prior selections don't leak between sprints.
   useEffect(() => {
     if (open) {
       setAttachGoals(new Set());
-      setAttachSteps(new Set());
       setAttachGos(new Set());
       setAttachRoutines(new Set());
       setBusy(false);
@@ -555,24 +484,22 @@ function AddItemsToSprintSheet({
 
   // Already-in-sprint ids — exclude from the pickers.
   const existing = useMemo(() => {
-    const out = { goal: new Set<string>(), step: new Set<string>(), go: new Set<string>(), routine: new Set<string>() };
+    const out = { goal: new Set<string>(), go: new Set<string>(), routine: new Set<string>() };
     for (const it of sprint.items) {
       if (it.item_type === 'goal'    && it.goal_id)    out.goal.add(it.goal_id);
-      if (it.item_type === 'step'    && it.step_id)    out.step.add(it.step_id);
       if (it.item_type === 'go'      && it.go_id)      out.go.add(it.go_id);
       if (it.item_type === 'routine' && it.routine_id) out.routine.add(it.routine_id);
     }
     return out;
   }, [sprint.items]);
 
-  const totalSelected = attachGoals.size + attachSteps.size + attachGos.size + attachRoutines.size;
+  const totalSelected = attachGoals.size + attachGos.size + attachRoutines.size;
 
   const submit = async () => {
     if (totalSelected === 0) { onOpenChange(false); return; }
     setBusy(true);
     const tasks: Promise<unknown>[] = [];
     for (const id of attachGoals)    tasks.push(library.addItem(sprint.id, { item_type: 'goal',    goal_id:    id }));
-    for (const id of attachSteps)    tasks.push(library.addItem(sprint.id, { item_type: 'step',    step_id:    id }));
     for (const id of attachGos)      tasks.push(library.addItem(sprint.id, { item_type: 'go',      go_id:      id }));
     for (const id of attachRoutines) tasks.push(library.addItem(sprint.id, { item_type: 'routine', routine_id: id }));
     if (tasks.length) await Promise.all(tasks);
@@ -600,16 +527,12 @@ function AddItemsToSprintSheet({
               <Plus size={14} /> Goal
               {attachGoals.size > 0 && <span className="m-attach-badge">{attachGoals.size}</span>}
             </button>
-            <button type="button" className="m-attach-btn" onClick={() => setOpenPicker('step')}>
-              <Plus size={14} /> Step
-              {attachSteps.size > 0 && <span className="m-attach-badge">{attachSteps.size}</span>}
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" className="m-attach-btn" onClick={() => setOpenPicker('go')}>
               <Plus size={14} /> Go
               {attachGos.size > 0 && <span className="m-attach-badge">{attachGos.size}</span>}
             </button>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" className="m-attach-btn" onClick={() => setOpenPicker('routine')}>
               <Plus size={14} /> Routine
               {attachRoutines.size > 0 && <span className="m-attach-badge">{attachRoutines.size}</span>}
@@ -624,15 +547,6 @@ function AddItemsToSprintSheet({
                 Goal · {g.title}
                 <button type="button" className="m-attach-chip-x"
                   onClick={() => setAttachGoals((p) => { const n = new Set(p); n.delete(g.id); return n; })}>
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-            {stepsLib.allSteps.filter((s) => attachSteps.has(s.id)).map((s) => (
-              <span key={s.id} className="m-attach-chip">
-                Step · {s.title}
-                <button type="button" className="m-attach-chip-x"
-                  onClick={() => setAttachSteps((p) => { const n = new Set(p); n.delete(s.id); return n; })}>
                   <X size={12} />
                 </button>
               </span>
@@ -669,22 +583,6 @@ function AddItemsToSprintSheet({
         onConfirm={(s) => setAttachGoals(s)}
         matches={(g, q) => g.title.toLowerCase().includes(q)}
         render={(g) => g.title}
-      />
-      <MobilePickerSheet
-        open={openPicker === 'step'}
-        onOpenChange={(o) => { if (!o) setOpenPicker(null); }}
-        title="Pick a step"
-        entity="Step"
-        items={stepsLib.allSteps.filter((s) => !existing.step.has(s.id))}
-        initialSelected={attachSteps}
-        onConfirm={(s) => setAttachSteps(s)}
-        matches={(s, q) => s.title.toLowerCase().includes(q) || (s.goal?.title?.toLowerCase().includes(q) ?? false)}
-        render={(s) => (
-          <>
-            <div style={{ fontWeight: 500 }}>{s.title}</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>from {s.goal.title}</div>
-          </>
-        )}
       />
       <MobilePickerSheet
         open={openPicker === 'go'}

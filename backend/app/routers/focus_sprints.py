@@ -1,8 +1,4 @@
-"""FocusSprints router — temporal focus collections referencing Goals/Steps/Gos/Routines.
-
-Note: a FocusSprint is the NEW Sprint concept (separate from old `sprints` table which
-is now used for Steps within a Goal).
-"""
+"""FocusSprints router — temporal focus collections referencing Goals/Gos/Routines."""
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.tasks import FocusSprint, FocusSprintItem, Go, Routine, Sprint, Task
+from app.models.tasks import FocusSprint, FocusSprintItem, Go, Routine, Task
 from app.models.user import User
 from app.schemas.tasks import (
     FocusSprintCreate,
@@ -25,27 +21,22 @@ from app.schemas.tasks import (
 router = APIRouter(prefix="/focus-sprints", tags=["focus-sprints"])
 
 
-VALID_ITEM_TYPES = {"goal", "step", "go", "routine"}
+VALID_ITEM_TYPES = {"goal", "go", "routine"}
 
 
 async def _hydrate_items(items: list[FocusSprintItem], db: AsyncSession) -> list[dict]:
-    """Batch-fetch referenced entities (Task/Sprint/Go/Routine) by type
+    """Batch-fetch referenced entities (Task/Go/Routine) by type
     so we don't fire one query per item."""
     goal_ids = [it.goal_id for it in items if it.item_type == "goal" and it.goal_id]
-    step_ids = [it.step_id for it in items if it.item_type == "step" and it.step_id]
     go_ids = [it.go_id for it in items if it.item_type == "go" and it.go_id]
     routine_ids = [it.routine_id for it in items if it.item_type == "routine" and it.routine_id]
 
     goals: dict = {}
-    steps: dict = {}
     gos: dict = {}
     routines: dict = {}
     if goal_ids:
         res = await db.execute(select(Task).where(Task.id.in_(goal_ids)))
         goals = {t.id: t for t in res.scalars()}
-    if step_ids:
-        res = await db.execute(select(Sprint).where(Sprint.id.in_(step_ids)))
-        steps = {s.id: s for s in res.scalars()}
     if go_ids:
         res = await db.execute(select(Go).where(Go.id.in_(go_ids)))
         gos = {g.id: g for g in res.scalars()}
@@ -59,9 +50,6 @@ async def _hydrate_items(items: list[FocusSprintItem], db: AsyncSession) -> list
         color = None
         if it.item_type == "goal" and it.goal_id in goals:
             title = goals[it.goal_id].title
-        elif it.item_type == "step" and it.step_id in steps:
-            s = steps[it.step_id]
-            title, color = s.title, s.color
         elif it.item_type == "go" and it.go_id in gos:
             g = gos[it.go_id]
             title, color = g.title, g.color
@@ -72,7 +60,6 @@ async def _hydrate_items(items: list[FocusSprintItem], db: AsyncSession) -> list
             "id": it.id,
             "item_type": it.item_type,
             "goal_id": it.goal_id,
-            "step_id": it.step_id,
             "go_id": it.go_id,
             "routine_id": it.routine_id,
             "title": title,
@@ -199,12 +186,6 @@ async def add_item(
         res = await db.execute(select(Task).where(Task.id == body.goal_id, Task.user_id == user.id))
         if not res.scalar_one_or_none():
             raise HTTPException(404, "Goal not found")
-    elif body.item_type == "step":
-        if not body.step_id:
-            raise HTTPException(400, "step_id required")
-        res = await db.execute(select(Sprint).where(Sprint.id == body.step_id, Sprint.user_id == user.id))
-        if not res.scalar_one_or_none():
-            raise HTTPException(404, "Step not found")
     elif body.item_type == "go":
         if not body.go_id:
             raise HTTPException(400, "go_id required")
@@ -222,7 +203,6 @@ async def add_item(
         focus_sprint_id=fs.id,
         item_type=body.item_type,
         goal_id=body.goal_id,
-        step_id=body.step_id,
         go_id=body.go_id,
         routine_id=body.routine_id,
     )

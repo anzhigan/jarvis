@@ -4,97 +4,9 @@ import { Button, Dialog, Input } from '../../../components/ui';
 import { routinesApi } from '../../../api/client';
 import type { GoalsLibrary } from '../hooks/useGoals';
 import type { GosLibrary } from '../hooks/useGos';
-import type { useSteps } from '../hooks/useSteps';
 
 const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-// ── Step ─────────────────────────────────────────────────────────────────────
-
-interface StepDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  taskId: string | null;
-  steps: ReturnType<typeof useSteps>;
-}
-
-export function StepCreateDialog({ open, onOpenChange, taskId, steps }: StepDialogProps) {
-  const today = new Date();
-  const monthLater = new Date(today); monthLater.setDate(monthLater.getDate() + 30);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [start, setStart] = useState(ymd(today));
-  const [end, setEnd] = useState(ymd(monthLater));
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      const t = new Date();
-      const e = new Date(t); e.setDate(e.getDate() + 30);
-      setTitle(''); setDescription('');
-      setStart(ymd(t)); setEnd(ymd(e));
-    }
-  }, [open]);
-
-  const submit = async () => {
-    const t = title.trim();
-    if (!t || !taskId) return;
-    setSubmitting(true);
-    await steps.createStep({
-      task_id: taskId,
-      title: t,
-      description: description.trim() || undefined,
-      start_date: start,
-      end_date: end,
-    });
-    setSubmitting(false);
-    onOpenChange(false);
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="New step"
-      description="A bounded milestone within the goal."
-      footer={
-        <>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="primary" onClick={submit} disabled={submitting || !title.trim()}>
-            {submitting ? 'Creating…' : 'Create step'}
-          </Button>
-        </>
-      }
-    >
-      <div className="ui-form">
-        <Input
-          autoFocus
-          placeholder="Step title (e.g. Sprint 1: ship MVP)"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) submit(); }}
-        />
-        <textarea
-          className="ui-input"
-          data-size="textarea"
-          placeholder="Notes (optional)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <div className="ui-form-row">
-          <div className="ui-field">
-            <span className="ui-field-label">Start</span>
-            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-          </div>
-          <div className="ui-field">
-            <span className="ui-field-label">End</span>
-            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-          </div>
-        </div>
-      </div>
-    </Dialog>
-  );
-}
 
 // ── Go ───────────────────────────────────────────────────────────────────────
 
@@ -102,24 +14,23 @@ interface GoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   taskId: string | null;
-  /** If set, the new Go is attached under this Step. */
-  sprintId: string | null;
   gos: GosLibrary;
 }
 
-export function GoCreateDialog({ open, onOpenChange, taskId, sprintId, gos }: GoDialogProps) {
+export function GoCreateDialog({ open, onOpenChange, taskId, gos }: GoDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [kind, setKind] = useState<'boolean' | 'numeric'>('boolean');
   const [target, setTarget] = useState('');
   const [unit, setUnit] = useState('');
+  const [start, setStart] = useState('');
   const [due, setDue] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
       setTitle(''); setDescription(''); setKind('boolean');
-      setTarget(''); setUnit(''); setDue('');
+      setTarget(''); setUnit(''); setStart(''); setDue('');
     }
   }, [open]);
 
@@ -129,12 +40,12 @@ export function GoCreateDialog({ open, onOpenChange, taskId, sprintId, gos }: Go
     setSubmitting(true);
     await gos.createGo({
       task_id: taskId,
-      sprint_id: sprintId,
       title: t,
       description: description.trim() || undefined,
       kind,
       unit: kind === 'numeric' ? (unit.trim() || undefined) : undefined,
       target_value: kind === 'numeric' && target ? Number(target) : undefined,
+      start_date: start || undefined,
       due_date: due || undefined,
     });
     setSubmitting(false);
@@ -145,8 +56,8 @@ export function GoCreateDialog({ open, onOpenChange, taskId, sprintId, gos }: Go
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={sprintId ? 'New go in step' : 'New go'}
-      description="A small unit of work — track once or with a numeric target."
+      title="New go"
+      description="A unit of work — single day or a period."
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -212,9 +123,17 @@ export function GoCreateDialog({ open, onOpenChange, taskId, sprintId, gos }: Go
           </div>
         )}
 
-        <div className="ui-field">
-          <span className="ui-field-label">Due date (optional)</span>
-          <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+        {/* Period: leave both blank for an undated Go, set just `due` for a
+            single-day deadline, or set both to make it span a period. */}
+        <div className="ui-form-row">
+          <div className="ui-field">
+            <span className="ui-field-label">Start (optional)</span>
+            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          </div>
+          <div className="ui-field">
+            <span className="ui-field-label">Due (optional)</span>
+            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          </div>
         </div>
       </div>
     </Dialog>

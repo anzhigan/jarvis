@@ -49,9 +49,6 @@ function fmtDue(due: string | null): { label: string; days: number | null } {
 
 function goalPct(t: Task): number {
   if (t.status === 'done') return 100;
-  const stepsTotal = t.sprints.length;
-  const stepsDone = t.sprints.filter((s) => s.is_completed).length;
-  if (stepsTotal > 0) return Math.round((stepsDone / stepsTotal) * 100);
   return Math.round(t.progress);
 }
 

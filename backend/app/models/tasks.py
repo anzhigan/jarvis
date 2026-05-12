@@ -40,9 +40,6 @@ class Task(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="tasks")  # noqa: F821
-    sprints: Mapped[list["Sprint"]] = relationship(
-        back_populates="task", cascade="all, delete-orphan", order_by="Sprint.start_date"
-    )
     gos: Mapped[list["Go"]] = relationship(
         back_populates="task", cascade="all, delete-orphan", order_by="Go.created_at"
     )
@@ -57,43 +54,14 @@ class Task(Base):
     )
 
 
-class Sprint(Base):
-    """A period-bound milestone inside a Task. Has start/end dates and holds Go items.
-    Sprint progress = (completed Go / total Go) * 100.
-    Sprint is always one-off (never recurring) and never numeric.
-    """
-    __tablename__ = "sprints"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
-    description: Mapped[str] = mapped_column(Text, default="")
-    start_date: Mapped[date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[date] = mapped_column(Date, nullable=False)
-    is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
-    color: Mapped[str] = mapped_column(String(20), default="#3b82f6")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
-
-    task: Mapped["Task"] = relationship(back_populates="sprints")
-    user: Mapped["User"] = relationship(back_populates="sprints")  # noqa: F821
-    gos: Mapped[list["Go"]] = relationship(
-        back_populates="sprint", order_by="Go.due_date",
-        # Note: deleting a sprint should NOT delete its gos (they become unattached)
-        foreign_keys="Go.sprint_id",
-    )
-
-
 class Go(Base):
-    """A 'to-go' item — smallest unit of work. Optionally belongs to a Sprint and/or a Task.
-    kind_legacy: boolean | numeric. recurrence: none | daily | weekly.
-    kind (new): one_off | routine_legacy — when 'routine_legacy', the Go has been migrated
-    to the new Routine table but kept here for backward compat with the old UI.
+    """A work item attached (optionally) to a Goal. Has start_date/due_date so it
+    can be either single-day or span a period — the former Sprint/Step concept
+    is now expressed by `start_date`+`due_date` on the Go itself.
+
+    item_kind:
+      - 'one_off'         a real Go (default)
+      - 'routine_legacy'  this Go was migrated to the Routine table; kept here for backward compat
     """
     __tablename__ = "gos"
 
@@ -101,9 +69,6 @@ class Go(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     task_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True
-    )
-    sprint_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("sprints.id", ondelete="SET NULL"), nullable=True, index=True
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
@@ -114,12 +79,10 @@ class Go(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     color: Mapped[str] = mapped_column(String(20), default="#4f46e5")
-    # New: 'one_off' (real Go) | 'routine_legacy' (was migrated to Routine table)
     item_kind: Mapped[str] = mapped_column(String(30), default="one_off", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     task: Mapped["Task | None"] = relationship(back_populates="gos")
-    sprint: Mapped["Sprint | None"] = relationship(back_populates="gos", foreign_keys=[sprint_id])
     user: Mapped["User"] = relationship(back_populates="gos")  # noqa: F821
     entries: Mapped[list["GoEntry"]] = relationship(
         back_populates="go", cascade="all, delete-orphan", order_by="GoEntry.date"
@@ -152,7 +115,7 @@ class Routine(Base):
         - 'every_n_days'    every N days (schedule_n_days)
         - 'times_per_week'  X times per week (schedule_count_per_period)
 
-    Linked to a Goal (optional) and a Step (optional, formerly Sprint within Task).
+    Linked to a Goal (optional).
     """
     __tablename__ = "routines"
 
@@ -160,9 +123,6 @@ class Routine(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     goal_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-    step_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("sprints.id", ondelete="SET NULL"), nullable=True, index=True
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
@@ -194,7 +154,6 @@ class Routine(Base):
 
     user: Mapped["User"] = relationship(back_populates="routines")  # noqa: F821
     goal: Mapped["Task | None"] = relationship(foreign_keys=[goal_id])
-    step: Mapped["Sprint | None"] = relationship(foreign_keys=[step_id])
     entries: Mapped[list["RoutineEntry"]] = relationship(
         back_populates="routine", cascade="all, delete-orphan", order_by="RoutineEntry.date"
     )
@@ -244,11 +203,11 @@ class GoalRoutineLink(Base):
     routine: Mapped["Routine"] = relationship(foreign_keys=[routine_id])
 
 
-# ─── New: FocusSprint — temporal focus referencing existing Goals/Steps/Gos/Routines ──
+# ─── FocusSprint — temporal focus referencing existing Goals/Gos/Routines ──
 
 class FocusSprint(Base):
-    """A new-style Sprint: a date-bound period of focus. Contains references to
-    existing Goals/Steps/Gos/Routines (does not own them). When deleted, references
+    """A Sprint (UI): a date-bound period of focus. Contains references to
+    existing Goals/Gos/Routines (does not own them). When deleted, references
     are removed but the underlying entities stay.
     """
     __tablename__ = "focus_sprints"
@@ -275,16 +234,15 @@ class FocusSprint(Base):
 
 
 class FocusSprintItem(Base):
-    """A single reference inside a FocusSprint. Polymorphic — either goal, step, go, or routine."""
+    """A single reference inside a FocusSprint. Polymorphic — either goal, go, or routine."""
     __tablename__ = "focus_sprint_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     focus_sprint_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("focus_sprints.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    item_type: Mapped[str] = mapped_column(String(20), nullable=False)  # goal | step | go | routine
+    item_type: Mapped[str] = mapped_column(String(20), nullable=False)  # goal | go | routine
     goal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
-    step_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sprints.id", ondelete="CASCADE"), nullable=True)
     go_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("gos.id", ondelete="CASCADE"), nullable=True)
     routine_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("routines.id", ondelete="CASCADE"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

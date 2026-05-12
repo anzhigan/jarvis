@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import type {
-  Go, Note, Routine, RoutineScheduleType, Sprint, Step, Task,
+  Go, Note, Routine, RoutineScheduleType, Sprint, Task,
   TaskPriority, TaskStatus, Topic, Way,
 } from '../../../api/types';
 import { MobileBottomSheet } from './MobileBottomSheet';
 import type { GoalsLibrary } from '../../goals/hooks/useGoals';
 import type { GosLibrary } from '../../goals/hooks/useGos';
-import type { useSteps } from '../../goals/hooks/useSteps';
 import type { RoutinesLibrary } from '../../routines/hooks/useRoutines';
 import type { SprintsLibrary } from '../../sprints/hooks/useSprints';
 import type { NotesLibrary } from '../../notes/hooks/useNotesLibrary';
-import { gosApi, routinesApi, stepsApi } from '../../../api/client';
+import { gosApi, routinesApi } from '../../../api/client';
 import { Plus, X } from 'lucide-react';
 import { MobilePickerSheet } from './MobilePickerSheet';
 
@@ -220,8 +219,6 @@ interface GoalFormProps {
   library: GoalsLibrary;
   /** Optional: enables "Attach existing gos" + creating a fresh go inline. */
   gos?: GosLibrary;
-  /** Optional: enables "Attach existing steps" — moves them to this goal. */
-  stepsLib?: ReturnType<typeof useSteps>;
   initialStatus?: TaskStatus;
   editing?: Task | null;
   onCreated?: (taskId: string) => void;
@@ -240,7 +237,7 @@ const PRIORITIES: { value: TaskPriority; label: string }[] = [
 ];
 
 export function GoalForm({
-  open, onOpenChange, library, gos, stepsLib, initialStatus = 'active', editing, onCreated,
+  open, onOpenChange, library, gos, initialStatus = 'active', editing, onCreated,
 }: GoalFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -249,9 +246,7 @@ export function GoalForm({
   const [color, setColor] = useState<string>(COLORS[0].value);
   const [dueDate, setDueDate] = useState('');
   const [attachGoIds, setAttachGoIds] = useState<Set<string>>(new Set());
-  const [attachStepIds, setAttachStepIds] = useState<Set<string>>(new Set());
   const [goPickerOpen, setGoPickerOpen] = useState(false);
-  const [stepPickerOpen, setStepPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Gos that can be attached.
@@ -259,15 +254,9 @@ export function GoalForm({
     if (editing) return g.task_id !== editing.id;
     return !g.task_id;
   });
-  // Steps that can be attached: belong to OTHER goals (will be moved).
-  const attachableSteps = (stepsLib?.allSteps ?? []).filter((s) => {
-    if (editing) return s.task_id !== editing.id;
-    return true;
-  });
 
   // Resolve selected entities for chips display.
   const selectedGos   = (gos?.gos ?? []).filter((g) => attachGoIds.has(g.id));
-  const selectedSteps = (stepsLib?.allSteps ?? []).filter((s) => attachStepIds.has(s.id));
 
   useEffect(() => {
     if (!open) return;
@@ -283,7 +272,6 @@ export function GoalForm({
       setPriority('medium'); setColor(COLORS[0].value); setDueDate('');
     }
     setAttachGoIds(new Set());
-    setAttachStepIds(new Set());
     setBusy(false);
   }, [open, initialStatus, editing?.id]);
 
@@ -309,15 +297,12 @@ export function GoalForm({
       });
       if (created) goalId = created.id;
     }
-    if (goalId) {
-      const tasks: Promise<unknown>[] = [];
-      for (const id of attachGoIds)   tasks.push(gosApi.update(id, { task_id: goalId }));
-      for (const id of attachStepIds) tasks.push(stepsApi.update(id, { task_id: goalId }));
-      if (tasks.length) {
-        await Promise.all(tasks);
-        await library.refresh();
-        if (gos) await gos.refresh();
-      }
+    if (goalId && attachGoIds.size > 0) {
+      await Promise.all(
+        Array.from(attachGoIds).map((id) => gosApi.update(id, { task_id: goalId })),
+      );
+      await library.refresh();
+      if (gos) await gos.refresh();
     }
     setBusy(false);
     if (goalId && !editing) onCreated?.(goalId);
@@ -328,7 +313,7 @@ export function GoalForm({
     <MobileBottomSheet
       open={open} onOpenChange={onOpenChange}
       title={editing ? 'Edit goal' : 'New goal'}
-      description={editing ? undefined : 'Long-running outcome with steps, gos, routines.'}
+      description={editing ? undefined : 'Long-running outcome with gos and routines.'}
       footer={<>
         <button type="button" className="m-bs-btn m-bs-btn-ghost" onClick={() => onOpenChange(false)}>Cancel</button>
         <button type="button" className="m-bs-btn m-bs-btn-primary" disabled={busy || !title.trim()} onClick={submit}>
@@ -378,33 +363,17 @@ export function GoalForm({
           <label className="m-form-label">Due date</label>
           <input className="m-form-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </div>
-        {(gos || stepsLib) && (
+        {gos && (
           <div>
             <label className="m-form-label">Linked items</label>
             <div style={{ display: 'flex', gap: 10 }}>
-              {stepsLib && (
-                <button type="button" className="m-attach-btn" onClick={() => setStepPickerOpen(true)}>
-                  <Plus size={14} /> Step
-                  {attachStepIds.size > 0 && <span className="m-attach-badge">{attachStepIds.size}</span>}
-                </button>
-              )}
-              {gos && (
-                <button type="button" className="m-attach-btn" onClick={() => setGoPickerOpen(true)}>
-                  <Plus size={14} /> Go
-                  {attachGoIds.size > 0 && <span className="m-attach-badge">{attachGoIds.size}</span>}
-                </button>
-              )}
+              <button type="button" className="m-attach-btn" onClick={() => setGoPickerOpen(true)}>
+                <Plus size={14} /> Go
+                {attachGoIds.size > 0 && <span className="m-attach-badge">{attachGoIds.size}</span>}
+              </button>
             </div>
-            {(selectedGos.length > 0 || selectedSteps.length > 0) && (
+            {selectedGos.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                {selectedSteps.map((s) => (
-                  <span key={s.id} className="m-attach-chip">
-                    Step · {s.title}
-                    <button type="button" className="m-attach-chip-x" onClick={() => setAttachStepIds((p) => { const n = new Set(p); n.delete(s.id); return n; })}>
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
                 {selectedGos.map((g) => (
                   <span key={g.id} className="m-attach-chip">
                     Go · {g.title}
@@ -441,215 +410,6 @@ export function GoalForm({
           )}
         />
       )}
-      {stepsLib && (
-        <MobilePickerSheet
-          open={stepPickerOpen}
-          onOpenChange={setStepPickerOpen}
-          title="Pick a step"
-          entity="Step"
-          items={attachableSteps}
-          initialSelected={attachStepIds}
-          onConfirm={(s) => setAttachStepIds(s)}
-          matches={(s, q) => s.title.toLowerCase().includes(q) || (s.goal?.title?.toLowerCase().includes(q) ?? false)}
-          render={(s) => (
-            <>
-              <div style={{ fontWeight: 500 }}>{s.title}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>from {s.goal.title}</div>
-            </>
-          )}
-        />
-      )}
-    </MobileBottomSheet>
-  );
-}
-
-// ── Step ────────────────────────────────────────────────────────────────────
-
-interface StepFormProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  steps: ReturnType<typeof useSteps>;
-  goals: Task[];
-  /** Optional: enables "Attach existing gos" inside the step. */
-  gos?: GosLibrary;
-  /** Pre-selected parent goal. If null and goals.length > 1, user picks one. */
-  initialGoalId?: string | null;
-  editing?: Step | null;
-}
-
-export function StepForm({ open, onOpenChange, steps, goals, gos, initialGoalId, editing }: StepFormProps) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [goalId, setGoalId] = useState<string>('');
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
-  const [completed, setCompleted] = useState(false);
-  const [attachGoIds, setAttachGoIds] = useState<Set<string>>(new Set());
-  const [goPickerOpen, setGoPickerOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  // Gos available to attach: belong to the same goal AND aren't already in
-  // this step. Allows pulling a free-floating go (no sprint) into a step.
-  const targetGoalId = editing ? editing.task_id : goalId;
-  const attachable = (gos?.gos ?? []).filter((g) => {
-    if (!targetGoalId || g.task_id !== targetGoalId) return false;
-    if (editing && g.sprint_id === editing.id) return false;
-    return true;
-  });
-  const selectedGos = (gos?.gos ?? []).filter((g) => attachGoIds.has(g.id));
-
-  useEffect(() => {
-    if (!open) return;
-    if (editing) {
-      setTitle(editing.title);
-      setDescription(editing.description || '');
-      setGoalId(editing.task_id);
-      setStart(editing.start_date);
-      setEnd(editing.end_date);
-      setCompleted(editing.is_completed);
-    } else {
-      const today = new Date();
-      const e = new Date(today); e.setDate(e.getDate() + 30);
-      setTitle(''); setDescription('');
-      setGoalId(initialGoalId ?? goals[0]?.id ?? '');
-      setStart(ymd(today)); setEnd(ymd(e));
-      setCompleted(false);
-    }
-    setAttachGoIds(new Set());
-    setBusy(false);
-  }, [open, initialGoalId, goals, editing?.id]);
-
-  const submit = async () => {
-    const t = title.trim();
-    if (!t || !goalId) return;
-    setBusy(true);
-    let stepId: string | null = null;
-    if (editing) {
-      await steps.updateStep(editing.id, {
-        title: t,
-        description: description.trim(),
-        start_date: start, end_date: end,
-        is_completed: completed,
-      });
-      stepId = editing.id;
-    } else {
-      const created = await steps.createStep({
-        task_id: goalId, title: t,
-        description: description.trim() || undefined,
-        start_date: start, end_date: end,
-      });
-      if (created) stepId = created.id;
-    }
-    if (stepId && attachGoIds.size > 0 && gos) {
-      await Promise.all(
-        Array.from(attachGoIds).map((id) => gosApi.update(id, { sprint_id: stepId })),
-      );
-      await gos.refresh();
-    }
-    setBusy(false);
-    onOpenChange(false);
-  };
-
-  return (
-    <MobileBottomSheet
-      open={open} onOpenChange={onOpenChange}
-      title={editing ? 'Edit step' : 'New step'}
-      description={editing ? undefined : 'A bounded milestone within a goal.'}
-      footer={<>
-        <button type="button" className="m-bs-btn m-bs-btn-ghost" onClick={() => onOpenChange(false)}>Cancel</button>
-        <button type="button" className="m-bs-btn m-bs-btn-primary" disabled={busy || !title.trim() || !goalId} onClick={submit}>
-          {busy ? 'Saving…' : (editing ? 'Save' : 'Create')}
-        </button>
-      </>}
-    >
-      <form className="m-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-        {!editing && (
-          <div>
-            <label className="m-form-label">Goal</label>
-            <select className="m-form-input" value={goalId} onChange={(e) => setGoalId(e.target.value)}>
-              {goals.length === 0 && <option value="">— no goals yet —</option>}
-              {goals.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
-            </select>
-          </div>
-        )}
-        <div>
-          <label className="m-form-label">Title</label>
-          <input autoFocus={!editing} className="m-form-input" placeholder="Step title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        </div>
-        <div>
-          <label className="m-form-label">Description</label>
-          <textarea className="m-form-textarea" placeholder="Notes (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-        <div className="m-form-row">
-          <div>
-            <label className="m-form-label">Start</label>
-            <input className="m-form-input" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-          </div>
-          <div>
-            <label className="m-form-label">End</label>
-            <input className="m-form-input" type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-          </div>
-        </div>
-        {editing && (
-          <div>
-            <label className="m-form-label">Status</label>
-            <div className="m-form-pill-row">
-              <button type="button" className="m-form-pill" data-active={!completed} onClick={() => setCompleted(false)}>In progress</button>
-              <button type="button" className="m-form-pill" data-active={completed}  onClick={() => setCompleted(true)}>Completed</button>
-            </div>
-          </div>
-        )}
-        {gos && (
-          <div>
-            <label className="m-form-label">Linked items</label>
-            <button
-              type="button"
-              className="m-attach-btn"
-              onClick={() => setGoPickerOpen(true)}
-              disabled={!targetGoalId}
-              style={!targetGoalId ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
-            >
-              <Plus size={14} /> Go
-              {attachGoIds.size > 0 && <span className="m-attach-badge">{attachGoIds.size}</span>}
-            </button>
-            {selectedGos.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                {selectedGos.map((g) => (
-                  <span key={g.id} className="m-attach-chip">
-                    Go · {g.title}
-                    <button type="button" className="m-attach-chip-x" onClick={() => setAttachGoIds((p) => { const n = new Set(p); n.delete(g.id); return n; })}>
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </form>
-
-      {gos && (
-        <MobilePickerSheet
-          open={goPickerOpen}
-          onOpenChange={setGoPickerOpen}
-          title="Pick a go"
-          entity="Go"
-          items={attachable}
-          initialSelected={attachGoIds}
-          onConfirm={(s) => setAttachGoIds(s)}
-          matches={(g, q) => g.title.toLowerCase().includes(q)}
-          render={(g) => (
-            <>
-              <div style={{ fontWeight: 500 }}>{g.title}</div>
-              {g.kind === 'numeric' && g.target_value != null && (
-                <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>
-                  target {g.target_value}{g.unit ? ` ${g.unit}` : ''}
-                </div>
-              )}
-            </>
-          )}
-        />
-      )}
     </MobileBottomSheet>
   );
 }
@@ -661,13 +421,12 @@ interface GoFormProps {
   onOpenChange: (open: boolean) => void;
   gos: GosLibrary;
   goals: Task[];
-  /** Pre-selected goal/sprint context. */
+  /** Pre-selected goal context. */
   initialTaskId?: string | null;
-  initialSprintId?: string | null;
   editing?: Go | null;
 }
 
-export function GoForm({ open, onOpenChange, gos, goals, initialTaskId, initialSprintId, editing }: GoFormProps) {
+export function GoForm({ open, onOpenChange, gos, goals, initialTaskId, editing }: GoFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [taskId, setTaskId] = useState<string>('');
@@ -714,7 +473,6 @@ export function GoForm({ open, onOpenChange, gos, goals, initialTaskId, initialS
         title: t,
         description: description.trim() || undefined,
         task_id: taskId || null,
-        sprint_id: initialSprintId ?? null,
         kind,
         unit: kind === 'numeric' ? (unit.trim() || undefined) : undefined,
         target_value: kind === 'numeric' && target ? Number(target) : undefined,
@@ -981,16 +739,15 @@ interface SprintFormProps {
   onOpenChange: (open: boolean) => void;
   library: SprintsLibrary;
   /** Optional libraries — when supplied, the form lets the user attach
-   *  existing goals / steps / gos / routines to this sprint. */
+   *  existing goals / gos / routines to this sprint. */
   goalsLib?: GoalsLibrary;
   gosLib?: GosLibrary;
-  stepsLib?: ReturnType<typeof useSteps>;
   routinesLib?: RoutinesLibrary;
   editing?: Sprint | null;
 }
 
 export function SprintForm({
-  open, onOpenChange, library, goalsLib, gosLib, stepsLib, routinesLib, editing,
+  open, onOpenChange, library, goalsLib, gosLib, routinesLib, editing,
 }: SprintFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -998,19 +755,17 @@ export function SprintForm({
   const [end, setEnd] = useState('');
   const [color, setColor] = useState<string>(COLORS[0].value);
   const [attachGoals, setAttachGoals] = useState<Set<string>>(new Set());
-  const [attachSteps, setAttachSteps] = useState<Set<string>>(new Set());
   const [attachGos, setAttachGos] = useState<Set<string>>(new Set());
   const [attachRoutines, setAttachRoutines] = useState<Set<string>>(new Set());
-  const [openPicker, setOpenPicker] = useState<'goal' | 'step' | 'go' | 'routine' | null>(null);
+  const [openPicker, setOpenPicker] = useState<'goal' | 'go' | 'routine' | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Existing item ids in this sprint (for excluding from the attach list).
   const existingIds = (() => {
-    const out = { goal: new Set<string>(), step: new Set<string>(), go: new Set<string>(), routine: new Set<string>() };
+    const out = { goal: new Set<string>(), go: new Set<string>(), routine: new Set<string>() };
     if (editing) {
       for (const it of editing.items) {
         if (it.item_type === 'goal'    && it.goal_id)    out.goal.add(it.goal_id);
-        if (it.item_type === 'step'    && it.step_id)    out.step.add(it.step_id);
         if (it.item_type === 'go'      && it.go_id)      out.go.add(it.go_id);
         if (it.item_type === 'routine' && it.routine_id) out.routine.add(it.routine_id);
       }
@@ -1034,7 +789,6 @@ export function SprintForm({
       setColor(COLORS[0].value);
     }
     setAttachGoals(new Set());
-    setAttachSteps(new Set());
     setAttachGos(new Set());
     setAttachRoutines(new Set());
     setBusy(false);
@@ -1065,7 +819,6 @@ export function SprintForm({
     if (sprintId) {
       const tasks: Promise<unknown>[] = [];
       for (const id of attachGoals)   tasks.push(library.addItem(sprintId, { item_type: 'goal',    goal_id:    id }));
-      for (const id of attachSteps)   tasks.push(library.addItem(sprintId, { item_type: 'step',    step_id:    id }));
       for (const id of attachGos)     tasks.push(library.addItem(sprintId, { item_type: 'go',      go_id:      id }));
       for (const id of attachRoutines)tasks.push(library.addItem(sprintId, { item_type: 'routine', routine_id: id }));
       if (tasks.length) await Promise.all(tasks);
@@ -1078,7 +831,7 @@ export function SprintForm({
     <MobileBottomSheet
       open={open} onOpenChange={onOpenChange}
       title={editing ? 'Edit sprint' : 'New sprint'}
-      description={editing ? undefined : 'Time-bound period that pulls together goals, steps, gos, routines.'}
+      description={editing ? undefined : 'Time-bound period that pulls together goals, gos, routines.'}
       footer={<>
         <button type="button" className="m-bs-btn m-bs-btn-ghost" onClick={() => onOpenChange(false)}>Cancel</button>
         <button type="button" className="m-bs-btn m-bs-btn-primary" disabled={busy || !title.trim()} onClick={submit}>
@@ -1119,7 +872,7 @@ export function SprintForm({
           </div>
         </div>
 
-        {(goalsLib || stepsLib || gosLib || routinesLib) && (
+        {(goalsLib || gosLib || routinesLib) && (
           <div>
             <label className="m-form-label">Linked items</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1130,20 +883,14 @@ export function SprintForm({
                     {attachGoals.size > 0 && <span className="m-attach-badge">{attachGoals.size}</span>}
                   </button>
                 )}
-                {stepsLib && (
-                  <button type="button" className="m-attach-btn" onClick={() => setOpenPicker('step')}>
-                    <Plus size={14} /> Step
-                    {attachSteps.size > 0 && <span className="m-attach-badge">{attachSteps.size}</span>}
-                  </button>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
                 {gosLib && (
                   <button type="button" className="m-attach-btn" onClick={() => setOpenPicker('go')}>
                     <Plus size={14} /> Go
                     {attachGos.size > 0 && <span className="m-attach-badge">{attachGos.size}</span>}
                   </button>
                 )}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
                 {routinesLib && (
                   <button type="button" className="m-attach-btn" onClick={() => setOpenPicker('routine')}>
                     <Plus size={14} /> Routine
@@ -1152,18 +899,12 @@ export function SprintForm({
                 )}
               </div>
             </div>
-            {(attachGoals.size + attachSteps.size + attachGos.size + attachRoutines.size > 0) && (
+            {(attachGoals.size + attachGos.size + attachRoutines.size > 0) && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                 {goalsLib && goalsLib.tasks.filter((g) => attachGoals.has(g.id)).map((g) => (
                   <span key={g.id} className="m-attach-chip">
                     Goal · {g.title}
                     <button type="button" className="m-attach-chip-x" onClick={() => setAttachGoals((p) => { const n = new Set(p); n.delete(g.id); return n; })}><X size={12} /></button>
-                  </span>
-                ))}
-                {stepsLib && stepsLib.allSteps.filter((s) => attachSteps.has(s.id)).map((s) => (
-                  <span key={s.id} className="m-attach-chip">
-                    Step · {s.title}
-                    <button type="button" className="m-attach-chip-x" onClick={() => setAttachSteps((p) => { const n = new Set(p); n.delete(s.id); return n; })}><X size={12} /></button>
                   </span>
                 ))}
                 {gosLib && gosLib.gos.filter((g) => attachGos.has(g.id)).map((g) => (
@@ -1195,24 +936,6 @@ export function SprintForm({
           onConfirm={(s) => setAttachGoals(s)}
           matches={(g, q) => g.title.toLowerCase().includes(q)}
           render={(g) => g.title}
-        />
-      )}
-      {stepsLib && (
-        <MobilePickerSheet
-          open={openPicker === 'step'}
-          onOpenChange={(o) => { if (!o) setOpenPicker(null); }}
-          title="Pick a step"
-          entity="Step"
-          items={stepsLib.allSteps.filter((s) => !existingIds.step.has(s.id))}
-          initialSelected={attachSteps}
-          onConfirm={(s) => setAttachSteps(s)}
-          matches={(s, q) => s.title.toLowerCase().includes(q) || (s.goal?.title?.toLowerCase().includes(q) ?? false)}
-          render={(s) => (
-            <>
-              <div style={{ fontWeight: 500 }}>{s.title}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>from {s.goal.title}</div>
-            </>
-          )}
         />
       )}
       {gosLib && (

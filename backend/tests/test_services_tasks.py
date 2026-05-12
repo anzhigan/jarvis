@@ -12,7 +12,6 @@ from app.services.tasks import (
     go_total_value,
     is_go_done_today,
     normalize_status,
-    sprint_progress_pct,
     task_progress_pct,
 )
 
@@ -32,24 +31,15 @@ class _Go:
     recurrence: str = "none"
     target_value: float | None = None
     due_date: date | None = None
-    sprint_id: str | None = None
     item_kind: str | None = None
     created_at: datetime | None = None
     entries: list[_Entry] = field(default_factory=list)
 
 
 @dataclass
-class _Sprint:
-    start_date: date
-    end_date: date
-    gos: list[_Go] = field(default_factory=list)
-
-
-@dataclass
 class _Task:
     start_date: date | None = None
     due_date: date | None = None
-    sprints: list[_Sprint] = field(default_factory=list)
     gos: list[_Go] = field(default_factory=list)
 
 
@@ -154,28 +144,6 @@ def test_recurring_daily_ratio_counts_done_days_in_window():
     assert abs(go_completion_ratio(g) - 0.6) < 1e-9
 
 
-# ─── sprint_progress_pct ─────────────────────────────────────────────────────
-
-
-def test_empty_sprint_has_zero_progress():
-    s = _Sprint(start_date=TODAY, end_date=TODAY)
-    assert sprint_progress_pct(s) == 0
-
-
-def test_sprint_progress_averages_go_ratios():
-    g1 = _Go(entries=[_Entry(TODAY, 1)])              # 100%
-    g2 = _Go(entries=[_Entry(TODAY, 0)])              # 0%
-    s = _Sprint(start_date=TODAY, end_date=TODAY, gos=[g1, g2])
-    assert sprint_progress_pct(s) == 50
-
-
-def test_sprint_progress_ignores_routine_legacy_items():
-    g1 = _Go(entries=[_Entry(TODAY, 1)])
-    g2 = _Go(item_kind="routine_legacy", entries=[_Entry(TODAY, 0)])
-    s = _Sprint(start_date=TODAY, end_date=TODAY, gos=[g1, g2])
-    assert sprint_progress_pct(s) == 100
-
-
 # ─── task_progress_pct ──────────────────────────────────────────────────────
 
 
@@ -183,11 +151,15 @@ def test_empty_task_has_zero_progress():
     assert task_progress_pct(_Task()) == 0
 
 
-def test_task_progress_averages_sprints_and_direct_gos():
-    # One sprint @ 100, one direct go @ 0
-    sprint_go = _Go(entries=[_Entry(TODAY, 1)])
-    s = _Sprint(start_date=TODAY, end_date=TODAY, gos=[sprint_go])
-    direct_go = _Go(entries=[_Entry(TODAY, 0)])
-    t = _Task(sprints=[s], gos=[direct_go])
-    # avg(100, 0) = 50
+def test_task_progress_averages_direct_gos():
+    g1 = _Go(entries=[_Entry(TODAY, 1)])               # 100%
+    g2 = _Go(entries=[_Entry(TODAY, 0)])               # 0%
+    t = _Task(gos=[g1, g2])
     assert task_progress_pct(t) == 50
+
+
+def test_task_progress_ignores_routine_legacy_gos():
+    g1 = _Go(entries=[_Entry(TODAY, 1)])
+    g2 = _Go(item_kind="routine_legacy", entries=[_Entry(TODAY, 0)])
+    t = _Task(gos=[g1, g2])
+    assert task_progress_pct(t) == 100

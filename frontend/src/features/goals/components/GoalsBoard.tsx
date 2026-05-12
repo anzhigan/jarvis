@@ -13,10 +13,8 @@ interface Props {
   onMove: (id: string, status: TaskStatus) => void | Promise<void>;
   /** Toggle today's value for a Go (1 / target_value when checking, 0 otherwise). */
   onToggleGoDone: (go: import('../../../api/types').Go) => void | Promise<void>;
-  /** Quick-create a step under the goal — title prompted, sensible date defaults. */
-  onAddStep: (taskId: string) => void | Promise<void>;
-  /** Quick-create a go under the goal — boolean kind, no due date. */
-  onAddGo: (taskId: string, sprintId?: string | null) => void | Promise<void>;
+  /** Quick-create a go under the goal. */
+  onAddGo: (taskId: string) => void | Promise<void>;
   /** Quick-create a routine and attach to the goal — title prompted. */
   onAddRoutine: (taskId: string) => void | Promise<void>;
   /** Toggle today's value for a Routine (1 if not done, 0 otherwise). */
@@ -63,7 +61,6 @@ function fmtDue(due: string): string {
 
 interface CardCallbacks {
   onToggleGoDone?: Props['onToggleGoDone'];
-  onAddStep?: Props['onAddStep'];
   onAddGo?: Props['onAddGo'];
   onAddRoutine?: Props['onAddRoutine'];
   onToggleRoutineDone?: Props['onToggleRoutineDone'];
@@ -86,8 +83,7 @@ function GoalCardContent({
   const gosCount = task.gos.length;
   const routinesCount = task.routines.length;
   const tags = task.tags;
-  const stepsTotal = task.sprints.length;
-  const childTotal = stepsTotal + gosCount + routinesCount;
+  const childTotal = gosCount + routinesCount;
 
   const foot: React.ReactNode[] = [];
   if (routinesCount > 0) {
@@ -161,112 +157,37 @@ function GoalCardContent({
                 onToggleExpand(e);
               }
             }}
-            aria-label={expanded ? 'Hide steps and gos' : 'Show steps and gos'}
+            aria-label={expanded ? 'Hide gos and routines' : 'Show gos and routines'}
           >
             <ChevronRight />
-            {childTotal === 0 ? 'Steps & gos' : `${childTotal} ${childTotal === 1 ? 'item' : 'items'}`}
+            {childTotal === 0 ? 'Gos & routines' : `${childTotal} ${childTotal === 1 ? 'item' : 'items'}`}
           </button>
         )}
       </div>
 
       {expanded && (
         <div className="kc-children" onClick={(e) => e.stopPropagation()}>
-          <StepsAndGos task={task} callbacks={callbacks} />
+          <GoalChildren task={task} callbacks={callbacks} />
         </div>
       )}
     </>
   );
 }
 
-/* ── Sub-card list inside an expanded goal — steps with nested gos, then
- *    standalone gos, then "+ Add" buttons. ──────────────────────────────── */
+/* ── Sub-card list inside an expanded goal — Gos then Routines + "+ Add". ── */
 
-function StepsAndGos({
+function GoalChildren({
   task, callbacks,
 }: {
   task: Task;
   callbacks?: CardCallbacks;
 }) {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const standaloneGos = task.gos.filter((g) => !g.sprint_id);
-
   return (
     <>
-      {(task.sprints.length > 0 || callbacks?.onAddStep) && (
-        <div className="kc-section">
-          <div className="kc-section-label">Steps</div>
-          {task.sprints.map((s) => {
-            const pct = Math.round(s.progress ?? 0);
-            const start = s.start_date ? new Date(s.start_date) : null;
-            const end = s.end_date ? new Date(s.end_date) : null;
-            const overdue = !s.is_completed && end && end < today;
-            const stepGos = s.gos;
-            return (
-              <div
-                key={s.id}
-                className="kc-child"
-                data-kind="step"
-                data-done={s.is_completed || undefined}
-              >
-                <div className="kc-child-row">
-                  <span className="kc-child-pill">Step</span>
-                  <span className="kc-child-name">{s.title}</span>
-                  <span className="kc-child-pct" data-strong={s.is_completed || undefined}>{pct}%</span>
-                </div>
-                <div className="kc-child-bar">
-                  <div className="kc-child-bar-fill" style={{ width: `${pct}%` }} />
-                </div>
-                {(start || end) && (
-                  <div className="kc-child-meta">
-                    {start && <time>{fmtDue(s.start_date)}</time>}
-                    {start && end && <span className="sep">→</span>}
-                    {end && (
-                      <time className={overdue ? 'overdue' : undefined}>
-                        {fmtDue(s.end_date)}
-                        {overdue ? ' · overdue' : ''}
-                      </time>
-                    )}
-                  </div>
-                )}
-
-                {stepGos.length > 0 && (
-                  <div className="kc-child-gos">
-                    {stepGos.map((g) => (
-                      <GoSubrow key={g.id} go={g} onToggle={callbacks?.onToggleGoDone} />
-                    ))}
-                  </div>
-                )}
-
-                {callbacks?.onAddGo && (
-                  <button
-                    type="button"
-                    className="kc-add-btn kc-add-btn--sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      callbacks.onAddGo?.(task.id, s.id);
-                    }}
-                  ><Plus size={10} /> Go</button>
-                )}
-              </div>
-            );
-          })}
-          {callbacks?.onAddStep && (
-            <button
-              type="button"
-              className="kc-add-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                callbacks.onAddStep?.(task.id);
-              }}
-            ><Plus size={11} /> Step</button>
-          )}
-        </div>
-      )}
-
-      {(standaloneGos.length > 0 || callbacks?.onAddGo) && (
+      {(task.gos.length > 0 || callbacks?.onAddGo) && (
         <div className="kc-section">
           <div className="kc-section-label">Gos</div>
-          {standaloneGos.map((g) => (
+          {task.gos.map((g) => (
             <GoSubcard key={g.id} go={g} onToggle={callbacks?.onToggleGoDone} />
           ))}
           {callbacks?.onAddGo && (
@@ -275,7 +196,7 @@ function StepsAndGos({
               className="kc-add-btn"
               onClick={(e) => {
                 e.stopPropagation();
-                callbacks.onAddGo?.(task.id, null);
+                callbacks.onAddGo?.(task.id);
               }}
             ><Plus size={11} /> Go</button>
           )}
@@ -436,7 +357,7 @@ const RoutineSubcard = memo(function RoutineSubcard({
   );
 });
 
-/** Standalone go (no parent step) — big sub-card. */
+/** Go sub-card — rendered inside an expanded goal. */
 const GoSubcard = memo(function GoSubcard({
   go, onToggle,
 }: {
@@ -478,34 +399,6 @@ const GoSubcard = memo(function GoSubcard({
             </time>
           )}
         </div>
-      )}
-    </div>
-  );
-});
-
-/** Compact single-line go row — used inside an expanded step. */
-const GoSubrow = memo(function GoSubrow({
-  go, onToggle,
-}: {
-  go: import('../../../api/types').Go;
-  onToggle?: (go: import('../../../api/types').Go) => void | Promise<void>;
-}) {
-  return (
-    <div className="kc-go-row" data-done={go.is_done_today || undefined}>
-      <button
-        type="button"
-        className="kc-child-check kc-child-check-btn kc-child-check-sm"
-        onClick={(e) => { e.stopPropagation(); onToggle?.(go); }}
-        title={go.is_done_today ? 'Mark not done' : 'Mark done'}
-        aria-label={go.is_done_today ? 'Mark not done' : 'Mark done'}
-      >
-        {go.is_done_today && <Check />}
-      </button>
-      <span className="kc-go-row-title">{go.title}</span>
-      {go.kind === 'numeric' && go.target_value !== null && (
-        <span className="kc-go-row-meta">
-          {go.target_value}{go.unit ? ` ${go.unit}` : ''}
-        </span>
       )}
     </div>
   );
@@ -589,7 +482,7 @@ function DroppableColumn({
 
 export function GoalsBoard({
   tasks, onSelect, onAdd, onMove,
-  onToggleGoDone, onAddStep, onAddGo,
+  onToggleGoDone, onAddGo,
   onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
 }: Props) {
   const byStatus = useMemo(() => {
@@ -633,13 +526,12 @@ export function GoalsBoard({
 
   const callbacks: CardCallbacks = useMemo(() => ({
     onToggleGoDone,
-    onAddStep,
     onAddGo,
     onAddRoutine,
     onToggleRoutineDone,
     onSkipRoutine,
     onUnlinkRoutine,
-  }), [onToggleGoDone, onAddStep, onAddGo, onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine]);
+  }), [onToggleGoDone, onAddGo, onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine]);
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>

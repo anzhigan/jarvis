@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.tasks import Routine, RoutineEntry, Task, Sprint
+from app.models.tasks import Routine, RoutineEntry, Task
 from app.models.user import User
 from app.schemas.tasks import (
     RoutineCreate,
@@ -34,7 +34,6 @@ def _routine_dict(r: Routine) -> dict:
         "id": r.id,
         "user_id": r.user_id,
         "goal_id": r.goal_id,
-        "step_id": r.step_id,
         "title": r.title,
         "description": r.description or "",
         "color": r.color,
@@ -97,20 +96,15 @@ async def create_routine(
     if body.kind not in VALID_KINDS:
         raise HTTPException(400, f"Invalid kind. Must be one of {VALID_KINDS}")
 
-    # Verify goal/step belong to user (if provided)
+    # Verify goal belongs to user (if provided)
     if body.goal_id:
         res = await db.execute(select(Task).where(Task.id == body.goal_id, Task.user_id == user.id))
         if not res.scalar_one_or_none():
             raise HTTPException(404, "Goal not found")
-    if body.step_id:
-        res = await db.execute(select(Sprint).where(Sprint.id == body.step_id, Sprint.user_id == user.id))
-        if not res.scalar_one_or_none():
-            raise HTTPException(404, "Step not found")
 
     r = Routine(
         user_id=user.id,
         goal_id=body.goal_id,
-        step_id=body.step_id,
         title=body.title,
         description=body.description or "",
         color=body.color,

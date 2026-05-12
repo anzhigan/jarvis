@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type GoalsViewMode = 'goals' | 'go' | 'step';
+export type GoalsViewMode = 'goals' | 'go';
 
 const STORAGE_KEY = 'jarvnote:goals:view';
 
-const VALID: GoalsViewMode[] = ['goals', 'go', 'step'];
+const VALID: GoalsViewMode[] = ['goals', 'go'];
 
 function readMode(): GoalsViewMode {
   const v = localStorage.getItem(STORAGE_KEY);
   return VALID.includes(v as GoalsViewMode) ? (v as GoalsViewMode) : 'goals';
 }
 
-/** Persisted segmented-control state for Goals / Go / Step. */
+/** Persisted segmented-control state for Goals / Go. */
 export function useGoalsView() {
   const [mode, setModeState] = useState<GoalsViewMode>(readMode);
 
