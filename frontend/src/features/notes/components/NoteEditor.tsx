@@ -558,6 +558,37 @@ function BlockInsertMenu({ editor, helpers }: InsertProps) {
               </Pick>
             </div>
           </div>
+
+          <div className="bim-group">
+            <div className="bim-label">Text color</div>
+            <div className="bim-color-rows">
+              {NTB_COLOR_GROUPS.map((group) => (
+                <div key={group.label} className="bim-color-row">
+                  {group.colors.map(({ color, name, token }) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className="rt-color-swatch"
+                      aria-label={`${name} (${token})`}
+                      title={`${name} · ${token}`}
+                      style={{ background: color }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={run(() => editor.chain().focus().setColor(color).run())}
+                    />
+                  ))}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="rt-color-reset"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={run(() => editor.chain().focus().unsetColor().run())}
+              >
+                <span className="rt-color-swatch rt-color-swatch--reset" aria-hidden="true">✕</span>
+                Default color
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
