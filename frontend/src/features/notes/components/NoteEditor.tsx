@@ -616,15 +616,26 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
 
   // FloatingMenu shows the "+" block-insert button on empty paragraphs.
   // We anchor it to the LEFT of the line so it sits in the gutter.
+  //
+  // Discriminator: show "+" ONLY when the paragraph's container is the doc
+  // root or a toggleContent body. Inside list items, blockquotes, table cells
+  // etc. we hide it — otherwise clicking e.g. "Checklist" inside an empty
+  // task-list item would call `toggleTaskList()` which TOGGLES the existing
+  // list OFF (because we're already in one) and the list visually "closes".
   const floatingShouldShow = useCallback(
-    ({ state }: {
-      state: { selection: { empty: boolean; $from: { parent: { type: { name: string }; content: { size: number } } } } };
-    }) => {
-      const { selection } = state;
-      if (!selection.empty) return false;
-      const parent = selection.$from.parent;
-      // Only show on truly empty paragraphs (don't crowd the gutter on every line).
-      return parent.type.name === 'paragraph' && parent.content.size === 0;
+    ({ state }: { state: any }) => {
+      const sel = state.selection;
+      if (!sel.empty) return false;
+      const $from = sel.$from;
+      const parent = $from.parent;
+      if (parent.type.name !== 'paragraph') return false;
+      if (parent.content.size !== 0) return false;
+      // $from.depth = depth of the paragraph itself.
+      // Its container is at depth-1.
+      const container = $from.depth >= 1 ? $from.node($from.depth - 1) : null;
+      const containerType = container?.type.name;
+      if (containerType !== 'doc' && containerType !== 'toggleContent') return false;
+      return true;
     },
     [],
   );

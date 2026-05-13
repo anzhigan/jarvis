@@ -201,10 +201,16 @@ export const ToggleSummary = Node.create({
   },
 
   /**
-   * Enter in the toggle title jumps to the body (and opens the toggle if it
-   * was collapsed) — matches Notion. Without this override, ProseMirror's
-   * default Enter tries to split toggleSummary, which the schema forbids,
-   * so the key either does nothing or kicks a sibling out of the toggleList.
+   * Enter in the toggle title creates a new empty paragraph AFTER the whole
+   * toggleList and moves the caret there. This is the "escape from toggle"
+   * keystroke. It does NOT open a closed toggle (the previous version did —
+   * but that surprised users who were typing between two closed toggles and
+   * just wanted vertical space). To add body content, click into the body or
+   * use ArrowDown.
+   *
+   * Without this override, ProseMirror's default Enter would try to split
+   * toggleSummary, which the schema (`toggleSummary toggleContent` on the
+   * parent) forbids — so the key either no-ops or kicks a sibling out.
    */
   addKeyboardShortcuts() {
     return {
@@ -216,22 +222,10 @@ export const ToggleSummary = Node.create({
         for (let d = $from.depth - 1; d >= 0; d--) {
           const toggleList = $from.node(d);
           if (toggleList.type.name !== 'toggleList') continue;
-          const listPos = $from.before(d);
-          const summaryNode = toggleList.child(0);
-          // Inside the first paragraph of toggleContent (offset 0):
-          //   listPos                +1 inside toggleList
-          //   +summaryNode.nodeSize  skip past summary
-          //   +1                     inside toggleContent
-          //   +1                     inside first child paragraph
-          const target = listPos + summaryNode.nodeSize + 3;
+          const after = $from.before(d) + toggleList.nodeSize;
           editor.chain().focus()
-            .command(({ tr }) => {
-              if (toggleList.attrs.open === false) {
-                tr.setNodeMarkup(listPos, undefined, { ...toggleList.attrs, open: true });
-              }
-              return true;
-            })
-            .setTextSelection(target)
+            .insertContentAt(after, { type: 'paragraph' })
+            .setTextSelection(after + 1)
             .run();
           return true;
         }

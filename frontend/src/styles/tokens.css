@@ -79,31 +79,36 @@
   --rail-w:           48px;
   --pane-w:           280px;
 
-  /* ── Surfaces (light) ────────────────────────────────────────────────── */
-  --bg-app:         #F4F4F5;   /* page (zinc-100) */
-  --bg-shell:       #FAFAFA;   /* main panel (zinc-50) */
-  --bg-sidebar:     #F4F4F5;
-  --bg-rail:        #E4E4E7;   /* zinc-200, vertical icon rail */
-  --bg-card:        #FFFFFF;   /* raised card */
+  /* ── Surfaces (light) — warm stone, bright ───────────────────────────────
+     Migrated from cool zinc to warm stone for a cosier feel. Highlights
+     pulled brighter (cards stay pure white, page bg one notch lighter than
+     stone-100) for more pop. Hovers/lines use warm brown tint instead of
+     cool gray.
+     ──────────────────────────────────────────────────────────────────── */
+  --bg-app:         #FAFAF7;   /* warm cream page */
+  --bg-shell:       #FFFEFB;   /* main panel — almost white, hint of warm */
+  --bg-sidebar:     #F5F4F0;
+  --bg-rail:        #ECEAE4;   /* warm stone rail */
+  --bg-card:        #FFFFFF;   /* raised card stays pure white for pop */
   --bg-elevated:    #FFFFFF;   /* sheets, dialogs */
-  --bg-hover:       rgba(24, 24, 27, 0.04);
-  --bg-active:      rgba(24, 24, 27, 0.07);
-  --bg-input:       #F4F4F5;
-  --bg-input-hover: #E4E4E7;
-  --bg-overlay:     rgba(9, 9, 11, 0.40);
+  --bg-hover:       rgba(76, 53, 28, 0.045);   /* warm brown wash */
+  --bg-active:      rgba(76, 53, 28, 0.075);
+  --bg-input:       #F5F4F0;
+  --bg-input-hover: #EBE9E2;
+  --bg-overlay:     rgba(28, 22, 12, 0.42);
 
-  /* ── Foreground (light) ──────────────────────────────────────────────── */
-  --fg-primary:   #09090B;
-  --fg-secondary: #27272A;
-  --fg-tertiary:  #52525B;
-  --fg-muted:     #71717A;
-  --fg-faint:     #A1A1AA;
-  --fg-inverse:   #FAFAFA;
+  /* ── Foreground (light) — warm near-black ────────────────────────────── */
+  --fg-primary:   #1B1612;
+  --fg-secondary: #2D2620;
+  --fg-tertiary:  #57504A;
+  --fg-muted:     #78716C;   /* stone-500 */
+  --fg-faint:     #A8A29E;   /* stone-400 */
+  --fg-inverse:   #FAFAF7;
 
-  /* ── Lines (light) ───────────────────────────────────────────────────── */
-  --line:        rgba(24, 24, 27, 0.06);
-  --line-strong: rgba(24, 24, 27, 0.10);
-  --line-faint:  rgba(24, 24, 27, 0.03);
+  /* ── Lines (light) — warm tint ───────────────────────────────────────── */
+  --line:        rgba(76, 53, 28, 0.07);
+  --line-strong: rgba(76, 53, 28, 0.12);
+  --line-faint:  rgba(76, 53, 28, 0.035);
 
   /* ── Brand ramp (indigo) ─────────────────────────────────────────────── */
   --brand-50:  #EEF0FF;
@@ -241,23 +246,23 @@
   --indigo-pane-w:   var(--library-w);
   --indigo-topbar-h: var(--topbar-h);
 
-  /* Light surfaces — cool slate, brighter pass */
-  --paper:    #F7F8F8;   /* primary surface — almost white, faint slate tint */
-  --cream:    #ECEEEF;   /* secondary surface — input bg, even rows, hover */
-  --soft:     #DEE1E2;   /* tertiary — hover on cream, swatches */
-  --rail-bg:  #D6DADB;   /* rail — slightly darker than soft so it recedes */
+  /* Light surfaces — warm stone, brighter pass (matches mobile/ui-kit warmth) */
+  --paper:    #FCFBF7;   /* primary surface — almost white, warm cream */
+  --cream:    #F2F0EA;   /* secondary surface — input bg, even rows, hover */
+  --soft:     #E5E2D9;   /* tertiary — hover on cream, swatches */
+  --rail-bg:  #DDD9CF;   /* rail — slightly darker stone */
 
-  /* Hairlines — slightly stronger so they read on the brighter paper. */
-  --hairline:        rgba(15, 24, 32, 0.09);
-  --hairline-strong: rgba(15, 24, 32, 0.16);
-  --hairline-faint:  rgba(15, 24, 32, 0.04);
+  /* Hairlines — warm brown tint instead of cool slate. */
+  --hairline:        rgba(76, 53, 28, 0.10);
+  --hairline-strong: rgba(76, 53, 28, 0.18);
+  --hairline-faint:  rgba(76, 53, 28, 0.05);
 
-  /* Ink — cool slate scale */
-  --ink:    #15202A;
-  --ink-2:  #2C353D;
-  --ink-3:  #455058;
-  --ink-4:  #6E7780;
-  --ink-5:  #9EA5AB;
+  /* Ink — warm stone scale */
+  --ink:    #1B1612;
+  --ink-2:  #2D2620;
+  --ink-3:  #4A413A;
+  --ink-4:  #6E655C;
+  --ink-5:  #9C918A;
 
   /* Brand — deep cool indigo */
   --indigo:      #2C4A60;
@@ -297,24 +302,22 @@
 }
 
 [data-theme="dark"] {
-  /* Indigo dark mirror — note these override the cool-zinc dark block above
-     for desktop scope. Mobile rules are scoped via .dark-theme legacy paths
-     and won't notice these per-token overrides because they consult their
-     own --bg-app etc. set above. */
-  --paper:    #131820;
-  --cream:    #1C2228;
-  --soft:     #242B33;
-  --rail-bg:  #1A1F26;
+  /* Warm stone dark mirror (matches the light theme's warmth) — desktop scope
+     overrides cool-zinc dark surfaces with brown-tinted near-black. */
+  --paper:    #1A1610;
+  --cream:    #221E16;
+  --soft:     #2A251D;
+  --rail-bg:  #1F1B14;
 
-  --hairline:        rgba(239, 241, 240, 0.08);
-  --hairline-strong: rgba(239, 241, 240, 0.18);
-  --hairline-faint:  rgba(239, 241, 240, 0.04);
+  --hairline:        rgba(255, 240, 220, 0.10);
+  --hairline-strong: rgba(255, 240, 220, 0.20);
+  --hairline-faint:  rgba(255, 240, 220, 0.05);
 
-  --ink:    #EFF1F0;
-  --ink-2:  #C8CDD0;
-  --ink-3:  #9EA5AB;
-  --ink-4:  #74797F;
-  --ink-5:  #4F555B;
+  --ink:    #FAF6F0;
+  --ink-2:  #D8D2C8;
+  --ink-3:  #ABA59A;
+  --ink-4:  #7C7569;
+  --ink-5:  #564F45;
 
   --indigo:      #6E94A8;
   --indigo-2:    #4F7184;
@@ -345,35 +348,34 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DARK THEME (legacy mobile + ui-kit fallback) — pure zinc, no warm undertone.
-   These tokens drive the *old* mobile shell and any ui-kit consumer that still
-   reads --bg-app / --accent-notes. Desktop in Indigo Editorial scope reads
-   --paper / --indigo / --ink instead, set in the block above.
+   DARK THEME — warm stone (matches the light theme's warmth).
+   Backgrounds carry a faint brown undertone instead of pure zinc; foreground
+   stays bright cream-white. Same brightness curve as before, just warmer.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 [data-theme="dark"] {
-  --bg-app:         #09090B;   /* page (zinc-950) */
-  --bg-shell:       #131316;   /* main panel */
-  --bg-sidebar:     #09090B;
-  --bg-rail:        #09090B;   /* same as app — rail recedes into bg in dark */
-  --bg-card:        #1C1C1F;   /* raised card */
-  --bg-elevated:    #27272A;   /* sheet / dialog (zinc-800) */
-  --bg-hover:       rgba(255, 255, 255, 0.06);
-  --bg-active:      rgba(255, 255, 255, 0.10);
-  --bg-input:       rgba(255, 255, 255, 0.04);
-  --bg-input-hover: rgba(255, 255, 255, 0.08);
-  --bg-overlay:     rgba(0, 0, 0, 0.60);
+  --bg-app:         #14110E;   /* warm near-black page */
+  --bg-shell:       #1C1814;   /* main panel */
+  --bg-sidebar:     #14110E;
+  --bg-rail:        #14110E;
+  --bg-card:        #221E18;   /* raised card */
+  --bg-elevated:    #2B2620;   /* sheet / dialog */
+  --bg-hover:       rgba(255, 240, 220, 0.06);  /* warm wash */
+  --bg-active:      rgba(255, 240, 220, 0.10);
+  --bg-input:       rgba(255, 240, 220, 0.04);
+  --bg-input-hover: rgba(255, 240, 220, 0.08);
+  --bg-overlay:     rgba(0, 0, 0, 0.62);
 
-  --fg-primary:   #FAFAFA;
-  --fg-secondary: #D4D4D8;
-  --fg-tertiary:  #A1A1AA;
-  --fg-muted:     #71717A;
-  --fg-faint:     #52525B;
-  --fg-inverse:   #09090B;
+  --fg-primary:   #FAF6F0;   /* warm cream-white */
+  --fg-secondary: #D8D2C8;
+  --fg-tertiary:  #A8A29E;
+  --fg-muted:     #78716C;
+  --fg-faint:     #57534E;
+  --fg-inverse:   #14110E;
 
-  --line:        rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.14);
-  --line-faint:  rgba(255, 255, 255, 0.04);
+  --line:        rgba(255, 240, 220, 0.09);
+  --line-strong: rgba(255, 240, 220, 0.16);
+  --line-faint:  rgba(255, 240, 220, 0.05);
 
   /* Brand brightens in dark for AA contrast on dark surfaces */
   --brand-50:  #312E81;
