@@ -23,69 +23,75 @@ import { NodeViewWrapper, NodeViewContent, ReactNodeViewRenderer } from '@tiptap
 import { useEffect, useRef, useState } from 'react';
 
 function ToggleListView({ node, getPos, editor }: any) {
-  // Local state for INSTANT visual feedback. We don't trust Tiptap's React
-  // adapter to re-render on every attr change — it sometimes re-uses the
-  // same node reference, so the prop-driven view stays stuck on stale attrs.
   const [isOpen, setIsOpen] = useState<boolean>(node.attrs.open !== false);
-  useEffect(() => {
-    setIsOpen(node.attrs.open !== false);
-  }, [node.attrs.open]);
+  useEffect(() => { setIsOpen(node.attrs.open !== false); }, [node.attrs.open]);
 
-  // Refs read by the native event listener (which has stable identity).
-  const isOpenRef = useRef(isOpen);
-  isOpenRef.current = isOpen;
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const nodeRef = useRef(node);
-  nodeRef.current = node;
+  // Refs the handler reads — keeps the handler's closure stable and free of
+  // stale deps, so re-renders don't churn the native listener.
+  const isOpenRef = useRef(isOpen);  isOpenRef.current = isOpen;
+  const nodeRef   = useRef(node);    nodeRef.current   = node;
+  const editorRef = useRef(editor);  editorRef.current = editor;
+  const getPosRef = useRef(getPos);  getPosRef.current = getPos;
 
-  // ⚠️ React onClick fires DURING the bubble phase at React's root container,
-  // which is HIGHER in the DOM tree than ProseMirror's `view.dom` listener
-  // (also bubble phase). ProseMirror sees the event FIRST and may stop it
-  // (NodeSelection / focus shuffling) before React's handler ever runs.
-  //
-  // Fix: attach a native click listener directly on the button in CAPTURE
-  // phase + stopImmediatePropagation. This fires at the target (button) before
-  // anything bubbles up, and immediately kills further propagation. No
-  // ProseMirror listener gets to see the click.
+  const buttonRef  = useRef<HTMLButtonElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // The single source-of-truth handler. Called by BOTH the native capture
+  // listener AND the React onClick — whichever wins, the result is the same;
+  // the loser is short-circuited by stopImmediatePropagation. Defensive
+  // direct-DOM update on wrapperRef makes the toggle visible even if React
+  // re-render is somehow stalled.
+  const doToggle = () => {
+    const next = !isOpenRef.current;
+    isOpenRef.current = next;
+    setIsOpen(next);
+    if (wrapperRef.current) {
+      wrapperRef.current.setAttribute('data-open', next ? 'true' : 'false');
+    }
+    const gp = getPosRef.current;
+    if (typeof gp !== 'function') return;
+    const pos = gp();
+    if (typeof pos !== 'number') return;
+    const ed = editorRef.current;
+    const tr = ed.state.tr.setNodeMarkup(pos, undefined, {
+      ...nodeRef.current.attrs,
+      open: next,
+    });
+    tr.setMeta('addToHistory', false);
+    ed.view.dispatch(tr);
+  };
+
+  // Native capture-phase listener on the button itself. Fires BEFORE
+  // ProseMirror's bubble-phase listener on `view.dom` ever runs.
   useEffect(() => {
     const btn = buttonRef.current;
     if (!btn) return;
-    if (!editor?.isEditable) return;
-
-    const swallow = (e: Event) => {
+    const onClickNative = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      doToggle();
+    };
+    const onMouseDownNative = (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
     };
-    const onClick = (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      const next = !isOpenRef.current;
-      setIsOpen(next);
-      if (typeof getPos !== 'function') return;
-      const pos = getPos();
-      if (typeof pos !== 'number') return;
-      const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
-        ...nodeRef.current.attrs,
-        open: next,
-      });
-      tr.setMeta('addToHistory', false);
-      editor.view.dispatch(tr);
-    };
-
-    // Capture: true → run BEFORE any ancestor bubble listeners.
-    // mousedown handler keeps the caret from jumping to the button.
-    btn.addEventListener('mousedown', swallow, { capture: true });
-    btn.addEventListener('click',     onClick, { capture: true });
+    btn.addEventListener('click',     onClickNative,     { capture: true });
+    btn.addEventListener('mousedown', onMouseDownNative, { capture: true });
     return () => {
-      btn.removeEventListener('mousedown', swallow, { capture: true });
-      btn.removeEventListener('click',     onClick, { capture: true });
+      btn.removeEventListener('click',     onClickNative,     { capture: true });
+      btn.removeEventListener('mousedown', onMouseDownNative, { capture: true });
     };
-  }, [editor, getPos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);  // attach once — handlers read latest state via refs.
 
   return (
-    <NodeViewWrapper className="editor-toggle" data-open={isOpen ? 'true' : 'false'}>
+    <NodeViewWrapper
+      ref={wrapperRef}
+      className="editor-toggle"
+      data-open={isOpen ? 'true' : 'false'}
+    >
       <span className="editor-toggle__chevron-cell" contentEditable={false}>
         <button
           ref={buttonRef}
@@ -94,6 +100,12 @@ function ToggleListView({ node, getPos, editor }: any) {
           aria-expanded={isOpen}
           aria-label={isOpen ? 'Collapse toggle' : 'Expand toggle'}
           tabIndex={-1}
+          // React handler is a BACKUP — if native capture listener somehow
+          // didn't fire (older browser, custom event polyfill, etc), React
+          // will still toggle. stopImmediatePropagation in the native handler
+          // prevents double-fire in the normal path.
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); doToggle(); }}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           style={!editor?.isEditable ? { pointerEvents: 'none' } : undefined}
         >
           <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
