@@ -1150,51 +1150,66 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   outline-offset: 2px;
 }
 
-/* ── Toggle list (HTML5 details / summary) ─────────────────────────────── */
+/* ── Toggle list (Notion-style) ─────────────────────────────────────────
+   Layout:
+     .editor-toggle  (block, attr data-open)
+       └ .editor-toggle__chevron   ▶ button (NodeView, contenteditable=false)
+       └ .editor-toggle__inner     (NodeViewContent — holds summary + body)
+            ├ .editor-toggle__summary  (always visible title)
+            └ .editor-toggle__body     (hidden when data-open="false")
+   Chevron rotates 90° to ▼ when open. Empty summary shows a "Toggle" hint.
+*/
 .editor-toggle {
-  margin: 8px 0;
-  border-left: 2px solid var(--line-strong);
-  padding-left: 12px;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-items: start;
+  gap: 0;
+  margin: 2px 0;
 }
-.editor-toggle > summary.editor-toggle-summary {
-  list-style: none;
+.editor-toggle__chevron {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  width: 24px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--fg-tertiary);
   cursor: pointer;
-  display: flex; align-items: flex-start; gap: 6px;
-  font-weight: 500;
+  border-radius: var(--r-control);
+  transition: transform var(--dur-fast) var(--ease),
+              background var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.editor-toggle__chevron:hover {
+  background: var(--bg-hover);
   color: var(--fg-primary);
-  padding: 2px 0;
-  outline: none;
 }
-.editor-toggle > summary.editor-toggle-summary::-webkit-details-marker { display: none; }
-.editor-toggle > summary.editor-toggle-summary::marker { content: ''; }
-.editor-toggle > summary.editor-toggle-summary::before {
-  content: '';
-  flex: 0 0 auto;
-  width: 0; height: 0;
-  margin-top: 7px;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid var(--fg-tertiary);
-  transition: transform var(--dur-fast) var(--ease);
+.editor-toggle[data-open="true"]  > .editor-toggle__chevron { transform: rotate(90deg); }
+.editor-toggle[data-open="false"] > .editor-toggle__chevron { transform: rotate(0deg); }
+
+.editor-toggle__inner {
+  min-width: 0;
 }
-.editor-toggle[open] > summary.editor-toggle-summary::before {
-  transform: rotate(90deg);
+.editor-toggle__summary {
+  min-height: 28px;
+  padding: 3px 0;
+  line-height: 1.5;
 }
-.editor-toggle > summary.editor-toggle-summary:empty::after {
+.editor-toggle__summary:empty::before {
   content: 'Toggle';
   color: var(--fg-muted);
-  font-weight: 400;
+  pointer-events: none;
 }
-.editor-toggle > summary.editor-toggle-summary:focus-visible {
-  background: var(--bg-hover);
-  border-radius: var(--r-control);
+.editor-toggle__body {
+  margin-top: 2px;
+  padding-left: 2px;
+  border-left: 2px solid var(--line);
 }
-.editor-toggle-content {
-  margin: 4px 0 4px 14px;
-  padding-left: 4px;
+.editor-toggle__body > *:first-child { margin-top: 0; }
+.editor-toggle__body > *:last-child  { margin-bottom: 0; }
+.editor-toggle[data-open="false"] > .editor-toggle__inner > .editor-toggle__body {
+  display: none;
 }
-.editor-toggle-content > *:first-child { margin-top: 0; }
-.editor-toggle-content > *:last-child  { margin-bottom: 0; }
 
 @keyframes rt-spin { to { transform: rotate(360deg); } }
 .rt-spin { animation: rt-spin 1s linear infinite; }
