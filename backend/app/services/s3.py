@@ -117,7 +117,7 @@ async def delete_image(s3_key: str) -> None:
     client = _get_client()
     try:
         await asyncio.to_thread(
-            client.delete_object, Bucket=settings.S3_BUCKET_NAME, Key=s3_key
+            client.delete_object, Bucket=settings.S3_BUCKET_NAME, Key=s3_key,
         )
     except ClientError:
         pass  # best-effort
@@ -148,7 +148,7 @@ def _attachment_ext(filename: str | None) -> str | None:
 
 
 async def upload_attachment(
-    file: UploadFile, note_id: uuid.UUID
+    file: UploadFile, note_id: uuid.UUID,
 ) -> tuple[str, str, str, int]:
     """Upload a file attachment to S3. Returns (s3_key, public_url, mime_type, size).
 
@@ -191,7 +191,7 @@ async def delete_attachment(s3_key: str) -> None:
     client = _get_client()
     try:
         await asyncio.to_thread(
-            client.delete_object, Bucket=settings.S3_BUCKET_NAME, Key=s3_key
+            client.delete_object, Bucket=settings.S3_BUCKET_NAME, Key=s3_key,
         )
     except ClientError:
         pass  # best-effort

@@ -89,7 +89,8 @@ for r in _routers:
 @app.middleware("http")
 async def _api_v0_deprecation(request: Request, call_next):
     """Tag /api/* (non-/api/v1/*) responses with Deprecation/Sunset headers
-    so clients on the old build see the warning and we can track usage."""
+    so clients on the old build see the warning and we can track usage.
+    """
     response = await call_next(request)
     p = request.url.path
     if p.startswith("/api/") and not p.startswith("/api/v1/"):
@@ -103,7 +104,8 @@ async def _api_v0_deprecation(request: Request, call_next):
 async def unhandled_exception_handler(request: Request, exc: Exception):
     """Catch-all so unhandled exceptions never leak stack traces / SQL / paths
     to the client. The full exception is logged server-side; the client gets
-    a sanitized 500."""
+    a sanitized 500.
+    """
     logger.exception("Unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
@@ -135,14 +137,16 @@ async def _ping_s3(timeout: float = 2.0) -> tuple[bool, str | None]:
         return False, type(e).__name__
 
 
-from app.core.database import get_db  # noqa: E402  (kept here for /health locality)
 from fastapi import Depends  # noqa: E402
+
+from app.core.database import get_db  # noqa: E402  (kept here for /health locality)
 
 
 @app.get("/health/ready", tags=["health"])
 async def health_ready(db=Depends(get_db)):
     """Readiness probe — process is ready to serve. 503 if any dependency fails.
-    docker-compose's `depends_on: service_healthy` references this."""
+    docker-compose's `depends_on: service_healthy` references this.
+    """
     db_ok, db_err = await _ping_db(db)
     s3_ok, s3_err = await _ping_s3()
     body: dict = {

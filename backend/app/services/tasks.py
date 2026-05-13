@@ -43,7 +43,8 @@ def normalize_status(s: str) -> str:
 
 def task_eager_options():
     """Eager-load the relationship tree we always need to render a Task.
-    Centralized so endpoints don't drift on what's preloaded."""
+    Centralized so endpoints don't drift on what's preloaded.
+    """
     from app.models.tasks import GoalRoutineLink, Routine
     return (
         selectinload(Task.gos).selectinload(Go.entries),
@@ -58,7 +59,7 @@ async def get_task_or_404(task_id: uuid.UUID, user: User, db: AsyncSession) -> T
     r = await db.execute(
         select(Task)
         .where(Task.id == task_id, Task.user_id == user.id)
-        .options(*task_eager_options())
+        .options(*task_eager_options()),
     )
     t = r.scalar_one_or_none()
     if not t:
@@ -70,7 +71,7 @@ async def get_go_or_404(go_id: uuid.UUID, user: User, db: AsyncSession) -> Go:
     r = await db.execute(
         select(Go)
         .where(Go.id == go_id, Go.user_id == user.id)
-        .options(selectinload(Go.entries), selectinload(Go.task))
+        .options(selectinload(Go.entries), selectinload(Go.task)),
     )
     g = r.scalar_one_or_none()
     if not g:

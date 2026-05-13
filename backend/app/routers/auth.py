@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from jose import JWTError
@@ -40,10 +40,11 @@ async def _issue_token_pair(
     family_id: uuid.UUID | None = None,
 ) -> TokenResponse:
     """Persist a new RefreshToken row and return a fresh access/refresh pair.
-    `family_id` is preserved across rotations from the same login session."""
+    `family_id` is preserved across rotations from the same login session.
+    """
     jti = uuid.uuid4()
     fam = family_id or jti
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     db.add(RefreshToken(id=jti, user_id=user.id, family_id=fam, expires_at=expires_at))
     await db.flush()
     return TokenResponse(
@@ -56,7 +57,7 @@ async def _revoke_family(db: AsyncSession, family_id: uuid.UUID) -> None:
     await db.execute(
         update(RefreshToken)
         .where(RefreshToken.family_id == family_id, RefreshToken.revoked.is_(False))
-        .values(revoked=True)
+        .values(revoked=True),
     )
 
 
@@ -67,7 +68,7 @@ async def register(request: Request, body: RegisterRequest, db: AsyncSession = D
     # account enumeration. The 409 still tells the legitimate user something
     # is off, but doesn't disclose which field collided.
     existing = await db.execute(
-        select(User).where((User.email == body.email) | (User.username == body.username))
+        select(User).where((User.email == body.email) | (User.username == body.username)),
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status.HTTP_409_CONFLICT, "Could not create account")
@@ -138,8 +139,8 @@ async def refresh(request: Request, body: RefreshRequest, db: AsyncSession = Dep
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token reuse detected")
     # SQLite returns naive datetimes even when stored UTC; coerce so the
     # comparison works on both Postgres (timestamptz) and SQLite tests.
-    expires_at = row.expires_at if row.expires_at.tzinfo else row.expires_at.replace(tzinfo=timezone.utc)
-    if expires_at < datetime.now(timezone.utc):
+    expires_at = row.expires_at if row.expires_at.tzinfo else row.expires_at.replace(tzinfo=UTC)
+    if expires_at < datetime.now(UTC):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token expired")
 
     user = (
@@ -171,13 +172,13 @@ async def update_profile(
     # Check for conflicts on username/email if they are being changed
     if "username" in data and data["username"] != current_user.username:
         exists = await db.execute(
-            select(User).where(User.username == data["username"], User.id != current_user.id)
+            select(User).where(User.username == data["username"], User.id != current_user.id),
         )
         if exists.scalar_one_or_none():
             raise HTTPException(status.HTTP_409_CONFLICT, "Username already taken")
     if "email" in data and data["email"] != current_user.email:
         exists = await db.execute(
-            select(User).where(User.email == data["email"], User.id != current_user.id)
+            select(User).where(User.email == data["email"], User.id != current_user.id),
         )
         if exists.scalar_one_or_none():
             raise HTTPException(status.HTTP_409_CONFLICT, "Email already taken")
@@ -201,7 +202,7 @@ async def change_password(
     await db.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == current_user.id, RefreshToken.revoked.is_(False))
-        .values(revoked=True)
+        .values(revoked=True),
     )
     await db.flush()
 

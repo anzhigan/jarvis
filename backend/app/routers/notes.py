@@ -13,7 +13,7 @@ import asyncio
 import re
 import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, status
 from jose import JWTError
@@ -69,7 +69,7 @@ async def _get_way_or_404(way_id: uuid.UUID, user: User, db: AsyncSession) -> Wa
     result = await db.execute(
         select(Way)
         .where(Way.id == way_id, Way.user_id == user.id)
-        .options(*_way_load_options())
+        .options(*_way_load_options()),
     )
     way = result.scalar_one_or_none()
     if not way:
@@ -85,7 +85,7 @@ async def _get_topic_or_404(topic_id: uuid.UUID, user: User, db: AsyncSession) -
         .options(
             selectinload(Topic.notes).selectinload(Note.tags),
             selectinload(Topic.inline_note).selectinload(Note.tags),
-        )
+        ),
     )
     topic = result.scalar_one_or_none()
     if not topic:
@@ -134,7 +134,7 @@ async def list_ways(
         select(Way)
         .where(Way.user_id == user.id)
         .order_by(Way.order, Way.created_at)
-        .options(*_way_load_options())
+        .options(*_way_load_options()),
     )
     return list(result.scalars().all())
 
@@ -301,7 +301,7 @@ async def move_note(
     else:
         # topic_id
         t = await db.execute(
-            select(Topic).join(Way).where(Topic.id == body.topic_id, Way.user_id == user.id)
+            select(Topic).join(Way).where(Topic.id == body.topic_id, Way.user_id == user.id),
         )
         if not t.scalar_one_or_none():
             raise HTTPException(404, "Topic not found")
@@ -405,14 +405,14 @@ async def serve_image(
         if note_row.way_id:
             owns = (
                 await db.execute(
-                    select(Way.id).where(Way.id == note_row.way_id, Way.user_id == user_id)
+                    select(Way.id).where(Way.id == note_row.way_id, Way.user_id == user_id),
                 )
             ).scalar_one_or_none()
         else:
             tid = note_row.topic_id or note_row.topic_inline_id
             owns = (
                 await db.execute(
-                    select(Topic.id).join(Way).where(Topic.id == tid, Way.user_id == user_id)
+                    select(Topic.id).join(Way).where(Topic.id == tid, Way.user_id == user_id),
                 )
             ).scalar_one_or_none()
         if not owns:
@@ -438,7 +438,7 @@ async def delete_note_image(
 ):
     await _get_note_or_404(note_id, user, db)
     result = await db.execute(
-        select(NoteImage).where(NoteImage.id == image_id, NoteImage.note_id == note_id)
+        select(NoteImage).where(NoteImage.id == image_id, NoteImage.note_id == note_id),
     )
     img = result.scalar_one_or_none()
     if not img:
@@ -523,14 +523,14 @@ async def serve_attachment(
     if note_row.way_id:
         owns = (
             await db.execute(
-                select(Way.id).where(Way.id == note_row.way_id, Way.user_id == user_id)
+                select(Way.id).where(Way.id == note_row.way_id, Way.user_id == user_id),
             )
         ).scalar_one_or_none()
     else:
         tid = note_row.topic_id or note_row.topic_inline_id
         owns = (
             await db.execute(
-                select(Topic.id).join(Way).where(Topic.id == tid, Way.user_id == user_id)
+                select(Topic.id).join(Way).where(Topic.id == tid, Way.user_id == user_id),
             )
         ).scalar_one_or_none()
     if not owns:
@@ -539,7 +539,7 @@ async def serve_attachment(
     # Look up the stored filename so the browser uses it in the Save dialog.
     att_row = (
         await db.execute(
-            select(NoteAttachment).where(NoteAttachment.s3_key == s3_key)
+            select(NoteAttachment).where(NoteAttachment.s3_key == s3_key),
         )
     ).scalar_one_or_none()
     filename = att_row.filename if att_row else parts[-1]
@@ -572,8 +572,8 @@ async def delete_note_attachment(
     await _get_note_or_404(note_id, user, db)
     result = await db.execute(
         select(NoteAttachment).where(
-            NoteAttachment.id == attachment_id, NoteAttachment.note_id == note_id
-        )
+            NoteAttachment.id == attachment_id, NoteAttachment.note_id == note_id,
+        ),
     )
     att = result.scalar_one_or_none()
     if not att:
@@ -595,7 +595,7 @@ async def _active_share_for(note_id: uuid.UUID, db: AsyncSession) -> NoteShare |
         await db.execute(
             select(NoteShare)
             .where(NoteShare.note_id == note_id, NoteShare.is_active.is_(True))
-            .order_by(NoteShare.created_at.desc())
+            .order_by(NoteShare.created_at.desc()),
         )
     ).scalar_one_or_none()
     return row
@@ -608,7 +608,8 @@ async def create_share(
     db: AsyncSession = Depends(get_db),
 ):
     """Create (or return existing) public share for a note. Idempotent — calling
-    twice returns the same active link."""
+    twice returns the same active link.
+    """
     await _get_note_or_404(note_id, user, db)
     existing = await _active_share_for(note_id, db)
     if existing:
@@ -631,7 +632,8 @@ async def get_share(
     db: AsyncSession = Depends(get_db),
 ):
     """Return the active share for a note, or null if not shared. Used by the
-    Share dialog to know whether to show 'Create' or 'Copy/Stop'."""
+    Share dialog to know whether to show 'Create' or 'Copy/Stop'.
+    """
     await _get_note_or_404(note_id, user, db)
     row = await _active_share_for(note_id, db)
     if not row:
@@ -651,14 +653,14 @@ async def revoke_share(
     if not row:
         return  # already not shared — idempotent
     row.is_active = False
-    row.revoked_at = datetime.now(timezone.utc)
+    row.revoked_at = datetime.now(UTC)
     await db.flush()
 
 
 async def _share_or_404(token: str, db: AsyncSession) -> tuple[NoteShare, Note]:
     share = (
         await db.execute(
-            select(NoteShare).where(NoteShare.token == token, NoteShare.is_active.is_(True))
+            select(NoteShare).where(NoteShare.token == token, NoteShare.is_active.is_(True)),
         )
     ).scalar_one_or_none()
     if not share:
@@ -668,7 +670,7 @@ async def _share_or_404(token: str, db: AsyncSession) -> tuple[NoteShare, Note]:
         await db.execute(
             select(Note)
             .where(Note.id == share.note_id)
-            .options(selectinload(Note.images), selectinload(Note.tags))
+            .options(selectinload(Note.images), selectinload(Note.tags)),
         )
     ).scalar_one_or_none()
     if not note:
@@ -680,7 +682,8 @@ async def _share_or_404(token: str, db: AsyncSession) -> tuple[NoteShare, Note]:
 @router.get("/public/notes/{token}", response_model=PublicNoteOut)
 async def public_get_note(token: str, db: AsyncSession = Depends(get_db)):
     """Anonymous read of a shared note. Image URLs in the HTML body are rewritten
-    so they go through the matching public image endpoint scoped to this token."""
+    so they go through the matching public image endpoint scoped to this token.
+    """
     share, note = await _share_or_404(token, db)
     rewritten = _IMAGE_URL_RE.sub(
         lambda m: f"/api/v1/public/notes/{token}/images/{m.group(1)}",
@@ -699,7 +702,8 @@ async def public_get_note(token: str, db: AsyncSession = Depends(get_db)):
 @router.get("/public/notes/{token}/images/{s3_key:path}")
 async def public_get_image(token: str, s3_key: str, db: AsyncSession = Depends(get_db)):
     """Stream an image of a shared note. Authorization happens by verifying that
-    `s3_key` is one of NoteImage.s3_key for that share's note — no JWT involved."""
+    `s3_key` is one of NoteImage.s3_key for that share's note — no JWT involved.
+    """
     _share, note = await _share_or_404(token, db)
     owns = any(img.s3_key == s3_key for img in note.images)
     if not owns:

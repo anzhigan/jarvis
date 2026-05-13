@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 # Known dev defaults — banned in production via _validate_production() below
 DEV_SECRET_KEY = "change-me-in-production-must-be-at-least-32-characters"
 
@@ -43,7 +42,7 @@ class Settings(BaseSettings):
             return
         if self.SECRET_KEY == DEV_SECRET_KEY or len(self.SECRET_KEY) < 32:
             raise RuntimeError(
-                "SECRET_KEY must be set to a secure random value (>=32 chars) in production"
+                "SECRET_KEY must be set to a secure random value (>=32 chars) in production",
             )
         if "minioadmin" in (self.S3_ACCESS_KEY, self.S3_SECRET_KEY):
             raise RuntimeError("S3 credentials must not use MinIO defaults in production")

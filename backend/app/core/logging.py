@@ -14,7 +14,7 @@ import json
 import logging
 import sys
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Per-request context, set by middleware. Defaults are None so logs outside
 # request lifetime stay clean.
@@ -34,7 +34,7 @@ class JsonFormatter(logging.Formatter):
     """One-line JSON per record. `extra=` kwargs flow through unchanged."""
 
     def format(self, record: logging.LogRecord) -> str:
-        ts = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
+        ts = datetime.fromtimestamp(record.created, tz=UTC).isoformat()
         out: dict = {
             "ts": ts,
             "level": record.levelname,

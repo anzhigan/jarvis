@@ -3,7 +3,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-
 # ── Tag ───────────────────────────────────────────────────────────────────────
 
 class TagCreate(BaseModel):
@@ -141,7 +140,9 @@ class AttachmentOut(BaseModel):
 
 class ShareOut(BaseModel):
     """Returned when a share is created or fetched. `url` is the public link
-    relative to the API base — the frontend prepends window.location.origin."""
+    relative to the API base — the frontend prepends window.location.origin.
+    """
+
     token: str
     url: str
     created_at: datetime
@@ -149,7 +150,9 @@ class ShareOut(BaseModel):
 
 class PublicNoteOut(BaseModel):
     """Subset of the note exposed to anonymous readers. Image URLs in `content`
-    are rewritten by the server to anonymous-accessible paths before serialization."""
+    are rewritten by the server to anonymous-accessible paths before serialization.
+    """
+
     name: str
     content: str
     created_at: datetime

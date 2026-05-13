@@ -12,7 +12,8 @@ logger = logging.getLogger("access")
 
 async def request_context_middleware(request: Request, call_next):
     """Generate a request_id, expose it through the ContextVar + response header,
-    and emit a JSON access log line with method/path/status/latency."""
+    and emit a JSON access log line with method/path/status/latency.
+    """
     rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
     rid_token = request_id_var.set(rid)
     uid_token = user_id_var.set(None)

@@ -1,8 +1,10 @@
 import uuid
-from datetime import date as date_cls, timedelta
+from datetime import date as date_cls
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete as sa_delete, select
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -26,12 +28,26 @@ from app.services.tasks import (
     VALID_PRIORITIES,
     VALID_RECURRENCE,
     VALID_STATUSES,
+)
+from app.services.tasks import (
     get_go_or_404 as _get_go,
+)
+from app.services.tasks import (
     get_task_or_404 as _get_task,
+)
+from app.services.tasks import (
     go_total_value as _go_total_value,
+)
+from app.services.tasks import (
     is_go_done_today as _is_go_done_today,
+)
+from app.services.tasks import (
     normalize_status as _normalize_status,
+)
+from app.services.tasks import (
     task_eager_options as _task_opts,
+)
+from app.services.tasks import (
     task_progress_pct as _task_progress,
 )
 
@@ -67,7 +83,7 @@ def _go_dict(g: Go, task_title: str | None = None) -> dict:
 
 def _task_dict(t: Task) -> dict:
     # Only one-off Gos belong here (routine_legacy → Routines).
-    direct_gos = [g for g in t.gos if g.item_kind != 'routine_legacy']
+    direct_gos = [g for g in t.gos if g.item_kind != "routine_legacy"]
     gos_out = [_go_dict(g, task_title=t.title) for g in direct_gos]
     routines_out = []
     for link in getattr(t, "routine_links", []) or []:
@@ -167,7 +183,7 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user), 
         if valid:
             await db.execute(
                 pg_insert(task_tags).values([{"task_id": t.id, "tag_id": tid} for tid in valid])
-                .on_conflict_do_nothing()
+                .on_conflict_do_nothing(),
             )
     await db.refresh(t, ["gos", "tags", "routine_links"])
     return _task_dict(t)
@@ -243,7 +259,7 @@ async def upsert_go_entry(go_id: uuid.UUID, body: GoEntryUpsert, user: User = De
     g = await _get_go(go_id, user, db)
     if body.value == 0:
         await db.execute(
-            sa_delete(GoEntry).where(GoEntry.go_id == g.id, GoEntry.date == body.date)
+            sa_delete(GoEntry).where(GoEntry.go_id == g.id, GoEntry.date == body.date),
         )
         await db.flush()
         return GoEntryOut(id=uuid.uuid4(), go_id=g.id, date=body.date, value=0.0)
@@ -266,9 +282,9 @@ async def list_all_gos(
 ):
     """List all (non-routine-legacy) Gos for the user."""
     q = await db.execute(
-        select(Go).where(Go.user_id == user.id, Go.item_kind != 'routine_legacy')
+        select(Go).where(Go.user_id == user.id, Go.item_kind != "routine_legacy")
         .options(selectinload(Go.entries), selectinload(Go.task))
-        .order_by(Go.created_at.desc())
+        .order_by(Go.created_at.desc()),
     )
     return [_go_dict(g, task_title=g.task.title if g.task else None)
             for g in q.scalars().all()]
@@ -283,8 +299,8 @@ async def gos_agenda(
 ):
     today = date_cls.today()
     q = await db.execute(
-        select(Go).where(Go.user_id == user.id, Go.item_kind != 'routine_legacy')
-        .options(selectinload(Go.entries), selectinload(Go.task))
+        select(Go).where(Go.user_id == user.id, Go.item_kind != "routine_legacy")
+        .options(selectinload(Go.entries), selectinload(Go.task)),
     )
     all_gos = list(q.scalars().all())
 

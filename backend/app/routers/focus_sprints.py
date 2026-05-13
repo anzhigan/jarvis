@@ -17,7 +17,6 @@ from app.schemas.tasks import (
     FocusSprintUpdate,
 )
 
-
 router = APIRouter(prefix="/focus-sprints", tags=["focus-sprints"])
 
 
@@ -26,7 +25,8 @@ VALID_ITEM_TYPES = {"goal", "go", "routine"}
 
 async def _hydrate_items(items: list[FocusSprintItem], db: AsyncSession) -> list[dict]:
     """Batch-fetch referenced entities (Task/Go/Routine) by type
-    so we don't fire one query per item."""
+    so we don't fire one query per item.
+    """
     goal_ids = [it.goal_id for it in items if it.item_type == "goal" and it.goal_id]
     go_ids = [it.go_id for it in items if it.item_type == "go" and it.go_id]
     routine_ids = [it.routine_id for it in items if it.item_type == "routine" and it.routine_id]
@@ -89,7 +89,7 @@ async def _get_focus_sprint(fid: uuid.UUID, user: User, db: AsyncSession) -> Foc
     res = await db.execute(
         select(FocusSprint)
         .where(FocusSprint.id == fid, FocusSprint.user_id == user.id)
-        .options(selectinload(FocusSprint.items))
+        .options(selectinload(FocusSprint.items)),
     )
     fs = res.scalar_one_or_none()
     if not fs:
@@ -108,7 +108,7 @@ async def list_focus_sprints(
         select(FocusSprint)
         .where(FocusSprint.user_id == user.id)
         .options(selectinload(FocusSprint.items))
-        .order_by(FocusSprint.start_date.desc())
+        .order_by(FocusSprint.start_date.desc()),
     )
     return [await _focus_sprint_dict(fs, db) for fs in res.scalars().all()]
 

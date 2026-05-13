@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from app.schemas.notes import TagOut
 
-
 # ─── Go ─────────────────────────────────────────────────────────────────────
 
 class GoCreate(BaseModel):

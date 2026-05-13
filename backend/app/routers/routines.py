@@ -4,7 +4,8 @@ from datetime import date as date_cls
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import delete as sa_delete, select
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -20,7 +21,6 @@ from app.schemas.tasks import (
     RoutineOut,
     RoutineUpdate,
 )
-
 
 router = APIRouter(prefix="/routines", tags=["routines"])
 
@@ -61,7 +61,7 @@ async def _get_routine(rid: uuid.UUID, user: User, db: AsyncSession) -> Routine:
     res = await db.execute(
         select(Routine)
         .where(Routine.id == rid, Routine.user_id == user.id)
-        .options(selectinload(Routine.entries))
+        .options(selectinload(Routine.entries)),
     )
     r = res.scalar_one_or_none()
     if not r:
@@ -80,7 +80,7 @@ async def list_routines(
         select(Routine)
         .where(Routine.user_id == user.id)
         .options(selectinload(Routine.entries))
-        .order_by(Routine.created_at.desc())
+        .order_by(Routine.created_at.desc()),
     )
     return [_routine_dict(r) for r in res.scalars().all()]
 
@@ -188,7 +188,7 @@ async def delete_entry(
 ):
     r = await _get_routine(routine_id, user, db)
     await db.execute(
-        sa_delete(RoutineEntry).where(RoutineEntry.routine_id == r.id, RoutineEntry.date == entry_date)
+        sa_delete(RoutineEntry).where(RoutineEntry.routine_id == r.id, RoutineEntry.date == entry_date),
     )
 
 
@@ -240,7 +240,7 @@ async def routines_due_today(
     res = await db.execute(
         select(Routine)
         .where(Routine.user_id == user.id)
-        .options(selectinload(Routine.entries))
+        .options(selectinload(Routine.entries)),
     )
     routines = list(res.scalars().all())
     return [_routine_dict(r) for r in routines if _routine_due_on(r, today)]
@@ -253,13 +253,14 @@ async def routines_by_goal(
     user: User = Depends(get_current_user),
 ):
     """Return all routines linked to a goal — either through legacy goal_id
-    or via the new GoalRoutineLink join table."""
+    or via the new GoalRoutineLink join table.
+    """
     from app.models.tasks import GoalRoutineLink
     # Linked via direct goal_id
     direct = await db.execute(
         select(Routine)
         .where(Routine.user_id == user.id, Routine.goal_id == goal_id)
-        .options(selectinload(Routine.entries))
+        .options(selectinload(Routine.entries)),
     )
     direct_routines = list(direct.scalars().all())
     # Linked via join table
@@ -267,7 +268,7 @@ async def routines_by_goal(
         select(Routine)
         .join(GoalRoutineLink, GoalRoutineLink.routine_id == Routine.id)
         .where(Routine.user_id == user.id, GoalRoutineLink.goal_id == goal_id)
-        .options(selectinload(Routine.entries))
+        .options(selectinload(Routine.entries)),
     )
     linked_routines = list(linked.scalars().all())
     # Deduplicate by id
@@ -320,7 +321,7 @@ async def create_link(
         select(GoalRoutineLink).where(
             GoalRoutineLink.goal_id == body.goal_id,
             GoalRoutineLink.routine_id == body.routine_id,
-        )
+        ),
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status.HTTP_409_CONFLICT, "Routine already linked to this goal")
@@ -355,7 +356,7 @@ async def delete_link(
     res = await db.execute(
         select(GoalRoutineLink)
         .join(Task, Task.id == GoalRoutineLink.goal_id)
-        .where(GoalRoutineLink.id == link_id, Task.user_id == user.id)
+        .where(GoalRoutineLink.id == link_id, Task.user_id == user.id),
     )
     link = res.scalar_one_or_none()
     if not link:
@@ -375,7 +376,7 @@ async def links_by_goal(
     if not g_res.scalar_one_or_none():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found")
     res = await db.execute(
-        select(GoalRoutineLink).where(GoalRoutineLink.goal_id == goal_id)
+        select(GoalRoutineLink).where(GoalRoutineLink.goal_id == goal_id),
     )
     links = list(res.scalars().all())
     if not links:
@@ -385,7 +386,7 @@ async def links_by_goal(
     r_res = await db.execute(
         select(Routine)
         .where(Routine.id.in_(routine_ids), Routine.user_id == user.id)
-        .options(selectinload(Routine.entries))
+        .options(selectinload(Routine.entries)),
     )
     routines_map = {r.id: r for r in r_res.scalars()}
     return [

@@ -1,7 +1,7 @@
 import base64
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
@@ -13,7 +13,8 @@ from app.core.config import settings
 def _prehash(password: str) -> bytes:
     """SHA256-prehash before bcrypt to (a) bypass the 72-byte limit and
     (b) avoid mid-codepoint UTF-8 truncation. Base64-encoded so the result
-    is bcrypt-safe (no NUL bytes, fixed 44-byte length)."""
+    is bcrypt-safe (no NUL bytes, fixed 44-byte length).
+    """
     digest = hashlib.sha256(password.encode("utf-8")).digest()
     return base64.b64encode(digest)
 
@@ -24,7 +25,8 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     """Accept both new (SHA256-prehashed) and legacy (raw 72-byte trunc) hashes.
-    Old passwords seamlessly migrate the next time the user changes them."""
+    Old passwords seamlessly migrate the next time the user changes them.
+    """
     hashed_bytes = hashed.encode("utf-8")
     try:
         if bcrypt.checkpw(_prehash(plain), hashed_bytes):
@@ -48,7 +50,7 @@ def dummy_verify() -> None:
 
 
 def create_access_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     return jwt.encode(
@@ -59,7 +61,7 @@ def create_access_token(subject: str | Any, expires_delta: timedelta | None = No
 
 
 def create_refresh_token(subject: str | Any, jti: str | None = None) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload: dict[str, Any] = {"sub": str(subject), "exp": expire, "type": "refresh"}
     if jti:
         payload["jti"] = jti

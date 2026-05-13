@@ -27,7 +27,7 @@ router = APIRouter(tags=["tags"])
 
 async def _get_tag_or_404(tag_id: uuid.UUID, user: User, db: AsyncSession) -> Tag:
     result = await db.execute(
-        select(Tag).where(Tag.id == tag_id, Tag.user_id == user.id)
+        select(Tag).where(Tag.id == tag_id, Tag.user_id == user.id),
     )
     tag = result.scalar_one_or_none()
     if not tag:
@@ -39,7 +39,7 @@ async def _get_note_for_user_or_404(note_id: uuid.UUID, user: User, db: AsyncSes
     result = await db.execute(
         select(Note)
         .where(Note.id == note_id)
-        .options(selectinload(Note.tags))
+        .options(selectinload(Note.tags)),
     )
     note = result.scalar_one_or_none()
     if not note:
@@ -53,7 +53,7 @@ async def _get_note_for_user_or_404(note_id: uuid.UUID, user: User, db: AsyncSes
         target_topic_id = note.topic_id or note.topic_inline_id
         r = await db.execute(
             select(Topic).join(Way, Topic.way_id == Way.id)
-            .where(Topic.id == target_topic_id, Way.user_id == user.id)
+            .where(Topic.id == target_topic_id, Way.user_id == user.id),
         )
         if not r.scalar_one_or_none():
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
@@ -70,7 +70,7 @@ async def list_tags(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Tag).where(Tag.user_id == user.id).order_by(Tag.name)
+        select(Tag).where(Tag.user_id == user.id).order_by(Tag.name),
     )
     return list(result.scalars().all())
 
@@ -90,7 +90,7 @@ async def create_tag(
         select(Tag.id).where(
             Tag.user_id == user.id,
             func.lower(Tag.name) == name.lower(),
-        )
+        ),
     )
     if existing.scalar_one_or_none():
         raise HTTPException(409, "Tag with this name already exists")
@@ -119,7 +119,7 @@ async def update_tag(
                     Tag.user_id == user.id,
                     Tag.id != tag.id,
                     func.lower(Tag.name) == new_name.lower(),
-                )
+                ),
             )
             if existing.scalar_one_or_none():
                 raise HTTPException(409, "Tag with this name already exists")
@@ -177,7 +177,7 @@ async def _get_task_for_user_or_404(task_id: uuid.UUID, user: User, db: AsyncSes
     result = await db.execute(
         select(Task)
         .where(Task.id == task_id, Task.user_id == user.id)
-        .options(selectinload(Task.tags))
+        .options(selectinload(Task.tags)),
     )
     task = result.scalar_one_or_none()
     if not task:

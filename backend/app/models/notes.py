@@ -1,12 +1,11 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table, Text
 from sqlalchemy import Uuid as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-
 
 # ── Many-to-many: note_tags ─────────────────────────────────────────────────
 note_tags = Table(
@@ -24,16 +23,16 @@ class Way(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     order: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     user: Mapped["User"] = relationship(back_populates="ways")  # noqa: F821
     topics: Mapped[list["Topic"]] = relationship(
-        back_populates="way", cascade="all, delete-orphan", order_by="Topic.order"
+        back_populates="way", cascade="all, delete-orphan", order_by="Topic.order",
     )
     notes: Mapped[list["Note"]] = relationship(
         "Note",
@@ -50,11 +49,11 @@ class Topic(Base):
     way_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ways.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     order: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     way: Mapped["Way"] = relationship(back_populates="topics")
@@ -85,21 +84,21 @@ class Note(Base):
     topic_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), nullable=True, index=True)
     topic_inline_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), nullable=True, index=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     images: Mapped[list["NoteImage"]] = relationship(
-        back_populates="note", cascade="all, delete-orphan", order_by="NoteImage.created_at"
+        back_populates="note", cascade="all, delete-orphan", order_by="NoteImage.created_at",
     )
     attachments: Mapped[list["NoteAttachment"]] = relationship(
-        back_populates="note", cascade="all, delete-orphan", order_by="NoteAttachment.created_at"
+        back_populates="note", cascade="all, delete-orphan", order_by="NoteAttachment.created_at",
     )
     tags: Mapped[list["Tag"]] = relationship(
-        secondary=note_tags, back_populates="notes", order_by="Tag.name"
+        secondary=note_tags, back_populates="notes", order_by="Tag.name",
     )
 
 
@@ -112,7 +111,7 @@ class NoteImage(Base):
     url: Mapped[str] = mapped_column(String(1000), nullable=False)
     filename: Mapped[str] = mapped_column(String(255), default="")
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     note: Mapped["Note"] = relationship(back_populates="images")
 
@@ -123,6 +122,7 @@ class NoteAttachment(Base):
     Lives in the same MinIO bucket as images under a separate `notes/{id}/attachments/`
     prefix and is served through the authenticated `/api/attachments/<key>` endpoint.
     """
+
     __tablename__ = "note_attachments"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -132,7 +132,7 @@ class NoteAttachment(Base):
     filename: Mapped[str] = mapped_column(String(255), default="")
     mime_type: Mapped[str] = mapped_column(String(120), default="application/octet-stream")
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     note: Mapped["Note"] = relationship(back_populates="attachments")
 
@@ -145,15 +145,16 @@ class NoteShare(Base):
     application layer in the share endpoint; the table allows multiple
     historical rows so we can keep a revoked-link audit trail).
     """
+
     __tablename__ = "note_shares"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     note_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("notes.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("notes.id", ondelete="CASCADE"), nullable=False, index=True,
     )
     token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -164,10 +165,10 @@ class Tag(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     color: Mapped[str] = mapped_column(String(20), default="#4f46e5")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     user: Mapped["User"] = relationship(back_populates="tags")  # noqa: F821
     notes: Mapped[list["Note"]] = relationship(secondary=note_tags, back_populates="tags")
     tasks: Mapped[list["Task"]] = relationship(  # noqa: F821
-        secondary="task_tags", back_populates="tags"
+        secondary="task_tags", back_populates="tags",
     )

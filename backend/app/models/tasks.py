@@ -1,12 +1,23 @@
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy import Uuid as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-
 
 # ── Many-to-many: task_tags ─────────────────────────────────────────────────
 task_tags = Table(
@@ -19,6 +30,7 @@ task_tags = Table(
 
 class Task(Base):
     """Top-level long-running goal."""
+
     __tablename__ = "tasks"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -32,19 +44,19 @@ class Task(Base):
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     order: Mapped[int] = mapped_column(Integer, default=0)
     color: Mapped[str] = mapped_column(String(20), default="#2C4A60", server_default="#2C4A60")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     user: Mapped["User"] = relationship(back_populates="tasks")  # noqa: F821
     gos: Mapped[list["Go"]] = relationship(
-        back_populates="task", cascade="all, delete-orphan", order_by="Go.created_at"
+        back_populates="task", cascade="all, delete-orphan", order_by="Go.created_at",
     )
     tags: Mapped[list["Tag"]] = relationship(  # noqa: F821
-        secondary=task_tags, back_populates="tasks", order_by="Tag.name"
+        secondary=task_tags, back_populates="tasks", order_by="Tag.name",
     )
     routine_links: Mapped[list["GoalRoutineLink"]] = relationship(
         back_populates="goal",
@@ -63,12 +75,13 @@ class Go(Base):
       - 'one_off'         a real Go (default)
       - 'routine_legacy'  this Go was migrated to the Routine table; kept here for backward compat
     """
+
     __tablename__ = "gos"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     task_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True,
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
@@ -80,17 +93,18 @@ class Go(Base):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     color: Mapped[str] = mapped_column(String(20), default="#4f46e5")
     item_kind: Mapped[str] = mapped_column(String(30), default="one_off", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     task: Mapped["Task | None"] = relationship(back_populates="gos")
     user: Mapped["User"] = relationship(back_populates="gos")  # noqa: F821
     entries: Mapped[list["GoEntry"]] = relationship(
-        back_populates="go", cascade="all, delete-orphan", order_by="GoEntry.date"
+        back_populates="go", cascade="all, delete-orphan", order_by="GoEntry.date",
     )
 
 
 class GoEntry(Base):
     """One day's log for a Go."""
+
     __tablename__ = "go_entries"
     __table_args__ = (UniqueConstraint("go_id", "date", name="uq_go_entries_go_date"),)
 
@@ -98,7 +112,7 @@ class GoEntry(Base):
     go_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("gos.id", ondelete="CASCADE"), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     value: Mapped[float] = mapped_column(Float, default=0.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     go: Mapped["Go"] = relationship(back_populates="entries")
 
@@ -117,12 +131,13 @@ class Routine(Base):
 
     Linked to a Goal (optional).
     """
+
     __tablename__ = "routines"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     goal_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True
+        ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True,
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
@@ -143,24 +158,25 @@ class Routine(Base):
     target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Link back to old Go row if migrated (so we can keep backward compat in old UI)
     legacy_go_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("gos.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("gos.id", ondelete="SET NULL"), nullable=True,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     user: Mapped["User"] = relationship(back_populates="routines")  # noqa: F821
     goal: Mapped["Task | None"] = relationship(foreign_keys=[goal_id])
     entries: Mapped[list["RoutineEntry"]] = relationship(
-        back_populates="routine", cascade="all, delete-orphan", order_by="RoutineEntry.date"
+        back_populates="routine", cascade="all, delete-orphan", order_by="RoutineEntry.date",
     )
 
 
 class RoutineEntry(Base):
     """One day's log for a Routine."""
+
     __tablename__ = "routine_entries"
     __table_args__ = (UniqueConstraint("routine_id", "date", name="uq_routine_entries_routine_date"),)
 
@@ -168,7 +184,7 @@ class RoutineEntry(Base):
     routine_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("routines.id", ondelete="CASCADE"), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     value: Mapped[float] = mapped_column(Float, default=0.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     routine: Mapped["Routine"] = relationship(back_populates="entries")
 
@@ -182,6 +198,7 @@ class GoalRoutineLink(Base):
     might be tracked toward both "Quit smoking" and "Be healthy" goals at the
     same time, in different windows).
     """
+
     __tablename__ = "goal_routine_links"
     __table_args__ = (
         UniqueConstraint("goal_id", "routine_id", name="uq_goal_routine_link"),
@@ -189,15 +206,15 @@ class GoalRoutineLink(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     goal_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True,
     )
     routine_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("routines.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("routines.id", ondelete="CASCADE"), nullable=False, index=True,
     )
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     target_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     goal: Mapped["Task"] = relationship(back_populates="routine_links", foreign_keys=[goal_id])
     routine: Mapped["Routine"] = relationship(foreign_keys=[routine_id])
@@ -210,6 +227,7 @@ class FocusSprint(Base):
     existing Goals/Gos/Routines (does not own them). When deleted, references
     are removed but the underlying entities stay.
     """
+
     __tablename__ = "focus_sprints"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -220,31 +238,32 @@ class FocusSprint(Base):
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     color: Mapped[str] = mapped_column(String(20), default="#4f46e5")
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     user: Mapped["User"] = relationship(back_populates="focus_sprints")  # noqa: F821
     items: Mapped[list["FocusSprintItem"]] = relationship(
-        back_populates="focus_sprint", cascade="all, delete-orphan", order_by="FocusSprintItem.created_at"
+        back_populates="focus_sprint", cascade="all, delete-orphan", order_by="FocusSprintItem.created_at",
     )
 
 
 class FocusSprintItem(Base):
     """A single reference inside a FocusSprint. Polymorphic — either goal, go, or routine."""
+
     __tablename__ = "focus_sprint_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     focus_sprint_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("focus_sprints.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("focus_sprints.id", ondelete="CASCADE"), nullable=False, index=True,
     )
     item_type: Mapped[str] = mapped_column(String(20), nullable=False)  # goal | go | routine
     goal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
     go_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("gos.id", ondelete="CASCADE"), nullable=True)
     routine_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("routines.id", ondelete="CASCADE"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     focus_sprint: Mapped["FocusSprint"] = relationship(back_populates="items")

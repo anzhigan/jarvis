@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 const MOBILE_BREAKPOINT = 768;
 
-let listeners = new Set<() => void>();
+const listeners = new Set<() => void>();
 let lastValue = typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
 let resizeAttached = false;
 
