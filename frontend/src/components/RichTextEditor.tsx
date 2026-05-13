@@ -112,151 +112,202 @@ const FontSize = Extension.create({
   },
 });
 
-// ─── Resizable Image ─────────────────────────────────────────────────────────
+// ─── Resizable Image (Notion/Figma-style hover toolbar) ────────────────────
 function ResizableImageView({
   node,
   updateAttributes,
-  selected,
+  deleteNode,
+  editor,
 }: {
   node: any;
   updateAttributes: (attrs: Record<string, any>) => void;
-  selected: boolean;
+  deleteNode: () => void;
+  editor: any;
 }) {
   const [isResizing, setIsResizing] = useState(false);
+  const [hover, setHover] = useState(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
   const imgRef = useRef<HTMLImageElement>(null);
 
   const width = node.attrs.width || 'auto';
-  const rotation = (node.attrs.rotation as number) || 0;
+  const align = (node.attrs.align as 'left' | 'center' | 'right') || 'left';
+  const src = node.attrs.src as string;
+  const readonly = !editor?.isEditable;
 
-  const startResize = useCallback(
-    (clientX: number) => {
-      setIsResizing(true);
-      startX.current = clientX;
-      startWidth.current = imgRef.current?.getBoundingClientRect().width || 300;
-    },
-    []
-  );
+  const startResize = useCallback((clientX: number) => {
+    setIsResizing(true);
+    startX.current = clientX;
+    startWidth.current = imgRef.current?.getBoundingClientRect().width || 300;
+  }, []);
 
-  const onMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      startResize(e.clientX);
+  const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startResize(e.clientX);
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(80, startWidth.current + (ev.clientX - startX.current));
+      updateAttributes({ width: `${Math.round(newW)}px` });
+    };
+    const onUp = () => {
+      setIsResizing(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [startResize, updateAttributes]);
 
-      const onMouseMove = (ev: MouseEvent) => {
-        const delta = ev.clientX - startX.current;
-        const newWidth = Math.max(80, startWidth.current + delta);
-        updateAttributes({ width: `${Math.round(newWidth)}px` });
-      };
-      const onMouseUp = () => {
-        setIsResizing(false);
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      };
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    },
-    [updateAttributes, startResize]
-  );
+  const onResizeTouchStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
+    const t = e.touches[0];
+    startResize(t.clientX);
+    const onMove = (ev: TouchEvent) => {
+      ev.preventDefault();
+      const tt = ev.touches[0];
+      const newW = Math.max(80, startWidth.current + (tt.clientX - startX.current));
+      updateAttributes({ width: `${Math.round(newW)}px` });
+    };
+    const onEnd = () => {
+      setIsResizing(false);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+  }, [startResize, updateAttributes]);
 
-  const onTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      e.stopPropagation();
-      const touch = e.touches[0];
-      startResize(touch.clientX);
+  // The toolbar must stay visible while the user hovers the toolbar itself
+  // (otherwise moving from image → toolbar makes the toolbar disappear before
+  // the click registers). The wrapper handles mouseenter/leave; child buttons
+  // re-trigger via bubbling so layout is one source of truth.
+  const showControls = !readonly && (hover || isResizing);
 
-      const onTouchMove = (ev: TouchEvent) => {
-        ev.preventDefault();
-        const t = ev.touches[0];
-        const delta = t.clientX - startX.current;
-        const newWidth = Math.max(80, startWidth.current + delta);
-        updateAttributes({ width: `${Math.round(newWidth)}px` });
-      };
-      const onTouchEnd = () => {
-        setIsResizing(false);
-        document.removeEventListener('touchmove', onTouchMove);
-        document.removeEventListener('touchend', onTouchEnd);
-      };
-      document.addEventListener('touchmove', onTouchMove, { passive: false });
-      document.addEventListener('touchend', onTouchEnd);
-    },
-    [updateAttributes, startResize]
-  );
-
-  const rotate = () => {
-    const next = (rotation + 90) % 360;
-    updateAttributes({ rotation: next });
+  // Alignment is stored on the image attrs and applied via inline margins on
+  // the outer wrapper (image block). Center/right shift the image without
+  // requiring float-clearing hacks on the surrounding paragraph.
+  const wrapperStyle: React.CSSProperties = {
+    display: 'block',
+    margin:
+      align === 'center' ? '0 auto' :
+      align === 'right'  ? '0 0 0 auto' :
+                           '0 auto 0 0',
+    maxWidth: '100%',
+    width,
+    position: 'relative',
   };
 
-  const resetSize = () => {
-    updateAttributes({ width: 'auto' });
+  const onOpenFullSize = () => {
+    if (src) window.open(src, '_blank', 'noopener,noreferrer');
   };
-
-  const showControls = selected || isResizing;
+  const onDownload = () => {
+    if (!src) return;
+    const a = document.createElement('a');
+    a.href = src;
+    a.download = node.attrs.alt || 'image';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+  const setAlign = (a: 'left' | 'center' | 'right') => updateAttributes({ align: a });
 
   return (
-    <NodeViewWrapper className="relative inline-block group/img" style={{ maxWidth: '100%' }}>
-      <img
-        ref={imgRef}
-        src={node.attrs.src}
-        alt={node.attrs.alt || ''}
-        style={{
-          width,
-          maxWidth: '100%',
-          display: 'block',
-          borderRadius: '0.5rem',
-          userSelect: 'none',
-          outline: showControls ? '2px solid var(--primary)' : 'none',
-          transform: rotation ? `rotate(${rotation}deg)` : undefined,
-          transition: isResizing ? 'none' : 'transform 0.2s ease-out',
-        }}
-        draggable={false}
-      />
-
-      {/* Rotate button (top-left) */}
-      {showControls && (
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); rotate(); }}
-          className="absolute top-1 left-1 w-8 h-8 md:w-7 md:h-7 bg-primary rounded-md flex items-center justify-center shadow-sm active:scale-95"
-          title="Rotate 90°"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
-        </button>
-      )}
-
-      {/* Reset size button (top-right) */}
-      {showControls && width !== 'auto' && (
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); resetSize(); }}
-          className="absolute top-1 right-1 px-2 h-8 md:h-7 bg-primary rounded-md flex items-center justify-center shadow-sm active:scale-95 text-white text-xs font-medium"
-          title="Reset size"
-        >
-          Auto
-        </button>
-      )}
-
-      {/* Resize handle (bottom-right) */}
-      <div
-        onMouseDown={onMouseDown}
-        onTouchStart={onTouchStart}
-        className="absolute bottom-1 right-1 w-8 h-8 md:w-5 md:h-5 bg-primary rounded-md cursor-ew-resize flex items-center justify-center shadow-sm opacity-0 md:group-hover/img:opacity-100"
-        style={{
-          opacity: showControls ? 1 : undefined,
-          touchAction: 'none',
-        }}
-        title="Drag to resize"
+    <NodeViewWrapper
+      as="span"
+      className="img-block"
+      data-align={align}
+      contentEditable={false}
+    >
+      <span
+        className="img-wrap"
+        style={wrapperStyle}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
       >
-        <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="1.5">
-          <path d="M3 1 L9 7 M7 9 L9 7 L7 5" />
-        </svg>
-      </div>
+        <img
+          ref={imgRef}
+          src={src}
+          alt={node.attrs.alt || ''}
+          draggable={false}
+          className="img-block__img"
+          style={{ width: '100%' }}
+        />
+
+        {showControls && (
+          <span className="img-toolbar" role="toolbar" aria-label="Image actions">
+            <ImgBtn title="Align left"   active={align === 'left'}   onClick={() => setAlign('left')}>
+              <svg viewBox="0 0 16 16"><path d="M2 3h12M2 7h8M2 11h12M2 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+            </ImgBtn>
+            <ImgBtn title="Align right"  active={align === 'right'}  onClick={() => setAlign('right')}>
+              <svg viewBox="0 0 16 16"><path d="M2 3h12M6 7h8M2 11h12M6 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+            </ImgBtn>
+            <ImgBtn title="Align center" active={align === 'center'} onClick={() => setAlign('center')}>
+              <svg viewBox="0 0 16 16"><path d="M2 3h12M4 7h8M2 11h12M4 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+            </ImgBtn>
+            <span className="img-toolbar__sep" />
+            <ImgBtn title="Open full size" onClick={onOpenFullSize}>
+              <svg viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M10.2 10.2 L14 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <path d="M5 7h4M7 5v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+            </ImgBtn>
+            <ImgBtn title="Download" onClick={onDownload}>
+              <svg viewBox="0 0 16 16" fill="none">
+                <path d="M8 2v9M4.5 7.5 8 11l3.5-3.5M3 14h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </ImgBtn>
+            <span className="img-toolbar__sep" />
+            <ImgBtn title="Delete" onClick={() => deleteNode()} variant="danger">
+              <svg viewBox="0 0 16 16" fill="none">
+                <path d="M3 4h10M6 4V2.5h4V4M5 4l.7 9a1 1 0 0 0 1 .9h2.6a1 1 0 0 0 1-.9L11 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </ImgBtn>
+          </span>
+        )}
+
+        {showControls && (
+          <span
+            className="img-resize-corner"
+            role="separator"
+            aria-label="Resize"
+            title="Drag to resize"
+            onMouseDown={onResizeMouseDown}
+            onTouchStart={onResizeTouchStart}
+          >
+            <svg viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M2 12 L12 12 M12 12 L12 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </span>
+        )}
+      </span>
     </NodeViewWrapper>
+  );
+}
+
+function ImgBtn({
+  title, active, variant, onClick, children,
+}: {
+  title: string;
+  active?: boolean;
+  variant?: 'danger';
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className="img-toolbar__btn"
+      data-active={active || undefined}
+      data-variant={variant || undefined}
+      title={title}
+      aria-label={title}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -277,16 +328,10 @@ const ResizableImage = Node.create({
       alt: { default: null },
       title: { default: null },
       width: { default: 'auto' },
-      rotation: {
-        default: 0,
-        parseHTML: (element) => parseInt(element.getAttribute('data-rotation') || '0', 10),
-        renderHTML: (attributes) => {
-          if (!attributes.rotation) return {};
-          return {
-            'data-rotation': attributes.rotation,
-            style: `transform: rotate(${attributes.rotation}deg);`,
-          };
-        },
+      align: {
+        default: 'left',
+        parseHTML: (element) => element.getAttribute('data-align') || 'left',
+        renderHTML: (attributes) => (attributes.align ? { 'data-align': attributes.align } : {}),
       },
     };
   },

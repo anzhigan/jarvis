@@ -440,16 +440,30 @@
   font-style: italic;
 }
 
-.doc-body p { margin: 0 0 22px; }
+.doc-body p { margin: 0 0 6px; }
+/* Tight wrappers around inline media — image/file/math paragraphs collapse
+   their normal text-block bottom margin so the next line sits right under. */
+.doc-body p:has(> img:only-child),
+.doc-body p:has(> .rt-file-attachment:only-child),
+.doc-body p:has(> [data-inline-math]:only-child) {
+  margin: 0;
+  line-height: 0;
+}
 .doc-body em { font-style: italic; }
-.doc-body strong { font-weight: 600; color: var(--ink); }
+/* No `color` on <strong> — see headings note above. Inline color from the
+   editor's color picker must win for bold+colored text in any order. */
+.doc-body strong { font-weight: 600; }
 
+/* No `color` here on purpose — headings inherit from `.doc-body`, which lets
+   inline `style="color: var(--…)"` applied via the editor's color picker show
+   through. Setting heading color here breaks color-on-selection inside
+   headings (the outer `<h1 style="color: …">` painted via this rule would
+   bleed through the lower-specificity inherited color of inner span text). */
 .doc-body h1,
 .doc-body h2,
 .doc-body h3 {
   font-family: var(--font-display);
   font-weight: 500;
-  color: var(--ink);
   letter-spacing: var(--tracking-tight);
 }
 .doc-body h1 { font-size: 36px; line-height: 1.15; margin: 48px 0 22px; }
