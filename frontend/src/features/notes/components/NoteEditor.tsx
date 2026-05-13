@@ -112,6 +112,12 @@ interface ToolbarProps { editor: Editor; helpers: EditorHelpers | null }
  * verbatim as `style="color: var(--…)"`, which means colors automatically follow
  * theme changes (light → dark) instead of being frozen to the hex captured at
  * insert time. No hex literals here — the design system is the single source.
+ *
+ * Semantic colors (`--warning`/`--success`/`--info`) are deliberate aliases of
+ * `--accent-goals`/`--accent-routines`/`--accent-sprints`, so showing them as
+ * separate swatches would just be visual duplicates. Only `--danger` and
+ * `--fg-muted` are unique outside the tab-accents group, so they share the
+ * "Semantic & muted" row.
  */
 type ColorSwatch = { name: string; token: string };
 const NTB_COLOR_GROUPS: { label: string; colors: ColorSwatch[] }[] = [
@@ -126,17 +132,9 @@ const NTB_COLOR_GROUPS: { label: string; colors: ColorSwatch[] }[] = [
     ],
   },
   {
-    label: 'Semantic',
+    label: 'Semantic & muted',
     colors: [
-      { name: 'Danger',  token: '--danger'  },
-      { name: 'Warning', token: '--warning' },
-      { name: 'Success', token: '--success' },
-      { name: 'Info',    token: '--info'    },
-    ],
-  },
-  {
-    label: 'Muted',
-    colors: [
+      { name: 'Danger',  token: '--danger'   },
       { name: 'Muted',   token: '--fg-muted' },
     ],
   },

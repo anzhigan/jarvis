@@ -11,6 +11,10 @@
  *  - The bar is portaled to <body> so it isn't clipped by ancestors with
  *    `transform` / `overflow: hidden`.
  */
+/* NB: Per-color palette is defined in `NoteEditor.tsx` (the desktop bubble
+   toolbar). The mobile bar here is intentionally text-formatting-only and
+   doesn't expose a color picker because the bubble menu already handles
+   color in the same selection context. */
 import { memo, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditorState } from '@tiptap/react';

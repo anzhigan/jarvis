@@ -229,7 +229,7 @@
   color: var(--accent-notes-fg);
 }
 .img-block .img-toolbar__btn[data-variant="danger"]:hover {
-  background: var(--danger-soft);
+  background: var(--danger-bg);
   color: var(--danger);
 }
 

@@ -143,15 +143,18 @@
   --primary-fg: var(--bg-elevated);
 
   /* ── Semantic ────────────────────────────────────────────────────────── */
-  --success:      #10B981;
-  --success-bg:   rgba(16, 185, 129, 0.10);
-  --warning:      #F59E0B;
-  --warning-bg:   rgba(245, 158, 11, 0.12);
+  /* Semantic colors are deliberate aliases of the matching tab accent so a
+     single hue change automatically flows through both "this is the goals
+     tab" and "this is a warning". Only `--danger` has no accent counterpart
+     and carries its own hex. */
+  --success:      var(--accent-routines);
+  --success-bg:   var(--accent-routines-bg);
+  --warning:      var(--accent-goals);
+  --warning-bg:   var(--accent-goals-bg);
+  --info:         var(--accent-sprints);
+  --info-bg:      var(--accent-sprints-bg);
   --danger:       #EF4444;
   --danger-bg:    rgba(239, 68, 68, 0.10);
-  --danger-soft:  rgba(239, 68, 68, 0.10);
-  --info:         #06B6D4;
-  --info-bg:      rgba(6, 182, 212, 0.10);
 
   /* ── Shadows (light) ─────────────────────────────────────────────────── */
   --sh-card:       0 0 0 0.5px var(--line), 0 1px 2px rgba(24, 24, 27, 0.04);
@@ -183,7 +186,7 @@
   --accent-foreground:    var(--fg-primary);
   --destructive:          var(--danger);
   --destructive-foreground: #FFFFFF;
-  --destructive-soft:     rgba(239, 68, 68, 0.10);
+  --destructive-soft:     var(--danger-bg);
   --border:               var(--line);
   --input:                var(--line);
   --input-background:     var(--bg-input);
@@ -407,15 +410,15 @@
   --primary:    var(--fg-primary);
   --primary-fg: #09090B;
 
-  --success:     #34D399;
-  --success-bg:  rgba(52, 211, 153, 0.16);
-  --warning:     #FBBF24;
-  --warning-bg:  rgba(251, 191, 36, 0.16);
+  /* Semantic aliases mirror the dark accents (see :root for rationale). */
+  --success:     var(--accent-routines);
+  --success-bg:  var(--accent-routines-bg);
+  --warning:     var(--accent-goals);
+  --warning-bg:  var(--accent-goals-bg);
+  --info:        var(--accent-sprints);
+  --info-bg:     var(--accent-sprints-bg);
   --danger:      #F87171;
   --danger-bg:   rgba(248, 113, 113, 0.16);
-  --danger-soft: rgba(248, 113, 113, 0.16);
-  --info:        #22D3EE;
-  --info-bg:     rgba(34, 211, 238, 0.16);
 
   --sh-card:       0 0 0 0.5px var(--line), 0 1px 2px rgba(0, 0, 0, 0.30);
   --sh-card-hover: 0 0 0 0.5px var(--line-strong), 0 4px 12px rgba(0, 0, 0, 0.45);
