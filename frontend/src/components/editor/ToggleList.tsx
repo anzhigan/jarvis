@@ -35,13 +35,26 @@ function ToggleListView({ node, getPos, editor }: any) {
     setIsOpen(node.attrs.open !== false);
   }, [node.attrs.open]);
 
-  const stopAndPrevent = (e: React.SyntheticEvent) => {
+  // ⚠️ DO NOT call e.preventDefault() inside pointerdown. The Pointer Events
+  // spec says: if pointerdown's default is prevented, the browser MUST skip
+  // the subsequent mousedown / mouseup / click. That kills the toggle.
+  // Strategy:
+  //   pointerdown — only stopPropagation (hide event from ProseMirror).
+  //   mousedown   — preventDefault (so the editor caret doesn't move to the
+  //                 button) + stopPropagation. Safe — preventDefault on
+  //                 mousedown does NOT cancel click.
+  //   click       — preventDefault + stopPropagation + actually toggle.
+  const swallowPointer = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+  };
+  const swallowMouseDown = (e: React.SyntheticEvent) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
   const onToggle = (e: React.MouseEvent) => {
-    stopAndPrevent(e);
+    e.preventDefault();
+    e.stopPropagation();
     const next = !isOpen;
     setIsOpen(next);                          // optimistic, paints immediately
     if (typeof getPos !== 'function') return;
@@ -70,8 +83,8 @@ function ToggleListView({ node, getPos, editor }: any) {
           aria-expanded={isOpen}
           aria-label={isOpen ? 'Collapse toggle' : 'Expand toggle'}
           tabIndex={-1}
-          onMouseDown={stopAndPrevent}
-          onPointerDown={stopAndPrevent}
+          onPointerDown={swallowPointer}
+          onMouseDown={swallowMouseDown}
           onClick={onToggle}
           style={!editor?.isEditable ? { pointerEvents: 'none' } : undefined}
         >
