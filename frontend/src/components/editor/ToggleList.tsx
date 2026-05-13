@@ -43,10 +43,14 @@ function ToggleListView({ node, getPos, editor }: any) {
   // re-render is somehow stalled.
   const doToggle = () => {
     const next = !isOpenRef.current;
+    // eslint-disable-next-line no-console
+    console.log('[toggle-list] doToggle fired, next open =', next, 'wrapper =', wrapperRef.current);
     isOpenRef.current = next;
     setIsOpen(next);
     if (wrapperRef.current) {
       wrapperRef.current.setAttribute('data-open', next ? 'true' : 'false');
+      wrapperRef.current.classList.toggle('editor-toggle--open',  next);
+      wrapperRef.current.classList.toggle('editor-toggle--closed', !next);
     }
     const gp = getPosRef.current;
     if (typeof gp !== 'function') return;
@@ -86,10 +90,16 @@ function ToggleListView({ node, getPos, editor }: any) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);  // attach once — handlers read latest state via refs.
 
+  // Brute-force: use BOTH a class (`editor-toggle--open` / `editor-toggle--closed`)
+  // AND `data-open` attribute. Lets the CSS match by class selector with
+  // `!important`, sidestepping any potential specificity / attribute-overwrite
+  // bug from Tiptap or ProseMirror decorations.
+  const stateClass = isOpen ? 'editor-toggle--open' : 'editor-toggle--closed';
+
   return (
     <NodeViewWrapper
       ref={wrapperRef}
-      className="editor-toggle"
+      className={`editor-toggle ${stateClass}`}
       data-open={isOpen ? 'true' : 'false'}
     >
       <span className="editor-toggle__chevron-cell" contentEditable={false}>
@@ -100,10 +110,6 @@ function ToggleListView({ node, getPos, editor }: any) {
           aria-expanded={isOpen}
           aria-label={isOpen ? 'Collapse toggle' : 'Expand toggle'}
           tabIndex={-1}
-          // React handler is a BACKUP — if native capture listener somehow
-          // didn't fire (older browser, custom event polyfill, etc), React
-          // will still toggle. stopImmediatePropagation in the native handler
-          // prevents double-fire in the normal path.
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); doToggle(); }}
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           style={!editor?.isEditable ? { pointerEvents: 'none' } : undefined}

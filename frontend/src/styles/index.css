@@ -1192,6 +1192,11 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   background: var(--bg-hover);
   color: var(--fg-primary);
 }
+/* Belt-and-suspenders: state is signaled via BOTH a className modifier and a
+   data-open attribute. Class-based rules with !important win regardless of
+   whether Tiptap/ProseMirror messes with the data-open attribute. */
+.editor-toggle--open  .editor-toggle__chevron { transform: rotate(90deg) !important; }
+.editor-toggle--closed .editor-toggle__chevron { transform: rotate(0deg)  !important; }
 .editor-toggle[data-open="true"]  .editor-toggle__chevron { transform: rotate(90deg); }
 .editor-toggle[data-open="false"] .editor-toggle__chevron { transform: rotate(0deg); }
 
@@ -1227,9 +1232,8 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 }
 .editor-toggle__body > *:first-child { margin-top: 0; }
 .editor-toggle__body > *:last-child  { margin-bottom: 0; }
-.editor-toggle[data-open="false"] > .editor-toggle__inner > .editor-toggle__body {
-  display: none;
-}
+.editor-toggle--closed .editor-toggle__body { display: none !important; }
+.editor-toggle[data-open="false"] .editor-toggle__body { display: none; }
 
 @keyframes rt-spin { to { transform: rotate(360deg); } }
 .rt-spin { animation: rt-spin 1s linear infinite; }
