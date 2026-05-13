@@ -33,7 +33,8 @@
   line-height: 1;
 }
 
-.ProseMirror p { font-size: inherit; min-height: 1.5em; color: var(--fg-secondary); }
+.ProseMirror p { font-size: inherit; min-height: 1.5em; color: #2C2B27; }
+[data-theme="dark"] .ProseMirror p { color: var(--fg-secondary); }
 
 .ProseMirror p.is-empty::before {
   content: attr(data-placeholder);
