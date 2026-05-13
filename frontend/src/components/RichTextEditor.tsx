@@ -1,4 +1,4 @@
-import { useEditor, EditorContent, Extension, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
+import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Underline } from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -74,43 +74,6 @@ function isSupportedAttachment(file: File): boolean {
 }
 
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
-
-// Custom font size extension
-const FontSize = Extension.create({
-  name: 'fontSize',
-  addOptions() {
-    return { types: ['textStyle'] };
-  },
-  addGlobalAttributes() {
-    return [
-      {
-        types: this.options.types,
-        attributes: {
-          fontSize: {
-            default: null,
-            parseHTML: (element) => element.style.fontSize || null,
-            renderHTML: (attributes) => {
-              if (!attributes.fontSize) return {};
-              return { style: `font-size: ${attributes.fontSize}` };
-            },
-          },
-        },
-      },
-    ];
-  },
-  addCommands() {
-    return {
-      setFontSize:
-        (fontSize: string) =>
-        ({ chain }) =>
-          chain().setMark('textStyle', { fontSize }).run(),
-      unsetFontSize:
-        () =>
-        ({ chain }) =>
-          chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run(),
-    };
-  },
-});
 
 // ─── Resizable Image (Notion/Figma-style hover toolbar) ────────────────────
 function ResizableImageView({
@@ -512,7 +475,6 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       Underline,
       TextStyle,
       Color,
-      FontSize,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       ResizableImage,
       Placeholder.configure({
@@ -796,7 +758,6 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
     setDialogExtra({ prevUrl: prev });
     setDialog('link');
   }, [editor]);
-  const dismissKeyboard = useCallback(() => editor?.commands.blur(), [editor]);
 
   if (!editor) return null;
 
@@ -859,9 +820,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
     {editable && isMobile && editorFocused && (
       <EditorToolbar
         editor={editor}
-        variant="mobile"
         onInsertLink={openLink}
-        onDismissKeyboard={dismissKeyboard}
         bottomOffset={kbHeight}
       />
     )}
