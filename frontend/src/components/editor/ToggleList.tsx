@@ -101,6 +101,53 @@ export const ToggleList = Node.create({
             .run(),
     } as any;
   },
+
+  /**
+   * Keyboard ergonomics:
+   *   • Backspace at start of an EMPTY toggleSummary
+   *   • Delete at start of an EMPTY toggleSummary  (forward delete)
+   * Both delete the entire toggleList. This matches Notion: hit Backspace
+   * on an unwanted toggle and it goes away in one keystroke. Without this,
+   * `defining`+`isolating` on the toggleList block prevents the default
+   * delete behavior, so users get stuck.
+   */
+  addKeyboardShortcuts() {
+    const deleteHostToggleIfEmptySummary = (): boolean => {
+      const editor = this.editor;
+      const { state } = editor;
+      const { selection } = state;
+      if (!selection.empty) return false;
+      const $from = selection.$from;
+      // Walk up the ancestor chain until we find toggleSummary; verify it's
+      // empty AND that the caret is at offset 0 (start of summary).
+      for (let d = $from.depth; d > 0; d--) {
+        const node = $from.node(d);
+        if (node.type.name === 'toggleSummary') {
+          if (node.content.size > 0) return false;
+          if ($from.parentOffset !== 0) return false;
+          // Find the enclosing toggleList one level up.
+          for (let dd = d - 1; dd >= 0; dd--) {
+            const outer = $from.node(dd);
+            if (outer.type.name === 'toggleList') {
+              const pos = $from.before(dd);
+              editor
+                .chain()
+                .focus()
+                .deleteRange({ from: pos, to: pos + outer.nodeSize })
+                .run();
+              return true;
+            }
+          }
+          return false;
+        }
+      }
+      return false;
+    };
+    return {
+      Backspace: deleteHostToggleIfEmptySummary,
+      Delete:    deleteHostToggleIfEmptySummary,
+    };
+  },
 });
 
 export const ToggleSummary = Node.create({

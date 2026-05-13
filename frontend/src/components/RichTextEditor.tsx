@@ -515,7 +515,18 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       FontSize,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       ResizableImage,
-      Placeholder.configure({ placeholder: 'Begin writing...' }),
+      Placeholder.configure({
+        // Per-node placeholders: empty toggle-list summaries display "Toggle"
+        // so the user knows what to type; empty top-level paragraphs keep the
+        // generic editor prompt. `includeChildren: true` makes the Placeholder
+        // plugin descend into nested nodes (toggleSummary is a child of
+        // toggleList) so its `is-empty` class fires properly.
+        placeholder: ({ node }) => {
+          if (node.type.name === 'toggleSummary') return 'Toggle';
+          return 'Begin writing...';
+        },
+        includeChildren: true,
+      }),
       Link.configure({
         openOnClick: false,           // handled by our custom click; prevents nav while editing
         autolink: true,

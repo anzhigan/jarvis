@@ -1193,12 +1193,23 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .editor-toggle__summary {
   min-height: 28px;
   padding: 3px 0;
-  line-height: 1.5;
+  line-height: 1.4;
+  /* Heading-like presentation: a slightly larger, semibold sentence so the
+     summary visually reads as the toggle's title (not as body text). */
+  font-weight: 600;
+  font-size: 1.05em;
+  color: var(--fg-primary);
 }
-.editor-toggle__summary:empty::before {
-  content: 'Toggle';
+/* Placeholder rendered by Tiptap's Placeholder extension when the summary is
+   empty (the extension adds the `is-empty` class and `data-placeholder` attr
+   for any empty node, since we configured `includeChildren: true`). */
+.editor-toggle__summary.is-empty::before {
+  content: attr(data-placeholder);
   color: var(--fg-muted);
+  font-weight: 400;
   pointer-events: none;
+  float: left;
+  height: 0;
 }
 .editor-toggle__body {
   margin-top: 2px;
