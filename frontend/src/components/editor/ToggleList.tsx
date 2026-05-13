@@ -23,9 +23,17 @@ import { NodeViewWrapper, NodeViewContent, ReactNodeViewRenderer } from '@tiptap
 
 function ToggleListView({ node, updateAttributes, editor }: any) {
   const isOpen = node.attrs.open !== false;
-  const onToggle = (e: React.MouseEvent) => {
+  // Note: stopPropagation on BOTH mousedown AND click — otherwise ProseMirror
+  // gets the event, may collapse the selection or focus the editor, and the
+  // toggle behavior misfires. preventDefault on mousedown keeps the page from
+  // shifting focus to the button itself (we never want it focused — caret
+  // stays where the user left it).
+  const stopAndPrevent = (e: React.SyntheticEvent) => {
     e.preventDefault();
     e.stopPropagation();
+  };
+  const onToggle = (e: React.MouseEvent) => {
+    stopAndPrevent(e);
     updateAttributes({ open: !isOpen });
   };
   return (
@@ -36,10 +44,8 @@ function ToggleListView({ node, updateAttributes, editor }: any) {
         className="editor-toggle__chevron"
         aria-expanded={isOpen}
         aria-label={isOpen ? 'Collapse toggle' : 'Expand toggle'}
-        onMouseDown={(e) => e.preventDefault()}
+        onMouseDown={stopAndPrevent}
         onClick={onToggle}
-        // Hide from non-editable views in a clean way: button still in DOM
-        // so layout stays stable, but pointer-events disabled.
         style={!editor?.isEditable ? { pointerEvents: 'none' } : undefined}
       >
         <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
@@ -56,7 +62,6 @@ export const ToggleList = Node.create({
   group: 'block',
   content: 'toggleSummary toggleContent',
   defining: true,
-  isolating: true,
 
   addAttributes() {
     return {
@@ -165,6 +170,54 @@ export const ToggleSummary = Node.create({
       mergeAttributes(HTMLAttributes, { 'data-toggle-summary': '', class: 'editor-toggle__summary' }),
       0,
     ];
+  },
+
+  /**
+   * Enter in the toggle's title jumps to the body (and opens the toggle if it
+   * was collapsed) — matches Notion. Without this, ProseMirror's default Enter
+   * tries to split toggleSummary, which the schema (`toggleSummary toggleContent`)
+   * forbids, so the keystroke either does nothing or pushes a sibling out of
+   * the toggleList — confusing.
+   */
+  addKeyboardShortcuts() {
+    return {
+      Enter: () => {
+        const editor = this.editor;
+        const { state } = editor;
+        const { $from, empty } = state.selection;
+        if (!empty) return false;
+        if ($from.parent.type.name !== 'toggleSummary') return false;
+
+        // Find the enclosing toggleList and the position math we'll need.
+        for (let d = $from.depth - 1; d >= 0; d--) {
+          const toggleList = $from.node(d);
+          if (toggleList.type.name !== 'toggleList') continue;
+          const listPos = $from.before(d);
+          const summaryNode = toggleList.child(0);   // toggleSummary
+          // Position INSIDE the first paragraph of toggleContent.
+          //   listPos              — before toggleList opens
+          //   +1                   — inside toggleList (before summary)
+          //   +summaryNode.nodeSize — skip past summary
+          //   +1                   — inside toggleContent (before first child)
+          //   +1                   — inside that first child (offset 0)
+          const target = listPos + 1 + summaryNode.nodeSize + 1 + 1;
+
+          editor
+            .chain()
+            .focus()
+            .command(({ tr }) => {
+              if (toggleList.attrs.open === false) {
+                tr.setNodeMarkup(listPos, undefined, { ...toggleList.attrs, open: true });
+              }
+              return true;
+            })
+            .setTextSelection(target)
+            .run();
+          return true;
+        }
+        return false;
+      },
+    };
   },
 });
 
