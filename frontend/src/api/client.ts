@@ -1,5 +1,6 @@
 import type {
   Note,
+  NoteAttachment,
   NoteImage,
   Tag,
   Task,
@@ -24,7 +25,11 @@ function originOf(base: string): string {
   return base.replace(/\/api(?:\/v\d+)?\/?$/, '');
 }
 
-const IMAGE_PATH_RE = /\/api(?:\/v\d+)?\/images\//;
+// Auth-protected asset paths served by the backend: images and file attachments.
+// Both need a ?token=… query parameter so that <img>/<a> elements (which can't
+// send an Authorization header) authenticate against the API.
+const ASSET_PATH_RE = /\/api(?:\/v\d+)?\/(?:images|attachments)\//;
+const ASSET_URL_RE  = /(\/api(?:\/v\d+)?\/(?:images|attachments)\/[^"'\s?]+)(\?[^"'\s]*)?/g;
 
 export function resolveUrl(url: string | null | undefined): string {
   if (!url) return '';
@@ -35,9 +40,7 @@ export function resolveUrl(url: string | null | undefined): string {
     const origin = originOf(BASE_URL);
     resolved = url.startsWith('/') ? `${origin}${url}` : `${origin}/${url}`;
   }
-  // /api/images/... and /api/v1/images/... both require an access token query
-  // param so <img> tags (which can't send Authorization headers) authenticate.
-  if (IMAGE_PATH_RE.test(resolved)) {
+  if (ASSET_PATH_RE.test(resolved)) {
     const token = typeof localStorage !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (token && !resolved.includes('token=')) {
       resolved += (resolved.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
@@ -46,18 +49,21 @@ export function resolveUrl(url: string | null | undefined): string {
   return resolved;
 }
 
-/** Strip ?token=... from /api/images/... and /api/v1/images/... URLs before persisting. */
+/** Strip ?token=... from /api/images/... and /api/attachments/... URLs before persisting. */
 export function stripImageToken(html: string): string {
-  return html.replace(/(\/api(?:\/v\d+)?\/images\/[^"'\s?]+)\?token=[^"'\s&]+(&[^"'\s]*)?/g, '$1$2');
+  return html.replace(
+    /(\/api(?:\/v\d+)?\/(?:images|attachments)\/[^"'\s?]+)\?token=[^"'\s&]+(&[^"'\s]*)?/g,
+    '$1$2',
+  );
 }
 
-/** Append ?token=... to /api/images/... and /api/v1/images/... URLs in HTML before rendering. */
+/** Append ?token=... to /api/images/... and /api/attachments/... URLs in HTML before rendering. */
 export function injectImageToken(html: string): string {
   if (typeof localStorage === 'undefined') return html;
   const token = localStorage.getItem('access_token');
   if (!token) return html;
   const enc = encodeURIComponent(token);
-  return html.replace(/(\/api(?:\/v\d+)?\/images\/[^"'\s?]+)(\?[^"'\s]*)?/g, (_m, path, query) => {
+  return html.replace(ASSET_URL_RE, (_m, path, query) => {
     if (query && query.includes('token=')) return path + query;
     if (query) return `${path}${query}&token=${enc}`;
     return `${path}?token=${enc}`;
@@ -190,6 +196,13 @@ export const notesApi = {
     form.append('file', file);
     return request<NoteImage>(`/notes/${noteId}/images`, { method: 'POST', body: form });
   },
+  uploadAttachment: (noteId: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<NoteAttachment>(`/notes/${noteId}/attachments`, { method: 'POST', body: form });
+  },
+  deleteAttachment: (noteId: string, attachmentId: string) =>
+    request<void>(`/notes/${noteId}/attachments/${attachmentId}`, { method: 'DELETE' }),
   attachTag: (noteId: string, tagId: string) =>
     request<void>(`/notes/${noteId}/tags/${tagId}`, { method: 'POST' }),
   detachTag: (noteId: string, tagId: string) =>

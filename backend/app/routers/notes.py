@@ -25,9 +25,10 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.rate_limit import limiter
 from app.core.security import decode_token
-from app.models.notes import Note, NoteImage, NoteShare, Topic, Way
+from app.models.notes import Note, NoteAttachment, NoteImage, NoteShare, Topic, Way
 from app.models.user import User
 from app.schemas.notes import (
+    AttachmentOut,
     ImageOut,
     NoteCreate,
     NoteOut,
@@ -42,7 +43,14 @@ from app.schemas.notes import (
     WayOut,
     WayUpdate,
 )
-from app.services.s3 import delete_image, get_image_bytes, upload_image
+from app.services.s3 import (
+    delete_attachment,
+    delete_image,
+    get_attachment_bytes,
+    get_image_bytes,
+    upload_attachment,
+    upload_image,
+)
 
 router = APIRouter(tags=["notes"])
 
@@ -103,7 +111,11 @@ async def _get_note_or_404(note_id: uuid.UUID, user: User, db: AsyncSession) -> 
         )
         .where(Note.id == note_id)
         .where(way_alias.c.user_id == user.id)
-        .options(selectinload(Note.images), selectinload(Note.tags))
+        .options(
+            selectinload(Note.images),
+            selectinload(Note.attachments),
+            selectinload(Note.tags),
+        )
     )
     note = (await db.execute(stmt)).scalar_one_or_none()
     if not note:
@@ -237,7 +249,7 @@ async def create_note(
     note = Note(**body.model_dump())
     db.add(note)
     await db.flush()
-    await db.refresh(note, ["images", "tags"])
+    await db.refresh(note, ["images", "attachments", "tags"])
     return note
 
 
@@ -308,9 +320,11 @@ async def delete_note(
     db: AsyncSession = Depends(get_db),
 ):
     note = await _get_note_or_404(note_id, user, db)
-    # Clean up S3 images first (best-effort, parallel)
-    if note.images:
-        await asyncio.gather(*(delete_image(img.s3_key) for img in note.images))
+    # Clean up S3 objects first (best-effort, parallel)
+    cleanup = [delete_image(img.s3_key) for img in note.images]
+    cleanup += [delete_attachment(a.s3_key) for a in note.attachments]
+    if cleanup:
+        await asyncio.gather(*cleanup)
     await db.delete(note)
 
 
@@ -431,6 +445,141 @@ async def delete_note_image(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
     await delete_image(img.s3_key)
     await db.delete(img)
+
+
+# ─── Attachments (xlsx / docx / pdf / csv …) ─────────────────────────────────
+
+@router.post(
+    "/notes/{note_id}/attachments",
+    response_model=AttachmentOut,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("30/minute")
+async def upload_note_attachment(
+    request: Request,
+    note_id: uuid.UUID,
+    file: UploadFile,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_note_or_404(note_id, user, db)
+    s3_key, _, mime_type, size = await upload_attachment(file, note_id)
+
+    # Served through our API to keep auth/CORS consistent and let us authorize
+    # downloads against note ownership. Same pattern as /api/images/.
+    public_url = f"/api/attachments/{s3_key}"
+
+    record = NoteAttachment(
+        note_id=note_id,
+        s3_key=s3_key,
+        url=public_url,
+        filename=file.filename or "file",
+        mime_type=mime_type,
+        size_bytes=size,
+    )
+    db.add(record)
+    await db.flush()
+    return record
+
+
+@router.get("/attachments/{s3_key:path}")
+async def serve_attachment(
+    s3_key: str,
+    token: str = Query(
+        ...,
+        description="Access JWT — passed as query so links can be opened directly.",
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Streams attachment bytes from S3 after verifying the requester owns the note.
+
+    Auth: a short-lived access JWT is passed as ?token=... — same scheme as
+    /api/images, so plain <a href> links work in the rich-text editor.
+    Cache-Control is `private` so shared caches don't store tokenized URLs.
+    """
+    try:
+        payload = decode_token(token)
+        user_id = payload.get("sub")
+        token_type = payload.get("type", "access")
+        if not user_id or token_type != "access":
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    except JWTError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+
+    # Key layout: notes/{note_id}/attachments/{uuid}.{ext}
+    parts = s3_key.split("/", 3)
+    if len(parts) < 3 or parts[0] != "notes" or parts[2] != "attachments":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found")
+    try:
+        note_uuid = uuid.UUID(parts[1])
+    except ValueError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found")
+
+    note_row = (
+        await db.execute(select(Note).where(Note.id == note_uuid))
+    ).scalar_one_or_none()
+    if not note_row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found")
+    if note_row.way_id:
+        owns = (
+            await db.execute(
+                select(Way.id).where(Way.id == note_row.way_id, Way.user_id == user_id)
+            )
+        ).scalar_one_or_none()
+    else:
+        tid = note_row.topic_id or note_row.topic_inline_id
+        owns = (
+            await db.execute(
+                select(Topic.id).join(Way).where(Topic.id == tid, Way.user_id == user_id)
+            )
+        ).scalar_one_or_none()
+    if not owns:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your attachment")
+
+    # Look up the stored filename so the browser uses it in the Save dialog.
+    att_row = (
+        await db.execute(
+            select(NoteAttachment).where(NoteAttachment.s3_key == s3_key)
+        )
+    ).scalar_one_or_none()
+    filename = att_row.filename if att_row else parts[-1]
+
+    data, content_type = await get_attachment_bytes(s3_key)
+    # `inline` lets browsers preview PDFs in a new tab; for office formats the
+    # browser falls back to download. Either way Content-Disposition preserves
+    # the original filename.
+    safe = filename.replace('"', "")
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "Content-Disposition": f'inline; filename="{safe}"',
+        },
+    )
+
+
+@router.delete(
+    "/notes/{note_id}/attachments/{attachment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_note_attachment(
+    note_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_note_or_404(note_id, user, db)
+    result = await db.execute(
+        select(NoteAttachment).where(
+            NoteAttachment.id == attachment_id, NoteAttachment.note_id == note_id
+        )
+    )
+    att = result.scalar_one_or_none()
+    if not att:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found")
+    await delete_attachment(att.s3_key)
+    await db.delete(att)
 
 
 # ─── Public sharing ──────────────────────────────────────────────────────────

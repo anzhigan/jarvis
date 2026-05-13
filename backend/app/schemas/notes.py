@@ -125,6 +125,18 @@ class ImageOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Attachment ────────────────────────────────────────────────────────────────
+
+class AttachmentOut(BaseModel):
+    id: uuid.UUID
+    url: str
+    filename: str
+    mime_type: str
+    size_bytes: int
+
+    model_config = {"from_attributes": True}
+
+
 # ── Share ─────────────────────────────────────────────────────────────────────
 
 class ShareOut(BaseModel):

@@ -20,6 +20,7 @@ import EditorToolbar from './EditorToolbar';
 import LinkInsertSheet from './editor/LinkInsertSheet';
 import MathInsertSheet from './editor/MathInsertSheet';
 import TableInsertSheet from './editor/TableInsertSheet';
+import { FileAttachment, FILE_ACCEPT, KNOWN_EXTENSIONS } from './editor/FileAttachment';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { loadEditorHeavy, getKatex, type EditorHeavy } from './editor/editorHeavy';
@@ -61,6 +62,17 @@ async function resizeImage(file: File, maxDim = 1600, quality = 0.85): Promise<F
   const ext = isPng ? 'png' : 'jpg';
   return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.' + ext, { type: blob.type });
 }
+
+// Allow list shared between the file picker, paste, and drop handlers. Keep in
+// sync with backend/app/services/s3.py:ATTACHMENT_EXTENSIONS.
+function isSupportedAttachment(file: File): boolean {
+  const name = (file.name || '').toLowerCase();
+  const dot = name.lastIndexOf('.');
+  const ext = dot >= 0 ? name.slice(dot + 1) : '';
+  return KNOWN_EXTENSIONS.has(ext);
+}
+
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 // Custom font size extension
 const FontSize = Extension.create({
@@ -374,6 +386,7 @@ export interface EditorHelpers {
   openTable: () => void;
   openMath: () => void;
   openImage: () => void;
+  openFile: () => void;
 }
 
 interface RichTextEditorProps {
@@ -391,7 +404,9 @@ interface RichTextEditorProps {
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 export default function RichTextEditor({ noteId, content, onChange, children, editable = true, onEditorReady }: RichTextEditorProps) {
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
   const [dialogExtra, setDialogExtra] = useState<{ prevUrl?: string }>({});
 
@@ -400,6 +415,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
   // ref that we keep in sync.
   const editorRef = useRef<Editor | null>(null);
   const uploadAndInsertRef = useRef<(file: File, at?: number) => Promise<boolean>>(async () => false);
+  const uploadAndInsertFileRef = useRef<(file: File, at?: number) => Promise<boolean>>(async () => false);
 
   // Heavy extensions (KaTeX + Lowlight + 9 highlight.js languages) are
   // dynamically imported so they ship as their own chunk, not inside the
@@ -463,6 +479,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       TaskItem.configure({ nested: true, HTMLAttributes: { class: 'editor-task-item' } }),
       heavy?.codeBlockExtension,
       InlineMath,
+      FileAttachment,
     ].filter(Boolean) as any[],
     content: injectImageToken(content),
     onUpdate: ({ editor }) => onChange(stripImageToken(editor.getHTML())),
@@ -505,8 +522,10 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         if (moved) return false; // internal node drag — let Tiptap handle it
         const dt = (event as DragEvent).dataTransfer;
         if (!dt || !dt.files || dt.files.length === 0) return false;
-        const files = Array.from(dt.files).filter((f) => f.type.startsWith('image/'));
-        if (files.length === 0) return false;
+        const all = Array.from(dt.files);
+        const images = all.filter((f) => f.type.startsWith('image/'));
+        const attachments = all.filter((f) => !f.type.startsWith('image/') && isSupportedAttachment(f));
+        if (images.length === 0 && attachments.length === 0) return false;
         event.preventDefault();
         const coords = view.posAtCoords({
           left: (event as DragEvent).clientX,
@@ -514,37 +533,44 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         });
         void (async () => {
           let insertAt = coords?.pos;
-          for (const f of files) {
+          for (const f of images) {
             const ok = await uploadAndInsertRef.current(f, insertAt);
             if (ok && typeof insertAt === 'number') insertAt += 1; // advance past the inline image node
+          }
+          for (const f of attachments) {
+            const ok = await uploadAndInsertFileRef.current(f, insertAt);
+            if (ok && typeof insertAt === 'number') insertAt += 1;
           }
         })();
         return true;
       },
-      // Paste image from clipboard (Cmd+V after Cmd+Shift+4 on macOS).
+      // Paste from clipboard: images (screenshots) AND supported attachments
+      // (e.g. drag a .xlsx from Finder → cmd-c → cmd-v).
       handlePaste: (_view, event) => {
         const cd = (event as ClipboardEvent).clipboardData;
         if (!cd) return false;
-        const files: File[] = [];
+        const images: File[] = [];
+        const attachments: File[] = [];
+        const collect = (f: File) => {
+          if (f.type.startsWith('image/')) images.push(f);
+          else if (isSupportedAttachment(f)) attachments.push(f);
+        };
         if (cd.files && cd.files.length) {
-          for (const f of Array.from(cd.files)) {
-            if (f.type.startsWith('image/')) files.push(f);
-          }
+          for (const f of Array.from(cd.files)) collect(f);
         }
-        if (files.length === 0 && cd.items) {
+        if (images.length === 0 && attachments.length === 0 && cd.items) {
           for (const it of Array.from(cd.items)) {
-            if (it.kind === 'file' && it.type.startsWith('image/')) {
+            if (it.kind === 'file') {
               const f = it.getAsFile();
-              if (f) files.push(f);
+              if (f) collect(f);
             }
           }
         }
-        if (files.length === 0) return false;
+        if (images.length === 0 && attachments.length === 0) return false;
         event.preventDefault();
         void (async () => {
-          for (const f of files) {
-            await uploadAndInsertRef.current(f);
-          }
+          for (const f of images) await uploadAndInsertRef.current(f);
+          for (const f of attachments) await uploadAndInsertFileRef.current(f);
         })();
         return true;
       },
@@ -585,6 +611,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       },
       openMath:  () => setDialog('math'),
       openImage: () => fileInputRef.current?.click(),
+      openFile:  () => attachmentInputRef.current?.click(),
     });
   }, [editor, onEditorReady]);
 
@@ -635,10 +662,59 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
     }
   }, [noteId]);
 
+  // Same shape as uploadAndInsertImage, but for office/pdf attachments.
+  // Inserts a FileAttachment inline node at the given doc position (or the
+  // current selection) once the file is uploaded.
+  const uploadAndInsertFile = useCallback(async (file: File, at?: number): Promise<boolean> => {
+    const ed = editorRef.current;
+    if (!ed) return false;
+    if (!isSupportedAttachment(file)) {
+      toast.error('Unsupported file type. Allowed: PDF, XLSX, XLS, DOCX, DOC, CSV');
+      return false;
+    }
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error('File too large (max 25 MB)');
+      return false;
+    }
+    setUploadingFile(true);
+    try {
+      const result = await notesApi.uploadAttachment(noteId, file);
+      // Token-bearing URL so the user can click the card and download right
+      // away. stripImageToken() strips this back to the bare URL on save and
+      // injectImageToken() re-adds the token when content is reloaded.
+      const token = typeof localStorage !== 'undefined'
+        ? localStorage.getItem('access_token')
+        : null;
+      const url = token
+        ? `${result.url}?token=${encodeURIComponent(token)}`
+        : result.url;
+      const attrs = {
+        url,
+        filename: result.filename,
+        mimeType: result.mime_type,
+        size: result.size_bytes,
+      };
+      const node = { type: 'fileAttachment', attrs };
+      if (typeof at === 'number') {
+        ed.chain().focus().insertContentAt(at, node).run();
+      } else {
+        ed.chain().focus().insertContent(node).run();
+      }
+      toast.success('File attached');
+      return true;
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to upload file');
+      return false;
+    } finally {
+      setUploadingFile(false);
+    }
+  }, [noteId]);
+
   // Keep refs in sync so the drop/paste handlers (captured at editor-create
   // time) can call the up-to-date uploader against the live editor.
   useEffect(() => { editorRef.current = editor; }, [editor]);
   useEffect(() => { uploadAndInsertRef.current = uploadAndInsertImage; }, [uploadAndInsertImage]);
+  useEffect(() => { uploadAndInsertFileRef.current = uploadAndInsertFile; }, [uploadAndInsertFile]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -647,6 +723,16 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       await uploadAndInsertImage(file);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAttachmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadAndInsertFile(file);
+    } finally {
+      if (attachmentInputRef.current) attachmentInputRef.current.value = '';
     }
   };
 
@@ -665,6 +751,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
   }, [editor]);
   const openMath = useCallback(() => setDialog('math'), []);
   const openImage = useCallback(() => fileInputRef.current?.click(), []);
+  const openFile = useCallback(() => attachmentInputRef.current?.click(), []);
   const dismissKeyboard = useCallback(() => editor?.commands.blur(), [editor]);
 
   if (!editor) return null;
@@ -714,6 +801,14 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       onChange={handleImageUpload}
       style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}
     />
+    <input
+      id="rt-file-upload"
+      ref={attachmentInputRef}
+      type="file"
+      accept={FILE_ACCEPT}
+      onChange={handleAttachmentUpload}
+      style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}
+    />
 
     {/* Desktop uses NoteEditor's top-of-content .note-toolbar (gallery section 01)
         wired via onEditorReady. The legacy EditorToolbar is mobile-only now. */}
@@ -725,7 +820,9 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         onInsertTable={openTable}
         onInsertMath={openMath}
         onInsertImage={openImage}
+        onInsertFile={openFile}
         uploadingImage={uploadingImage}
+        uploadingFile={uploadingFile}
         onDismissKeyboard={dismissKeyboard}
         bottomOffset={kbHeight}
       />

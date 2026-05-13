@@ -95,6 +95,9 @@ class Note(Base):
     images: Mapped[list["NoteImage"]] = relationship(
         back_populates="note", cascade="all, delete-orphan", order_by="NoteImage.created_at"
     )
+    attachments: Mapped[list["NoteAttachment"]] = relationship(
+        back_populates="note", cascade="all, delete-orphan", order_by="NoteAttachment.created_at"
+    )
     tags: Mapped[list["Tag"]] = relationship(
         secondary=note_tags, back_populates="notes", order_by="Tag.name"
     )
@@ -112,6 +115,26 @@ class NoteImage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     note: Mapped["Note"] = relationship(back_populates="images")
+
+
+class NoteAttachment(Base):
+    """File attachment (xlsx / docx / pdf / csv ...) embedded inline in a note.
+
+    Lives in the same MinIO bucket as images under a separate `notes/{id}/attachments/`
+    prefix and is served through the authenticated `/api/attachments/<key>` endpoint.
+    """
+    __tablename__ = "note_attachments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("notes.id", ondelete="CASCADE"), nullable=False, index=True)
+    s3_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), default="")
+    mime_type: Mapped[str] = mapped_column(String(120), default="application/octet-stream")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    note: Mapped["Note"] = relationship(back_populates="attachments")
 
 
 class NoteShare(Base):

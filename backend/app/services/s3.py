@@ -17,6 +17,30 @@ MAX_SIZE_MB = 10
 # 50M pixels = ~7000x7000 — far above any realistic photo, well below RAM blow-up.
 Image.MAX_IMAGE_PIXELS = 50_000_000
 
+# ── Attachments (xlsx / docx / pdf / csv …) ──────────────────────────────────
+# MIME types we trust from the client header. Some browsers send octet-stream
+# for office formats so we ALSO validate by extension below.
+ATTACHMENT_MIME_TYPES = {
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/msword": "doc",
+    "text/csv": "csv",
+    "application/csv": "csv",
+    "text/plain": "csv",  # some OSes report CSVs as text/plain
+}
+ATTACHMENT_EXTENSIONS = {"pdf", "xlsx", "xls", "docx", "doc", "csv"}
+EXT_TO_MIME = {
+    "pdf":  "application/pdf",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "xls":  "application/vnd.ms-excel",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "doc":  "application/msword",
+    "csv":  "text/csv",
+}
+ATTACHMENT_MAX_SIZE_MB = 25
+
 
 @lru_cache(maxsize=1)
 def _get_client():
@@ -111,3 +135,77 @@ async def get_image_bytes(s3_key: str) -> tuple[bytes, str]:
         return await asyncio.to_thread(_fetch)
     except ClientError:
         raise HTTPException(404, "Image not found")
+
+
+# ── Attachments ──────────────────────────────────────────────────────────────
+
+
+def _attachment_ext(filename: str | None) -> str | None:
+    if not filename or "." not in filename:
+        return None
+    ext = filename.rsplit(".", 1)[-1].lower()
+    return ext if ext in ATTACHMENT_EXTENSIONS else None
+
+
+async def upload_attachment(
+    file: UploadFile, note_id: uuid.UUID
+) -> tuple[str, str, str, int]:
+    """Upload a file attachment to S3. Returns (s3_key, public_url, mime_type, size).
+
+    Validates by extension (primary) and content_type (fallback) — both must
+    match the allow list. Office formats are stored as-is (no transcoding).
+    """
+    ext = _attachment_ext(file.filename)
+    ct_ok = file.content_type in ATTACHMENT_MIME_TYPES
+    if not ext and not ct_ok:
+        raise HTTPException(
+            400,
+            "Unsupported file type. Allowed: PDF, XLSX, XLS, DOCX, DOC, CSV.",
+        )
+    # If extension is unknown but content_type is allowed, derive ext from MIME.
+    if not ext:
+        ext = ATTACHMENT_MIME_TYPES[file.content_type]  # type: ignore[index]
+
+    raw = await file.read()
+    if len(raw) > ATTACHMENT_MAX_SIZE_MB * 1024 * 1024:
+        raise HTTPException(400, f"File too large (max {ATTACHMENT_MAX_SIZE_MB}MB)")
+    if len(raw) == 0:
+        raise HTTPException(400, "Empty file")
+
+    mime_type = EXT_TO_MIME[ext]
+    s3_key = f"notes/{note_id}/attachments/{uuid.uuid4()}.{ext}"
+
+    client = _get_client()
+    await asyncio.to_thread(
+        client.put_object,
+        Bucket=settings.S3_BUCKET_NAME,
+        Key=s3_key,
+        Body=raw,
+        ContentType=mime_type,
+    )
+    url = f"{settings.S3_PUBLIC_URL}/{s3_key}"
+    return s3_key, url, mime_type, len(raw)
+
+
+async def delete_attachment(s3_key: str) -> None:
+    client = _get_client()
+    try:
+        await asyncio.to_thread(
+            client.delete_object, Bucket=settings.S3_BUCKET_NAME, Key=s3_key
+        )
+    except ClientError:
+        pass  # best-effort
+
+
+async def get_attachment_bytes(s3_key: str) -> tuple[bytes, str]:
+    """Fetch attachment bytes and content-type from S3 without blocking the loop."""
+    client = _get_client()
+
+    def _fetch() -> tuple[bytes, str]:
+        resp = client.get_object(Bucket=settings.S3_BUCKET_NAME, Key=s3_key)
+        return resp["Body"].read(), resp.get("ContentType", "application/octet-stream")
+
+    try:
+        return await asyncio.to_thread(_fetch)
+    except ClientError:
+        raise HTTPException(404, "Attachment not found")

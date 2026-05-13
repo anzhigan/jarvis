@@ -26,18 +26,40 @@ import {
   List, ListOrdered, ListChecks, Quote,
   AlignLeft, AlignCenter, AlignRight,
   Link as LinkIcon, Image as ImageIcon, Table as TableIcon, Sigma,
-  Undo2, Redo2, Palette, ChevronDown, Loader2,
+  Undo2, Redo2, Palette, ChevronDown, Loader2, Paperclip,
 } from 'lucide-react';
 // `ChevronDown` is used in BlockTypeSelect; the dismiss-keyboard button was removed.
 
-const TEXT_COLORS: { color: string; name: string }[] = [
-  { color: '#5B5BD6', name: 'Indigo' },
-  { color: '#10B981', name: 'Emerald' },
-  { color: '#F59E0B', name: 'Amber' },
-  { color: '#EC4899', name: 'Pink' },
-  { color: '#06B6D4', name: 'Cyan' },
-  { color: '#EF4444', name: 'Red' },
-  { color: '#71717A', name: 'Slate' },
+/**
+ * Text-color palette derived from `src/styles/tokens.css`.
+ * Each entry pairs the literal hex (persisted into the saved HTML so colors
+ * survive copy-paste / public share / export) with the design-token it maps
+ * to. The picker visually groups them as Tab accents → Semantic → Muted.
+ */
+type TextColor = { color: string; name: string; token: string };
+const TEXT_COLOR_GROUPS: { label: string; colors: TextColor[] }[] = [
+  {
+    label: 'Tab accents',
+    colors: [
+      { color: '#6366F1', name: 'Indigo',  token: '--accent-notes'    },
+      { color: '#F59E0B', name: 'Amber',   token: '--accent-goals'    },
+      { color: '#10B981', name: 'Emerald', token: '--accent-routines' },
+      { color: '#06B6D4', name: 'Cyan',    token: '--accent-sprints'  },
+      { color: '#A855F7', name: 'Violet',  token: '--accent-analysis' },
+    ],
+  },
+  {
+    label: 'Semantic',
+    colors: [
+      { color: '#EF4444', name: 'Danger',  token: '--danger'  },
+    ],
+  },
+  {
+    label: 'Muted',
+    colors: [
+      { color: '#71717A', name: 'Muted',   token: '--fg-muted' },
+    ],
+  },
 ];
 
 // ─── Building blocks ─────────────────────────────────────────────────────────
@@ -119,26 +141,36 @@ function ColorMenu({ editor, onClose }: { editor: Editor; onClose: () => void })
   return (
     <div ref={ref} className="rt-popover" role="menu">
       <div className="rt-popover-label">Text color</div>
-      <div className="rt-color-grid">
-        {TEXT_COLORS.map(({ color, name }) => (
-          <button
-            key={color}
-            type="button"
-            onClick={() => { editor.chain().focus().setColor(color).run(); onClose(); }}
-            aria-label={name}
-            title={name}
-            className="rt-color-swatch"
-            data-active={current === color ? 'true' : undefined}
-            style={{ background: color }}
-          />
-        ))}
+      {TEXT_COLOR_GROUPS.map((group) => (
+        <div key={group.label} className="rt-color-group">
+          <div className="rt-color-group-label">{group.label}</div>
+          <div className="rt-color-grid">
+            {group.colors.map(({ color, name, token }) => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => { editor.chain().focus().setColor(color).run(); onClose(); }}
+                aria-label={`${name} (${token})`}
+                title={`${name} · ${token}`}
+                className="rt-color-swatch"
+                data-active={current?.toLowerCase() === color.toLowerCase() ? 'true' : undefined}
+                style={{ background: color }}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="rt-color-group">
         <button
           type="button"
           onClick={() => { editor.chain().focus().unsetColor().run(); onClose(); }}
           aria-label="Reset color"
           title="Reset color"
-          className="rt-color-swatch rt-color-swatch--reset"
-        >✕</button>
+          className="rt-color-reset"
+        >
+          <span className="rt-color-swatch rt-color-swatch--reset" aria-hidden="true">✕</span>
+          Default color
+        </button>
       </div>
     </div>
   );
@@ -200,7 +232,9 @@ export interface EditorToolbarProps {
   onInsertTable: () => void;
   onInsertMath: () => void;
   onInsertImage: () => void;
+  onInsertFile: () => void;
   uploadingImage: boolean;
+  uploadingFile: boolean;
   /** Mobile-only: distance from the viewport bottom (typically the
    *  on-screen keyboard height — read with `useKeyboardHeight`). */
   bottomOffset?: number;
@@ -210,7 +244,10 @@ export interface EditorToolbarProps {
 
 // ─── Desktop ─────────────────────────────────────────────────────────────────
 function DesktopBar(props: EditorToolbarProps) {
-  const { editor, onInsertLink, onInsertTable, onInsertMath, onInsertImage, uploadingImage } = props;
+  const {
+    editor, onInsertLink, onInsertTable, onInsertMath, onInsertImage, onInsertFile,
+    uploadingImage, uploadingFile,
+  } = props;
   const [colorOpen, setColorOpen] = useState(false);
 
   // Read every toolbar-affecting flag in one Tiptap subscription.
@@ -352,6 +389,9 @@ function DesktopBar(props: EditorToolbarProps) {
         <ToolbarButton htmlFor="rt-image-upload" onClick={onInsertImage} disabled={uploadingImage} label="Insert image">
           {uploadingImage ? <Loader2 size={15} className="rt-spin" /> : <ImageIcon size={15} />}
         </ToolbarButton>
+        <ToolbarButton htmlFor="rt-file-upload" onClick={onInsertFile} disabled={uploadingFile} label="Attach file (PDF, XLSX, DOCX, CSV)">
+          {uploadingFile ? <Loader2 size={15} className="rt-spin" /> : <Paperclip size={15} />}
+        </ToolbarButton>
         <ToolbarButton onClick={onInsertTable} active={s.table} label="Insert table">
           <TableIcon size={15} />
         </ToolbarButton>
@@ -368,7 +408,10 @@ function DesktopBar(props: EditorToolbarProps) {
 
 // ─── Mobile (above keyboard) ─────────────────────────────────────────────────
 function MobileBar(props: EditorToolbarProps) {
-  const { editor, onInsertLink, onInsertImage, onInsertTable, onInsertMath, uploadingImage, bottomOffset } = props;
+  const {
+    editor, onInsertLink, onInsertImage, onInsertFile, onInsertTable, onInsertMath,
+    uploadingImage, uploadingFile, bottomOffset,
+  } = props;
 
   const s = useEditorState({
     editor,
@@ -442,6 +485,9 @@ function MobileBar(props: EditorToolbarProps) {
         </ToolbarButton>
         <ToolbarButton htmlFor="rt-image-upload" onClick={onInsertImage} disabled={uploadingImage} label="Image">
           {uploadingImage ? <Loader2 size={18} className="rt-spin" /> : <ImageIcon size={18} />}
+        </ToolbarButton>
+        <ToolbarButton htmlFor="rt-file-upload" onClick={onInsertFile} disabled={uploadingFile} label="File">
+          {uploadingFile ? <Loader2 size={18} className="rt-spin" /> : <Paperclip size={18} />}
         </ToolbarButton>
         <ToolbarButton onClick={onInsertTable} active={s.table} label="Table">
           <TableIcon size={18} />

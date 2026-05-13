@@ -13,6 +13,14 @@ export interface NoteImage {
   size_bytes: number;
 }
 
+export interface NoteAttachment {
+  id: string;
+  url: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+}
+
 export interface Tag {
   id: string;
   name: string;

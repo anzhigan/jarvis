@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight,
-  Bold, Check, Image as ImageIcon, Italic, Link as LinkIcon, Loader2, Plus,
-  Share2, Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
+  Bold, Check, Image as ImageIcon, Italic, Link as LinkIcon, Loader2, Palette,
+  Paperclip, Plus, Share2, Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { EditorHelpers } from '../../../components/RichTextEditor';
@@ -105,6 +105,116 @@ function EditorFallback() {
 /* ── Top-of-content formatting toolbar (matches gallery section 01 .ntb-*) ── */
 
 interface ToolbarProps { editor: Editor; helpers: EditorHelpers | null }
+
+/**
+ * Text color palette derived from src/styles/tokens.css. Persisted hex values
+ * survive copy-paste and public share rendering; comments map each entry to
+ * its design-system token for traceability.
+ */
+const NTB_COLOR_GROUPS: { label: string; colors: { color: string; name: string; token: string }[] }[] = [
+  {
+    label: 'Tab accents',
+    colors: [
+      { color: '#6366F1', name: 'Indigo',  token: '--accent-notes'    },
+      { color: '#F59E0B', name: 'Amber',   token: '--accent-goals'    },
+      { color: '#10B981', name: 'Emerald', token: '--accent-routines' },
+      { color: '#06B6D4', name: 'Cyan',    token: '--accent-sprints'  },
+      { color: '#A855F7', name: 'Violet',  token: '--accent-analysis' },
+    ],
+  },
+  {
+    label: 'Semantic',
+    colors: [
+      { color: '#EF4444', name: 'Danger', token: '--danger'   },
+    ],
+  },
+  {
+    label: 'Muted',
+    colors: [
+      { color: '#71717A', name: 'Muted',  token: '--fg-muted' },
+    ],
+  },
+];
+
+function NoteColorPicker({ editor }: { editor: Editor }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  const current = (editor.getAttributes('textStyle').color as string | undefined) ?? undefined;
+  return (
+    <div className="ntb-color" ref={wrapRef}>
+      <button
+        type="button"
+        className="ntb-btn"
+        title="Text color"
+        aria-label="Text color"
+        data-active={open || undefined}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Palette />
+        <span
+          className="rt-color-bar"
+          style={{ background: current ?? 'currentColor' }}
+        />
+      </button>
+      {open && (
+        <div className="rt-popover" role="menu" style={{ left: 0, top: 'calc(100% + 6px)' }}>
+          <div className="rt-popover-label">Text color</div>
+          {NTB_COLOR_GROUPS.map((group) => (
+            <div key={group.label} className="rt-color-group">
+              <div className="rt-color-group-label">{group.label}</div>
+              <div className="rt-color-grid">
+                {group.colors.map(({ color, name, token }) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className="rt-color-swatch"
+                    aria-label={`${name} (${token})`}
+                    title={`${name} · ${token}`}
+                    data-active={current?.toLowerCase() === color.toLowerCase() ? 'true' : undefined}
+                    style={{ background: color }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      editor.chain().focus().setColor(color).run();
+                      setOpen(false);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="rt-color-group">
+            <button
+              type="button"
+              className="rt-color-reset"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                editor.chain().focus().unsetColor().run();
+                setOpen(false);
+              }}
+            >
+              <span className="rt-color-swatch rt-color-swatch--reset" aria-hidden="true">✕</span>
+              Default color
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function NoteToolbar({ editor, helpers }: ToolbarProps) {
   // Re-render on every Tiptap transaction so isActive() reflects current state.
@@ -260,6 +370,37 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
           </svg>
         </Btn>
       </div>
+      <div className="ntb-sep" />
+
+      {/* Text color (design-system palette) */}
+      <NoteColorPicker editor={editor} />
+      <div className="ntb-sep" />
+
+      {/* Inserts: link / image / file / table / math */}
+      <div className="ntb-group">
+        <Btn
+          title="Link"
+          active={editor.isActive('link')}
+          onClick={() => helpers?.openLink()}
+        ><LinkIcon /></Btn>
+        <Btn
+          title="Image"
+          onClick={() => helpers?.openImage()}
+        ><ImageIcon /></Btn>
+        <Btn
+          title="Attach file (PDF, XLSX, DOCX, CSV)"
+          onClick={() => helpers?.openFile()}
+        ><Paperclip /></Btn>
+        <Btn
+          title="Table"
+          active={editor.isActive('table')}
+          onClick={() => helpers?.openTable()}
+        ><TableIcon /></Btn>
+        <Btn
+          title="Math formula"
+          onClick={() => helpers?.openMath()}
+        ><Sigma /></Btn>
+      </div>
     </div>
   );
 }
@@ -411,6 +552,9 @@ function BlockInsertMenu({ editor, helpers }: InsertProps) {
               </Pick>
               <Pick title="Image" onClick={run(() => helpers?.openImage())}>
                 <ImageIcon />
+              </Pick>
+              <Pick title="Attach file (PDF, XLSX, DOCX, CSV)" onClick={run(() => helpers?.openFile())}>
+                <Paperclip />
               </Pick>
             </div>
           </div>

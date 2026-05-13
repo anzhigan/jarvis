@@ -201,6 +201,8 @@
   background: var(--hairline-strong);
   margin: 0 6px;
 }
+.ntb-color { position: relative; display: inline-flex; }
+.ntb-color .ntb-btn { gap: 2px; padding-right: 3px; }
 
 /* ─── Editorial doc layout ─────────────────────────────────────────────── */
 .doc {

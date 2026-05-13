@@ -1048,6 +1048,94 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   font-size: 10px; color: var(--fg-muted);
   display: inline-flex; align-items: center; justify-content: center;
 }
+.rt-color-group + .rt-color-group { margin-top: 10px; }
+.rt-color-group-label {
+  font-size: 10px; font-weight: 500;
+  color: var(--fg-tertiary);
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+}
+.rt-color-reset {
+  display: inline-flex; align-items: center; gap: 8px;
+  width: 100%; padding: 6px 4px;
+  background: transparent; border: 0; cursor: pointer;
+  font-size: 12px; color: var(--fg-secondary);
+  border-radius: var(--r-control);
+}
+.rt-color-reset:hover { background: var(--bg-hover); }
+.rt-color-reset .rt-color-swatch--reset { width: 20px; height: 20px; }
+
+/* ── Inline file attachment card (Tiptap FileAttachment node) ── */
+.rt-file-attachment {
+  display: inline-flex; align-items: center; gap: 10px;
+  max-width: 100%; min-width: 0;
+  margin: 4px 2px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  text-decoration: none;
+  color: var(--fg-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.3;
+  vertical-align: middle;
+  transition: box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.rt-file-attachment:hover {
+  box-shadow: var(--sh-card-hover);
+  border-color: var(--line-strong);
+}
+.rt-file-attachment__icon {
+  flex: 0 0 auto;
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-transform: uppercase;
+}
+.rt-file-attachment__icon[data-kind="pdf"]   { background: #EF4444; }
+.rt-file-attachment__icon[data-kind="xlsx"],
+.rt-file-attachment__icon[data-kind="xls"],
+.rt-file-attachment__icon[data-kind="csv"]   { background: #10B981; }
+.rt-file-attachment__icon[data-kind="docx"],
+.rt-file-attachment__icon[data-kind="doc"]   { background: #2563EB; }
+.rt-file-attachment__icon[data-kind="file"]  { background: var(--fg-muted); }
+.rt-file-attachment__body {
+  min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  flex: 1 1 auto;
+}
+.rt-file-attachment__name {
+  font-weight: 500;
+  color: var(--fg-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 28ch;
+}
+.rt-file-attachment__meta {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+.rt-file-attachment__download {
+  flex: 0 0 auto;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-control);
+  color: var(--fg-tertiary);
+  background: transparent;
+  border: 0; cursor: pointer;
+}
+.rt-file-attachment__download:hover {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+.ProseMirror-selectednode .rt-file-attachment {
+  outline: 2px solid var(--accent-notes);
+  outline-offset: 2px;
+}
 
 @keyframes rt-spin { to { transform: rotate(360deg); } }
 .rt-spin { animation: rt-spin 1s linear infinite; }
