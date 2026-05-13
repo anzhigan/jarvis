@@ -25,42 +25,46 @@ import {
   Heading1, Heading2, Heading3, Pilcrow,
   List, ListOrdered, ListChecks, Quote,
   AlignLeft, AlignCenter, AlignRight,
-  Link as LinkIcon, Image as ImageIcon, Table as TableIcon, Sigma,
-  Undo2, Redo2, Palette, ChevronDown, Loader2, Paperclip,
+  Link as LinkIcon,
+  Undo2, Redo2, ChevronDown,
 } from 'lucide-react';
 // `ChevronDown` is used in BlockTypeSelect; the dismiss-keyboard button was removed.
 
 /**
- * Text-color palette derived from `src/styles/tokens.css`.
- * Each entry pairs the literal hex (persisted into the saved HTML so colors
- * survive copy-paste / public share / export) with the design-token it maps
- * to. The picker visually groups them as Tab accents → Semantic → Muted.
+ * Text-color palette — entries reference design-system tokens from
+ * `src/styles/tokens.css`. The Color extension stores the value verbatim as
+ * `style="color: var(--…)"`, so colors automatically follow theme switches
+ * (light → dark) and stay in sync with the rest of the app. No hex literals.
  */
-type TextColor = { color: string; name: string; token: string };
+type TextColor = { name: string; token: string };
 const TEXT_COLOR_GROUPS: { label: string; colors: TextColor[] }[] = [
   {
     label: 'Tab accents',
     colors: [
-      { color: '#6366F1', name: 'Indigo',  token: '--accent-notes'    },
-      { color: '#F59E0B', name: 'Amber',   token: '--accent-goals'    },
-      { color: '#10B981', name: 'Emerald', token: '--accent-routines' },
-      { color: '#06B6D4', name: 'Cyan',    token: '--accent-sprints'  },
-      { color: '#A855F7', name: 'Violet',  token: '--accent-analysis' },
+      { name: 'Notes',    token: '--accent-notes'    },
+      { name: 'Goals',    token: '--accent-goals'    },
+      { name: 'Routines', token: '--accent-routines' },
+      { name: 'Sprints',  token: '--accent-sprints'  },
+      { name: 'Analysis', token: '--accent-analysis' },
     ],
   },
   {
     label: 'Semantic',
     colors: [
-      { color: '#EF4444', name: 'Danger',  token: '--danger'  },
+      { name: 'Danger',  token: '--danger'  },
+      { name: 'Warning', token: '--warning' },
+      { name: 'Success', token: '--success' },
+      { name: 'Info',    token: '--info'    },
     ],
   },
   {
     label: 'Muted',
     colors: [
-      { color: '#71717A', name: 'Muted',   token: '--fg-muted' },
+      { name: 'Muted',   token: '--fg-muted' },
     ],
   },
 ];
+const colorValue = (token: string) => `var(${token})`;
 
 // ─── Building blocks ─────────────────────────────────────────────────────────
 
@@ -145,18 +149,21 @@ function ColorMenu({ editor, onClose }: { editor: Editor; onClose: () => void })
         <div key={group.label} className="rt-color-group">
           <div className="rt-color-group-label">{group.label}</div>
           <div className="rt-color-grid">
-            {group.colors.map(({ color, name, token }) => (
-              <button
-                key={color}
-                type="button"
-                onClick={() => { editor.chain().focus().setColor(color).run(); onClose(); }}
-                aria-label={`${name} (${token})`}
-                title={`${name} · ${token}`}
-                className="rt-color-swatch"
-                data-active={current?.toLowerCase() === color.toLowerCase() ? 'true' : undefined}
-                style={{ background: color }}
-              />
-            ))}
+            {group.colors.map(({ name, token }) => {
+              const value = colorValue(token);
+              return (
+                <button
+                  key={token}
+                  type="button"
+                  onClick={() => { editor.chain().focus().setColor(value).run(); onClose(); }}
+                  aria-label={`${name} (${token})`}
+                  title={`${name} · ${token}`}
+                  className="rt-color-swatch"
+                  data-active={current === value ? 'true' : undefined}
+                  style={{ background: value }}
+                />
+              );
+            })}
           </div>
         </div>
       ))}
@@ -229,12 +236,6 @@ export interface EditorToolbarProps {
   editor: Editor;
   variant: 'desktop' | 'mobile';
   onInsertLink: () => void;
-  onInsertTable: () => void;
-  onInsertMath: () => void;
-  onInsertImage: () => void;
-  onInsertFile: () => void;
-  uploadingImage: boolean;
-  uploadingFile: boolean;
   /** Mobile-only: distance from the viewport bottom (typically the
    *  on-screen keyboard height — read with `useKeyboardHeight`). */
   bottomOffset?: number;
@@ -244,10 +245,7 @@ export interface EditorToolbarProps {
 
 // ─── Desktop ─────────────────────────────────────────────────────────────────
 function DesktopBar(props: EditorToolbarProps) {
-  const {
-    editor, onInsertLink, onInsertTable, onInsertMath, onInsertImage, onInsertFile,
-    uploadingImage, uploadingFile,
-  } = props;
+  const { editor, onInsertLink } = props;
   const [colorOpen, setColorOpen] = useState(false);
 
   // Read every toolbar-affecting flag in one Tiptap subscription.
@@ -339,10 +337,10 @@ function DesktopBar(props: EditorToolbarProps) {
             active={colorOpen}
             label="Text color"
           >
-            <Palette size={15} />
             <span
-              className="rt-color-bar"
+              className="rt-color-square"
               style={{ background: s.textColor ?? 'currentColor' }}
+              aria-hidden="true"
             />
           </ToolbarButton>
           {colorOpen && <ColorMenu editor={editor} onClose={() => setColorOpen(false)} />}
@@ -386,20 +384,8 @@ function DesktopBar(props: EditorToolbarProps) {
         <ToolbarButton onClick={onInsertLink} active={s.link} label="Insert/edit link (⌘K)">
           <LinkIcon size={15} />
         </ToolbarButton>
-        <ToolbarButton htmlFor="rt-image-upload" onClick={onInsertImage} disabled={uploadingImage} label="Insert image">
-          {uploadingImage ? <Loader2 size={15} className="rt-spin" /> : <ImageIcon size={15} />}
-        </ToolbarButton>
-        <ToolbarButton htmlFor="rt-file-upload" onClick={onInsertFile} disabled={uploadingFile} label="Attach file (PDF, XLSX, DOCX, CSV)">
-          {uploadingFile ? <Loader2 size={15} className="rt-spin" /> : <Paperclip size={15} />}
-        </ToolbarButton>
-        <ToolbarButton onClick={onInsertTable} active={s.table} label="Insert table">
-          <TableIcon size={15} />
-        </ToolbarButton>
         <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={s.codeBlock} label="Code block">
           <Code2 size={15} />
-        </ToolbarButton>
-        <ToolbarButton onClick={onInsertMath} label="Insert math formula">
-          <Sigma size={15} />
         </ToolbarButton>
       </Group>
     </div>
@@ -408,10 +394,7 @@ function DesktopBar(props: EditorToolbarProps) {
 
 // ─── Mobile (above keyboard) ─────────────────────────────────────────────────
 function MobileBar(props: EditorToolbarProps) {
-  const {
-    editor, onInsertLink, onInsertImage, onInsertFile, onInsertTable, onInsertMath,
-    uploadingImage, uploadingFile, bottomOffset,
-  } = props;
+  const { editor, onInsertLink, bottomOffset } = props;
 
   const s = useEditorState({
     editor,
@@ -482,18 +465,6 @@ function MobileBar(props: EditorToolbarProps) {
       <Group>
         <ToolbarButton onClick={onInsertLink} active={s.link} label="Link">
           <LinkIcon size={18} />
-        </ToolbarButton>
-        <ToolbarButton htmlFor="rt-image-upload" onClick={onInsertImage} disabled={uploadingImage} label="Image">
-          {uploadingImage ? <Loader2 size={18} className="rt-spin" /> : <ImageIcon size={18} />}
-        </ToolbarButton>
-        <ToolbarButton htmlFor="rt-file-upload" onClick={onInsertFile} disabled={uploadingFile} label="File">
-          {uploadingFile ? <Loader2 size={18} className="rt-spin" /> : <Paperclip size={18} />}
-        </ToolbarButton>
-        <ToolbarButton onClick={onInsertTable} active={s.table} label="Table">
-          <TableIcon size={18} />
-        </ToolbarButton>
-        <ToolbarButton onClick={onInsertMath} label="Math">
-          <Sigma size={18} />
         </ToolbarButton>
       </Group>
     </div>

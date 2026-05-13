@@ -21,6 +21,7 @@ import LinkInsertSheet from './editor/LinkInsertSheet';
 import MathInsertSheet from './editor/MathInsertSheet';
 import TableInsertSheet from './editor/TableInsertSheet';
 import { FileAttachment, FILE_ACCEPT, KNOWN_EXTENSIONS } from './editor/FileAttachment';
+import { ToggleListBundle } from './editor/ToggleList';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { loadEditorHeavy, getKatex, type EditorHeavy } from './editor/editorHeavy';
@@ -195,7 +196,7 @@ function ResizableImageView({
   const showControls = selected || isResizing;
 
   return (
-    <NodeViewWrapper className="relative inline-block group/img my-2" style={{ maxWidth: '100%' }}>
+    <NodeViewWrapper className="relative inline-block group/img" style={{ maxWidth: '100%' }}>
       <img
         ref={imgRef}
         src={node.attrs.src}
@@ -263,6 +264,12 @@ const ResizableImage = Node.create({
   name: 'image',
   group: 'inline',
   inline: true,
+  // atom + selectable: false → the cursor treats the image as a single "gap":
+  // pressing Right at the position before the image jumps straight past it
+  // (no intermediate "node-selected" state). Resize/rotate controls inside
+  // the NodeView keep working because they handle their own pointer events.
+  atom: true,
+  selectable: false,
   draggable: true,
   addAttributes() {
     return {
@@ -403,8 +410,6 @@ interface RichTextEditorProps {
 
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 export default function RichTextEditor({ noteId, content, onChange, children, editable = true, onEditorReady }: RichTextEditorProps) {
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [dialog, setDialog] = useState<null | 'link' | 'math' | 'table'>(null);
@@ -480,6 +485,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       heavy?.codeBlockExtension,
       InlineMath,
       FileAttachment,
+      ...ToggleListBundle,
     ].filter(Boolean) as any[],
     content: injectImageToken(content),
     onUpdate: ({ editor }) => onChange(stripImageToken(editor.getHTML())),
@@ -627,7 +633,6 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       toast.error('Please select an image file');
       return false;
     }
-    setUploadingImage(true);
     try {
       // Client-side resize before upload — phone photos / retina screenshots
       // can be 4-10 MB. Skip GIF (animation) and tiny files.
@@ -657,8 +662,6 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to upload image');
       return false;
-    } finally {
-      setUploadingImage(false);
     }
   }, [noteId]);
 
@@ -676,20 +679,15 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       toast.error('File too large (max 25 MB)');
       return false;
     }
-    setUploadingFile(true);
     try {
       const result = await notesApi.uploadAttachment(noteId, file);
-      // Token-bearing URL so the user can click the card and download right
-      // away. stripImageToken() strips this back to the bare URL on save and
-      // injectImageToken() re-adds the token when content is reloaded.
-      const token = typeof localStorage !== 'undefined'
-        ? localStorage.getItem('access_token')
-        : null;
-      const url = token
-        ? `${result.url}?token=${encodeURIComponent(token)}`
-        : result.url;
+      // Store the BARE URL in node attrs — no `?token=` baked in. The token is
+      // appended just-in-time by `resolveUrl()` inside the NodeView, so each
+      // click uses the freshest access token from localStorage. Vinegar of
+      // baking tokens into the DOM: they go stale after refresh and produce
+      // 401 on download.
       const attrs = {
-        url,
+        url: result.url,
         filename: result.filename,
         mimeType: result.mime_type,
         size: result.size_bytes,
@@ -705,8 +703,6 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to upload file');
       return false;
-    } finally {
-      setUploadingFile(false);
     }
   }, [noteId]);
 
@@ -744,14 +740,6 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
     setDialogExtra({ prevUrl: prev });
     setDialog('link');
   }, [editor]);
-  const openTable = useCallback(() => {
-    if (!editor) return;
-    if (editor.isActive('table')) editor.chain().focus().deleteTable().run();
-    else setDialog('table');
-  }, [editor]);
-  const openMath = useCallback(() => setDialog('math'), []);
-  const openImage = useCallback(() => fileInputRef.current?.click(), []);
-  const openFile = useCallback(() => attachmentInputRef.current?.click(), []);
   const dismissKeyboard = useCallback(() => editor?.commands.blur(), [editor]);
 
   if (!editor) return null;
@@ -817,12 +805,6 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         editor={editor}
         variant="mobile"
         onInsertLink={openLink}
-        onInsertTable={openTable}
-        onInsertMath={openMath}
-        onInsertImage={openImage}
-        onInsertFile={openFile}
-        uploadingImage={uploadingImage}
-        uploadingFile={uploadingFile}
         onDismissKeyboard={dismissKeyboard}
         bottomOffset={kbHeight}
       />

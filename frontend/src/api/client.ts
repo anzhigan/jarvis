@@ -25,11 +25,16 @@ function originOf(base: string): string {
   return base.replace(/\/api(?:\/v\d+)?\/?$/, '');
 }
 
-// Auth-protected asset paths served by the backend: images and file attachments.
-// Both need a ?token=… query parameter so that <img>/<a> elements (which can't
-// send an Authorization header) authenticate against the API.
+// Auth-protected asset paths served by the backend.
+//   /api/images/      — referenced from <img src=…> — token MUST be in the URL
+//                       at render time (img can't send Authorization headers),
+//                       so we inject the token into HTML on load.
+//   /api/attachments/ — referenced from <a href=…> in the FileAttachment node
+//                       — token is appended just-in-time by resolveUrl() at
+//                       click time, so the freshest access_token is used and
+//                       stale tokens never linger in the DOM.
 const ASSET_PATH_RE = /\/api(?:\/v\d+)?\/(?:images|attachments)\//;
-const ASSET_URL_RE  = /(\/api(?:\/v\d+)?\/(?:images|attachments)\/[^"'\s?]+)(\?[^"'\s]*)?/g;
+const IMAGE_URL_RE  = /(\/api(?:\/v\d+)?\/images\/[^"'\s?]+)(\?[^"'\s]*)?/g;
 
 export function resolveUrl(url: string | null | undefined): string {
   if (!url) return '';
@@ -49,7 +54,9 @@ export function resolveUrl(url: string | null | undefined): string {
   return resolved;
 }
 
-/** Strip ?token=... from /api/images/... and /api/attachments/... URLs before persisting. */
+/** Strip ?token=… from saved HTML before persisting. Covers both /api/images/
+ *  (in case a token leaked in there) and /api/attachments/ (which is meant to
+ *  stay bare — token is JIT-applied at render). */
 export function stripImageToken(html: string): string {
   return html.replace(
     /(\/api(?:\/v\d+)?\/(?:images|attachments)\/[^"'\s?]+)\?token=[^"'\s&]+(&[^"'\s]*)?/g,
@@ -57,13 +64,15 @@ export function stripImageToken(html: string): string {
   );
 }
 
-/** Append ?token=... to /api/images/... and /api/attachments/... URLs in HTML before rendering. */
+/** Append ?token=… to /api/images/… URLs in HTML before rendering. Attachments
+ *  are deliberately NOT touched here — their NodeView resolves the URL through
+ *  resolveUrl() at click time, which always reads the latest access_token. */
 export function injectImageToken(html: string): string {
   if (typeof localStorage === 'undefined') return html;
   const token = localStorage.getItem('access_token');
   if (!token) return html;
   const enc = encodeURIComponent(token);
-  return html.replace(ASSET_URL_RE, (_m, path, query) => {
+  return html.replace(IMAGE_URL_RE, (_m, path, query) => {
     if (query && query.includes('token=')) return path + query;
     if (query) return `${path}${query}&token=${enc}`;
     return `${path}?token=${enc}`;

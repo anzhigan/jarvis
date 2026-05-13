@@ -138,9 +138,6 @@
   padding: 4px 6px 2px;
 }
 .bim-row { display: flex; gap: 2px; padding: 0 2px; }
-.bim-color-rows { display: flex; flex-direction: column; gap: 6px; padding: 2px 6px 0; }
-.bim-color-row  { display: flex; flex-wrap: wrap; gap: 6px; }
-.bim-color-rows .rt-color-swatch { width: 22px; height: 22px; }
 .bim-btn {
   width: 32px; height: 28px;
   background: transparent;
@@ -205,7 +202,14 @@
   margin: 0 6px;
 }
 .ntb-color { position: relative; display: inline-flex; }
-.ntb-color .ntb-btn { gap: 2px; padding-right: 3px; }
+.ntb-color-trigger { padding: 0; }
+.ntb-color-square {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--hairline-strong);
+  background: currentColor;
+}
 
 /* ─── Editorial doc layout ─────────────────────────────────────────────── */
 .doc {

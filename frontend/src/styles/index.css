@@ -49,8 +49,12 @@ body {
 button { background: none; border: 0; margin: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; letter-spacing: inherit; }
 input, textarea, select { font: inherit; color: inherit; background: transparent; border: 0; outline: 0; }
 
-::selection      { background: var(--indigo-tint); color: var(--ink); }
-::-moz-selection { background: var(--indigo-tint); color: var(--ink); }
+/* Don't override the foreground color in selection — that way text recolored
+   via the editor's color picker visibly changes RIGHT NOW under the selection,
+   instead of only appearing after the user clicks away. The semi-transparent
+   indigo background still gives clear "this is selected" feedback. */
+::selection      { background: var(--indigo-tint); }
+::-moz-selection { background: var(--indigo-tint); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -1008,10 +1012,12 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .rt-color {
   position: relative; display: inline-flex;
 }
-.rt-color-bar {
-  width: 14px; height: 3px; border-radius: 2px;
+.rt-color-square {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
   background: currentColor;
-  margin-left: 1px;
 }
 .rt-popover {
   position: absolute; top: calc(100% + 6px); left: 0;
@@ -1076,6 +1082,7 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   border-radius: var(--r-card);
   box-shadow: var(--sh-card);
   text-decoration: none;
+  cursor: pointer;
   color: var(--fg-primary);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -1083,27 +1090,33 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   vertical-align: middle;
   transition: box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
+.rt-file-attachment:focus-visible {
+  outline: 2px solid var(--accent-notes);
+  outline-offset: 2px;
+}
 .rt-file-attachment:hover {
   box-shadow: var(--sh-card-hover);
   border-color: var(--line-strong);
 }
+/* Document-shaped SVG icon: a page silhouette (rt-file-attachment__icon-bg)
+   with a folded top-right corner (rt-file-attachment__icon-fold) and a colored
+   label tag carrying the extension. Color comes from design-system tokens so
+   it adapts to dark theme automatically. */
 .rt-file-attachment__icon {
   flex: 0 0 auto;
-  width: 32px; height: 32px;
-  border-radius: 6px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #fff;
-  text-transform: uppercase;
+  line-height: 0;
 }
-.rt-file-attachment__icon[data-kind="pdf"]   { background: #EF4444; }
-.rt-file-attachment__icon[data-kind="xlsx"],
-.rt-file-attachment__icon[data-kind="xls"],
-.rt-file-attachment__icon[data-kind="csv"]   { background: #10B981; }
-.rt-file-attachment__icon[data-kind="docx"],
-.rt-file-attachment__icon[data-kind="doc"]   { background: #2563EB; }
-.rt-file-attachment__icon[data-kind="file"]  { background: var(--fg-muted); }
+.rt-file-attachment__icon-bg   { fill: var(--bg-card); stroke: var(--line-strong); stroke-width: 1; }
+.rt-file-attachment__icon-fold { fill: var(--bg-hover); stroke: var(--line-strong); stroke-width: 1; }
+.rt-file-attachment__icon-text { fill: #fff; font-family: var(--font-sans); }
+.rt-file-attachment__icon-tag  { fill: var(--fg-muted); }
+.rt-file-attachment__icon[data-kind="pdf"]  .rt-file-attachment__icon-tag { fill: var(--danger); }
+.rt-file-attachment__icon[data-kind="xlsx"] .rt-file-attachment__icon-tag,
+.rt-file-attachment__icon[data-kind="xls"]  .rt-file-attachment__icon-tag,
+.rt-file-attachment__icon[data-kind="csv"]  .rt-file-attachment__icon-tag { fill: var(--accent-routines); }
+.rt-file-attachment__icon[data-kind="docx"] .rt-file-attachment__icon-tag,
+.rt-file-attachment__icon[data-kind="doc"]  .rt-file-attachment__icon-tag { fill: var(--accent-sprints); }
 .rt-file-attachment__body {
   min-width: 0;
   display: flex; flex-direction: column; gap: 2px;
@@ -1136,6 +1149,52 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   outline: 2px solid var(--accent-notes);
   outline-offset: 2px;
 }
+
+/* ── Toggle list (HTML5 details / summary) ─────────────────────────────── */
+.editor-toggle {
+  margin: 8px 0;
+  border-left: 2px solid var(--line-strong);
+  padding-left: 12px;
+}
+.editor-toggle > summary.editor-toggle-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex; align-items: flex-start; gap: 6px;
+  font-weight: 500;
+  color: var(--fg-primary);
+  padding: 2px 0;
+  outline: none;
+}
+.editor-toggle > summary.editor-toggle-summary::-webkit-details-marker { display: none; }
+.editor-toggle > summary.editor-toggle-summary::marker { content: ''; }
+.editor-toggle > summary.editor-toggle-summary::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 0; height: 0;
+  margin-top: 7px;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid var(--fg-tertiary);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.editor-toggle[open] > summary.editor-toggle-summary::before {
+  transform: rotate(90deg);
+}
+.editor-toggle > summary.editor-toggle-summary:empty::after {
+  content: 'Toggle';
+  color: var(--fg-muted);
+  font-weight: 400;
+}
+.editor-toggle > summary.editor-toggle-summary:focus-visible {
+  background: var(--bg-hover);
+  border-radius: var(--r-control);
+}
+.editor-toggle-content {
+  margin: 4px 0 4px 14px;
+  padding-left: 4px;
+}
+.editor-toggle-content > *:first-child { margin-top: 0; }
+.editor-toggle-content > *:last-child  { margin-bottom: 0; }
 
 @keyframes rt-spin { to { transform: rotate(360deg); } }
 .rt-spin { animation: rt-spin 1s linear infinite; }

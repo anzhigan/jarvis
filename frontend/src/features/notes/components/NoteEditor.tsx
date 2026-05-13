@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight,
-  Bold, Check, Image as ImageIcon, Italic, Link as LinkIcon, Loader2, Palette,
+  Bold, Check, ChevronRight, Image as ImageIcon, Italic, Link as LinkIcon, Loader2,
   Paperclip, Plus, Share2, Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
@@ -107,34 +107,41 @@ function EditorFallback() {
 interface ToolbarProps { editor: Editor; helpers: EditorHelpers | null }
 
 /**
- * Text color palette derived from src/styles/tokens.css. Persisted hex values
- * survive copy-paste and public share rendering; comments map each entry to
- * its design-system token for traceability.
+ * Text color palette — values are CSS custom properties from src/styles/tokens.css
+ * (the design-system tokens). The Tiptap Color extension persists the value
+ * verbatim as `style="color: var(--…)"`, which means colors automatically follow
+ * theme changes (light → dark) instead of being frozen to the hex captured at
+ * insert time. No hex literals here — the design system is the single source.
  */
-const NTB_COLOR_GROUPS: { label: string; colors: { color: string; name: string; token: string }[] }[] = [
+type ColorSwatch = { name: string; token: string };
+const NTB_COLOR_GROUPS: { label: string; colors: ColorSwatch[] }[] = [
   {
     label: 'Tab accents',
     colors: [
-      { color: '#6366F1', name: 'Indigo',  token: '--accent-notes'    },
-      { color: '#F59E0B', name: 'Amber',   token: '--accent-goals'    },
-      { color: '#10B981', name: 'Emerald', token: '--accent-routines' },
-      { color: '#06B6D4', name: 'Cyan',    token: '--accent-sprints'  },
-      { color: '#A855F7', name: 'Violet',  token: '--accent-analysis' },
+      { name: 'Notes',    token: '--accent-notes'    },
+      { name: 'Goals',    token: '--accent-goals'    },
+      { name: 'Routines', token: '--accent-routines' },
+      { name: 'Sprints',  token: '--accent-sprints'  },
+      { name: 'Analysis', token: '--accent-analysis' },
     ],
   },
   {
     label: 'Semantic',
     colors: [
-      { color: '#EF4444', name: 'Danger', token: '--danger'   },
+      { name: 'Danger',  token: '--danger'  },
+      { name: 'Warning', token: '--warning' },
+      { name: 'Success', token: '--success' },
+      { name: 'Info',    token: '--info'    },
     ],
   },
   {
     label: 'Muted',
     colors: [
-      { color: '#71717A', name: 'Muted',  token: '--fg-muted' },
+      { name: 'Muted',   token: '--fg-muted' },
     ],
   },
 ];
+const colorValue = (token: string) => `var(${token})`;
 
 function NoteColorPicker({ editor }: { editor: Editor }) {
   const [open, setOpen] = useState(false);
@@ -157,17 +164,17 @@ function NoteColorPicker({ editor }: { editor: Editor }) {
     <div className="ntb-color" ref={wrapRef}>
       <button
         type="button"
-        className="ntb-btn"
+        className="ntb-btn ntb-color-trigger"
         title="Text color"
         aria-label="Text color"
         data-active={open || undefined}
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen((o) => !o)}
       >
-        <Palette />
         <span
-          className="rt-color-bar"
+          className="ntb-color-square"
           style={{ background: current ?? 'currentColor' }}
+          aria-hidden="true"
         />
       </button>
       {open && (
@@ -177,22 +184,25 @@ function NoteColorPicker({ editor }: { editor: Editor }) {
             <div key={group.label} className="rt-color-group">
               <div className="rt-color-group-label">{group.label}</div>
               <div className="rt-color-grid">
-                {group.colors.map(({ color, name, token }) => (
-                  <button
-                    key={color}
-                    type="button"
-                    className="rt-color-swatch"
-                    aria-label={`${name} (${token})`}
-                    title={`${name} · ${token}`}
-                    data-active={current?.toLowerCase() === color.toLowerCase() ? 'true' : undefined}
-                    style={{ background: color }}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      editor.chain().focus().setColor(color).run();
-                      setOpen(false);
-                    }}
-                  />
-                ))}
+                {group.colors.map(({ name, token }) => {
+                  const value = colorValue(token);
+                  return (
+                    <button
+                      key={token}
+                      type="button"
+                      className="rt-color-swatch"
+                      aria-label={`${name} (${token})`}
+                      title={`${name} · ${token}`}
+                      data-active={current === value ? 'true' : undefined}
+                      style={{ background: value }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        editor.chain().focus().setColor(value).run();
+                        setOpen(false);
+                      }}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -376,30 +386,15 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
       <NoteColorPicker editor={editor} />
       <div className="ntb-sep" />
 
-      {/* Inserts: link / image / file / table / math */}
+      {/* Link is a text-formatting operation (wraps selection in a mark), so it
+          stays in the bubble. Image / Attach file / Table / Math are block-level
+          inserts — they live in the BlockInsertMenu (the "+" on empty lines). */}
       <div className="ntb-group">
         <Btn
           title="Link"
           active={editor.isActive('link')}
           onClick={() => helpers?.openLink()}
         ><LinkIcon /></Btn>
-        <Btn
-          title="Image"
-          onClick={() => helpers?.openImage()}
-        ><ImageIcon /></Btn>
-        <Btn
-          title="Attach file (PDF, XLSX, DOCX, CSV)"
-          onClick={() => helpers?.openFile()}
-        ><Paperclip /></Btn>
-        <Btn
-          title="Table"
-          active={editor.isActive('table')}
-          onClick={() => helpers?.openTable()}
-        ><TableIcon /></Btn>
-        <Btn
-          title="Math formula"
-          onClick={() => helpers?.openMath()}
-        ><Sigma /></Btn>
       </div>
     </div>
   );
@@ -513,6 +508,12 @@ function BlockInsertMenu({ editor, helpers }: InsertProps) {
                   <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                 </svg>
               </Pick>
+              <Pick
+                title="Toggle list"
+                onClick={run(() => (editor.chain().focus() as any).insertToggleList().run())}
+              >
+                <ChevronRight />
+              </Pick>
             </div>
           </div>
 
@@ -556,37 +557,6 @@ function BlockInsertMenu({ editor, helpers }: InsertProps) {
               <Pick title="Attach file (PDF, XLSX, DOCX, CSV)" onClick={run(() => helpers?.openFile())}>
                 <Paperclip />
               </Pick>
-            </div>
-          </div>
-
-          <div className="bim-group">
-            <div className="bim-label">Text color</div>
-            <div className="bim-color-rows">
-              {NTB_COLOR_GROUPS.map((group) => (
-                <div key={group.label} className="bim-color-row">
-                  {group.colors.map(({ color, name, token }) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className="rt-color-swatch"
-                      aria-label={`${name} (${token})`}
-                      title={`${name} · ${token}`}
-                      style={{ background: color }}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={run(() => editor.chain().focus().setColor(color).run())}
-                    />
-                  ))}
-                </div>
-              ))}
-              <button
-                type="button"
-                className="rt-color-reset"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={run(() => editor.chain().focus().unsetColor().run())}
-              >
-                <span className="rt-color-swatch rt-color-swatch--reset" aria-hidden="true">✕</span>
-                Default color
-              </button>
             </div>
           </div>
         </div>

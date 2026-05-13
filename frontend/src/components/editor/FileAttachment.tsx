@@ -56,39 +56,46 @@ function AttachmentView({ node, editor, selected }: any) {
     size: number;
   };
   const kind = fileKind(filename, mimeType);
-  const href = resolveUrl(url);
   const readonly = !editor?.isEditable;
 
-  // While editing, the inner anchor must not steal the click — Tiptap needs
-  // the click to select the node. Clicking the explicit download button
-  // (or the whole card in read-only mode) opens the file in a new tab.
+  // Compute the auth-bearing href on every click so the *current* access_token
+  // is used (refreshes since render don't leave a stale token in the DOM).
+  const buildHref = () => resolveUrl(url);
+
   const onCardClick = (e: React.MouseEvent) => {
-    if (readonly) return; // anchor handles it
     e.preventDefault();
+    const href = buildHref();
+    if (href) window.open(href, '_blank', 'noopener,noreferrer');
   };
 
   const onDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!href) return;
-    window.open(href, '_blank', 'noopener,noreferrer');
+    e.preventDefault();
+    const href = buildHref();
+    if (href) window.open(href, '_blank', 'noopener,noreferrer');
   };
 
+  // Render the card as a <span role="link"> instead of <a> because a real <a>
+  // with an outdated href would let middle-click / right-click open a stale
+  // tokenized URL. With <span>, every "open" goes through buildHref() which
+  // reads the live access_token. We also avoid the (invalid) <button> inside <a>.
   return (
     <NodeViewWrapper as="span" className="inline-block align-middle" data-drag-handle>
-      <a
-        href={href || '#'}
-        target={readonly ? '_blank' : undefined}
-        rel="noopener noreferrer"
+      <span
+        role={readonly ? 'link' : undefined}
+        tabIndex={0}
         className="rt-file-attachment"
         data-active={selected ? 'true' : undefined}
         onClick={onCardClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCardClick(e as any); }
+        }}
+        title={filename}
         contentEditable={false}
       >
-        <span className="rt-file-attachment__icon" data-kind={kind}>
-          {kind === 'file' ? 'FILE' : kind.toUpperCase()}
-        </span>
+        <FileIcon kind={kind} />
         <span className="rt-file-attachment__body">
-          <span className="rt-file-attachment__name" title={filename}>{filename || 'Attachment'}</span>
+          <span className="rt-file-attachment__name">{filename || 'Attachment'}</span>
           <span className="rt-file-attachment__meta">{formatSize(size)}</span>
         </span>
         <button
@@ -100,8 +107,49 @@ function AttachmentView({ node, editor, selected }: any) {
         >
           <Download size={15} />
         </button>
-      </a>
+      </span>
     </NodeViewWrapper>
+  );
+}
+
+/**
+ * Document-shaped file icon — a page silhouette with a folded top-right corner
+ * and the file-type label, mirroring how macOS / Windows render document files.
+ */
+function FileIcon({ kind }: { kind: string }) {
+  const label = kind === 'file' ? '' : kind.toUpperCase();
+  return (
+    <span className="rt-file-attachment__icon" data-kind={kind} aria-hidden="true">
+      <svg viewBox="0 0 32 36" width="28" height="32" focusable="false">
+        {/* Page body */}
+        <path
+          className="rt-file-attachment__icon-bg"
+          d="M3 2 H21 L29 10 V32 A2 2 0 0 1 27 34 H3 A2 2 0 0 1 1 32 V4 A2 2 0 0 1 3 2 Z"
+        />
+        {/* Folded corner */}
+        <path
+          className="rt-file-attachment__icon-fold"
+          d="M21 2 V8 A2 2 0 0 0 23 10 H29 Z"
+        />
+        {/* Label tag */}
+        {label && (
+          <g>
+            <rect
+              className="rt-file-attachment__icon-tag"
+              x="2" y="20" width="22" height="10" rx="1.5"
+            />
+            <text
+              className="rt-file-attachment__icon-text"
+              x="13" y="27.6"
+              textAnchor="middle"
+              fontSize="7"
+              fontWeight="700"
+              letterSpacing="0.3"
+            >{label}</text>
+          </g>
+        )}
+      </svg>
+    </span>
   );
 }
 
@@ -111,7 +159,9 @@ export const FileAttachment = Node.create({
   inline: true,
   atom: true,
   draggable: true,
-  selectable: true,
+  // selectable: false → arrow keys skip the card in one step instead of first
+  // selecting it as a node. The download button inside still receives clicks.
+  selectable: false,
 
   addAttributes() {
     return {
