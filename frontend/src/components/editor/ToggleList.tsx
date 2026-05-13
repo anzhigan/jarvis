@@ -43,8 +43,6 @@ function ToggleListView({ node, getPos, editor }: any) {
   // re-render is somehow stalled.
   const doToggle = () => {
     const next = !isOpenRef.current;
-    // eslint-disable-next-line no-console
-    console.log('[toggle-list] doToggle fired, next open =', next, 'wrapper =', wrapperRef.current);
     isOpenRef.current = next;
     setIsOpen(next);
     if (wrapperRef.current) {
@@ -225,7 +223,11 @@ export const ToggleList = Node.create({
 export const ToggleSummary = Node.create({
   name: 'toggleSummary',
   content: 'inline*',
-  defining: true,
+  // `defining: false` (default) — without this, ProseMirror's replaceRange
+  // cannot "open" pasted content into this node when the user is pasting at a
+  // deeper level. The structural integrity is still protected by `defining`
+  // on the parent ToggleList (and by the `toggleSummary toggleContent`
+  // content rule on ToggleList).
 
   parseHTML() {
     return [{ tag: 'div[data-toggle-summary]' }];
@@ -291,7 +293,10 @@ export const ToggleSummary = Node.create({
 export const ToggleContent = Node.create({
   name: 'toggleContent',
   content: 'block+',
-  defining: true,
+  // No `defining: true` — letting it default to false enables ProseMirror to
+  // unwrap pasted slices into this node when the user pastes block content
+  // from outside. Structure is still safe: the parent ToggleList enforces
+  // `toggleSummary toggleContent` order via its content rule.
 
   parseHTML() {
     return [{ tag: 'div[data-toggle-content]' }];
