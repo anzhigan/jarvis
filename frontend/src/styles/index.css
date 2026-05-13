@@ -1166,6 +1166,14 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   gap: 0;
   margin: 2px 0;
 }
+/* contentEditable=false wrapper around the chevron — keeps ProseMirror's
+   mousedown/selection handlers off the button completely. The wrapper occupies
+   grid column 1; the button is a regular interactive element inside. */
+.editor-toggle__chevron-cell {
+  display: inline-flex;
+  align-items: flex-start;
+  user-select: none;
+}
 .editor-toggle__chevron {
   appearance: none;
   background: transparent;
@@ -1184,8 +1192,8 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   background: var(--bg-hover);
   color: var(--fg-primary);
 }
-.editor-toggle[data-open="true"]  > .editor-toggle__chevron { transform: rotate(90deg); }
-.editor-toggle[data-open="false"] > .editor-toggle__chevron { transform: rotate(0deg); }
+.editor-toggle[data-open="true"]  .editor-toggle__chevron { transform: rotate(90deg); }
+.editor-toggle[data-open="false"] .editor-toggle__chevron { transform: rotate(0deg); }
 
 .editor-toggle__inner {
   min-width: 0;
