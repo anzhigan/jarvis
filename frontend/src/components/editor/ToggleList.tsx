@@ -20,72 +20,80 @@
  */
 import { Node, mergeAttributes } from '@tiptap/core';
 import { NodeViewWrapper, NodeViewContent, ReactNodeViewRenderer } from '@tiptap/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function ToggleListView({ node, getPos, editor }: any) {
-  // Local state mirrors `node.attrs.open` for INSTANT visual feedback on click.
-  // Tiptap's React adapter sometimes doesn't re-render the NodeView when only
-  // attributes change (node identity may be re-used), so we don't rely on
-  // `node.attrs.open` for rendering — only as the canonical source for sync.
+  // Local state for INSTANT visual feedback. We don't trust Tiptap's React
+  // adapter to re-render on every attr change — it sometimes re-uses the
+  // same node reference, so the prop-driven view stays stuck on stale attrs.
   const [isOpen, setIsOpen] = useState<boolean>(node.attrs.open !== false);
-
-  // Sync local state when the document changes externally (undo/redo, collab,
-  // initial load, etc). Compares against the attr we last saw.
   useEffect(() => {
     setIsOpen(node.attrs.open !== false);
   }, [node.attrs.open]);
 
-  // ⚠️ DO NOT call e.preventDefault() inside pointerdown. The Pointer Events
-  // spec says: if pointerdown's default is prevented, the browser MUST skip
-  // the subsequent mousedown / mouseup / click. That kills the toggle.
-  // Strategy:
-  //   pointerdown — only stopPropagation (hide event from ProseMirror).
-  //   mousedown   — preventDefault (so the editor caret doesn't move to the
-  //                 button) + stopPropagation. Safe — preventDefault on
-  //                 mousedown does NOT cancel click.
-  //   click       — preventDefault + stopPropagation + actually toggle.
-  const swallowPointer = (e: React.SyntheticEvent) => {
-    e.stopPropagation();
-  };
-  const swallowMouseDown = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+  // Refs read by the native event listener (which has stable identity).
+  const isOpenRef = useRef(isOpen);
+  isOpenRef.current = isOpen;
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const nodeRef = useRef(node);
+  nodeRef.current = node;
 
-  const onToggle = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const next = !isOpen;
-    setIsOpen(next);                          // optimistic, paints immediately
-    if (typeof getPos !== 'function') return;
-    const pos = getPos();
-    if (typeof pos !== 'number') return;
-    // Dispatch the transaction directly so we don't go through the
-    // updateAttributes() helper (which has had React-re-render quirks).
-    const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
-      ...node.attrs,
-      open: next,
-    });
-    // addToHistory: false — toggling open/close shouldn't pollute undo stack.
-    tr.setMeta('addToHistory', false);
-    editor.view.dispatch(tr);
-  };
+  // ⚠️ React onClick fires DURING the bubble phase at React's root container,
+  // which is HIGHER in the DOM tree than ProseMirror's `view.dom` listener
+  // (also bubble phase). ProseMirror sees the event FIRST and may stop it
+  // (NodeSelection / focus shuffling) before React's handler ever runs.
+  //
+  // Fix: attach a native click listener directly on the button in CAPTURE
+  // phase + stopImmediatePropagation. This fires at the target (button) before
+  // anything bubbles up, and immediately kills further propagation. No
+  // ProseMirror listener gets to see the click.
+  useEffect(() => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    if (!editor?.isEditable) return;
+
+    const swallow = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    };
+    const onClick = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      const next = !isOpenRef.current;
+      setIsOpen(next);
+      if (typeof getPos !== 'function') return;
+      const pos = getPos();
+      if (typeof pos !== 'number') return;
+      const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
+        ...nodeRef.current.attrs,
+        open: next,
+      });
+      tr.setMeta('addToHistory', false);
+      editor.view.dispatch(tr);
+    };
+
+    // Capture: true → run BEFORE any ancestor bubble listeners.
+    // mousedown handler keeps the caret from jumping to the button.
+    btn.addEventListener('mousedown', swallow, { capture: true });
+    btn.addEventListener('click',     onClick, { capture: true });
+    return () => {
+      btn.removeEventListener('mousedown', swallow, { capture: true });
+      btn.removeEventListener('click',     onClick, { capture: true });
+    };
+  }, [editor, getPos]);
 
   return (
     <NodeViewWrapper className="editor-toggle" data-open={isOpen ? 'true' : 'false'}>
-      {/* contentEditable=false wrapper isolates the chevron from ProseMirror's
-          editable region completely — clicks here never reach the editor's
-          mousedown/selection handlers. */}
       <span className="editor-toggle__chevron-cell" contentEditable={false}>
         <button
+          ref={buttonRef}
           type="button"
           className="editor-toggle__chevron"
           aria-expanded={isOpen}
           aria-label={isOpen ? 'Collapse toggle' : 'Expand toggle'}
           tabIndex={-1}
-          onPointerDown={swallowPointer}
-          onMouseDown={swallowMouseDown}
-          onClick={onToggle}
           style={!editor?.isEditable ? { pointerEvents: 'none' } : undefined}
         >
           <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
