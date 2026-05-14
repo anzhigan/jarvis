@@ -1,39 +1,19 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   JARVNOTE · DESIGN TOKENS — Indigo Editorial v1.0 (single source of truth)
+   JARVNOTE · DESIGN TOKENS — Indigo Editorial v1.0
    ═══════════════════════════════════════════════════════════════════════════
-   Architecture:
-     1. EDITORIAL PRIMITIVES (canonical) — paper / ink / indigo / moss / ochre …
-        These define the visual language. All component CSS should read these.
-     2. LEGACY ALIASES (compat shim) — --bg-app, --fg-primary, --accent-notes,
-        shadcn shims (--background, --card, --popover, --secondary, --ring …),
-        Tailwind-style --radius / --radius-sm/md/lg/xl, --font-sans / --font-serif.
-        Every legacy token is now `var(--editorial-equivalent)` so existing
-        consumers in index.css / editor.css render Editorial without code edits.
-
-   Dropped permanently:
-     • --brand-50 … --brand-900 (Tailwind ramp, 0 refs)
-     • --dur-slow                  (0 refs)
-     • --text-md duplicate         (14.5 — Editorial 15.5 wins)
-     • --r-card duplicate          (12px — Editorial 6px wins)
-     • --r-control duplicate       (8px — Editorial 5px wins)
-     • --radius-* differentiation  (--radius-sm/md/lg/xl now all alias-flat)
-     • Dark mirror brand ramp      (no consumers)
-
-   Reference: design-system.html (root of repo) documents the full system.
+   Single source of truth. No legacy aliases — every consumer reads editorial
+   primitives directly. To extend: add a NEW token (don't add an alias of an
+   existing one). For the full philosophy + visual reference see
+   `design-system.html` at the repo root.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ╔════════════════════════════════════════════════════════════════════╗
-     ║ 1. EDITORIAL PRIMITIVES — the canonical system                     ║
-     ╚════════════════════════════════════════════════════════════════════╝ */
-
   /* ── Typography ──────────────────────────────────────────────────────── */
-  --font-display: "Fraunces", Georgia, serif;                       /* headings, numbers */
-  --font-body:    "Source Serif 4", Georgia, serif;                 /* long-form reading */
+  --font-display: "Fraunces", Georgia, serif;       /* H1—H4, numbers, accent */
+  --font-body:    "Source Serif 4", Georgia, serif; /* long-form reading      */
   --font-ui:      "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono:    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
-  /* Type scale — 11 ступеней (10 → 64) */
   --text-2xs:  10px;
   --text-xs:   11px;
   --text-sm:   12.5px;
@@ -52,7 +32,7 @@
   --tracking-normal:  -0.005em;
   --tracking-wide:     0.06em;
 
-  /* ── Spacing (4-pt grid, 13 ступеней) ────────────────────────────────── */
+  /* ── Spacing (4-pt grid, 16 ступеней) ────────────────────────────────── */
   --sp-0:  0;    --sp-1: 2px;  --sp-2: 4px;  --sp-3: 6px;  --sp-4: 8px;
   --sp-5: 10px;  --sp-6:12px;  --sp-7:14px;  --sp-8:16px;  --sp-10:20px;
   --sp-12:24px;  --sp-14:28px; --sp-16:32px; --sp-20:40px; --sp-24:48px;
@@ -62,8 +42,8 @@
   --r-sharp:    2px;
   --r-control:  5px;
   --r-card:     6px;
+  --r-shell:    6px;   /* alias to r-card; kept for layout shell consumers */
   --r-pill:   999px;
-  --r-shell:    6px;   /* same as r-card now — was 14px, legacy */
 
   /* ── Heights (controls, 5 ступеней) ──────────────────────────────────── */
   --h-xs: 24px;
@@ -72,13 +52,19 @@
   --h-lg: 40px;
   --h-xl: 48px;
 
-  /* ── Surfaces (warm cool slate) ──────────────────────────────────────── */
-  --paper:    #FCFCF9;   /* canvas — near-white with whisper of warmth      */
-  --cream:    #ECEEEF;   /* secondary — input bg, hover, even rows          */
-  --soft:     #DEE1E2;   /* tertiary  — hover on cream, swatches            */
+  /* ── Surfaces ────────────────────────────────────────────────────────── */
+  --paper:    #FCFCF9;   /* canvas — near-white with warmth                 */
+  --cream:    #ECEEEF;   /* secondary — inputs, hover, even rows             */
+  --soft:     #DEE1E2;   /* tertiary  — hover on cream, swatches             */
   --rail-bg:  #D6DADB;   /* rail navigation                                  */
 
-  /* ── Ink (cool slate scale) ──────────────────────────────────────────── */
+  /* Interaction-state surfaces (semantic primitives) */
+  --bg-hover:   rgba(15, 24, 32, 0.04);
+  --bg-active:  rgba(15, 24, 32, 0.07);
+  --bg-input:   var(--cream);
+  --bg-overlay: rgba(15, 24, 32, 0.40);
+
+  /* ── Ink (cool slate scale, 5 ступеней) ──────────────────────────────── */
   --ink:    #15202A;
   --ink-2:  #2C353D;
   --ink-3:  #455058;
@@ -92,13 +78,13 @@
   --indigo-tint: rgba(44, 74, 96, 0.18);
 
   /* ── Editorial accents — 5 hand-tuned hues ───────────────────────────── */
-  --moss:       #6B7A4F;   --moss-soft:   rgba(107, 122, 79, 0.16);
-  --ochre:      #A18030;   --ochre-soft:  rgba(161, 128, 48, 0.14);
-  --rust:       #A04A39;   --rust-soft:   rgba(160, 74, 57, 0.10);
-  --slate:      #5A6B78;   --slate-soft:  rgba(90, 107, 120, 0.14);
-  --walnut:     #4A3A2D;   --walnut-2:    #6B4F3D;
+  --moss:   #6B7A4F;   --moss-soft:  rgba(107, 122, 79, 0.16);
+  --ochre:  #A18030;   --ochre-soft: rgba(161, 128, 48, 0.14);
+  --rust:   #A04A39;   --rust-soft:  rgba(160, 74, 57, 0.10);
+  --slate:  #5A6B78;   --slate-soft: rgba(90, 107, 120, 0.14);
+  --walnut: #4A3A2D;   --walnut-2:   #6B4F3D;
 
-  /* ── Hairlines (0.5px feel) ──────────────────────────────────────────── */
+  /* ── Hairlines ───────────────────────────────────────────────────────── */
   --hairline:        rgba(15, 24, 32, 0.09);
   --hairline-strong: rgba(15, 24, 32, 0.16);
   --hairline-faint:  rgba(15, 24, 32, 0.04);
@@ -134,136 +120,21 @@
   --topbar-h:            52px;
   --rail-w:              56px;
   --pane-w:              280px;
-  /* Legacy aliases — same value */
-  --indigo-rail-w:   var(--rail-w);
-  --indigo-pane-w:   var(--library-w);
-  --indigo-topbar-h: var(--topbar-h);
-
-  /* ╔════════════════════════════════════════════════════════════════════╗
-     ║ 2. LEGACY ALIASES — Editorial under generic names                  ║
-     ║                                                                    ║
-     ║ Every legacy/shadcn/Tailwind-style token now points at an          ║
-     ║ Editorial primitive so existing consumers in index.css /           ║
-     ║ editor.css render with the canonical visual language.              ║
-     ╚════════════════════════════════════════════════════════════════════╝ */
-
-  /* Fonts — generic → editorial role */
-  --font-sans:  var(--font-ui);
-  --font-serif: var(--font-body);
-
-  /* Surfaces — generic page chrome → paper rhythm */
-  --bg-app:         var(--paper);
-  --bg-shell:       var(--paper);
-  --bg-sidebar:     var(--cream);
-  --bg-rail:        var(--rail-bg);
-  --bg-card:        var(--paper);
-  --bg-elevated:    var(--paper);
-  --bg-hover:       rgba(15, 24, 32, 0.04);
-  --bg-active:      rgba(15, 24, 32, 0.07);
-  --bg-input:       var(--cream);
-  --bg-input-hover: var(--soft);
-  --bg-overlay:     rgba(15, 24, 32, 0.40);
-
-  /* Foreground — generic fg → ink scale */
-  --fg-primary:   var(--ink);
-  --fg-secondary: var(--ink-2);
-  --fg-tertiary:  var(--ink-3);
-  --fg-muted:     var(--ink-4);
-  --fg-faint:     var(--ink-5);
-  --fg-inverse:   var(--paper);
-
-  /* Lines — generic → hairlines */
-  --line:        var(--hairline);
-  --line-strong: var(--hairline-strong);
-  --line-faint:  var(--hairline-faint);
-
-  /* Section identity — Tailwind 500 rainbow → editorial accents */
-  --accent-notes:       var(--indigo);
-  --accent-notes-fg:    var(--indigo);
-  --accent-notes-bg:    var(--indigo-soft);
-
-  --accent-goals:       var(--moss);
-  --accent-goals-fg:    var(--moss);
-  --accent-goals-bg:    var(--moss-soft);
-
-  --accent-routines:    var(--ochre);
-  --accent-routines-fg: var(--ochre);
-  --accent-routines-bg: var(--ochre-soft);
-
-  --accent-sprints:     var(--slate);
-  --accent-sprints-fg:  var(--slate);
-  --accent-sprints-bg:  var(--slate-soft);
-
-  --accent-analysis:    var(--walnut);
-  --accent-analysis-fg: var(--walnut);
-  --accent-analysis-bg: rgba(74, 58, 45, 0.12);
-
-  /* Primary button */
-  --primary:    var(--indigo);
-  --primary-fg: var(--paper);
-
-  /* Semantic — alias to editorial accents (success = moss, etc.) */
-  --success:    var(--moss);    --success-bg: var(--moss-soft);
-  --warning:    var(--ochre);   --warning-bg: var(--ochre-soft);
-  --info:       var(--indigo);  --info-bg:    var(--indigo-soft);
-  --danger:     var(--rust);    --danger-bg:  var(--rust-soft);
-
-  /* Tailwind/shadcn radii — flat into editorial scale */
-  --radius:    var(--r-control);
-  --radius-sm: var(--r-sharp);
-  --radius-md: var(--r-control);
-  --radius-lg: var(--r-card);
-  --radius-xl: var(--r-card);
-
-  /* shadcn shim — every alias points at editorial */
-  --background:             var(--paper);
-  --foreground:             var(--ink);
-  --card:                   var(--paper);
-  --card-foreground:        var(--ink);
-  --popover:                var(--paper);
-  --popover-foreground:     var(--ink);
-  --secondary:              var(--cream);
-  --secondary-foreground:   var(--ink);
-  --muted:                  var(--cream);
-  --muted-foreground:       var(--ink-3);
-  --accent:                 var(--cream);
-  --accent-foreground:      var(--ink);
-  --destructive:            var(--rust);
-  --destructive-foreground: var(--paper);
-  --destructive-soft:       var(--rust-soft);
-  --border:                 var(--hairline);
-  --input:                  var(--hairline);
-  --input-background:       var(--cream);
-  --ring:                   var(--indigo);
-  --primary-foreground:     var(--paper);
-
-  --sidebar:                    var(--cream);
-  --sidebar-foreground:         var(--ink-2);
-  --sidebar-border:             var(--hairline);
-  --sidebar-accent:             var(--soft);
-  --sidebar-accent-foreground:  var(--ink);
-  --sidebar-primary:            var(--indigo);
-  --sidebar-primary-foreground: var(--paper);
-
-  /* Shadow legacy alias */
-  --sh-raised:  var(--sh-card);
-
-  /* Motion legacy alias — single rhythm */
-  --ease-spring: var(--ease);
-  --dur-base:    var(--dur-med);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DARK THEME — Editorial mirror.
-   Same architecture: editorial primitives override at top, legacy aliases
-   automatically pick up via var(...).
+   Only the primitives change; everything else inherits via var(...) chain.
    ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-  /* Editorial primitives */
   --paper:    #131820;
   --cream:    #1C2228;
   --soft:     #242B33;
   --rail-bg:  #1A1F26;
+
+  --bg-hover:   rgba(239, 241, 240, 0.06);
+  --bg-active:  rgba(239, 241, 240, 0.10);
+  --bg-overlay: rgba(0, 0, 0, 0.60);
 
   --hairline:        rgba(239, 241, 240, 0.16);
   --hairline-strong: rgba(239, 241, 240, 0.28);
@@ -297,9 +168,4 @@
   --sh-popover:    0 0 0 1px var(--hairline-strong), 0 8px 28px rgba(0,0,0,0.55);
   --sh-modal:      0 0 0 1px var(--hairline-strong), 0 24px 64px rgba(0,0,0,0.65);
   --sh-focus:      0 0 0 3px var(--indigo-tint);
-
-  /* Legacy aliases — override dark-mode specifics where needed */
-  --bg-hover:   rgba(239, 241, 240, 0.06);
-  --bg-active:  rgba(239, 241, 240, 0.10);
-  --bg-overlay: rgba(0, 0, 0, 0.60);
 }

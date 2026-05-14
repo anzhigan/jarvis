@@ -131,7 +131,7 @@ export function CommandPalette({ open, onOpenChange, onTabChange, onToggleTheme,
                         <Target className="icon" />
                         <span className="cmdk-item-text">{t.title}</span>
                         <span className="cmdk-item-meta">{t.status}</span>
-                        <ArrowRight size={11} style={{ color: 'var(--fg-faint)' }} />
+                        <ArrowRight size={11} style={{ color: 'var(--ink-5)' }} />
                       </Command.Item>
                     ))}
                   </Command.Group>

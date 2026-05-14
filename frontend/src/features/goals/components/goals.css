@@ -2324,7 +2324,7 @@
 .go-row[data-done] .go-target {
   color: var(--ink-4);
   text-decoration: line-through;
-  text-decoration-color: var(--accent);
+  text-decoration-color: var(--indigo-soft);
   text-decoration-thickness: 1px;
 }
 .go-meta {

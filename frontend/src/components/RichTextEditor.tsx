@@ -382,7 +382,7 @@ const InlineMathView = ({ node, updateAttributes, editor }: any) => {
     try {
       return katex.renderToString(node.attrs.latex || '', { throwOnError: false, displayMode: false });
     } catch {
-      return `<span style="color: var(--destructive)">[invalid LaTeX]</span>`;
+      return `<span style="color: var(--rust)">[invalid LaTeX]</span>`;
     }
   })();
 

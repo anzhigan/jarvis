@@ -64,10 +64,10 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
-  active:  'var(--accent-goals)',
-  paused:  'var(--fg-faint)',
-  backlog: 'var(--accent-sprints)',
-  done:    'var(--accent-routines)',
+  active:  'var(--moss)',
+  paused:  'var(--ink-5)',
+  backlog: 'var(--slate)',
+  done:    'var(--ochre)',
 };
 
 const PRIORITY_LABELS: Record<TaskPriority, string> = {
@@ -200,25 +200,25 @@ export function useAnalytics() {
         key: 'goals_done', label: 'Goals completed',
         value: String(goalsDone),
         foot: `in last ${days} days`,
-        color: 'var(--accent-goals)',
+        color: 'var(--moss)',
       },
       {
         key: 'routines_logged', label: 'Routines logged',
         value: String(routinesLogged),
         foot: 'check-ins recorded',
-        color: 'var(--accent-routines)',
+        color: 'var(--ochre)',
       },
       {
         key: 'streaks', label: 'Active streaks',
         value: String(streaks),
         foot: '3+ days running',
-        color: 'var(--accent-routines-fg)',
+        color: 'var(--ochre)',
       },
       {
         key: 'today_rate', label: "Today's rate",
         value: `${todayPct}%`,
         foot: `${doneToday} of ${scheduledToday} done`,
-        color: 'var(--accent-notes)',
+        color: 'var(--indigo)',
       },
     ];
   }, [tasks, routines, periodStart, days, today]);

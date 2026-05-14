@@ -31,21 +31,21 @@ export default function AuthPage() {
       minHeight: '100dvh',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: '24px 20px',
-      background: 'var(--bg-app)',
+      background: 'var(--paper)',
     }}>
       <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-        <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: 'var(--tracking-tight)', color: 'var(--fg-primary)', marginBottom: 6 }}>
+        <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: 'var(--tracking-tight)', color: 'var(--ink)', marginBottom: 6 }}>
           Welcome to Jarvnote
         </div>
-        <div style={{ fontSize: 16, color: 'var(--fg-muted)', marginBottom: 32 }}>
+        <div style={{ fontSize: 16, color: 'var(--ink-4)', marginBottom: 32 }}>
           {mode === 'login' ? 'Sign in to your account' : 'Create your account'}
         </div>
 
         {/* Form card */}
         <form onSubmit={submit} style={{
           width: '100%',
-          background: 'var(--bg-elevated)',
+          background: 'var(--paper)',
           borderRadius: 'var(--r-shell)',
           boxShadow: 'var(--sh-card)',
           padding: '24px 24px 28px',
@@ -53,7 +53,7 @@ export default function AuthPage() {
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 6 }}>Email</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-3)', marginBottom: 6 }}>Email</div>
               <input
                 type="email"
                 value={email}
@@ -68,7 +68,7 @@ export default function AuthPage() {
 
             {mode === 'register' && (
               <div className="animate-slide-down">
-                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 6 }}>Username</div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-3)', marginBottom: 6 }}>Username</div>
                 <input
                   type="text"
                   value={username}
@@ -81,7 +81,7 @@ export default function AuthPage() {
             )}
 
             <div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg-tertiary)', marginBottom: 6 }}>Password</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-3)', marginBottom: 6 }}>Password</div>
               <input
                 type="password"
                 value={password}
@@ -101,7 +101,7 @@ export default function AuthPage() {
               padding: '10px 14px',
               borderRadius: 'var(--r-control)',
               background: 'rgba(188, 74, 72, 0.08)',
-              color: 'var(--danger)',
+              color: 'var(--rust)',
             }}>
               {error}
             </div>
@@ -113,7 +113,7 @@ export default function AuthPage() {
             className="btn btn-md"
             style={{
               width: '100%', height: 52, marginTop: 4,
-              background: 'var(--primary)', color: 'var(--primary-fg)',
+              background: 'var(--indigo)', color: 'var(--paper)',
               fontSize: 16, fontWeight: 600,
               borderRadius: 'var(--r-card)',
             }}
@@ -131,14 +131,14 @@ export default function AuthPage() {
           style={{
             marginTop: 24,
             fontSize: 15,
-            color: 'var(--fg-muted)',
+            color: 'var(--ink-4)',
             background: 'none', border: 0, cursor: 'pointer',
           }}
         >
           {mode === 'login' ? (
-            <>Don't have an account? <span style={{ color: 'var(--primary)', fontWeight: 500 }}>Sign up</span></>
+            <>Don't have an account? <span style={{ color: 'var(--indigo)', fontWeight: 500 }}>Sign up</span></>
           ) : (
-            <>Already have an account? <span style={{ color: 'var(--primary)', fontWeight: 500 }}>Sign in</span></>
+            <>Already have an account? <span style={{ color: 'var(--indigo)', fontWeight: 500 }}>Sign in</span></>
           )}
         </button>
       </div>

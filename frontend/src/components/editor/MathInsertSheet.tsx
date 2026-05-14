@@ -111,11 +111,11 @@ export default function MathInsertSheet({ open, initial = '', onCancel, onInsert
   };
 
   const preview = (() => {
-    if (!value.trim()) return '<span style="color: var(--fg-muted)">Preview</span>';
+    if (!value.trim()) return '<span style="color: var(--ink-4)">Preview</span>';
     try {
       return katex.renderToString(value, { throwOnError: false, displayMode: true });
     } catch {
-      return '<span style="color: var(--danger)">Invalid LaTeX</span>';
+      return '<span style="color: var(--rust)">Invalid LaTeX</span>';
     }
   })();
 

@@ -24,8 +24,8 @@ export default function App() {
   if (shareToken) {
     return (
       <Suspense fallback={
-        <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg-app)' }}>
-          <Loader2 size={28} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
+        <div className="h-full flex items-center justify-center" style={{ background: 'var(--paper)' }}>
+          <Loader2 size={28} className="animate-spin" style={{ color: 'var(--ink-4)' }} />
         </div>
       }>
         <PublicNoteView token={shareToken} />
@@ -77,7 +77,7 @@ function AuthenticatedApp() {
       position="top-center"
       toastOptions={{
         style: {
-          fontFamily: 'var(--font-sans)',
+          fontFamily: 'var(--font-ui)',
           borderRadius: 'var(--r-control)',
           boxShadow: 'var(--sh-popover)',
         },
@@ -87,8 +87,8 @@ function AuthenticatedApp() {
 
   if (!isReady) {
     return (
-      <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg-app)' }}>
-        <Loader2 size={28} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
+      <div className="h-full flex items-center justify-center" style={{ background: 'var(--paper)' }}>
+        <Loader2 size={28} className="animate-spin" style={{ color: 'var(--ink-4)' }} />
       </div>
     );
   }

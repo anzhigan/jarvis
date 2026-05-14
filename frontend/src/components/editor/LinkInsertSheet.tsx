@@ -198,11 +198,11 @@ export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisti
 
                   <div className="link-note-list">
                     {loadingNotes ? (
-                      <div style={{ padding: 24, textAlign: 'center', color: 'var(--fg-muted)' }}>
+                      <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-4)' }}>
                         <Loader2 size={16} className="animate-spin" />
                       </div>
                     ) : filteredNotes.length === 0 ? (
-                      <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: 'var(--fg-muted)' }}>
+                      <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: 'var(--ink-4)' }}>
                         {search ? 'No notes match' : 'No notes yet'}
                       </div>
                     ) : (
@@ -213,7 +213,7 @@ export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisti
                           className="link-note-row"
                           onClick={() => onInsert(`#note:${n.id}`)}
                         >
-                          <FileText size={14} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} />
+                          <FileText size={14} style={{ color: 'var(--ink-4)', flexShrink: 0 }} />
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <span className="link-note-title">{n.name}</span>
                             <span className="link-note-sub">{n.parentLabel}</span>
@@ -232,7 +232,7 @@ export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisti
                   <button
                     type="button"
                     className="btn"
-                    style={{ color: 'var(--danger)' }}
+                    style={{ color: 'var(--rust)' }}
                     onClick={onRemove}
                   >
                     <Trash2 size={13} /> Remove
