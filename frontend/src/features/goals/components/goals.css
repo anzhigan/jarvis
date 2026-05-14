@@ -2225,6 +2225,84 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.steps-head__actions {
+  display: inline-flex; gap: 6px;
+}
+.steps-head__btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 4px 9px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline-strong);
+  background: var(--paper);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.steps-head__btn:hover {
+  background: var(--indigo);
+  color: var(--paper);
+  border-color: var(--indigo);
+}
+.steps-head__btn svg { flex-shrink: 0; }
+
+/* Empty-steps invitation: CTA panel shown when goal has no milestones yet. */
+.steps-empty {
+  display: flex; flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 26px 24px;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--r-card);
+  background: var(--paper);
+}
+.steps-empty__hint {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-style: italic;
+  color: var(--ink-4);
+  text-align: center;
+  margin: 0;
+  max-width: 380px;
+  line-height: 1.45;
+}
+.steps-empty__actions {
+  display: inline-flex; gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.steps-empty__btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline-strong);
+  background: var(--paper);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease);
+}
+.steps-empty__btn:hover {
+  border-color: var(--ink-4);
+  background: var(--cream);
+  color: var(--ink);
+}
+.steps-empty__btn.primary {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: var(--paper);
+}
+.steps-empty__btn.primary:hover {
+  filter: brightness(1.08);
+  background: var(--indigo);
+  color: var(--paper);
+}
 
 .steps-track {
   position: relative;

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button, Dialog, Input } from '../../../components/ui';
-import { routinesApi } from '../../../api/client';
+import { gosApi, routinesApi, stepsApi } from '../../../api/client';
+import type { Step, StepStatus, Task } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
 import type { GosLibrary } from '../hooks/useGos';
 
@@ -13,11 +14,25 @@ const ymd = (d: Date) =>
 interface GoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Pre-selected parent task. null = let user pick a goal inside the dialog
+   *  (standalone-able). When taskId is null, supply `goals` so the picker has
+   *  something to render. */
   taskId: string | null;
   gos: GosLibrary;
+  /** All goals (for the picker in standalone mode). */
+  goals?: Task[];
+  /** Pre-selected Step within the goal (only meaningful with taskId). */
+  initialStepId?: string | null;
 }
 
-export function GoCreateDialog({ open, onOpenChange, taskId, gos }: GoDialogProps) {
+export function GoCreateDialog({
+  open,
+  onOpenChange,
+  taskId,
+  gos,
+  goals,
+  initialStepId,
+}: GoDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [kind, setKind] = useState<'boolean' | 'numeric'>('boolean');
@@ -25,31 +40,55 @@ export function GoCreateDialog({ open, onOpenChange, taskId, gos }: GoDialogProp
   const [unit, setUnit] = useState('');
   const [start, setStart] = useState('');
   const [due, setDue] = useState('');
+  /** Effective parent goal id: starts as taskId, user can change in standalone mode. */
+  const [pickedGoalId, setPickedGoalId] = useState<string | null>(taskId);
+  const [pickedStepId, setPickedStepId] = useState<string | null>(initialStepId ?? null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
       setTitle(''); setDescription(''); setKind('boolean');
       setTarget(''); setUnit(''); setStart(''); setDue('');
+      setPickedGoalId(taskId);
+      setPickedStepId(initialStepId ?? null);
     }
-  }, [open]);
+  }, [open, taskId, initialStepId]);
+
+  // Reset step selection when the parent goal changes.
+  useEffect(() => { setPickedStepId(null); }, [pickedGoalId]);
+
+  const allowPickGoal = taskId === null && (goals?.length ?? 0) > 0;
+  const pickedGoal = useMemo(
+    () => goals?.find((g) => g.id === pickedGoalId) ?? null,
+    [goals, pickedGoalId],
+  );
+  const stepsForGoal = useMemo<Step[]>(
+    () => [...(pickedGoal?.steps ?? [])].sort((a, b) => a.position - b.position),
+    [pickedGoal],
+  );
 
   const submit = async () => {
     const t = title.trim();
-    if (!t || !taskId) return;
+    if (!t) return;
     setSubmitting(true);
-    await gos.createGo({
-      task_id: taskId,
-      title: t,
-      description: description.trim() || undefined,
-      kind,
-      unit: kind === 'numeric' ? (unit.trim() || undefined) : undefined,
-      target_value: kind === 'numeric' && target ? Number(target) : undefined,
-      start_date: start || undefined,
-      due_date: due || undefined,
-    });
-    setSubmitting(false);
-    onOpenChange(false);
+    try {
+      await gos.createGo({
+        task_id: pickedGoalId || undefined,
+        step_id: pickedStepId || undefined,
+        title: t,
+        description: description.trim() || undefined,
+        kind,
+        unit: kind === 'numeric' ? (unit.trim() || undefined) : undefined,
+        target_value: kind === 'numeric' && target ? Number(target) : undefined,
+        start_date: start || undefined,
+        due_date: due || undefined,
+      });
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to create go');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -82,6 +121,50 @@ export function GoCreateDialog({ open, onOpenChange, taskId, gos }: GoDialogProp
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+
+        {/* Standalone mode: pick parent goal (and optionally a step). */}
+        {allowPickGoal && (
+          <div className="ui-form-row">
+            <div className="ui-field">
+              <span className="ui-field-label">Goal (optional)</span>
+              <select
+                className="ui-input"
+                value={pickedGoalId ?? ''}
+                onChange={(e) => setPickedGoalId(e.target.value || null)}
+              >
+                <option value="">Standalone (no goal)</option>
+                {(goals ?? [])
+                  .filter((g) => g.status !== 'done')
+                  .sort((a, b) => a.order - b.order)
+                  .map((g) => (
+                    <option key={g.id} value={g.id}>{g.title}</option>
+                  ))}
+              </select>
+            </div>
+            <div className="ui-field">
+              <span className="ui-field-label">Step (optional)</span>
+              <select
+                className="ui-input"
+                value={pickedStepId ?? ''}
+                onChange={(e) => setPickedStepId(e.target.value || null)}
+                disabled={!pickedGoalId || stepsForGoal.length === 0}
+              >
+                <option value="">
+                  {!pickedGoalId
+                    ? 'pick a goal first'
+                    : stepsForGoal.length === 0
+                      ? 'no steps yet'
+                      : 'no step'}
+                </option>
+                {stepsForGoal.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {String(s.position + 1).padStart(2, '0')} · {s.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
 
         <div className="ui-field">
           <span className="ui-field-label">Tracking</span>
@@ -361,6 +444,140 @@ export function RoutineCreateForGoalDialog({ open, onOpenChange, taskId, goals }
             <span className="ui-field-label">End (optional)</span>
             <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
           </div>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ── Step (milestone phase inside a Goal) ─────────────────────────────────────
+
+const STEP_STATUSES: { key: StepStatus; label: string }[] = [
+  { key: 'not_started', label: 'Not started' },
+  { key: 'in_progress', label: 'In progress' },
+  { key: 'done',        label: 'Done'        },
+];
+
+interface StepDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Goal this Step belongs to. */
+  taskId: string | null;
+  /** Called after the step (and optional first Go) is successfully created. */
+  onCreated: () => Promise<void> | void;
+}
+
+export function StepCreateDialog({ open, onOpenChange, taskId, onCreated }: StepDialogProps) {
+  const [title, setTitle]             = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus]           = useState<StepStatus>('not_started');
+  const [start, setStart]             = useState('');
+  const [end, setEnd]                 = useState('');
+  /** Optional starter Go — created in the same flow with step_id pre-filled. */
+  const [firstGoTitle, setFirstGoTitle] = useState('');
+  const [submitting, setSubmitting]   = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTitle(''); setDescription(''); setStatus('not_started');
+      setStart(''); setEnd(''); setFirstGoTitle('');
+    }
+  }, [open]);
+
+  const submit = async () => {
+    const t = title.trim();
+    if (!t || !taskId) return;
+    setSubmitting(true);
+    try {
+      const step = await stepsApi.create(taskId, {
+        title: t,
+        description: description.trim() || undefined,
+        status,
+        start_date: start || undefined,
+        end_date: end || undefined,
+      });
+      const goTitle = firstGoTitle.trim();
+      if (goTitle) {
+        await gosApi.create({
+          task_id: taskId,
+          step_id: step.id,
+          title: goTitle,
+          kind: 'boolean',
+        });
+      }
+      await onCreated();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to create step');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="New step"
+      description="A milestone phase inside this goal. Steps contain Gos."
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="primary" onClick={submit} disabled={submitting || !title.trim()}>
+            {submitting ? 'Creating…' : 'Create step'}
+          </Button>
+        </>
+      }
+    >
+      <div className="ui-form">
+        <Input
+          autoFocus
+          placeholder="Step title (e.g. Build backend)"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) submit(); }}
+        />
+        <textarea
+          className="ui-input"
+          data-size="textarea"
+          placeholder="Notes (optional)"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <div className="ui-field">
+          <span className="ui-field-label">Status</span>
+          <div className="pill-seg" role="radiogroup">
+            {STEP_STATUSES.map((s) => (
+              <button
+                key={s.key}
+                className={status === s.key ? 'on' : ''}
+                role="radio"
+                aria-checked={status === s.key}
+                onClick={() => setStatus(s.key)}
+              >{s.label}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="ui-form-row">
+          <div className="ui-field">
+            <span className="ui-field-label">Start (optional)</span>
+            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          </div>
+          <div className="ui-field">
+            <span className="ui-field-label">End (optional)</span>
+            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="ui-field">
+          <span className="ui-field-label">First go (optional)</span>
+          <Input
+            placeholder="Inline boolean go to seed this step"
+            value={firstGoTitle}
+            onChange={(e) => setFirstGoTitle(e.target.value)}
+          />
         </div>
       </div>
     </Dialog>

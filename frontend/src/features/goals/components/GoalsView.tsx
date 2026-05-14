@@ -13,6 +13,7 @@ import { GoalCreateDialog } from './GoalCreateDialog';
 import {
   GoCreateDialog,
   RoutineCreateForGoalDialog,
+  StepCreateDialog,
 } from './GoalChildDialogs';
 import './goals.css';
 // Reuse the heatmap + action-circle styles from the Routines view so the
@@ -69,11 +70,17 @@ export default function GoalsView() {
   const [goDialogTaskId,      setGoDialogTaskId]      = useState<string | null>(null);
   const [routineDialogTaskId, setRoutineDialogTaskId] = useState<string | null>(null);
 
+  // Standalone Go-create (header "+Go" button in Go mode — user picks goal/step inside).
+  const [goCreateOpen, setGoCreateOpen] = useState(false);
+  // Step-create dialog — taskId is the parent goal.
+  const [stepDialogTaskId, setStepDialogTaskId] = useState<string | null>(null);
+
   const onAddGoal = useCallback((status: TaskStatus) => {
     setCreateStatus(status);
     setCreateOpen(true);
   }, []);
   const onSelectGoal = useCallback((id: string) => setDetailGoalId(id), []);
+  const onAddStep    = useCallback((taskId: string) => setStepDialogTaskId(taskId), []);
 
   // ── Stable callbacks for the kanban + sub-views ──────────────────────────
 
@@ -228,7 +235,13 @@ export default function GoalsView() {
                 >Cross-goal</button>
               </div>
             )}
-            <button className="new-btn" onClick={() => onAddGoal('active')}>
+            <button
+              className="new-btn"
+              onClick={() => {
+                if (view.mode === 'go') setGoCreateOpen(true);
+                else onAddGoal('active');
+              }}
+            >
               <Plus /> {view.mode === 'go' ? 'Go' : 'New goal'}
             </button>
           </div>
@@ -242,6 +255,8 @@ export default function GoalsView() {
             onLog={onLogGo}
             onSkip={onDeleteGo}
             onSelectGoal={onSelectGoal}
+            onAddStep={onAddStep}
+            onAddGo={onAddGo}
           />
         ) : (
           <div className="content-scroll" style={{ overflowX: 'auto' }}>
@@ -365,6 +380,22 @@ export default function GoalsView() {
         onOpenChange={closeGoDialog}
         taskId={goDialogTaskId}
         gos={gos}
+      />
+
+      {/* Standalone Go-create from header "+Go" — user picks goal/step inside. */}
+      <GoCreateDialog
+        open={goCreateOpen}
+        onOpenChange={setGoCreateOpen}
+        taskId={null}
+        gos={gos}
+        goals={goals.tasks}
+      />
+
+      <StepCreateDialog
+        open={stepDialogTaskId !== null}
+        onOpenChange={(o) => { if (!o) setStepDialogTaskId(null); }}
+        taskId={stepDialogTaskId}
+        onCreated={goals.refresh}
       />
 
       <RoutineCreateForGoalDialog

@@ -42,6 +42,10 @@ interface Props {
   onSkip: (go: Go) => void;
   /** Open the goal detail panel (3-dot edit). */
   onSelectGoal: (id: string) => void;
+  /** Open the "create step" dialog for the focused goal. */
+  onAddStep: (taskId: string) => void;
+  /** Open the "create go" dialog pre-filled to this goal. */
+  onAddGo: (taskId: string) => void;
 }
 
 const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--slate)', 'var(--ochre)', 'var(--rust)'] as const;
@@ -137,7 +141,7 @@ function relativeLabel(dateStr: string): string | null {
   return null;
 }
 
-export function GoView({ gos: allGos, goals, mode, onLog, onSkip, onSelectGoal }: Props) {
+export function GoView({ gos: allGos, goals, mode, onLog, onSkip, onSelectGoal, onAddStep, onAddGo }: Props) {
   const [dayFilter, setDayFilter] = useState<DayFilter>('today');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
   // null = "all goals" — only meaningful in cross-goal mode.
@@ -404,6 +408,8 @@ export function GoView({ gos: allGos, goals, mode, onLog, onSkip, onSelectGoal }
                   onLog={onLog}
                   onSkip={onSkip}
                   onEditGoal={() => onSelectGoal(selectedId)}
+                  onAddStep={onAddStep}
+                  onAddGo={onAddGo}
                 />
               ) : (
                 <div className="content-empty" style={{ minHeight: 320 }}>
@@ -454,6 +460,8 @@ interface FocusedProps {
   onLog: (go: Go, value: number) => void;
   onSkip: (go: Go) => void;
   onEditGoal: () => void;
+  onAddStep: (taskId: string) => void;
+  onAddGo: (taskId: string) => void;
 }
 
 function FocusedGoal({
@@ -470,6 +478,8 @@ function FocusedGoal({
   onLog,
   onSkip,
   onEditGoal,
+  onAddStep,
+  onAddGo,
 }: FocusedProps) {
   const accent = accentFor(goal.id);
   const pct = goalPct(goal);
@@ -561,13 +571,13 @@ function FocusedGoal({
         </div>
       </header>
 
-      {steps.length > 0 && (
-        <StepsTimeline
-          steps={steps}
-          selectedStepId={selectedStepId}
-          onSelect={onSelectStep}
-        />
-      )}
+      <StepsTimeline
+        steps={steps}
+        selectedStepId={selectedStepId}
+        onSelect={onSelectStep}
+        onAddStep={() => onAddStep(goal.id)}
+        onAddGo={() => onAddGo(goal.id)}
+      />
 
       {pageTabs}
 
@@ -959,15 +969,42 @@ interface StepsTimelineProps {
   steps: Step[];
   selectedStepId: string | null;
   onSelect: (stepId: string | null) => void;
+  onAddStep: () => void;
+  onAddGo: () => void;
 }
 
-function StepsTimeline({ steps, selectedStepId, onSelect }: StepsTimelineProps) {
+function StepsTimeline({ steps, selectedStepId, onSelect, onAddStep, onAddGo }: StepsTimelineProps) {
   const sorted = useMemo(
     () => [...steps].sort((a, b) => a.position - b.position),
     [steps],
   );
   const N = sorted.length;
-  if (N === 0) return null;
+
+  // Empty state — invite the user to create the first step.
+  if (N === 0) {
+    return (
+      <section className="steps">
+        <div className="steps-head">
+          <span className="steps-head__label">Steps</span>
+          <span className="steps-head__rule" />
+          <span className="steps-head__meta">no milestones yet</span>
+        </div>
+        <div className="steps-empty">
+          <p className="steps-empty__hint">
+            Break this goal into milestones. Each step holds its own Gos.
+          </p>
+          <div className="steps-empty__actions">
+            <button type="button" className="steps-empty__btn primary" onClick={onAddStep}>
+              <Plus size={13} /> Add first step
+            </button>
+            <button type="button" className="steps-empty__btn" onClick={onAddGo}>
+              <Plus size={13} /> Add go without step
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const doneCount = sorted.filter((s) => s.status === 'done').length;
   const activeIdx = sorted.findIndex((s) => s.status === 'in_progress');
@@ -989,6 +1026,14 @@ function StepsTimeline({ steps, selectedStepId, onSelect }: StepsTimelineProps) 
           <b>{N}</b> {N === 1 ? 'step' : 'steps'} · <b>{doneCount}</b> done
           {activeIdx >= 0 && <> · current is <b>{String(activeIdx + 1).padStart(2, '0')}</b></>}
         </span>
+        <div className="steps-head__actions">
+          <button type="button" className="steps-head__btn" onClick={onAddStep} title="Add step">
+            <Plus size={11} /> Step
+          </button>
+          <button type="button" className="steps-head__btn" onClick={onAddGo} title="Add go">
+            <Plus size={11} /> Go
+          </button>
+        </div>
       </div>
       <div className="steps-track">
         <div
