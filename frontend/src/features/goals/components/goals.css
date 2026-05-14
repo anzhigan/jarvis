@@ -263,8 +263,55 @@
 }
 .kc-child:hover { background: var(--soft); }
 .kc-child[data-kind="go"] { border-left-color: var(--moss); }
-.kc-child[data-kind="step"] { border-left-color: var(--gc, var(--indigo)); }
+.kc-child[data-kind="step"] { border-left-color: var(--gc, var(--indigo)); cursor: pointer; }
+.kc-child[data-kind="step"][data-state="done"] { border-left-color: var(--moss); }
+.kc-child[data-kind="step"][data-state="active"] { border-left-color: var(--ochre); }
+.kc-child[data-kind="step"][data-state="upcoming"] { border-left-color: var(--ink-5); }
 .kc-child[data-kind="routine"] { border-left-color: var(--ochre); }
+
+/* Step subcard: italic step number + name + counter + + button */
+.kc-child-num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-4);
+  flex-shrink: 0;
+  min-width: 18px;
+  letter-spacing: 0;
+}
+.kc-child[data-kind="step"][data-state="done"]   .kc-child-num { color: var(--moss); }
+.kc-child[data-kind="step"][data-state="active"] .kc-child-num { color: var(--ochre); }
+.kc-child[data-kind="step"][data-state="done"]   .kc-child-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--moss-soft);
+  color: var(--ink-3);
+}
+.kc-child-meta-inline {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-4);
+  flex-shrink: 0;
+}
+.kc-child-add {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  color: var(--ink-4);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: all var(--dur-fast) var(--ease);
+}
+.kc-child:hover .kc-child-add { opacity: 1; }
+.kc-child-add:hover {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: var(--paper);
+}
 
 .kc-child-row {
   display: flex; align-items: center; gap: 8px;
@@ -623,10 +670,61 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Search input in the goal sidebar — filters the activeGoals list by title. */
+.go-leftpane-search {
+  position: relative;
+  margin: 0 14px 8px;
+}
+.go-leftpane-search svg {
+  position: absolute;
+  left: 8px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-5);
+  pointer-events: none;
+}
+.go-leftpane-search__input {
+  width: 100%;
+  padding: 6px 26px 6px 26px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  outline: none;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.go-leftpane-search__input::-webkit-search-cancel-button { display: none; }
+.go-leftpane-search__input:focus {
+  border-color: var(--ink-4);
+  background: var(--paper);
+}
+.go-leftpane-search__input::placeholder { color: var(--ink-5); }
+.go-leftpane-search__clear {
+  position: absolute;
+  right: 4px; top: 50%;
+  transform: translateY(-50%);
+  width: 18px; height: 18px;
+  border: 0; background: transparent;
+  color: var(--ink-4);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+}
+.go-leftpane-search__clear:hover { background: var(--cream); color: var(--ink-2); }
+
 .gl-list {
   padding: 8px 14px 16px;
   display: flex; flex-direction: column;
   gap: 4px;
+}
+.gl-list-empty {
+  padding: 18px 12px;
+  text-align: center;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-5);
 }
 .gl-card {
   width: 100%;

@@ -13,8 +13,12 @@ interface Props {
   onMove: (id: string, status: TaskStatus) => void | Promise<void>;
   /** Toggle today's value for a Go (1 / target_value when checking, 0 otherwise). */
   onToggleGoDone: (go: import('../../../api/types').Go) => void | Promise<void>;
-  /** Quick-create a go under the goal. */
-  onAddGo: (taskId: string) => void | Promise<void>;
+  /** Quick-create a go under the goal — optionally inside a Step. */
+  onAddGo: (taskId: string, stepId?: string | null) => void | Promise<void>;
+  /** Open the create-step dialog for this goal. */
+  onAddStep: (taskId: string) => void | Promise<void>;
+  /** Open the edit-step dialog. */
+  onEditStep: (step: import('../../../api/types').Step) => void | Promise<void>;
   /** Quick-create a routine and attach to the goal — title prompted. */
   onAddRoutine: (taskId: string) => void | Promise<void>;
   /** Toggle today's value for a Routine (1 if not done, 0 otherwise). */
@@ -62,6 +66,8 @@ function fmtDue(due: string): string {
 interface CardCallbacks {
   onToggleGoDone?: Props['onToggleGoDone'];
   onAddGo?: Props['onAddGo'];
+  onAddStep?: Props['onAddStep'];
+  onEditStep?: Props['onEditStep'];
   onAddRoutine?: Props['onAddRoutine'];
   onToggleRoutineDone?: Props['onToggleRoutineDone'];
   onSkipRoutine?: Props['onSkipRoutine'];
@@ -182,8 +188,37 @@ function GoalChildren({
   task: Task;
   callbacks?: CardCallbacks;
 }) {
+  const sortedSteps = useMemo(
+    () => [...(task.steps ?? [])].sort((a, b) => a.position - b.position),
+    [task.steps],
+  );
+
   return (
     <>
+      {(sortedSteps.length > 0 || callbacks?.onAddStep) && (
+        <div className="kc-section">
+          <div className="kc-section-label">Steps</div>
+          {sortedSteps.map((s) => (
+            <StepSubcard
+              key={s.id}
+              step={s}
+              onClick={callbacks?.onEditStep}
+              onAddGoInStep={callbacks?.onAddGo ? () => callbacks.onAddGo?.(task.id, s.id) : undefined}
+            />
+          ))}
+          {callbacks?.onAddStep && (
+            <button
+              type="button"
+              className="kc-add-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                callbacks.onAddStep?.(task.id);
+              }}
+            ><Plus size={11} /> Step</button>
+          )}
+        </div>
+      )}
+
       {(task.gos.length > 0 || callbacks?.onAddGo) && (
         <div className="kc-section">
           <div className="kc-section-label">Gos</div>
@@ -235,6 +270,48 @@ type RoutineCellState = 'done' | 'partial' | 'skipped' | 'empty';
 
 const ymdDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Step shown inline inside a Kanban goal card — title, status, gos counter.
+ *  Click anywhere on the row → edit. The "+ Go" affordance creates a Go that's
+ *  already attached to this step. */
+const StepSubcard = memo(function StepSubcard({
+  step, onClick, onAddGoInStep,
+}: {
+  step: import('../../../api/types').Step;
+  onClick?: (step: import('../../../api/types').Step) => void | Promise<void>;
+  onAddGoInStep?: () => void;
+}) {
+  const state = step.status === 'done'
+    ? 'done'
+    : step.status === 'in_progress' ? 'active' : 'upcoming';
+  return (
+    <div
+      className="kc-child"
+      data-kind="step"
+      data-state={state}
+      onClick={(e) => { e.stopPropagation(); onClick?.(step); }}
+      role="button"
+      tabIndex={0}
+    >
+      <div className="kc-child-row">
+        <span className="kc-child-num">{String(step.position + 1).padStart(2, '0')}</span>
+        <span className="kc-child-name">{step.title}</span>
+        <span className="kc-child-meta-inline">
+          {step.gos_done} / {step.gos_count}
+        </span>
+        {onAddGoInStep && (
+          <button
+            type="button"
+            className="kc-child-add"
+            title="Add go inside this step"
+            aria-label="Add go inside this step"
+            onClick={(e) => { e.stopPropagation(); onAddGoInStep(); }}
+          ><Plus size={11} /></button>
+        )}
+      </div>
+    </div>
+  );
+});
 
 /** Routine attached to a Goal via GoalRoutineLink — same visual language as the
  *  big Routines view: a 7-day cell heatmap (done / partial / skipped / empty)
@@ -482,7 +559,7 @@ function DroppableColumn({
 
 export function GoalsBoard({
   tasks, onSelect, onAdd, onMove,
-  onToggleGoDone, onAddGo,
+  onToggleGoDone, onAddGo, onAddStep, onEditStep,
   onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
 }: Props) {
   const byStatus = useMemo(() => {
@@ -527,11 +604,13 @@ export function GoalsBoard({
   const callbacks: CardCallbacks = useMemo(() => ({
     onToggleGoDone,
     onAddGo,
+    onAddStep,
+    onEditStep,
     onAddRoutine,
     onToggleRoutineDone,
     onSkipRoutine,
     onUnlinkRoutine,
-  }), [onToggleGoDone, onAddGo, onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine]);
+  }), [onToggleGoDone, onAddGo, onAddStep, onEditStep, onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine]);
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>

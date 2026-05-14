@@ -44,8 +44,8 @@ interface Props {
   onSelectGoal: (id: string) => void;
   /** Open the "create step" dialog for the focused goal. */
   onAddStep: (taskId: string) => void;
-  /** Open the "create go" dialog pre-filled to this goal. */
-  onAddGo: (taskId: string) => void;
+  /** Open the "create go" dialog pre-filled to this goal — and optionally a step. */
+  onAddGo: (taskId: string, stepId?: string | null) => void;
   /** Open the edit dialog for a Step. Click on a timeline station triggers this. */
   onEditStep: (step: Step) => void;
   /** Open the edit dialog for a Go. Click on a tg-card body triggers this. */
@@ -162,6 +162,8 @@ export function GoView({
   // null = "all goals" — only meaningful in cross-goal mode.
   const [goalsFilter, setGoalsFilter] = useState<Set<string> | null>(null);
   const [shownLimit, setShownLimit] = useState<number>(PAGE_SIZE);
+  // Sidebar search — filters the activeGoals list by title (case-insensitive).
+  const [sidebarSearch, setSidebarSearch] = useState('');
 
   // Day-bucket filter: past / today / future, derived purely from due_date.
   // Standalone gos (no due_date) live in the Today bucket as daily checks.
@@ -238,6 +240,13 @@ export function GoView({
       .sort((a, b) => a.order - b.order),
     [goals, groupedAll],
   );
+
+  // Sidebar list filtered by the search input.
+  const visibleGoals = useMemo(() => {
+    const q = sidebarSearch.trim().toLowerCase();
+    if (!q) return activeGoals;
+    return activeGoals.filter((g) => g.title.toLowerCase().includes(q));
+  }, [activeGoals, sidebarSearch]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Default to first active goal; reset if the current selection vanishes.
@@ -337,11 +346,37 @@ export function GoView({
         <div className="go-leftpane-list-head">
           <span>Active goals</span>
           <span className="go-list-rule" />
-          <span className="go-list-meta">{activeGoals.length}</span>
+          <span className="go-list-meta">
+            {sidebarSearch.trim()
+              ? `${visibleGoals.length}/${activeGoals.length}`
+              : activeGoals.length}
+          </span>
+        </div>
+
+        <div className="go-leftpane-search">
+          <Search size={12} aria-hidden />
+          <input
+            type="search"
+            className="go-leftpane-search__input"
+            placeholder="Search goals…"
+            value={sidebarSearch}
+            onChange={(e) => setSidebarSearch(e.target.value)}
+          />
+          {sidebarSearch && (
+            <button
+              type="button"
+              className="go-leftpane-search__clear"
+              aria-label="Clear search"
+              onClick={() => setSidebarSearch('')}
+            ><X size={11} /></button>
+          )}
         </div>
 
         <div className="gl-list">
-          {activeGoals.map((goal) => {
+          {visibleGoals.length === 0 && sidebarSearch.trim() && (
+            <div className="gl-list-empty">No goals match “{sidebarSearch}”.</div>
+          )}
+          {visibleGoals.map((goal) => {
             const items = grouped.get(goal.id) ?? [];
             const todayDone = items.filter((g) => g.is_done_today).length;
             const todayTotal = items.length;
@@ -479,7 +514,7 @@ interface FocusedProps {
   onSkip: (go: Go) => void;
   onEditGoal: () => void;
   onAddStep: (taskId: string) => void;
-  onAddGo: (taskId: string) => void;
+  onAddGo: (taskId: string, stepId?: string | null) => void;
   onEditStep: (step: Step) => void;
   onEditGo: (go: Go) => void;
 }
@@ -598,7 +633,7 @@ function FocusedGoal({
         selectedStepId={selectedStepId}
         onSelect={onSelectStep}
         onAddStep={() => onAddStep(goal.id)}
-        onAddGo={() => onAddGo(goal.id)}
+        onAddGo={() => onAddGo(goal.id, selectedStepId)}
         onEditStep={onEditStep}
       />
 
@@ -1071,7 +1106,7 @@ function StepsTimeline({
               <Plus size={13} /> Add first step
             </button>
             <button type="button" className="steps-empty__btn" onClick={onAddGo}>
-              <Plus size={13} /> Add go without step
+              <Plus size={13} /> Add go
             </button>
           </div>
         </div>

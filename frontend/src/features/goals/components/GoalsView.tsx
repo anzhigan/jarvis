@@ -71,6 +71,8 @@ export default function GoalsView() {
 
   // Dialogs for creating go/routine inside an expanded goal card.
   const [goDialogTaskId,      setGoDialogTaskId]      = useState<string | null>(null);
+  /** Optional Step pre-fill carried with the Go-create dialog. */
+  const [goDialogStepId,      setGoDialogStepId]      = useState<string | null>(null);
   const [routineDialogTaskId, setRoutineDialogTaskId] = useState<string | null>(null);
 
   // Standalone Go-create (header "+Go" button in Go mode — user picks goal/step inside).
@@ -99,7 +101,10 @@ export default function GoalsView() {
     void gos.logToday(go.id, next);
   }, [gos]);
 
-  const onAddGo      = useCallback((taskId: string) => setGoDialogTaskId(taskId), []);
+  const onAddGo      = useCallback((taskId: string, stepId?: string | null) => {
+    setGoDialogTaskId(taskId);
+    setGoDialogStepId(stepId ?? null);
+  }, []);
   const onAddRoutine = useCallback((taskId: string) => setRoutineDialogTaskId(taskId), []);
 
   const onToggleRoutineDone = useCallback(async (link: import('../../../api/types').GoalRoutineLink) => {
@@ -152,7 +157,9 @@ export default function GoalsView() {
     if (followUp === 'routine') setRoutineDialogTaskId(taskId);
   }, []);
 
-  const closeGoDialog      = useCallback((o: boolean) => { if (!o) setGoDialogTaskId(null); }, []);
+  const closeGoDialog      = useCallback((o: boolean) => {
+    if (!o) { setGoDialogTaskId(null); setGoDialogStepId(null); }
+  }, []);
   const closeRoutineDialog = useCallback((o: boolean) => { if (!o) setRoutineDialogTaskId(null); }, []);
   const closeDetail        = useCallback((o: boolean) => { if (!o) setDetailGoalId(null); }, []);
 
@@ -360,6 +367,8 @@ export default function GoalsView() {
               onMove={goals.moveStatus}
               onToggleGoDone={onToggleGoDone}
               onAddGo={onAddGo}
+              onAddStep={onAddStep}
+              onEditStep={onEditStep}
               onAddRoutine={onAddRoutine}
               onToggleRoutineDone={onToggleRoutineDone}
               onSkipRoutine={onSkipRoutine}
@@ -389,7 +398,9 @@ export default function GoalsView() {
         open={goDialogTaskId !== null}
         onOpenChange={closeGoDialog}
         taskId={goDialogTaskId}
+        initialStepId={goDialogStepId}
         gos={gos}
+        goals={goals.tasks}
       />
 
       {/* Standalone Go-create from header "+Go" — user picks goal/step inside. */}

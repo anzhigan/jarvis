@@ -54,10 +54,12 @@ export function GoCreateDialog({
     }
   }, [open, taskId, initialStepId]);
 
-  // Reset step selection when the parent goal changes.
-  useEffect(() => { setPickedStepId(null); }, [pickedGoalId]);
+  // Step reset on goal change happens in the goal-picker onChange — that way
+  // we don't clobber the `initialStepId` prefill on initial render.
 
-  const allowPickGoal = taskId === null && (goals?.length ?? 0) > 0;
+  // Show pickers whenever we know the goal-list (so user can verify/override
+  // the pre-fill). Hide only if no goals were provided at all.
+  const showPickers = (goals?.length ?? 0) > 0;
   const pickedGoal = useMemo(
     () => goals?.find((g) => g.id === pickedGoalId) ?? null,
     [goals, pickedGoalId],
@@ -122,17 +124,20 @@ export function GoCreateDialog({
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        {/* Standalone mode: pick parent goal (and optionally a step). */}
-        {allowPickGoal && (
+        {/* Goal + Step pickers — always visible (pre-filled if context known). */}
+        {showPickers && (
           <div className="ui-form-row">
             <div className="ui-field">
-              <span className="ui-field-label">Goal (optional)</span>
+              <span className="ui-field-label">Goal</span>
               <select
                 className="ui-input"
                 value={pickedGoalId ?? ''}
-                onChange={(e) => setPickedGoalId(e.target.value || null)}
+                onChange={(e) => {
+                  setPickedGoalId(e.target.value || null);
+                  setPickedStepId(null);
+                }}
               >
-                <option value="">Standalone (no goal)</option>
+                <option value="">Without goal · standalone</option>
                 {(goals ?? [])
                   .filter((g) => g.status !== 'done')
                   .sort((a, b) => a.order - b.order)
@@ -142,7 +147,7 @@ export function GoCreateDialog({
               </select>
             </div>
             <div className="ui-field">
-              <span className="ui-field-label">Step (optional)</span>
+              <span className="ui-field-label">Step</span>
               <select
                 className="ui-input"
                 value={pickedStepId ?? ''}
@@ -154,7 +159,7 @@ export function GoCreateDialog({
                     ? 'pick a goal first'
                     : stepsForGoal.length === 0
                       ? 'no steps yet'
-                      : 'no step'}
+                      : 'Without step'}
                 </option>
                 {stepsForGoal.map((s) => (
                   <option key={s.id} value={s.id}>
