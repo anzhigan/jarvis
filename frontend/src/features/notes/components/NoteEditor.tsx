@@ -108,34 +108,28 @@ interface ToolbarProps { editor: Editor; helpers: EditorHelpers | null }
 
 /**
  * Text color palette — values are CSS custom properties from src/styles/tokens.css
- * (the design-system tokens). The Tiptap Color extension persists the value
- * verbatim as `style="color: var(--…)"`, which means colors automatically follow
+ * (Indigo Editorial design system). The Tiptap Color extension persists the
+ * value verbatim as `style="color: var(--…)"`, so colors automatically follow
  * theme changes (light → dark) instead of being frozen to the hex captured at
  * insert time. No hex literals here — the design system is the single source.
- *
- * Semantic colors (`--warning`/`--success`/`--info`) are deliberate aliases of
- * `--accent-goals`/`--accent-routines`/`--accent-sprints`, so showing them as
- * separate swatches would just be visual duplicates. Only `--danger` and
- * `--fg-muted` are unique outside the tab-accents group, so they share the
- * "Semantic & muted" row.
  */
 type ColorSwatch = { name: string; token: string };
 const NTB_COLOR_GROUPS: { label: string; colors: ColorSwatch[] }[] = [
   {
-    label: 'Tab accents',
+    label: 'Editorial accents',
     colors: [
-      { name: 'Notes',    token: '--accent-notes'    },
-      { name: 'Goals',    token: '--accent-goals'    },
-      { name: 'Routines', token: '--accent-routines' },
-      { name: 'Sprints',  token: '--accent-sprints'  },
-      { name: 'Analysis', token: '--accent-analysis' },
+      { name: 'Indigo',  token: '--indigo' },  // brand · Notes section
+      { name: 'Moss',    token: '--moss'   },  // success · Goals section
+      { name: 'Ochre',   token: '--ochre'  },  // warning · Routines section
+      { name: 'Slate',   token: '--slate'  },  // neutral · Sprints section
+      { name: 'Walnut',  token: '--walnut' },  // deep · Analysis section
     ],
   },
   {
     label: 'Semantic & muted',
     colors: [
-      { name: 'Danger',  token: '--danger'   },
-      { name: 'Muted',   token: '--fg-muted' },
+      { name: 'Danger',  token: '--rust'  },
+      { name: 'Muted',   token: '--ink-4' },
     ],
   },
 ];

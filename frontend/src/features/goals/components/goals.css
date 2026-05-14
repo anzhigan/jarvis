@@ -1320,7 +1320,7 @@
 .tg-card:hover {
   border-color: var(--hairline-strong);
   border-left-color: var(--gc, var(--indigo));
-  box-shadow: 0 0 0 1px var(--hairline-strong), 0 2px 6px rgba(15, 24, 32, 0.04);
+  box-shadow: 0 2px 6px rgba(15, 24, 32, 0.06);
 }
 .tg-card[data-done] {
   background: var(--moss-soft);
