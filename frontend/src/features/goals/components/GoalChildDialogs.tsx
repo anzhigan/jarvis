@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, Dialog, Input } from '../../../components/ui';
+import { Button, Dialog, Drawer, Input } from '../../../components/ui';
 import { gosApi, routinesApi, stepsApi } from '../../../api/client';
 import type { Go, GoKind, GoRecurrence, Step, StepStatus, Task } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
@@ -733,14 +733,15 @@ export function StepEditDialog({ step, onOpenChange, onSaved }: StepEditProps) {
   };
 
   return (
-    <Dialog
+    <Drawer
       open={step !== null}
       onOpenChange={onOpenChange}
+      accent="goals"
       title="Edit step"
       description="Update title, status, dates — or delete the step."
       footer={
         <>
-          <Button variant="ghost" data-tone="danger" onClick={remove} disabled={submitting}>Delete</Button>
+          <Button variant="danger" onClick={remove} disabled={submitting}>Delete</Button>
           <span style={{ flex: 1 }} />
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button variant="primary" onClick={save} disabled={submitting || !title.trim()}>
@@ -789,7 +790,7 @@ export function StepEditDialog({ step, onOpenChange, onSaved }: StepEditProps) {
           </div>
         </div>
       </div>
-    </Dialog>
+    </Drawer>
   );
 }
 
@@ -882,14 +883,15 @@ export function GoEditDialog({ go, goals, onOpenChange, onSaved }: GoEditProps) 
   };
 
   return (
-    <Dialog
+    <Drawer
       open={go !== null}
       onOpenChange={onOpenChange}
+      accent="goals"
       title="Edit go"
       description="Update fields — or delete the go."
       footer={
         <>
-          <Button variant="ghost" data-tone="danger" onClick={remove} disabled={submitting}>Delete</Button>
+          <Button variant="danger" onClick={remove} disabled={submitting}>Delete</Button>
           <span style={{ flex: 1 }} />
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button variant="primary" onClick={save} disabled={submitting || !title.trim()}>
@@ -1009,6 +1011,6 @@ export function GoEditDialog({ go, goals, onOpenChange, onSaved }: GoEditProps) 
           </div>
         </div>
       </div>
-    </Dialog>
+    </Drawer>
   );
 }

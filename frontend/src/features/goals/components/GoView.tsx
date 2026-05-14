@@ -628,6 +628,7 @@ function FocusedGoal({
   const [goalDescTruncated, setGoalDescTruncated] = useState(false);
   const goalDescRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
+    if (goalDescExpanded) return;
     const el = goalDescRef.current;
     if (!el) { setGoalDescTruncated(false); return; }
     setGoalDescTruncated(el.scrollHeight > el.clientHeight + 1);
@@ -1017,7 +1018,11 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
 
   // Detect whether the description overflows the 2-line clamp so we only
   // render the "…" expand button when there's actually hidden content.
+  // Important: skip the check while expanded — once the clamp is removed,
+  // scrollHeight equals clientHeight and we'd lose the truncated flag,
+  // making the "Show less" affordance disappear.
   useEffect(() => {
+    if (descExpanded) return;
     const el = descRef.current;
     if (!el) { setDescTruncated(false); return; }
     setDescTruncated(el.scrollHeight > el.clientHeight + 1);
