@@ -816,7 +816,8 @@
 .lib-row .swatch { width: 8px; height: 8px; border-radius: var(--r-sharp); flex-shrink: 0; }
 .lib-row .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-.lib-row .row-add {
+.lib-row .row-add,
+.lib-row .row-action {
   display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px;
   border-radius: var(--r-control);
@@ -827,9 +828,34 @@
   transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
 }
 .lib-row:hover .row-add,
-.lib-row:focus-within .row-add { opacity: 1; }
-.lib-row .row-add:hover { background: var(--paper); color: var(--indigo); }
-.lib-row .row-add svg { width: 11px; height: 11px; }
+.lib-row:focus-within .row-add,
+.lib-row:hover .row-action,
+.lib-row:focus-within .row-action { opacity: 1; }
+.lib-row .row-add:hover,
+.lib-row .row-action:hover { background: var(--paper); color: var(--indigo); }
+.lib-row .row-action--danger:hover { color: var(--rust); }
+.lib-row .row-add svg,
+.lib-row .row-action svg { width: 12px; height: 12px; }
+
+/* row-action--hover variants stay completely hidden until the row is hovered. */
+.lib-row .row-action--hover {
+  opacity: 0;
+  pointer-events: none;
+}
+.lib-row:hover .row-action--hover,
+.lib-row:focus-within .row-action--hover {
+  opacity: 0.85;
+  pointer-events: auto;
+}
+.lib-row .row-action--hover:hover { opacity: 1; }
+
+/* Leaf icon (paper) inside a note row — small visual to differentiate notes
+   from way/topic rows that have chevrons in the same position. */
+.lib-row .tree-leaf-icon {
+  color: var(--ink-4);
+  flex-shrink: 0;
+  margin-right: 2px;
+}
 
 .tree-row { font-family: var(--font-body); }
 .tree-row .ico { font-size: 13px; }

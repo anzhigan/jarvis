@@ -423,8 +423,8 @@
 /* ─── Body — Source Serif 4 ────────────────────────────────────────────── */
 .doc-body {
   font-family: var(--font-body);
-  font-size: 18px;
-  line-height: 1.7;
+  font-size: 15px;
+  line-height: 1.65;
   color: var(--ink-2);
 }
 .doc-body .doc-lede {
@@ -751,10 +751,10 @@
 .doc-body .ProseMirror {
   outline: 0;
   font-family: var(--font-body);
-  font-size: 18px;
-  line-height: 1.7;
+  font-size: 15px;
+  line-height: 1.65;
   color: var(--ink-2);
   min-height: 300px;
 }
-.doc-body .ProseMirror p { margin: 0 0 22px; }
+.doc-body .ProseMirror p { margin: 0 0 18px; }
 .doc-body .ProseMirror p:last-child { margin-bottom: 0; }

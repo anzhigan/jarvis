@@ -891,6 +891,50 @@
   font-size: 12px;
   color: var(--ink-5);
 }
+
+/* Sidebar status sections — collapsible: active / backlog / on hold / done. */
+.go-leftpane-groups {
+  display: flex; flex-direction: column;
+  gap: 2px;
+  padding-bottom: 16px;
+}
+.go-leftpane-group__head {
+  width: calc(100% - 28px);
+  margin: 6px 14px 0;
+  display: flex; align-items: center; gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 6px 4px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-4);
+  transition: color var(--dur-fast) var(--ease);
+}
+.go-leftpane-group__head:hover { color: var(--ink-2); }
+.go-leftpane-group__chevron {
+  transition: transform var(--dur-fast) var(--ease);
+  color: var(--ink-5);
+  flex-shrink: 0;
+}
+.go-leftpane-group__chevron.on { transform: rotate(90deg); }
+.go-leftpane-group__label { flex-shrink: 0; }
+.go-leftpane-group .go-list-rule { flex: 1; height: 1px; background: var(--hairline); }
+.go-leftpane-group .go-list-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status-specific accents for the section head + count chip. */
+.go-leftpane-group[data-status="active"] .go-leftpane-group__label { color: var(--moss); }
+.go-leftpane-group[data-status="paused"] .go-leftpane-group__label { color: var(--ochre); }
+.go-leftpane-group[data-status="done"]   .go-leftpane-group__label { color: var(--indigo); }
 .gl-card {
   width: 100%;
   background: var(--paper);
@@ -1265,6 +1309,7 @@
 .tg-card {
   background: var(--paper);
   border: 1px solid var(--hairline);
+  border-left: 3px solid var(--gc, var(--indigo));
   border-radius: var(--r-card);
   padding: 14px 16px;
   display: flex; flex-direction: column;
@@ -1274,6 +1319,7 @@
 }
 .tg-card:hover {
   border-color: var(--hairline-strong);
+  border-left-color: var(--gc, var(--indigo));
   box-shadow: 0 0 0 1px var(--hairline-strong), 0 2px 6px rgba(15, 24, 32, 0.04);
 }
 .tg-card[data-done] {

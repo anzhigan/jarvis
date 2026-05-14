@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, FileText, Plus, Search } from 'lucide-react';
+import { ChevronRight, FilePlus2, FileText, FolderPlus, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import type { NotesLibrary } from '../hooks/useNotesLibrary';
 import type { Way } from '../../../api/types';
 
@@ -26,7 +26,21 @@ interface Props {
 export function NotesPane({
   library, selectedNoteId, collapsed, onSelectNote,
 }: Props) {
-  const { ways, createWay, createTopic, createNote } = library;
+  const {
+    ways, createWay, createTopic, createNote,
+    renameWay, deleteWay,
+    renameTopic, deleteTopic,
+    renameNote, deleteNote,
+  } = library;
+
+  const promptRename = (currentName: string, kind: string): string | null => {
+    const next = window.prompt(`Rename ${kind}:`, currentName);
+    if (next === null) return null;
+    const trimmed = next.trim();
+    return trimmed && trimmed !== currentName ? trimmed : null;
+  };
+  const confirmDelete = (name: string, kind: string, extra = ''): boolean =>
+    window.confirm(`Delete ${kind} "${name}"?${extra ? ` ${extra}` : ''} This cannot be undone.`);
   const [expandedWays, setExpandedWays]     = useState<Set<string>>(readSet(EXP_WAYS_KEY));
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(readSet(EXP_TOPICS_KEY));
   const [search, setSearch] = useState('');
@@ -173,35 +187,85 @@ export function NotesPane({
                   <span className="name">{way.name}</span>
                   <span className="count">{wayCount}</span>
                   <span
-                    className="row-add"
+                    className="row-action row-action--hover"
+                    role="button"
+                    tabIndex={0}
+                    title="Rename way"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const next = promptRename(way.name, 'way');
+                      if (next) void renameWay(way.id, next);
+                    }}
+                  ><Pencil size={11} /></span>
+                  <span
+                    className="row-action row-action--hover row-action--danger"
+                    role="button"
+                    tabIndex={0}
+                    title="Delete way"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirmDelete(way.name, 'way', 'All topics and notes inside it will be removed.')) {
+                        void deleteWay(way.id);
+                      }
+                    }}
+                  ><Trash2 size={11} /></span>
+                  <span
+                    className="row-action"
                     role="button"
                     tabIndex={0}
                     title="New topic"
                     onClick={(e) => { e.stopPropagation(); void handleNewTopic(way.id); }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void handleNewTopic(way.id); } }}
-                  ><Plus size={11} /></span>
+                  ><FolderPlus size={12} /></span>
                   <span
-                    className="row-add"
+                    className="row-action"
                     role="button"
                     tabIndex={0}
                     title="New note in way"
                     onClick={(e) => { e.stopPropagation(); void handleNewNote({ way_id: way.id }); }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void handleNewNote({ way_id: way.id }); } }}
-                  ><FileText size={11} /></span>
+                  ><FilePlus2 size={12} /></span>
                 </div>
 
                 {wayOpen && (
                   <>
                     {way.notes.map((note) => (
-                      <button
+                      <div
                         key={note.id}
                         className="lib-row tree-row"
                         data-depth="1"
                         data-active={selectedNoteId === note.id || undefined}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => onSelectNote(note.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectNote(note.id); } }}
                       >
+                        <FileText size={12} className="tree-leaf-icon" />
                         <span className="name">{note.name || 'Untitled'}</span>
-                      </button>
+                        <span
+                          className="row-action row-action--hover"
+                          role="button"
+                          tabIndex={0}
+                          title="Rename note"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const next = promptRename(note.name || 'Untitled', 'note');
+                            if (next) void renameNote(note.id, next);
+                          }}
+                        ><Pencil size={11} /></span>
+                        <span
+                          className="row-action row-action--hover row-action--danger"
+                          role="button"
+                          tabIndex={0}
+                          title="Delete note"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirmDelete(note.name || 'Untitled', 'note')) {
+                              void deleteNote(note.id);
+                            }
+                          }}
+                        ><Trash2 size={11} /></span>
+                      </div>
                     ))}
 
                     {way.topics.map((topic) => {
@@ -220,24 +284,74 @@ export function NotesPane({
                             <span className="name">{topic.name}</span>
                             <span className="count">{topic.notes.length}</span>
                             <span
-                              className="row-add"
+                              className="row-action row-action--hover"
+                              role="button"
+                              tabIndex={0}
+                              title="Rename topic"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const next = promptRename(topic.name, 'topic');
+                                if (next) void renameTopic(topic.id, next);
+                              }}
+                            ><Pencil size={11} /></span>
+                            <span
+                              className="row-action row-action--hover row-action--danger"
+                              role="button"
+                              tabIndex={0}
+                              title="Delete topic"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirmDelete(topic.name, 'topic', 'All notes inside it will be removed.')) {
+                                  void deleteTopic(topic.id);
+                                }
+                              }}
+                            ><Trash2 size={11} /></span>
+                            <span
+                              className="row-action"
                               role="button"
                               tabIndex={0}
                               title="New note in topic"
                               onClick={(e) => { e.stopPropagation(); void handleNewNote({ topic_id: topic.id }); }}
                               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void handleNewNote({ topic_id: topic.id }); } }}
-                            ><Plus size={11} /></span>
+                            ><FilePlus2 size={12} /></span>
                           </div>
                           {topicOpen && topic.notes.map((note) => (
-                            <button
+                            <div
                               key={note.id}
                               className="lib-row tree-row"
                               data-depth="2"
                               data-active={selectedNoteId === note.id || undefined}
+                              role="button"
+                              tabIndex={0}
                               onClick={() => onSelectNote(note.id)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectNote(note.id); } }}
                             >
+                              <FileText size={12} className="tree-leaf-icon" />
                               <span className="name">{note.name || 'Untitled'}</span>
-                            </button>
+                              <span
+                                className="row-action row-action--hover"
+                                role="button"
+                                tabIndex={0}
+                                title="Rename note"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = promptRename(note.name || 'Untitled', 'note');
+                                  if (next) void renameNote(note.id, next);
+                                }}
+                              ><Pencil size={11} /></span>
+                              <span
+                                className="row-action row-action--hover row-action--danger"
+                                role="button"
+                                tabIndex={0}
+                                title="Delete note"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirmDelete(note.name || 'Untitled', 'note')) {
+                                    void deleteNote(note.id);
+                                  }
+                                }}
+                              ><Trash2 size={11} /></span>
+                            </div>
                           ))}
                         </div>
                       );

@@ -69,11 +69,6 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
         </div>
 
         <div className="rail-section">
-          <Tooltip content={`${t('search.placeholder') || 'Search'} (⌘K)`} side="right">
-            <button className="rail-btn" onClick={onOpenSearch} aria-label="Search">
-              <Search />
-            </button>
-          </Tooltip>
           {/* Hide-sidebar slot — only active in Notes, but the slot is always
               present (rendered as a hidden placeholder elsewhere) so the nav
               buttons below stay in the same vertical position across sections. */}
@@ -94,6 +89,11 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
           ) : (
             <div className="rail-btn rail-btn-placeholder" aria-hidden="true" />
           )}
+          <Tooltip content={`${t('search.placeholder') || 'Search'} (⌘K)`} side="right">
+            <button className="rail-btn" onClick={onOpenSearch} aria-label="Search">
+              <Search />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="rail-divider" />

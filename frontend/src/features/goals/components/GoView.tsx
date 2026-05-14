@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, Edit3, Minus, Plus, Repeat, Search, X } from 'lucide-react';
-import type { Go, Step, Tag, Task, TaskPriority } from '../../../api/types';
+import { Check, ChevronDown, ChevronRight, Edit3, Minus, Plus, Repeat, Search, X } from 'lucide-react';
+import type { Go, Step, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { goCurrentStreak, groupGosByGoal } from '../hooks/useGos';
 import type { GoMode } from './GoalsView';
 
@@ -223,24 +223,32 @@ export function GoView({
     return m;
   }, [goals]);
 
-  // Goals user is actively working on (any go at all + not archived).
-  const activeGoals = useMemo(
+  // Goals visible in the sidebar — any goal that has at least one go (filter
+  // out empty stubs). Status is no longer filtered here; we group by status
+  // inside the sidebar below so user can see backlog / on hold / done too.
+  const eligibleGoals = useMemo(
     () => goals
-      .filter((t) => t.status !== 'done' && (groupedAll.get(t.id)?.length ?? 0) > 0)
+      .filter((t) => (groupedAll.get(t.id)?.length ?? 0) > 0)
       .sort((a, b) => a.order - b.order),
     [goals, groupedAll],
   );
+  // Back-compat alias — focused-goal logic below depends on a non-archived
+  // shortlist for default-selection and stats; keep the same semantics.
+  const activeGoals = useMemo(
+    () => eligibleGoals.filter((t) => t.status !== 'done'),
+    [eligibleGoals],
+  );
 
-  // Tag pool — unique tags present on active goals (for the sidebar tag filter).
+  // Tag pool — unique tags present on all eligible goals (sidebar tag filter).
   const sidebarTagPool = useMemo<Tag[]>(() => {
     const seen = new Map<string, Tag>();
-    for (const t of activeGoals) for (const tag of t.tags) seen.set(tag.id, tag);
+    for (const t of eligibleGoals) for (const tag of t.tags) seen.set(tag.id, tag);
     return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeGoals]);
+  }, [eligibleGoals]);
 
-  // Sidebar list filtered by search + priority + tags.
+  // Sidebar list filtered by search + priority + tags (any status).
   const visibleGoals = useMemo(() => {
-    let list = activeGoals;
+    let list = eligibleGoals;
     const q = sidebarSearch.trim().toLowerCase();
     if (q) list = list.filter((g) => g.title.toLowerCase().includes(q));
     if (sidebarPriority.size > 0) {
@@ -250,7 +258,21 @@ export function GoView({
       list = list.filter((g) => g.tags.some((tg) => sidebarTags.has(tg.id)));
     }
     return list;
-  }, [activeGoals, sidebarSearch, sidebarPriority, sidebarTags]);
+  }, [eligibleGoals, sidebarSearch, sidebarPriority, sidebarTags]);
+
+  // Group sidebar list by status — used to render collapsible sections.
+  const groupedByStatus = useMemo(() => {
+    const out: Record<TaskStatus, Task[]> = { active: [], backlog: [], paused: [], done: [] };
+    for (const g of visibleGoals) out[g.status].push(g);
+    return out;
+  }, [visibleGoals]);
+
+  /** Which sidebar status sections are open. Active expanded by default,
+   *  others collapsed so the page doesn't feel busy. */
+  const [openStatus, setOpenStatus] = useState<Record<TaskStatus, boolean>>({
+    active: true, backlog: false, paused: false, done: false,
+  });
+  const toggleStatus = (s: TaskStatus) => setOpenStatus((cur) => ({ ...cur, [s]: !cur[s] }));
 
   const togglePriority = (p: TaskPriority) => setSidebarPriority((cur) => {
     const next = new Set(cur);
@@ -377,16 +399,6 @@ export function GoView({
           </div>
         </div>
 
-        <div className="go-leftpane-list-head">
-          <span>Active goals</span>
-          <span className="go-list-rule" />
-          <span className="go-list-meta">
-            {sidebarSearch.trim()
-              ? `${visibleGoals.length}/${activeGoals.length}`
-              : activeGoals.length}
-          </span>
-        </div>
-
         <div className="go-leftpane-search">
           <Search size={12} aria-hidden />
           <input
@@ -459,68 +471,98 @@ export function GoView({
           )}
         </div>
 
-        <div className="gl-list">
-          {visibleGoals.length === 0 && sidebarSearch.trim() && (
-            <div className="gl-list-empty">No goals match “{sidebarSearch}”.</div>
+        <div className="go-leftpane-groups">
+          {visibleGoals.length === 0 && (sidebarSearch.trim() || sidebarPriority.size + sidebarTags.size > 0) && (
+            <div className="gl-list-empty">No goals match filters.</div>
           )}
-          {visibleGoals.map((goal) => {
-            const items = grouped.get(goal.id) ?? [];
-            const todayDone = items.filter((g) => g.is_done_today).length;
-            const todayTotal = items.length;
-            const accent = accentFor(goal.id);
-            const pct = goalPct(goal);
-            const due = fmtDue(goal.due_date);
-            const maxStreak = items.reduce((m, g) => Math.max(m, goCurrentStreak(g)), 0);
-
-            const todayCls = todayTotal === 0
-              ? 'gl-card-today-none'
-              : todayDone === 0
-                ? 'gl-card-today-pending'
-                : todayDone < todayTotal
-                  ? 'gl-card-today-mid'
-                  : 'gl-card-today-done';
-            const todayTxt = todayTotal === 0
-              ? 'no targets today'
-              : todayDone === 0
-                ? `${todayTotal} pending today`
-                : todayDone < todayTotal
-                  ? `${todayDone}/${todayTotal} today`
-                  : 'all done today';
-
+          {(['active', 'backlog', 'paused', 'done'] as TaskStatus[]).map((status) => {
+            const groupGoals = groupedByStatus[status];
+            // Render a status group only if it has at least one goal or it's
+            // "active" (always present for orientation, even when empty).
+            if (groupGoals.length === 0 && status !== 'active') return null;
+            const isOpen = openStatus[status];
+            const label = status === 'paused' ? 'On hold' : status[0].toUpperCase() + status.slice(1);
             return (
-              <button
-                key={goal.id}
-                className="gl-card"
-                data-selected={goal.id === selectedId || undefined}
-                style={{ ['--gc' as any]: accent }}
-                onClick={() => setSelectedId(goal.id)}
-              >
-                <div className="gl-card-bar">
-                  <div className="gl-card-bar-fill" style={{ width: `${pct}%` }} />
-                </div>
-                <div className="gl-card-text">
-                  <div className="gl-card-row1">
-                    <h3 className="gl-card-title">{goal.title}</h3>
-                    <span className="gl-card-pct">{pct}%</span>
-                  </div>
-                  {goal.description && (
-                    <p className="gl-card-desc">{goal.description}</p>
-                  )}
-                  <div className="gl-card-meta">
-                    <span className={`gl-card-today ${todayCls}`}>{todayTxt}</span>
-                    {maxStreak > 0 && (
-                      <span className="gl-card-streak">↻ {maxStreak}d</span>
+              <section key={status} className="go-leftpane-group" data-status={status}>
+                <button
+                  type="button"
+                  className="go-leftpane-group__head"
+                  onClick={() => toggleStatus(status)}
+                  aria-expanded={isOpen}
+                >
+                  <ChevronRight size={12} className={`go-leftpane-group__chevron${isOpen ? ' on' : ''}`} />
+                  <span className="go-leftpane-group__label">{label}</span>
+                  <span className="go-list-rule" />
+                  <span className="go-list-meta">{groupGoals.length}</span>
+                </button>
+                {isOpen && (
+                  <div className="gl-list">
+                    {groupGoals.length === 0 && status === 'active' && (
+                      <div className="gl-list-empty">No active goals yet.</div>
                     )}
-                    <span className={`gl-card-due${due.days === null ? ' gl-card-due-none' : ''}`}>
-                      {due.days === null
-                        ? 'no deadline'
-                        : due.days < 0
-                          ? `${due.label} · overdue`
-                          : `due ${due.label} · ${due.days}d`}
-                    </span>
+                    {groupGoals.map((goal) => {
+                      const items = grouped.get(goal.id) ?? [];
+                      const todayDone = items.filter((g) => g.is_done_today).length;
+                      const todayTotal = items.length;
+                      const accent = accentFor(goal.id);
+                      const pct = goalPct(goal);
+                      const due = fmtDue(goal.due_date);
+                      const maxStreak = items.reduce((m, g) => Math.max(m, goCurrentStreak(g)), 0);
+
+                      const todayCls = todayTotal === 0
+                        ? 'gl-card-today-none'
+                        : todayDone === 0
+                          ? 'gl-card-today-pending'
+                          : todayDone < todayTotal
+                            ? 'gl-card-today-mid'
+                            : 'gl-card-today-done';
+                      const todayTxt = todayTotal === 0
+                        ? 'no targets today'
+                        : todayDone === 0
+                          ? `${todayTotal} pending today`
+                          : todayDone < todayTotal
+                            ? `${todayDone}/${todayTotal} today`
+                            : 'all done today';
+
+                      return (
+                        <button
+                          key={goal.id}
+                          className="gl-card"
+                          data-selected={goal.id === selectedId || undefined}
+                          style={{ ['--gc' as any]: accent }}
+                          onClick={() => setSelectedId(goal.id)}
+                        >
+                          <div className="gl-card-bar">
+                            <div className="gl-card-bar-fill" style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="gl-card-text">
+                            <div className="gl-card-row1">
+                              <h3 className="gl-card-title">{goal.title}</h3>
+                              <span className="gl-card-pct">{pct}%</span>
+                            </div>
+                            {goal.description && (
+                              <p className="gl-card-desc">{goal.description}</p>
+                            )}
+                            <div className="gl-card-meta">
+                              <span className={`gl-card-today ${todayCls}`}>{todayTxt}</span>
+                              {maxStreak > 0 && (
+                                <span className="gl-card-streak">↻ {maxStreak}d</span>
+                              )}
+                              <span className={`gl-card-due${due.days === null ? ' gl-card-due-none' : ''}`}>
+                                {due.days === null
+                                  ? 'no deadline'
+                                  : due.days < 0
+                                    ? `${due.label} · overdue`
+                                    : `due ${due.label} · ${due.days}d`}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
-              </button>
+                )}
+              </section>
             );
           })}
         </div>
@@ -1076,9 +1118,10 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
     onEdit(go);
   };
 
-  const kindRow = (kindLabel: string) => (
+  // Kind pill removed — the goal-crumb already conveys context, and the goal's
+  // accent color is now applied to the card itself (border-left + crumb dot).
+  const kindRow = (
     <div className="tg-kind-row">
-      <span className="tg-kind-pill">{kindLabel}</span>
       <span className="tg-goal-crumb" style={{ ['--gc' as any]: goalAccent }}>
         <span className="tg-goal-crumb__dot" />
         {parentTitle}
@@ -1115,11 +1158,12 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
         className="tg-card"
         data-kind="boolean"
         data-done={targetMet || undefined}
+        style={{ ['--gc' as any]: goalAccent }}
         onClick={handleCardClick}
       >
         <header className="tg-card-head">
           <div className="tg-card-text">
-            {kindRow('boolean')}
+            {kindRow}
             <h3 className="tg-card-title">{go.title}</h3>
             {descBlock}
           </div>
@@ -1151,11 +1195,12 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
       data-kind="numeric"
       data-done={targetMet || undefined}
       data-partial={partial || undefined}
+      style={{ ['--gc' as any]: goalAccent }}
       onClick={handleCardClick}
     >
       <header className="tg-card-head">
         <div className="tg-card-text">
-          {kindRow('numeric')}
+          {kindRow}
           <h3 className="tg-card-title">{go.title}</h3>
           {descBlock}
         </div>
