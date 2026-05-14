@@ -416,6 +416,7 @@ export default function GoalsView() {
         open={stepDialogTaskId !== null}
         onOpenChange={(o) => { if (!o) setStepDialogTaskId(null); }}
         taskId={stepDialogTaskId}
+        goals={goals.tasks}
         onCreated={goals.refresh}
       />
 

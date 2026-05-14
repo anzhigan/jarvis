@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Dialog, Input } from '../../../components/ui';
 import { gosApi, routinesApi, stepsApi } from '../../../api/client';
@@ -468,11 +469,13 @@ interface StepDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Goal this Step belongs to. */
   taskId: string | null;
+  /** All goals — so we can pull the parent goal's existing Gos for attach picker. */
+  goals?: Task[];
   /** Called after the step (and optional first Go) is successfully created. */
   onCreated: () => Promise<void> | void;
 }
 
-export function StepCreateDialog({ open, onOpenChange, taskId, onCreated }: StepDialogProps) {
+export function StepCreateDialog({ open, onOpenChange, taskId, goals, onCreated }: StepDialogProps) {
   const [title, setTitle]             = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus]           = useState<StepStatus>('not_started');
@@ -480,14 +483,37 @@ export function StepCreateDialog({ open, onOpenChange, taskId, onCreated }: Step
   const [end, setEnd]                 = useState('');
   /** Optional starter Go — created in the same flow with step_id pre-filled. */
   const [firstGoTitle, setFirstGoTitle] = useState('');
+  /** Existing Gos in the parent goal selected for attachment to this new step. */
+  const [attachIds, setAttachIds] = useState<Set<string>>(new Set());
+  const [attachSearch, setAttachSearch] = useState('');
   const [submitting, setSubmitting]   = useState(false);
 
   useEffect(() => {
     if (open) {
       setTitle(''); setDescription(''); setStatus('not_started');
       setStart(''); setEnd(''); setFirstGoTitle('');
+      setAttachIds(new Set()); setAttachSearch('');
     }
   }, [open]);
+
+  // Pull this goal's Gos so user can attach existing items to the new step.
+  const goalGos = useMemo<Go[]>(() => {
+    if (!taskId || !goals) return [];
+    const g = goals.find((t) => t.id === taskId);
+    return g?.gos ?? [];
+  }, [taskId, goals]);
+
+  const filteredGos = useMemo(() => {
+    const q = attachSearch.trim().toLowerCase();
+    if (!q) return goalGos;
+    return goalGos.filter((g) => g.title.toLowerCase().includes(q));
+  }, [goalGos, attachSearch]);
+
+  const toggleAttach = (id: string) => setAttachIds((cur) => {
+    const next = new Set(cur);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const submit = async () => {
     const t = title.trim();
@@ -509,6 +535,14 @@ export function StepCreateDialog({ open, onOpenChange, taskId, onCreated }: Step
           title: goTitle,
           kind: 'boolean',
         });
+      }
+      // Attach the user-picked existing Gos to the newly-created step.
+      if (attachIds.size > 0) {
+        await Promise.all(
+          Array.from(attachIds).map((gid) =>
+            gosApi.update(gid, { step_id: step.id }),
+          ),
+        );
       }
       await onCreated();
       onOpenChange(false);
@@ -584,6 +618,52 @@ export function StepCreateDialog({ open, onOpenChange, taskId, onCreated }: Step
             onChange={(e) => setFirstGoTitle(e.target.value)}
           />
         </div>
+
+        {goalGos.length > 0 && (
+          <div className="ui-field">
+            <span className="ui-field-label">
+              Attach existing gos
+              {attachIds.size > 0 && (
+                <span className="ui-field-counter">{attachIds.size} selected</span>
+              )}
+            </span>
+            <div className="step-attach__search-row">
+              <input
+                type="search"
+                className="ui-input"
+                placeholder="Search this goal's gos…"
+                value={attachSearch}
+                onChange={(e) => setAttachSearch(e.target.value)}
+              />
+            </div>
+            <div className="step-attach__list">
+              {filteredGos.length === 0 && (
+                <div className="step-attach__empty">No gos match.</div>
+              )}
+              {filteredGos.map((g) => {
+                const on = attachIds.has(g.id);
+                const inOtherStep = g.step_id !== null;
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className="step-attach__item"
+                    aria-pressed={on}
+                    onClick={() => toggleAttach(g.id)}
+                  >
+                    <span className="step-attach__check" data-on={on || undefined}>
+                      {on && <Check size={9} strokeWidth={3} />}
+                    </span>
+                    <span className="step-attach__name">{g.title}</span>
+                    {inOtherStep && (
+                      <span className="step-attach__hint">moves from another step</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </Dialog>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, Edit3, Minus, Plus, Repeat, Search, X } from 'lucide-react';
-import type { Go, Step, Task } from '../../../api/types';
+import type { Go, Step, Tag, Task, TaskPriority } from '../../../api/types';
 import { goCurrentStreak, groupGosByGoal } from '../hooks/useGos';
 import type { GoMode } from './GoalsView';
 
@@ -164,6 +164,9 @@ export function GoView({
   const [shownLimit, setShownLimit] = useState<number>(PAGE_SIZE);
   // Sidebar search — filters the activeGoals list by title (case-insensitive).
   const [sidebarSearch, setSidebarSearch] = useState('');
+  // Sidebar priority + tag filters (multi-select).
+  const [sidebarPriority, setSidebarPriority] = useState<Set<TaskPriority>>(new Set());
+  const [sidebarTags, setSidebarTags] = useState<Set<string>>(new Set());
 
   // Day-bucket filter: past / today / future, derived purely from due_date.
   // Standalone gos (no due_date) live in the Today bucket as daily checks.
@@ -241,12 +244,38 @@ export function GoView({
     [goals, groupedAll],
   );
 
-  // Sidebar list filtered by the search input.
+  // Tag pool — unique tags present on active goals (for the sidebar tag filter).
+  const sidebarTagPool = useMemo<Tag[]>(() => {
+    const seen = new Map<string, Tag>();
+    for (const t of activeGoals) for (const tag of t.tags) seen.set(tag.id, tag);
+    return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeGoals]);
+
+  // Sidebar list filtered by search + priority + tags.
   const visibleGoals = useMemo(() => {
+    let list = activeGoals;
     const q = sidebarSearch.trim().toLowerCase();
-    if (!q) return activeGoals;
-    return activeGoals.filter((g) => g.title.toLowerCase().includes(q));
-  }, [activeGoals, sidebarSearch]);
+    if (q) list = list.filter((g) => g.title.toLowerCase().includes(q));
+    if (sidebarPriority.size > 0) {
+      list = list.filter((g) => sidebarPriority.has(g.priority));
+    }
+    if (sidebarTags.size > 0) {
+      list = list.filter((g) => g.tags.some((tg) => sidebarTags.has(tg.id)));
+    }
+    return list;
+  }, [activeGoals, sidebarSearch, sidebarPriority, sidebarTags]);
+
+  const togglePriority = (p: TaskPriority) => setSidebarPriority((cur) => {
+    const next = new Set(cur);
+    if (next.has(p)) next.delete(p); else next.add(p);
+    return next;
+  });
+  const toggleTag = (id: string) => setSidebarTags((cur) => {
+    const next = new Set(cur);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const anyFilter = sidebarPriority.size > 0 || sidebarTags.size > 0 || sidebarSearch.trim().length > 0;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Default to first active goal; reset if the current selection vanishes.
@@ -369,6 +398,59 @@ export function GoView({
               aria-label="Clear search"
               onClick={() => setSidebarSearch('')}
             ><X size={11} /></button>
+          )}
+        </div>
+
+        <div className="go-leftpane-filters">
+          <div className="go-leftpane-filter">
+            <span className="go-leftpane-filter__label">Priority</span>
+            <div className="go-leftpane-chip-group">
+              {(['high', 'medium', 'low'] as TaskPriority[]).map((p) => {
+                const on = sidebarPriority.has(p);
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    className="go-leftpane-chip"
+                    aria-pressed={on}
+                    data-prio={p}
+                    onClick={() => togglePriority(p)}
+                  >
+                    <span className="go-leftpane-chip__dot" />
+                    {p[0].toUpperCase() + p.slice(1)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {sidebarTagPool.length > 0 && (
+            <div className="go-leftpane-filter">
+              <span className="go-leftpane-filter__label">Tags</span>
+              <div className="go-leftpane-chip-group">
+                {sidebarTagPool.map((tag) => {
+                  const on = sidebarTags.has(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      className="go-leftpane-chip"
+                      aria-pressed={on}
+                      onClick={() => toggleTag(tag.id)}
+                    >
+                      <span className="go-leftpane-chip__dot" style={{ background: tag.color }} />
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {anyFilter && (
+            <button
+              type="button"
+              className="go-leftpane-filters__clear"
+              onClick={() => { setSidebarSearch(''); setSidebarPriority(new Set()); setSidebarTags(new Set()); }}
+            >Clear all</button>
           )}
         </div>
 
@@ -540,6 +622,16 @@ function FocusedGoal({
 }: FocusedProps) {
   const accent = accentFor(goal.id);
   const pct = goalPct(goal);
+
+  // Collapsible goal description (line-clamp + … expand, mirrors tg-card desc).
+  const [goalDescExpanded, setGoalDescExpanded] = useState(false);
+  const [goalDescTruncated, setGoalDescTruncated] = useState(false);
+  const goalDescRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    const el = goalDescRef.current;
+    if (!el) { setGoalDescTruncated(false); return; }
+    setGoalDescTruncated(el.scrollHeight > el.clientHeight + 1);
+  }, [goal.description, goalDescExpanded]);
   const due = fmtDue(goal.due_date);
 
   const steps = goal.steps ?? [];
@@ -590,8 +682,25 @@ function FocusedGoal({
         <div className="goal-ctx-head">
           <div className="goal-ctx-text">
             <h1 className="goal-ctx-title">{goal.title}</h1>
-            {goal.description && (
-              <p className="goal-ctx-desc">{goal.description}</p>
+            {goal.description?.trim() && (
+              <div className={`goal-ctx-desc-block${goalDescExpanded ? ' goal-ctx-desc-block--expanded' : ''}`}>
+                <p ref={goalDescRef} className="goal-ctx-desc">{goal.description}</p>
+                {!goalDescExpanded && goalDescTruncated && (
+                  <button
+                    type="button"
+                    className="goal-ctx-desc__more"
+                    aria-label="Show full description"
+                    onClick={() => setGoalDescExpanded(true)}
+                  >…</button>
+                )}
+                {goalDescExpanded && goalDescTruncated && (
+                  <button
+                    type="button"
+                    className="goal-ctx-desc__less"
+                    onClick={() => setGoalDescExpanded(false)}
+                  >Show less</button>
+                )}
+              </div>
             )}
           </div>
           <div className="goal-ctx-pct">
@@ -960,6 +1069,14 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
           aria-label="Show full description"
           onClick={(e) => { e.stopPropagation(); setDescExpanded(true); }}
         >…</button>
+      )}
+      {descExpanded && descTruncated && (
+        <button
+          type="button"
+          className="tg-card-desc__less"
+          aria-label="Collapse description"
+          onClick={(e) => { e.stopPropagation(); setDescExpanded(false); }}
+        >Show less</button>
       )}
     </div>
   ) : null;

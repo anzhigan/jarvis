@@ -713,6 +713,78 @@
 }
 .go-leftpane-search__clear:hover { background: var(--cream); color: var(--ink-2); }
 
+/* Sidebar filters: priority + tags chip groups. */
+.go-leftpane-filters {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  margin: 0 14px 10px;
+  position: relative;
+}
+.go-leftpane-filter {
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+.go-leftpane-filter__label {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-5);
+}
+.go-leftpane-chip-group {
+  display: flex; flex-wrap: wrap;
+  gap: 4px;
+}
+.go-leftpane-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  padding: 3px 8px 3px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.go-leftpane-chip:hover { border-color: var(--ink-5); }
+.go-leftpane-chip[aria-pressed="true"] {
+  background: var(--indigo);
+  color: var(--paper);
+  border-color: var(--indigo);
+}
+.go-leftpane-chip__dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+/* Priority colors. */
+.go-leftpane-chip[data-prio="high"]   .go-leftpane-chip__dot { background: var(--rust); }
+.go-leftpane-chip[data-prio="medium"] .go-leftpane-chip__dot { background: var(--ochre); }
+.go-leftpane-chip[data-prio="low"]    .go-leftpane-chip__dot { background: var(--ink-5); }
+.go-leftpane-chip[aria-pressed="true"] .go-leftpane-chip__dot {
+  outline: 1px solid var(--paper);
+}
+
+.go-leftpane-filters__clear {
+  align-self: flex-end;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  background: transparent;
+  border: 0;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: var(--r-control);
+}
+.go-leftpane-filters__clear:hover { background: var(--cream); color: var(--ink-2); }
+
 .gl-list {
   padding: 8px 14px 16px;
   display: flex; flex-direction: column;
@@ -869,14 +941,55 @@
   line-height: 1.05;
   margin: 0 0 8px;
 }
+.goal-ctx-desc-block {
+  position: relative;
+  max-width: 640px;
+  margin-top: 6px;
+}
 .goal-ctx-desc {
   font-family: var(--font-body);
   font-size: 17px;
   color: var(--ink-3);
   line-height: 1.5;
   margin: 0;
-  max-width: 640px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
+.goal-ctx-desc-block--expanded .goal-ctx-desc {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+.goal-ctx-desc__more {
+  position: absolute;
+  bottom: 0; right: 0;
+  padding: 0 0 0 32px;
+  background: linear-gradient(to right, transparent 0%, var(--paper) 35%);
+  border: 0;
+  color: var(--ink-4);
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.goal-ctx-desc__more:hover { color: var(--indigo); }
+.goal-ctx-desc__less {
+  display: inline-flex; align-items: center;
+  margin-top: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--ink-4);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.goal-ctx-desc__less:hover { color: var(--indigo); }
 .goal-ctx-pct { text-align: right; line-height: 1; flex-shrink: 0; }
 .goal-ctx-pct-num {
   font-family: var(--font-display);
@@ -1092,6 +1205,23 @@
 .tg-card[data-done] .tg-card-desc__more {
   background: linear-gradient(to right, transparent 0%, var(--moss-soft) 35%);
 }
+
+/* Collapse trigger shown when description is expanded. */
+.tg-card-desc__less {
+  display: inline-flex; align-items: center;
+  margin-top: 4px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--ink-4);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.tg-card-desc__less:hover { color: var(--indigo); }
 .tg-card-title {
   font-family: var(--font-display);
   font-size: 17px;
@@ -2866,6 +2996,84 @@
   font-style: italic;
   font-size: 12px;
   color: var(--ink-5);
+}
+
+/* ── StepCreateDialog: attach-existing-gos multi-select picker ─────────── */
+.ui-field-counter {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--indigo);
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: var(--indigo-soft);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.step-attach__search-row {
+  margin: 4px 0 6px;
+}
+.step-attach__list {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  background: var(--paper);
+}
+.step-attach__empty {
+  padding: 18px 12px;
+  text-align: center;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-5);
+}
+.step-attach__item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-2);
+  text-align: left;
+  width: 100%;
+  transition: background var(--dur-fast) var(--ease);
+}
+.step-attach__item:hover { background: var(--cream); }
+.step-attach__item[aria-pressed="true"] {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+.step-attach__check {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid var(--ink-5);
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--paper);
+}
+.step-attach__check[data-on] {
+  background: var(--indigo);
+  border-color: var(--indigo);
+}
+.step-attach__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.step-attach__hint {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-style: italic;
+  color: var(--ochre);
+  flex-shrink: 0;
 }
 
 /* ── Pagination button at the bottom of a paginated list ──────────────── */
