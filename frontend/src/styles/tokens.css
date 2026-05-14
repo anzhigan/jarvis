@@ -1,316 +1,270 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   JARVNOTE — Design Tokens (single source of truth)
-   Color system v2 — cool zinc surfaces + indigo brand.
-   Tab accents at equal Tailwind-500 luminosity (light) / 400 (dark) so the
-   five hues read as one chord.
+   JARVNOTE · DESIGN TOKENS — Indigo Editorial v1.0 (single source of truth)
+   ═══════════════════════════════════════════════════════════════════════════
+   Architecture:
+     1. EDITORIAL PRIMITIVES (canonical) — paper / ink / indigo / moss / ochre …
+        These define the visual language. All component CSS should read these.
+     2. LEGACY ALIASES (compat shim) — --bg-app, --fg-primary, --accent-notes,
+        shadcn shims (--background, --card, --popover, --secondary, --ring …),
+        Tailwind-style --radius / --radius-sm/md/lg/xl, --font-sans / --font-serif.
+        Every legacy token is now `var(--editorial-equivalent)` so existing
+        consumers in index.css / editor.css render Editorial without code edits.
 
-   Order of imports in index.css matters: tokens FIRST, then base, then
-   feature/page CSS. Components reference tokens via var(...).
+   Dropped permanently:
+     • --brand-50 … --brand-900 (Tailwind ramp, 0 refs)
+     • --dur-slow                  (0 refs)
+     • --text-md duplicate         (14.5 — Editorial 15.5 wins)
+     • --r-card duplicate          (12px — Editorial 6px wins)
+     • --r-control duplicate       (8px — Editorial 5px wins)
+     • --radius-* differentiation  (--radius-sm/md/lg/xl now all alias-flat)
+     • Dark mirror brand ramp      (no consumers)
+
+   Reference: design-system.html (root of repo) documents the full system.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Typography ───────────────────────────────────────────────────────── */
-  --font-sans:  -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", system-ui, sans-serif;
-  --font-mono:  ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --font-serif: "Tiempos Text", "Georgia", "Cambria", serif;
+  /* ╔════════════════════════════════════════════════════════════════════╗
+     ║ 1. EDITORIAL PRIMITIVES — the canonical system                     ║
+     ╚════════════════════════════════════════════════════════════════════╝ */
 
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  --font-display: "Fraunces", Georgia, serif;                       /* headings, numbers */
+  --font-body:    "Source Serif 4", Georgia, serif;                 /* long-form reading */
+  --font-ui:      "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* Type scale — 11 ступеней (10 → 64) */
+  --text-2xs:  10px;
   --text-xs:   11px;
   --text-sm:   12.5px;
   --text-base: 14px;
-  --text-md:   14.5px;
+  --text-md:   15.5px;
   --text-lg:   17px;
   --text-xl:   22px;
   --text-2xl:  26px;
   --text-3xl:  30px;
+  --text-4xl:  48px;
+  --text-5xl:  64px;
 
-  --tracking-tight:  -0.027em;
-  --tracking-snug:   -0.018em;
-  --tracking-normal: -0.005em;
+  --tracking-display: -0.030em;
+  --tracking-tight:   -0.027em;
+  --tracking-snug:    -0.018em;
+  --tracking-normal:  -0.005em;
+  --tracking-wide:     0.06em;
 
-  /* ── Spacing scale (4-pt grid) ────────────────────────────────────────── */
-  --sp-0:  0;
-  --sp-1:  2px;
-  --sp-2:  4px;
-  --sp-3:  6px;
-  --sp-4:  8px;
-  --sp-5:  10px;
-  --sp-6:  12px;
-  --sp-7:  14px;
-  --sp-8:  16px;
-  --sp-10: 20px;
-  --sp-12: 24px;
-  --sp-14: 28px;
-  --sp-16: 32px;
-  --sp-20: 40px;
-  --sp-24: 48px;
-  --sp-32: 64px;
+  /* ── Spacing (4-pt grid, 13 ступеней) ────────────────────────────────── */
+  --sp-0:  0;    --sp-1: 2px;  --sp-2: 4px;  --sp-3: 6px;  --sp-4: 8px;
+  --sp-5: 10px;  --sp-6:12px;  --sp-7:14px;  --sp-8:16px;  --sp-10:20px;
+  --sp-12:24px;  --sp-14:28px; --sp-16:32px; --sp-20:40px; --sp-24:48px;
+  --sp-32:64px;
 
-  /* ── Radii ────────────────────────────────────────────────────────────── */
-  --r-pill:    999px;
-  --r-control: 8px;
-  --r-card:    12px;
-  --r-shell:   14px;
+  /* ── Radii (sharp editorial, 4 ступени) ──────────────────────────────── */
+  --r-sharp:    2px;
+  --r-control:  5px;
+  --r-card:     6px;
+  --r-pill:   999px;
+  --r-shell:    6px;   /* same as r-card now — was 14px, legacy */
 
-  /* ── Heights (controls) ───────────────────────────────────────────────── */
-  --h-xs: 26px;
+  /* ── Heights (controls, 5 ступеней) ──────────────────────────────────── */
+  --h-xs: 24px;
   --h-sm: 28px;
   --h-md: 32px;
   --h-lg: 40px;
   --h-xl: 48px;
 
-  /* ── Z-index scale ────────────────────────────────────────────────────── */
-  --z-base:     0;
-  --z-sticky:   100;
-  --z-overlay:  200;
-  --z-dropdown: 300;
-  --z-sheet:    400;
-  --z-modal:    500;
-  --z-popover:  600;
-  --z-toast:    700;
-  --z-tooltip:  800;
+  /* ── Surfaces (warm cool slate) ──────────────────────────────────────── */
+  --paper:    #FCFCF9;   /* canvas — near-white with whisper of warmth      */
+  --cream:    #ECEEEF;   /* secondary — input bg, hover, even rows          */
+  --soft:     #DEE1E2;   /* tertiary  — hover on cream, swatches            */
+  --rail-bg:  #D6DADB;   /* rail navigation                                  */
 
-  /* ── Layout dimensions ────────────────────────────────────────────────── */
-  --sidebar-w:        232px;
-  --sidebar-w-collapsed: 56px;
-  --library-w:        260px;
-  --right-panel-w:    300px;
-  --topbar-h:         48px;
-  /* Desktop v3 (gallery) — Rail + Pane + Content */
-  --rail-w:           48px;
-  --pane-w:           280px;
-
-  /* ── Surfaces (light) ────────────────────────────────────────────────── */
-  --bg-app:         #F4F4F5;   /* page (zinc-100) */
-  --bg-shell:       #FAFAFA;   /* main panel (zinc-50) */
-  --bg-sidebar:     #F4F4F5;
-  --bg-rail:        #E4E4E7;   /* zinc-200, vertical icon rail */
-  --bg-card:        #FFFFFF;   /* raised card */
-  --bg-elevated:    #FFFFFF;   /* sheets, dialogs */
-  --bg-hover:       rgba(24, 24, 27, 0.04);
-  --bg-active:      rgba(24, 24, 27, 0.07);
-  --bg-input:       #F4F4F5;
-  --bg-input-hover: #E4E4E7;
-  --bg-overlay:     rgba(9, 9, 11, 0.40);
-
-  /* ── Foreground (light) ──────────────────────────────────────────────── */
-  --fg-primary:   #09090B;
-  --fg-secondary: #27272A;
-  --fg-tertiary:  #52525B;
-  --fg-muted:     #71717A;
-  --fg-faint:     #A1A1AA;
-  --fg-inverse:   #FAFAFA;
-
-  /* ── Lines (light) ───────────────────────────────────────────────────── */
-  --line:        rgba(24, 24, 27, 0.06);
-  --line-strong: rgba(24, 24, 27, 0.10);
-  --line-faint:  rgba(24, 24, 27, 0.03);
-
-  /* ── Brand ramp (indigo) ─────────────────────────────────────────────── */
-  --brand-50:  #EEF0FF;
-  --brand-100: #E0E3FF;
-  --brand-200: #C7CCFE;
-  --brand-300: #A5ACFC;
-  --brand-400: #818AF8;
-  --brand-500: #6366F1;
-  --brand-600: #4F46E5;
-  --brand-700: #4338CA;
-  --brand-800: #3730A3;
-  --brand-900: #312E81;
-
-  /* ── Tab accents (light, Tailwind 500) ───────────────────────────────── */
-  --accent-notes:       #6366F1;   /* indigo */
-  --accent-notes-fg:    #4338CA;
-  --accent-notes-bg:    rgba(99, 102, 241, 0.10);
-
-  --accent-goals:       #F59E0B;   /* amber */
-  --accent-goals-fg:    #B45309;
-  --accent-goals-bg:    rgba(245, 158, 11, 0.12);
-
-  --accent-routines:    #10B981;   /* emerald */
-  --accent-routines-fg: #047857;
-  --accent-routines-bg: rgba(16, 185, 129, 0.12);
-
-  --accent-sprints:     #06B6D4;   /* cyan */
-  --accent-sprints-fg:  #0E7490;
-  --accent-sprints-bg:  rgba(6, 182, 212, 0.12);
-
-  --accent-analysis:    #A855F7;   /* violet */
-  --accent-analysis-fg: #7E22CE;
-  --accent-analysis-bg: rgba(168, 85, 247, 0.10);
-
-  /* ── Primary button colors ───────────────────────────────────────────── */
-  --primary:    var(--fg-primary);
-  --primary-fg: var(--bg-elevated);
-
-  /* ── Semantic ────────────────────────────────────────────────────────── */
-  /* Semantic colors are deliberate aliases of the matching tab accent so a
-     single hue change automatically flows through both "this is the goals
-     tab" and "this is a warning". Only `--danger` has no accent counterpart
-     and carries its own hex. */
-  --success:      var(--accent-routines);
-  --success-bg:   var(--accent-routines-bg);
-  --warning:      var(--accent-goals);
-  --warning-bg:   var(--accent-goals-bg);
-  --info:         var(--accent-sprints);
-  --info-bg:      var(--accent-sprints-bg);
-  --danger:       #EF4444;
-  --danger-bg:    rgba(239, 68, 68, 0.10);
-
-  /* ── Shadows (light) ─────────────────────────────────────────────────── */
-  --sh-card:       0 0 0 0.5px var(--line), 0 1px 2px rgba(24, 24, 27, 0.04);
-  --sh-card-hover: 0 0 0 0.5px var(--line-strong), 0 4px 12px rgba(24, 24, 27, 0.06);
-  --sh-raised:     0 0 0 0.5px var(--line), 0 1px 2px rgba(24, 24, 27, 0.05);
-  --sh-popover:    0 0 0 0.5px var(--line), 0 12px 32px rgba(24, 24, 27, 0.10);
-  --sh-modal:      0 0 0 0.5px var(--line), 0 24px 64px rgba(24, 24, 27, 0.16);
-  --sh-focus:      0 0 0 3px rgba(99, 102, 241, 0.20);
-
-  /* ── Motion ──────────────────────────────────────────────────────────── */
-  --ease:        cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --dur-fast:    150ms;
-  --dur-base:    240ms;
-  --dur-slow:    380ms;
-
-  /* ── Tailwind v4 / shadcn compatibility ──────────────────────────────── */
-  --background:           var(--bg-shell);
-  --foreground:           var(--fg-primary);
-  --card:                 var(--bg-card);
-  --card-foreground:      var(--fg-primary);
-  --popover:              var(--bg-elevated);
-  --popover-foreground:   var(--fg-primary);
-  --secondary:            var(--bg-hover);
-  --secondary-foreground: var(--fg-primary);
-  --muted:                var(--bg-hover);
-  --muted-foreground:     var(--fg-tertiary);
-  --accent:               var(--bg-hover);
-  --accent-foreground:    var(--fg-primary);
-  --destructive:          var(--danger);
-  --destructive-foreground: #FFFFFF;
-  --destructive-soft:     var(--danger-bg);
-  --border:               var(--line);
-  --input:                var(--line);
-  --input-background:     var(--bg-input);
-  --ring:                 var(--accent-notes);
-  --primary-foreground:   var(--primary-fg);
-
-  --sidebar:                     var(--bg-sidebar);
-  --sidebar-foreground:          var(--fg-secondary);
-  --sidebar-border:              var(--line);
-  --sidebar-accent:              var(--bg-hover);
-  --sidebar-accent-foreground:   var(--fg-primary);
-  --sidebar-primary:             var(--fg-primary);
-  --sidebar-primary-foreground:  var(--bg-elevated);
-
-  --radius:    8px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 14px;
-
-  /* ═══════════════════════════════════════════════════════════════════════════
-     INDIGO EDITORIAL v4 — Desktop tokens.
-     Source of truth: jarvnote-indigo-3.html. Used only inside .dk-shell scope
-     and ui-kit primitives that desktop renders. Mobile keeps the cool zinc
-     tokens above unchanged.
-     ═══════════════════════════════════════════════════════════════════════════ */
-
-  /* Type */
-  --font-display: "Fraunces", Georgia, serif;
-  --font-body:    "Source Serif 4", Georgia, serif;
-  --font-ui:      "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-
-  --text-2xs:  10px;
-  --text-md:   15.5px;
-  --text-4xl:  48px;
-  --text-5xl:  64px;
-
-  --tracking-display: -0.030em;
-  --tracking-wide:    0.06em;
-
-  /* Layout */
-  --r-sharp:   2px;
-  --r-control: 5px;
-  --r-card:    6px;
-
-  /* Layout — Indigo Editorial v5 (cool palette) */
-  --rail-w:    56px;
-  --library-w: 280px;
-  --topbar-h:  52px;
-  /* Legacy aliases for any consumer still reading the v4 names. */
-  --indigo-rail-w:   var(--rail-w);
-  --indigo-pane-w:   var(--library-w);
-  --indigo-topbar-h: var(--topbar-h);
-
-  /* Light surfaces — cool slate, brighter pass.
-     Exception: --paper is the editor "canvas" (note body background). It uses
-     a slightly warm off-white so writing surface feels paper-like, not LCD-like. */
-  --paper:    #FCFCF9;   /* canvas — near-white with a whisper of warmth */
-  --cream:    #ECEEEF;   /* secondary surface — input bg, even rows, hover */
-  --soft:     #DEE1E2;   /* tertiary — hover on cream, swatches */
-  --rail-bg:  #D6DADB;   /* rail — slightly darker than soft so it recedes */
-
-  /* Hairlines — slightly stronger so they read on the brighter paper. */
-  --hairline:        rgba(15, 24, 32, 0.09);
-  --hairline-strong: rgba(15, 24, 32, 0.16);
-  --hairline-faint:  rgba(15, 24, 32, 0.04);
-
-  /* Ink — cool slate scale */
+  /* ── Ink (cool slate scale) ──────────────────────────────────────────── */
   --ink:    #15202A;
   --ink-2:  #2C353D;
   --ink-3:  #455058;
   --ink-4:  #6E7780;
   --ink-5:  #9EA5AB;
 
-  /* Brand — deep cool indigo */
+  /* ── Brand ───────────────────────────────────────────────────────────── */
   --indigo:      #2C4A60;
-    --indigo-2:    #1B3447;
+  --indigo-2:    #1B3447;
   --indigo-soft: rgba(44, 74, 96, 0.10);
   --indigo-tint: rgba(44, 74, 96, 0.18);
 
-  /* Editorial accents — kept moss/ochre/rust (italic em sources), slate cooled */
-  --slate:      #5A6B78;
-  --slate-soft: rgba(90, 107, 120, 0.14);
-  --moss:       #6B7A4F;
-  --moss-soft:  rgba(107, 122, 79, 0.16);
-  --ochre:      #A18030;
-  --ochre-soft: rgba(161, 128, 48, 0.14);
-  --rust:       #A04A39;
-  --rust-soft:  rgba(160, 74, 57, 0.10);
-  --walnut:     #4A3A2D;
-  --walnut-2:   #6B4F3D;
+  /* ── Editorial accents — 5 hand-tuned hues ───────────────────────────── */
+  --moss:       #6B7A4F;   --moss-soft:   rgba(107, 122, 79, 0.16);
+  --ochre:      #A18030;   --ochre-soft:  rgba(161, 128, 48, 0.14);
+  --rust:       #A04A39;   --rust-soft:   rgba(160, 74, 57, 0.10);
+  --slate:      #5A6B78;   --slate-soft:  rgba(90, 107, 120, 0.14);
+  --walnut:     #4A3A2D;   --walnut-2:    #6B4F3D;
 
-  /* Heatmap — moss-tinted (unchanged) */
-  --heat-0: rgba(15, 24, 32, 0.06);
-  --heat-1: rgba(107, 122, 79, 0.22);
-  --heat-2: rgba(107, 122, 79, 0.42);
-  --heat-3: rgba(107, 122, 79, 0.65);
-  --heat-4: rgba(107, 122, 79, 0.92);
+  /* ── Hairlines (0.5px feel) ──────────────────────────────────────────── */
+  --hairline:        rgba(15, 24, 32, 0.09);
+  --hairline-strong: rgba(15, 24, 32, 0.16);
+  --hairline-faint:  rgba(15, 24, 32, 0.04);
 
-  /* Shadows — minimal, hairline-first */
+  /* ── Shadows (hairline-first) ────────────────────────────────────────── */
   --sh-card:       0 0 0 1px var(--hairline);
   --sh-card-hover: 0 0 0 1px var(--hairline-strong), 0 2px 6px rgba(15, 24, 32, 0.06);
   --sh-popover:    0 0 0 1px var(--hairline-strong), 0 8px 24px rgba(15, 24, 32, 0.10);
   --sh-modal:      0 0 0 1px var(--hairline-strong), 0 24px 64px rgba(15, 24, 32, 0.14);
   --sh-focus:      0 0 0 3px var(--indigo-tint);
 
+  /* ── Motion ──────────────────────────────────────────────────────────── */
   --ease:     cubic-bezier(0.32, 0.72, 0.30, 1);
   --dur-fast: 140ms;
   --dur-med:  220ms;
+
+  /* ── Heatmap (routine streaks) ───────────────────────────────────────── */
+  --heat-0: rgba(15, 24, 32, 0.06);
+  --heat-1: rgba(107, 122, 79, 0.22);
+  --heat-2: rgba(107, 122, 79, 0.42);
+  --heat-3: rgba(107, 122, 79, 0.65);
+  --heat-4: rgba(107, 122, 79, 0.92);
+
+  /* ── Z-index scale ───────────────────────────────────────────────────── */
+  --z-base:0; --z-sticky:100; --z-overlay:200; --z-dropdown:300;
+  --z-sheet:400; --z-modal:500; --z-popover:600; --z-toast:700; --z-tooltip:800;
+
+  /* ── Layout dimensions ───────────────────────────────────────────────── */
+  --sidebar-w:           232px;
+  --sidebar-w-collapsed: 56px;
+  --library-w:           280px;
+  --right-panel-w:       300px;
+  --topbar-h:            52px;
+  --rail-w:              56px;
+  --pane-w:              280px;
+  /* Legacy aliases — same value */
+  --indigo-rail-w:   var(--rail-w);
+  --indigo-pane-w:   var(--library-w);
+  --indigo-topbar-h: var(--topbar-h);
+
+  /* ╔════════════════════════════════════════════════════════════════════╗
+     ║ 2. LEGACY ALIASES — Editorial under generic names                  ║
+     ║                                                                    ║
+     ║ Every legacy/shadcn/Tailwind-style token now points at an          ║
+     ║ Editorial primitive so existing consumers in index.css /           ║
+     ║ editor.css render with the canonical visual language.              ║
+     ╚════════════════════════════════════════════════════════════════════╝ */
+
+  /* Fonts — generic → editorial role */
+  --font-sans:  var(--font-ui);
+  --font-serif: var(--font-body);
+
+  /* Surfaces — generic page chrome → paper rhythm */
+  --bg-app:         var(--paper);
+  --bg-shell:       var(--paper);
+  --bg-sidebar:     var(--cream);
+  --bg-rail:        var(--rail-bg);
+  --bg-card:        var(--paper);
+  --bg-elevated:    var(--paper);
+  --bg-hover:       rgba(15, 24, 32, 0.04);
+  --bg-active:      rgba(15, 24, 32, 0.07);
+  --bg-input:       var(--cream);
+  --bg-input-hover: var(--soft);
+  --bg-overlay:     rgba(15, 24, 32, 0.40);
+
+  /* Foreground — generic fg → ink scale */
+  --fg-primary:   var(--ink);
+  --fg-secondary: var(--ink-2);
+  --fg-tertiary:  var(--ink-3);
+  --fg-muted:     var(--ink-4);
+  --fg-faint:     var(--ink-5);
+  --fg-inverse:   var(--paper);
+
+  /* Lines — generic → hairlines */
+  --line:        var(--hairline);
+  --line-strong: var(--hairline-strong);
+  --line-faint:  var(--hairline-faint);
+
+  /* Section identity — Tailwind 500 rainbow → editorial accents */
+  --accent-notes:       var(--indigo);
+  --accent-notes-fg:    var(--indigo);
+  --accent-notes-bg:    var(--indigo-soft);
+
+  --accent-goals:       var(--moss);
+  --accent-goals-fg:    var(--moss);
+  --accent-goals-bg:    var(--moss-soft);
+
+  --accent-routines:    var(--ochre);
+  --accent-routines-fg: var(--ochre);
+  --accent-routines-bg: var(--ochre-soft);
+
+  --accent-sprints:     var(--slate);
+  --accent-sprints-fg:  var(--slate);
+  --accent-sprints-bg:  var(--slate-soft);
+
+  --accent-analysis:    var(--walnut);
+  --accent-analysis-fg: var(--walnut);
+  --accent-analysis-bg: rgba(74, 58, 45, 0.12);
+
+  /* Primary button */
+  --primary:    var(--indigo);
+  --primary-fg: var(--paper);
+
+  /* Semantic — alias to editorial accents (success = moss, etc.) */
+  --success:    var(--moss);    --success-bg: var(--moss-soft);
+  --warning:    var(--ochre);   --warning-bg: var(--ochre-soft);
+  --info:       var(--indigo);  --info-bg:    var(--indigo-soft);
+  --danger:     var(--rust);    --danger-bg:  var(--rust-soft);
+
+  /* Tailwind/shadcn radii — flat into editorial scale */
+  --radius:    var(--r-control);
+  --radius-sm: var(--r-sharp);
+  --radius-md: var(--r-control);
+  --radius-lg: var(--r-card);
+  --radius-xl: var(--r-card);
+
+  /* shadcn shim — every alias points at editorial */
+  --background:             var(--paper);
+  --foreground:             var(--ink);
+  --card:                   var(--paper);
+  --card-foreground:        var(--ink);
+  --popover:                var(--paper);
+  --popover-foreground:     var(--ink);
+  --secondary:              var(--cream);
+  --secondary-foreground:   var(--ink);
+  --muted:                  var(--cream);
+  --muted-foreground:       var(--ink-3);
+  --accent:                 var(--cream);
+  --accent-foreground:      var(--ink);
+  --destructive:            var(--rust);
+  --destructive-foreground: var(--paper);
+  --destructive-soft:       var(--rust-soft);
+  --border:                 var(--hairline);
+  --input:                  var(--hairline);
+  --input-background:       var(--cream);
+  --ring:                   var(--indigo);
+  --primary-foreground:     var(--paper);
+
+  --sidebar:                    var(--cream);
+  --sidebar-foreground:         var(--ink-2);
+  --sidebar-border:             var(--hairline);
+  --sidebar-accent:             var(--soft);
+  --sidebar-accent-foreground:  var(--ink);
+  --sidebar-primary:            var(--indigo);
+  --sidebar-primary-foreground: var(--paper);
+
+  /* Shadow legacy alias */
+  --sh-raised:  var(--sh-card);
+
+  /* Motion legacy alias — single rhythm */
+  --ease-spring: var(--ease);
+  --dur-base:    var(--dur-med);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK THEME — Editorial mirror.
+   Same architecture: editorial primitives override at top, legacy aliases
+   automatically pick up via var(...).
+   ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-  /* Indigo dark mirror — note these override the cool-zinc dark block above
-     for desktop scope. Mobile rules are scoped via .dark-theme legacy paths
-     and won't notice these per-token overrides because they consult their
-     own --bg-app etc. set above. */
+  /* Editorial primitives */
   --paper:    #131820;
   --cream:    #1C2228;
   --soft:     #242B33;
   --rail-bg:  #1A1F26;
 
-  /* Borders in dark mode were too faint to separate cards from the canvas.
-     Bumped opacity so card edges, sidebar dividers and timeline rails carry
-     visible weight without going harsh. */
   --hairline:        rgba(239, 241, 240, 0.16);
   --hairline-strong: rgba(239, 241, 240, 0.28);
   --hairline-faint:  rgba(239, 241, 240, 0.08);
@@ -326,16 +280,11 @@
   --indigo-soft: rgba(110, 148, 168, 0.16);
   --indigo-tint: rgba(110, 148, 168, 0.26);
 
-  --slate:      #889099;
-  --slate-soft: rgba(136, 144, 153, 0.18);
-  --moss:       #95A674;
-  --moss-soft:  rgba(149, 166, 116, 0.18);
-  --ochre:      #C9A157;
-  --ochre-soft: rgba(201, 161, 87, 0.18);
-  --rust:       #C46959;
-  --rust-soft:  rgba(196, 105, 89, 0.14);
-  --walnut:     #B0916D;
-  --walnut-2:   #8E7656;
+  --moss:   #95A674; --moss-soft:  rgba(149, 166, 116, 0.18);
+  --ochre:  #C9A157; --ochre-soft: rgba(201, 161, 87, 0.18);
+  --rust:   #C46959; --rust-soft:  rgba(196, 105, 89, 0.14);
+  --slate:  #889099; --slate-soft: rgba(136, 144, 153, 0.18);
+  --walnut: #B0916D; --walnut-2:   #8E7656;
 
   --heat-0: rgba(239, 241, 240, 0.06);
   --heat-1: rgba(149, 166, 116, 0.22);
@@ -347,94 +296,10 @@
   --sh-card-hover: 0 0 0 1px var(--hairline-strong), 0 2px 8px rgba(0,0,0,0.4);
   --sh-popover:    0 0 0 1px var(--hairline-strong), 0 8px 28px rgba(0,0,0,0.55);
   --sh-modal:      0 0 0 1px var(--hairline-strong), 0 24px 64px rgba(0,0,0,0.65);
-}
+  --sh-focus:      0 0 0 3px var(--indigo-tint);
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DARK THEME (legacy mobile + ui-kit fallback) — pure zinc, no warm undertone.
-   These tokens drive the *old* mobile shell and any ui-kit consumer that still
-   reads --bg-app / --accent-notes. Desktop in Indigo Editorial scope reads
-   --paper / --indigo / --ink instead, set in the block above.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-[data-theme="dark"] {
-  --bg-app:         #09090B;   /* page (zinc-950) */
-  --bg-shell:       #131316;   /* main panel */
-  --bg-sidebar:     #09090B;
-  --bg-rail:        #09090B;   /* same as app — rail recedes into bg in dark */
-  --bg-card:        #1C1C1F;   /* raised card */
-  --bg-elevated:    #27272A;   /* sheet / dialog (zinc-800) */
-  --bg-hover:       rgba(255, 255, 255, 0.06);
-  --bg-active:      rgba(255, 255, 255, 0.10);
-  --bg-input:       rgba(255, 255, 255, 0.04);
-  --bg-input-hover: rgba(255, 255, 255, 0.08);
-  --bg-overlay:     rgba(0, 0, 0, 0.60);
-
-  --fg-primary:   #FAFAFA;
-  --fg-secondary: #D4D4D8;
-  --fg-tertiary:  #A1A1AA;
-  --fg-muted:     #71717A;
-  --fg-faint:     #52525B;
-  --fg-inverse:   #09090B;
-
-  --line:        rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.14);
-  --line-faint:  rgba(255, 255, 255, 0.04);
-
-  /* Brand brightens in dark for AA contrast on dark surfaces */
-  --brand-50:  #312E81;
-  --brand-100: #3730A3;
-  --brand-200: #4338CA;
-  --brand-300: #4F46E5;
-  --brand-400: #6366F1;
-  --brand-500: #818AF8;
-  --brand-600: #A5ACFC;
-  --brand-700: #C7CCFE;
-  --brand-800: #E0E3FF;
-  --brand-900: #EEF0FF;
-
-  --accent-notes:       #818AF8;
-  --accent-notes-fg:    #A5ACFC;
-  --accent-notes-bg:    rgba(129, 138, 248, 0.16);
-
-  --accent-goals:       #FBBF24;
-  --accent-goals-fg:    #FCD34D;
-  --accent-goals-bg:    rgba(251, 191, 36, 0.16);
-
-  --accent-routines:    #34D399;
-  --accent-routines-fg: #6EE7B7;
-  --accent-routines-bg: rgba(52, 211, 153, 0.16);
-
-  --accent-sprints:     #22D3EE;
-  --accent-sprints-fg:  #67E8F9;
-  --accent-sprints-bg:  rgba(34, 211, 238, 0.16);
-
-  --accent-analysis:    #C084FC;
-  --accent-analysis-fg: #D8B4FE;
-  --accent-analysis-bg: rgba(192, 132, 252, 0.16);
-
-  --primary:    var(--fg-primary);
-  --primary-fg: #09090B;
-
-  /* Semantic aliases mirror the dark accents (see :root for rationale). */
-  --success:     var(--accent-routines);
-  --success-bg:  var(--accent-routines-bg);
-  --warning:     var(--accent-goals);
-  --warning-bg:  var(--accent-goals-bg);
-  --info:        var(--accent-sprints);
-  --info-bg:     var(--accent-sprints-bg);
-  --danger:      #F87171;
-  --danger-bg:   rgba(248, 113, 113, 0.16);
-
-  --sh-card:       0 0 0 0.5px var(--line), 0 1px 2px rgba(0, 0, 0, 0.30);
-  --sh-card-hover: 0 0 0 0.5px var(--line-strong), 0 4px 12px rgba(0, 0, 0, 0.45);
-  --sh-raised:     0 0 0 0.5px var(--line), 0 1px 2px rgba(0, 0, 0, 0.30);
-  --sh-popover:    0 0 0 0.5px var(--line), 0 12px 32px rgba(0, 0, 0, 0.55);
-  --sh-modal:      0 0 0 0.5px var(--line), 0 24px 64px rgba(0, 0, 0, 0.65);
-  --sh-focus:      0 0 0 3px rgba(129, 138, 248, 0.30);
-
-  --background: var(--bg-shell);
-  --foreground: var(--fg-primary);
-  --card:       var(--bg-card);
-  --popover:    var(--bg-elevated);
-  --ring:       var(--accent-notes);
+  /* Legacy aliases — override dark-mode specifics where needed */
+  --bg-hover:   rgba(239, 241, 240, 0.06);
+  --bg-active:  rgba(239, 241, 240, 0.10);
+  --bg-overlay: rgba(0, 0, 0, 0.60);
 }

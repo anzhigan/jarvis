@@ -1,0 +1,1807 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Jarvnote · Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,1,400;9..144,1,500&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   FINAL TOKENS — единая система. Всё что в этом блоке — каноническое.
+   Удалено: font-sans/-serif (Tiempos), bg-app/-shell/-card/-elevated стек,
+   fg-primary/-secondary/-tertiary, line/line-strong, brand-50..900 ramp,
+   tab-accent rainbow (amber/emerald/cyan/violet), shadcn alias-щит,
+   радиусы 12/14, soft-shadow стек, ease-spring, dur-base/-slow.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* ── Typography (3 families, одна роль на каждую) ───────────────────── */
+  --font-display: "Fraunces", Georgia, serif;       /* H1—H4, числа, акценты */
+  --font-body:    "Source Serif 4", Georgia, serif; /* body, descriptions    */
+  --font-ui:      "Inter", -apple-system, system-ui, sans-serif; /* labels, btns */
+  --font-mono:    ui-monospace, "SF Mono", Menlo, monospace;     /* счётчики, даты */
+
+  /* Type scale — 9 ступеней + 2 display sizes */
+  --text-2xs: 10px;
+  --text-xs:  11px;
+  --text-sm:  12.5px;
+  --text-base:14px;
+  --text-md:  15.5px;
+  --text-lg:  17px;
+  --text-xl:  22px;
+  --text-2xl: 26px;
+  --text-3xl: 30px;
+  --text-4xl: 48px;
+  --text-5xl: 64px;
+
+  --tracking-display: -0.030em;
+  --tracking-tight:   -0.027em;
+  --tracking-snug:    -0.018em;
+  --tracking-normal:  -0.005em;
+  --tracking-wide:     0.06em;
+
+  /* ── Spacing (4-pt grid) ─────────────────────────────────────────────── */
+  --sp-0:  0;    --sp-1: 2px;  --sp-2: 4px;  --sp-3: 6px;  --sp-4: 8px;
+  --sp-5: 10px;  --sp-6:12px;  --sp-7:14px;  --sp-8:16px;  --sp-10:20px;
+  --sp-12:24px;  --sp-14:28px; --sp-16:32px; --sp-20:40px; --sp-24:48px;
+  --sp-32:64px;
+
+  /* ── Radii (sharp editorial — 4 уровня) ───────────────────────────── */
+  --r-sharp:    2px;       /* ultra-sharp — chip-внутри-chip */
+  --r-control:  5px;       /* buttons, inputs, segments */
+  --r-card:     6px;       /* cards, containers, modals */
+  --r-pill:   999px;       /* pills, status, action-circles */
+
+  /* ── Heights (control rhythm) ─────────────────────────────────────── */
+  --h-xs: 24px;   --h-sm: 28px;   --h-md: 32px;   --h-lg: 40px;   --h-xl: 48px;
+
+  /* ── Surfaces (warm paper + cool slate) ───────────────────────────── */
+  --paper:    #FCFCF9;   /* canvas — near-white with whisper of warmth      */
+  --cream:    #ECEEEF;   /* secondary — input bg, hover surface             */
+  --soft:     #DEE1E2;   /* tertiary  — hover on cream, swatch background   */
+  --rail-bg:  #D6DADB;   /* rail navigation                                  */
+
+  /* ── Ink (cool slate scale, 5 ступеней) ───────────────────────────── */
+  --ink:    #15202A;     /* headings, brand text */
+  --ink-2:  #2C353D;     /* body primary */
+  --ink-3:  #455058;     /* body secondary */
+  --ink-4:  #6E7780;     /* labels, captions */
+  --ink-5:  #9EA5AB;     /* dim text, placeholder, disabled */
+
+  /* ── Brand ─────────────────────────────────────────────────────────── */
+  --indigo:      #2C4A60; /* deep cool indigo — brand */
+  --indigo-2:    #1B3447;
+  --indigo-soft: rgba(44, 74, 96, 0.10);
+  --indigo-tint: rgba(44, 74, 96, 0.18);
+
+  /* ── Editorial accents (5 hues — каждый со своей семантикой) ──────── */
+  --moss:       #6B7A4F;   /* active, achievement, growth */
+  --moss-soft:  rgba(107, 122, 79, 0.16);
+  --ochre:      #A18030;   /* warning, in-progress, attention */
+  --ochre-soft: rgba(161, 128, 48, 0.14);
+  --rust:       #A04A39;   /* danger, destructive, missed */
+  --rust-soft:  rgba(160, 74, 57, 0.10);
+  --slate:      #5A6B78;   /* neutral pill, backlog, secondary */
+  --slate-soft: rgba(90, 107, 120, 0.14);
+  --walnut:     #4A3A2D;   /* rare deep emphasis */
+  --walnut-2:   #6B4F3D;
+
+  /* ── Hairlines (0.5px feel) ──────────────────────────────────────── */
+  --hairline:        rgba(15, 24, 32, 0.09);   /* default border */
+  --hairline-strong: rgba(15, 24, 32, 0.16);   /* hover, focus borders */
+  --hairline-faint:  rgba(15, 24, 32, 0.04);   /* internal dividers */
+
+  /* ── Shadows (hairline-first, не Material-style drop) ─────────────── */
+  --sh-card:       0 0 0 1px var(--hairline);
+  --sh-card-hover: 0 0 0 1px var(--hairline-strong), 0 2px 6px rgba(15,24,32,0.06);
+  --sh-popover:    0 0 0 1px var(--hairline-strong), 0 8px 24px rgba(15,24,32,0.10);
+  --sh-modal:      0 0 0 1px var(--hairline-strong), 0 24px 64px rgba(15,24,32,0.14);
+  --sh-focus:      0 0 0 3px var(--indigo-tint);
+
+  /* ── Motion ──────────────────────────────────────────────────────── */
+  --ease:     cubic-bezier(0.32, 0.72, 0.30, 1);  /* deliberate, settle */
+  --dur-fast: 140ms;
+  --dur-med:  220ms;
+
+  /* ── Heatmap (для routine streaks) ───────────────────────────────── */
+  --heat-0: rgba(15, 24, 32, 0.06);
+  --heat-1: rgba(107, 122, 79, 0.22);
+  --heat-2: rgba(107, 122, 79, 0.42);
+  --heat-3: rgba(107, 122, 79, 0.65);
+  --heat-4: rgba(107, 122, 79, 0.92);
+
+  /* ── Z-index scale ────────────────────────────────────────────────── */
+  --z-base:0; --z-sticky:100; --z-overlay:200; --z-dropdown:300;
+  --z-sheet:400; --z-modal:500; --z-popover:600; --z-toast:700; --z-tooltip:800;
+
+  /* ── Section identity (editorial, не tailwind rainbow) ────────────── */
+  --section-notes:      var(--indigo);
+  --section-goals:      var(--moss);
+  --section-routines:   var(--ochre);
+  --section-sprints:    var(--slate);
+  --section-analysis:   var(--walnut);
+}
+
+[data-theme="dark"] {
+  --paper:    #131820;
+  --cream:    #1C2228;
+  --soft:     #242B33;
+  --rail-bg:  #1A1F26;
+
+  --hairline:        rgba(239, 241, 240, 0.16);
+  --hairline-strong: rgba(239, 241, 240, 0.28);
+  --hairline-faint:  rgba(239, 241, 240, 0.08);
+
+  --ink:    #EFF1F0; --ink-2: #C8CDD0; --ink-3: #9EA5AB;
+  --ink-4:  #74797F; --ink-5: #4F555B;
+
+  --indigo:      #6E94A8;
+  --indigo-2:    #4F7184;
+  --indigo-soft: rgba(110, 148, 168, 0.16);
+  --indigo-tint: rgba(110, 148, 168, 0.26);
+
+  --moss:   #95A674; --moss-soft:  rgba(149, 166, 116, 0.18);
+  --ochre:  #C9A157; --ochre-soft: rgba(201, 161, 87, 0.18);
+  --rust:   #C46959; --rust-soft:  rgba(196, 105, 89, 0.14);
+  --slate:  #889099; --slate-soft: rgba(136, 144, 153, 0.18);
+  --walnut: #B0916D; --walnut-2:   #8E7656;
+
+  --heat-0: rgba(239, 241, 240, 0.06);
+  --heat-1: rgba(149, 166, 116, 0.22);
+  --heat-2: rgba(149, 166, 116, 0.42);
+  --heat-3: rgba(149, 166, 116, 0.65);
+  --heat-4: rgba(149, 166, 116, 0.92);
+
+  --sh-card:       0 0 0 1px var(--hairline);
+  --sh-card-hover: 0 0 0 1px var(--hairline-strong), 0 2px 8px rgba(0,0,0,0.4);
+  --sh-popover:    0 0 0 1px var(--hairline-strong), 0 8px 28px rgba(0,0,0,0.55);
+  --sh-modal:      0 0 0 1px var(--hairline-strong), 0 24px 64px rgba(0,0,0,0.65);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE LAYOUT
+   ═══════════════════════════════════════════════════════════════════════════ */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11", "calt";
+}
+
+body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+
+/* ── Sidebar TOC ──────────────────────────────────────────────────────── */
+.toc {
+  position: sticky; top: 0; align-self: start;
+  height: 100vh; overflow-y: auto;
+  padding: 28px 18px 28px 32px;
+  border-right: 1px solid var(--hairline);
+  background: var(--paper);
+}
+.toc__brand {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 600;
+  color: var(--ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0 0 4px;
+}
+.toc__brand-dot { width: 8px; height: 8px; background: var(--indigo); }
+.toc__lead {
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ochre);
+  margin-bottom: 22px;
+}
+.toc__group { margin-bottom: 18px; }
+.toc__group-label {
+  font-family: var(--font-ui);
+  font-size: 9.5px; font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-5);
+  padding: 0 6px;
+  margin-bottom: 4px;
+}
+.toc a {
+  display: block;
+  padding: 4px 8px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  text-decoration: none;
+  border-radius: var(--r-control);
+  border-left: 2px solid transparent;
+}
+.toc a:hover { background: var(--cream); color: var(--ink); }
+.toc a.dropped { color: var(--ink-5); font-style: italic; }
+.toc a.dropped:hover { color: var(--rust); }
+.toc__theme {
+  margin-top: 22px;
+  display: inline-flex;
+  gap: 2px;
+  background: var(--cream);
+  padding: 2px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+}
+.toc__theme button {
+  background: transparent; border: 0; padding: 4px 12px;
+  font: inherit; font-family: var(--font-ui); cursor: pointer;
+  color: var(--ink-4); border-radius: var(--r-pill); font-size: 11px;
+}
+.toc__theme button[aria-pressed="true"] { background: var(--indigo); color: var(--paper); }
+
+/* ── Main content ──────────────────────────────────────────────────────── */
+.canvas { padding: 56px 64px 96px; max-width: 1100px; }
+
+/* ── Section heading ──────────────────────────────────────────────────── */
+section.ds-section { margin-top: 80px; }
+section.ds-section:first-of-type { margin-top: 0; }
+.ds-num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ochre);
+  letter-spacing: 0;
+  display: block;
+  margin-bottom: 4px;
+}
+.ds-h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 500;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.ds-h1 em {
+  font-style: italic;
+  font-weight: 400;
+}
+.ds-lede {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  color: var(--ink-3);
+  line-height: 1.5;
+  max-width: 620px;
+  margin: 0 0 28px;
+}
+.ds-lede em { font-style: italic; color: var(--indigo); }
+.ds-h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink);
+  margin: 36px 0 14px;
+}
+.ds-h3 {
+  font-family: var(--font-ui);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin: 28px 0 12px;
+}
+.ds-rule {
+  height: 1px;
+  background: var(--hairline);
+  border: 0;
+  margin: 28px 0;
+}
+
+.ds-note {
+  font-family: var(--font-body);
+  font-size: 14px; font-style: italic;
+  color: var(--ink-4);
+  line-height: 1.55;
+  padding: 10px 14px;
+  border-left: 2px solid var(--indigo);
+  background: var(--indigo-soft);
+  margin: 16px 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COLOR SWATCHES
+   ═══════════════════════════════════════════════════════════════════════════ */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.swatch {
+  display: flex; flex-direction: column;
+  border-radius: var(--r-card);
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  overflow: hidden;
+}
+.swatch__chip {
+  height: 92px;
+  display: block;
+}
+.swatch__body {
+  padding: 10px 12px;
+  display: flex; flex-direction: column;
+  gap: 2px;
+}
+.swatch__name {
+  font-family: var(--font-ui);
+  font-size: 11px; font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.swatch__var {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+}
+.swatch__hex {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+}
+.swatch__use {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.swatch--ring .swatch__chip {
+  background: var(--paper);
+  border-bottom: 1px solid var(--hairline);
+  position: relative;
+}
+.swatch--ring .swatch__chip::after {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY SPECIMENS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.type-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 1fr;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline-faint);
+  align-items: baseline;
+}
+.type-row:last-child { border-bottom: 0; }
+.type-token {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.type-meta {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--ink-5);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+}
+.type-sample { color: var(--ink); margin: 0; line-height: 1.15; }
+
+.t-display { font-family: var(--font-display); letter-spacing: var(--tracking-display); }
+.t-body    { font-family: var(--font-body); }
+.t-ui      { font-family: var(--font-ui); }
+.t-mono    { font-family: var(--font-mono); }
+
+.font-card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  padding: 22px 24px 26px;
+  margin-bottom: 16px;
+  background: var(--paper);
+}
+.font-card__role {
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ochre);
+}
+.font-card__name {
+  font-size: 42px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-display);
+  margin: 6px 0 4px;
+  color: var(--ink);
+}
+.font-card__hint {
+  font-family: var(--font-body);
+  font-style: italic;
+  color: var(--ink-4);
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+.font-card__rule { height: 1px; background: var(--hairline); margin: 14px 0; }
+.font-card__usage {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.font-card__usage b { color: var(--ink); font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SPACING + RADII DEMOS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.sp-strip {
+  display: flex; gap: 16px; align-items: flex-end;
+  padding: 14px 0;
+}
+.sp-strip__item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.sp-strip__box {
+  background: var(--indigo);
+  border-radius: 2px;
+}
+.sp-strip__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.r-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+}
+.r-cell {
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  padding: 22px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.r-cell b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.r-cell--sharp   { border-radius: 2px; }
+.r-cell--control { border-radius: 5px; }
+.r-cell--card    { border-radius: 6px; }
+.r-cell--pill    { border-radius: 999px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHADOW DEMOS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.sh-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.sh-cell {
+  height: 100px;
+  background: var(--paper);
+  border-radius: var(--r-card);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  text-align: center;
+}
+.sh-cell--card     { box-shadow: var(--sh-card); }
+.sh-cell--hover    { box-shadow: var(--sh-card-hover); }
+.sh-cell--popover  { box-shadow: var(--sh-popover); }
+.sh-cell--focus    { box-shadow: var(--sh-focus); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPONENT PRIMITIVES — Buttons, Inputs, Chips, Pills
+   ═══════════════════════════════════════════════════════════════════════════ */
+.cmp-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 14px 0;
+}
+
+/* Button — 5 variants × 3 sizes */
+.ds-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  border-radius: var(--r-control);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease);
+}
+.ds-btn--sm { font-size: 12px; padding: 6px 12px; height: var(--h-sm); }
+.ds-btn--md { font-size: 13px; padding: 8px 16px; height: var(--h-md); }
+.ds-btn--lg { font-size: 14px; padding: 10px 22px; height: var(--h-lg); }
+
+.ds-btn--primary {
+  background: var(--indigo); color: var(--paper);
+  border-color: var(--indigo);
+}
+.ds-btn--primary:hover { filter: brightness(1.08); }
+
+.ds-btn--secondary {
+  background: var(--paper); color: var(--ink);
+  border-color: var(--hairline-strong);
+}
+.ds-btn--secondary:hover { background: var(--cream); }
+
+.ds-btn--ghost {
+  background: transparent; color: var(--ink-3);
+  border-color: transparent;
+}
+.ds-btn--ghost:hover { background: var(--cream); color: var(--ink); }
+
+.ds-btn--danger {
+  background: var(--rust); color: var(--paper);
+  border-color: var(--rust);
+}
+.ds-btn--danger:hover { filter: brightness(1.08); }
+
+.ds-btn--success {
+  background: var(--moss); color: var(--paper);
+  border-color: var(--moss);
+}
+.ds-btn--success:hover { filter: brightness(1.08); }
+
+/* Input */
+.ds-input {
+  height: var(--h-md);
+  padding: 0 12px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+  width: 240px;
+}
+.ds-input:focus {
+  background: var(--paper);
+  border-color: var(--ink-4);
+  box-shadow: var(--sh-focus);
+}
+
+/* Pills — status, priority, neutral */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pill--moss   { background: var(--moss-soft);   color: var(--moss); }
+.pill--ochre  { background: var(--ochre-soft);  color: var(--ochre); }
+.pill--rust   { background: var(--rust-soft);   color: var(--rust); }
+.pill--slate  { background: var(--slate-soft);  color: var(--slate); }
+.pill--indigo { background: var(--indigo-soft); color: var(--indigo); }
+.pill__dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Chip-group (segmented control) */
+.chip-group {
+  display: inline-flex; gap: 2px;
+  background: var(--cream);
+  padding: 2px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+}
+.chip-group button {
+  background: transparent; border: 0;
+  padding: 4px 11px;
+  font-family: var(--font-ui);
+  font-size: 11px; font-weight: 500;
+  color: var(--ink-4);
+  cursor: pointer;
+  border-radius: var(--r-pill);
+}
+.chip-group button:hover { color: var(--ink-2); }
+.chip-group button[aria-pressed="true"] {
+  background: var(--indigo);
+  color: var(--paper);
+}
+
+/* Tag (small color-coded label) */
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 500;
+  color: var(--ink-3);
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+}
+.tag-chip__dot {
+  width: 6px; height: 6px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPOSITIONS — реальные паттерны из приложения
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* tg-card — Go target card */
+.demo-tg {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--moss);
+  border-radius: var(--r-card);
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+  max-width: 420px;
+}
+.demo-tg__row {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.demo-tg__title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+.demo-tg__desc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-3);
+  line-height: 1.5;
+  margin: 0;
+}
+.demo-tg__period {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+}
+.demo-tg__actions {
+  display: flex; gap: 6px;
+}
+.demo-tg__btn {
+  flex: 1; height: 36px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-control);
+  font-family: var(--font-ui);
+  font-size: 12.5px; font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.demo-tg__btn:hover { background: var(--cream); }
+.demo-tg__icon {
+  width: 36px; height: 36px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-control);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--ink-4);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Station (timeline) */
+.demo-stations {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  position: relative;
+  padding: 0 16px;
+}
+.demo-rail {
+  position: absolute; left: 16px; right: 16px; top: 22px;
+  height: 2px;
+  background: linear-gradient(to right,
+    var(--moss) 0%, var(--moss) 17%,
+    var(--ochre) 17%, var(--ochre) 50%,
+    var(--hairline-strong) 50%, var(--hairline-strong) 100%);
+}
+.demo-station {
+  display: flex; flex-direction: column; align-items: center;
+  position: relative;
+  z-index: 2;
+}
+.demo-station__num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink-5);
+  margin-bottom: 8px;
+}
+.demo-station__dot {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--ink-5);
+  position: relative;
+}
+.demo-station--done .demo-station__dot {
+  background: var(--moss);
+  box-shadow: inset 0 0 0 2px var(--moss);
+}
+.demo-station--done .demo-station__dot::after {
+  content: ''; position: absolute;
+  left: 5px; top: 3.5px;
+  width: 5px; height: 8px;
+  border: solid var(--paper); border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+}
+.demo-station--active .demo-station__dot {
+  box-shadow: inset 0 0 0 2.4px var(--ochre);
+}
+.demo-station--active .demo-station__dot::before {
+  content: ''; position: absolute; inset: 4px;
+  border-radius: 50%; background: var(--ochre);
+}
+.demo-station__title {
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 12px;
+}
+.demo-station--done    .demo-station__title { color: var(--moss); }
+.demo-station--active  .demo-station__title { color: var(--ochre); }
+.demo-station--upcoming .demo-station__title { color: var(--ink-4); }
+.demo-station__meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+/* Empty state */
+.demo-empty {
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--r-card);
+  background: var(--paper);
+  padding: 24px;
+  text-align: center;
+  max-width: 480px;
+}
+.demo-empty__hint {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-style: italic;
+  color: var(--ink-4);
+  margin: 0 0 12px;
+  max-width: 380px;
+  margin-left: auto; margin-right: auto;
+}
+
+/* Section identity rows */
+.section-row {
+  display: grid;
+  grid-template-columns: 28px 100px 1fr 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline-faint);
+}
+.section-row:last-child { border-bottom: 0; }
+.section-row__dot {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+}
+.section-row__name {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 500;
+  color: var(--ink);
+}
+.section-row__token {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+}
+.section-row__use {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DROPPED — rejected pile
+   ═══════════════════════════════════════════════════════════════════════════ */
+.drop-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 1px;
+  background: var(--hairline);
+}
+.drop-list li {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 18px;
+  padding: 14px 16px;
+  background: var(--paper);
+}
+.drop-list li:hover { background: var(--cream); }
+.drop-list code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--rust);
+  text-decoration: line-through;
+  text-decoration-color: var(--rust-soft);
+}
+.drop-list p {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-3);
+  line-height: 1.5;
+  margin: 0;
+}
+.drop-list p em {
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+/* Misc */
+.label-mono { font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); }
+.label-em   { font-family: var(--font-body); font-style: italic; color: var(--ink-4); }
+
+.principle {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 18px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--hairline-faint);
+}
+.principle:last-child { border-bottom: 0; }
+.principle__num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 38px;
+  font-weight: 500;
+  color: var(--ochre);
+  letter-spacing: 0;
+  line-height: 1;
+}
+.principle__title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-tight);
+  margin: 0 0 6px;
+}
+.principle__body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  margin: 0;
+}
+.principle__body em { color: var(--indigo); font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- ═════════════════════════════════ TOC ═════════════════════════════════ -->
+<aside class="toc">
+  <div class="toc__brand"><span class="toc__brand-dot"></span>Jarvnote</div>
+  <div class="toc__lead">Design System · v1.0</div>
+
+  <div class="toc__group">
+    <div class="toc__group-label">Foundations</div>
+    <a href="#philosophy">Philosophy</a>
+    <a href="#color">Color</a>
+    <a href="#type">Typography</a>
+    <a href="#spacing">Spacing</a>
+    <a href="#radii">Radii</a>
+    <a href="#shadow">Shadows</a>
+    <a href="#motion">Motion</a>
+  </div>
+
+  <div class="toc__group">
+    <div class="toc__group-label">System</div>
+    <a href="#sections">Section identity</a>
+    <a href="#heights">Control heights</a>
+    <a href="#z-index">Z-index</a>
+  </div>
+
+  <div class="toc__group">
+    <div class="toc__group-label">Components</div>
+    <a href="#buttons">Buttons</a>
+    <a href="#inputs">Inputs</a>
+    <a href="#pills">Pills &amp; chips</a>
+    <a href="#tags">Tags</a>
+  </div>
+
+  <div class="toc__group">
+    <div class="toc__group-label">Compositions</div>
+    <a href="#card-tg">Go target card</a>
+    <a href="#timeline">Steps timeline</a>
+    <a href="#empty">Empty state</a>
+  </div>
+
+  <div class="toc__group">
+    <div class="toc__group-label">Hygiene</div>
+    <a href="#dropped" class="dropped">What we dropped</a>
+  </div>
+
+  <div class="toc__theme">
+    <button data-tt="light" aria-pressed="true">Light</button>
+    <button data-tt="dark"  aria-pressed="false">Dark</button>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════ CANVAS ═══════════════════════════════ -->
+<main class="canvas">
+
+  <!-- ═══════════════════════════════ PHILOSOPHY ═══════════════════════════════ -->
+  <section class="ds-section" id="philosophy">
+    <span class="ds-num">00 · Foundation</span>
+    <h1 class="ds-h1">Indigo <em>Editorial</em></h1>
+    <p class="ds-lede">
+      Knowledge base, не SaaS. <em>Письмо, чтение, мышление</em> — главные действия.
+      Система намеренно медленная, тёплая, сделанная руками. Бумага, не экран.
+      Засечки, не sans. Тонкие линии, не drop-shadow. Чёткие сжатые радиусы,
+      не закругления Material.
+    </p>
+
+    <div class="principle">
+      <div class="principle__num">01</div>
+      <div>
+        <h3 class="principle__title">Hairlines over shadows</h3>
+        <p class="principle__body">
+          Бумажный canvas — глубина читается границами 1px. Тени появляются
+          только на hover/popover/modal как <em>событие</em>, не как
+          постоянная декорация. Никаких mass-market drop-shadow стэков.
+        </p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle__num">02</div>
+      <div>
+        <h3 class="principle__title">Three fonts, three roles</h3>
+        <p class="principle__body">
+          Fraunces для display (заголовки, числа, акценты — character).
+          Source Serif 4 для body (длинное чтение — comfort).
+          Inter для UI (метки, кнопки — clarity).
+          <em>Никаких смешений</em>: каждый шрифт делает одну работу.
+        </p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle__num">03</div>
+      <div>
+        <h3 class="principle__title">Cool ink on warm paper</h3>
+        <p class="principle__body">
+          Canvas #FCFCF9 — тёплый off-white. Текст #15202A — холодный slate.
+          Контраст 13:1 (AAA), но без «офисной» белизны экрана.
+          Глаз отдыхает на длинных note-страницах.
+        </p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle__num">04</div>
+      <div>
+        <h3 class="principle__title">Editorial accents, не tailwind rainbow</h3>
+        <p class="principle__body">
+          5 акцентов (moss, ochre, rust, slate, walnut) — землистые,
+          подобраны вручную. Каждый цвет <em>несёт смысл</em>: moss = рост/успех,
+          ochre = внимание, rust = разрушение, slate = нейтрал, walnut = глубина.
+          Никаких amber/cyan/violet — это другая система.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ COLOR ═══════════════════════════════ -->
+  <section class="ds-section" id="color">
+    <span class="ds-num">01 · Foundation</span>
+    <h1 class="ds-h1">Color</h1>
+    <p class="ds-lede">
+      Три слоя: <em>surfaces</em> (бумажный фон, 4 тона),
+      <em>ink</em> (cool slate, 5 ступеней) и <em>accents</em>
+      (один brand + 5 editorial hues).
+    </p>
+
+    <h2 class="ds-h2">Surfaces</h2>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #FCFCF9"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">paper</span>
+          <span class="swatch__var">--paper</span>
+          <span class="swatch__hex">#FCFCF9</span>
+          <span class="swatch__use">Canvas. Note body. Cards.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #ECEEEF"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">cream</span>
+          <span class="swatch__var">--cream</span>
+          <span class="swatch__hex">#ECEEEF</span>
+          <span class="swatch__use">Inputs, hover, even rows.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #DEE1E2"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">soft</span>
+          <span class="swatch__var">--soft</span>
+          <span class="swatch__hex">#DEE1E2</span>
+          <span class="swatch__use">Hover-on-cream, swatch bg.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #D6DADB"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">rail-bg</span>
+          <span class="swatch__var">--rail-bg</span>
+          <span class="swatch__hex">#D6DADB</span>
+          <span class="swatch__use">Side navigation rail.</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="ds-h2">Ink — cool slate scale</h2>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #15202A"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">ink</span>
+          <span class="swatch__var">--ink</span>
+          <span class="swatch__hex">#15202A</span>
+          <span class="swatch__use">Headings, brand text.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #2C353D"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">ink-2</span>
+          <span class="swatch__var">--ink-2</span>
+          <span class="swatch__hex">#2C353D</span>
+          <span class="swatch__use">Body primary.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #455058"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">ink-3</span>
+          <span class="swatch__var">--ink-3</span>
+          <span class="swatch__hex">#455058</span>
+          <span class="swatch__use">Body secondary.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #6E7780"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">ink-4</span>
+          <span class="swatch__var">--ink-4</span>
+          <span class="swatch__hex">#6E7780</span>
+          <span class="swatch__use">Labels, captions.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #9EA5AB"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">ink-5</span>
+          <span class="swatch__var">--ink-5</span>
+          <span class="swatch__hex">#9EA5AB</span>
+          <span class="swatch__use">Placeholder, disabled.</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="ds-h2">Brand — deep cool indigo</h2>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #2C4A60"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">indigo</span>
+          <span class="swatch__var">--indigo</span>
+          <span class="swatch__hex">#2C4A60</span>
+          <span class="swatch__use">Primary CTA. Focus ring base. Highlights.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #1B3447"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">indigo-2</span>
+          <span class="swatch__var">--indigo-2</span>
+          <span class="swatch__hex">#1B3447</span>
+          <span class="swatch__use">Brand gradient end.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: rgba(44, 74, 96, 0.10)"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">indigo-soft</span>
+          <span class="swatch__var">--indigo-soft</span>
+          <span class="swatch__hex">10% indigo</span>
+          <span class="swatch__use">Selected row, pill bg.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: rgba(44, 74, 96, 0.18)"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">indigo-tint</span>
+          <span class="swatch__var">--indigo-tint</span>
+          <span class="swatch__hex">18% indigo</span>
+          <span class="swatch__use">Focus ring.</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="ds-h2">Editorial accents — 5 hand-tuned hues</h2>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #6B7A4F"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">moss</span>
+          <span class="swatch__var">--moss</span>
+          <span class="swatch__hex">#6B7A4F</span>
+          <span class="swatch__use">Done · active · success. Goals section.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #A18030"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">ochre</span>
+          <span class="swatch__var">--ochre</span>
+          <span class="swatch__hex">#A18030</span>
+          <span class="swatch__use">In progress · warning. Routines section.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #A04A39"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">rust</span>
+          <span class="swatch__var">--rust</span>
+          <span class="swatch__hex">#A04A39</span>
+          <span class="swatch__use">Danger · destructive · missed.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #5A6B78"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">slate</span>
+          <span class="swatch__var">--slate</span>
+          <span class="swatch__hex">#5A6B78</span>
+          <span class="swatch__use">Backlog · neutral. Sprints section.</span>
+        </div>
+      </div>
+      <div class="swatch">
+        <span class="swatch__chip" style="background: #4A3A2D"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">walnut</span>
+          <span class="swatch__var">--walnut</span>
+          <span class="swatch__hex">#4A3A2D</span>
+          <span class="swatch__use">Deep emphasis. Analysis section.</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="ds-note">
+      Каждый editorial цвет имеет <code style="font-family:var(--font-mono); color:var(--ink-2)">-soft</code>
+      variant (14-18% opacity) — для фонов pills, hover states, soft-зон.
+      Полные пары: <code style="font-family:var(--font-mono); color:var(--ink-2)">--moss-soft, --ochre-soft, --rust-soft, --slate-soft</code>.
+    </p>
+
+    <h2 class="ds-h2">Hairlines — 3 уровня</h2>
+    <div class="swatch-grid">
+      <div class="swatch swatch--ring" style="color: rgba(15, 24, 32, 0.09)">
+        <span class="swatch__chip"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">hairline</span>
+          <span class="swatch__var">--hairline</span>
+          <span class="swatch__hex">9% ink</span>
+          <span class="swatch__use">Default border. Card edges.</span>
+        </div>
+      </div>
+      <div class="swatch swatch--ring" style="color: rgba(15, 24, 32, 0.16)">
+        <span class="swatch__chip"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">hairline-strong</span>
+          <span class="swatch__var">--hairline-strong</span>
+          <span class="swatch__hex">16% ink</span>
+          <span class="swatch__use">Hover, focus, dashed CTAs.</span>
+        </div>
+      </div>
+      <div class="swatch swatch--ring" style="color: rgba(15, 24, 32, 0.04)">
+        <span class="swatch__chip"></span>
+        <div class="swatch__body">
+          <span class="swatch__name">hairline-faint</span>
+          <span class="swatch__var">--hairline-faint</span>
+          <span class="swatch__hex">4% ink</span>
+          <span class="swatch__use">Internal table dividers.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ TYPE ═══════════════════════════════ -->
+  <section class="ds-section" id="type">
+    <span class="ds-num">02 · Foundation</span>
+    <h1 class="ds-h1">Typography</h1>
+    <p class="ds-lede">
+      Три гарнитуры. Каждая делает одну работу. Никаких смешений ролей —
+      Fraunces никогда не идёт в кнопку, Inter никогда не идёт в body.
+    </p>
+
+    <div class="font-card">
+      <span class="font-card__role">Display · Fraunces (variable serif)</span>
+      <div class="font-card__name t-display">Aa <em style="font-style:italic">italic</em> 01 02 03</div>
+      <p class="font-card__hint">Засечки с теплом. Italic — реальный курсив, не наклон.</p>
+      <div class="font-card__rule"></div>
+      <p class="font-card__usage">
+        <b>Use:</b> H1 (30/48/64px), section titles, step numbers (italic),
+        goal-card titles, hero numbers (43%, 21h 34m).
+      </p>
+    </div>
+
+    <div class="font-card">
+      <span class="font-card__role">Body · Source Serif 4</span>
+      <div class="font-card__name t-body" style="font-size:32px; line-height:1.4">The slow letters between two thoughts.</div>
+      <p class="font-card__hint">Длинное чтение. Note content. Описания.</p>
+      <div class="font-card__rule"></div>
+      <p class="font-card__usage">
+        <b>Use:</b> note paragraph (15.5px), goal descriptions (13px),
+        italic em emphasis, empty-state hints.
+      </p>
+    </div>
+
+    <div class="font-card">
+      <span class="font-card__role">UI · Inter</span>
+      <div class="font-card__name t-ui" style="font-weight: 600;">CREATE GO · SETTINGS · CLOSE</div>
+      <p class="font-card__hint">Clarity. Никаких засечек. Uppercase для labels.</p>
+      <div class="font-card__rule"></div>
+      <p class="font-card__usage">
+        <b>Use:</b> buttons (12-14px), pills (10px uppercase 0.10em tracking),
+        tabs, navigation labels, field labels.
+      </p>
+    </div>
+
+    <div class="font-card">
+      <span class="font-card__role">Mono · SF Mono / system mono</span>
+      <div class="font-card__name t-mono" style="font-size: 28px;">3 / 7 · 14 May · 43%</div>
+      <p class="font-card__hint">Tabular-nums, числа выравнены вертикально.</p>
+      <div class="font-card__rule"></div>
+      <p class="font-card__usage">
+        <b>Use:</b> counters, dates, percentages, due-date pills,
+        rate-stat columns. Никогда не для текста.
+      </p>
+    </div>
+
+    <h2 class="ds-h2">Type scale</h2>
+
+    <div class="type-row">
+      <span class="type-token">--text-2xs</span>
+      <p class="type-sample t-ui" style="font-size: 10px;">UPPERCASE LABEL · TRACKING 0.12</p>
+      <span class="type-meta">10 · UI eyebrow</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-xs</span>
+      <p class="type-sample t-ui" style="font-size: 11px;">Section eyebrow · Meta</p>
+      <span class="type-meta">11 · UI / Mono</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-sm</span>
+      <p class="type-sample t-body" style="font-size: 12.5px;">Sidebar item · short label</p>
+      <span class="type-meta">12.5 · Body / UI</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-base</span>
+      <p class="type-sample t-ui" style="font-size: 14px;">Button text · table cell</p>
+      <span class="type-meta">14 · UI primary</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-md</span>
+      <p class="type-sample t-body" style="font-size: 15.5px;">Editor body, the canonical reading size.</p>
+      <span class="type-meta">15.5 · Body canonical</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-lg</span>
+      <p class="type-sample t-body" style="font-size: 17px;">Goal description lede — slower, larger.</p>
+      <span class="type-meta">17 · Lede</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-xl</span>
+      <p class="type-sample t-display" style="font-size: 22px;">Section title</p>
+      <span class="type-meta">22 · Display</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-2xl</span>
+      <p class="type-sample t-display" style="font-size: 26px;">Subhead</p>
+      <span class="type-meta">26 · Display</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-3xl</span>
+      <p class="type-sample t-display" style="font-size: 30px;">Goal title</p>
+      <span class="type-meta">30 · Display</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-4xl</span>
+      <p class="type-sample t-display" style="font-size: 48px;">Hero pct</p>
+      <span class="type-meta">48 · Hero numbers</span>
+    </div>
+    <div class="type-row">
+      <span class="type-token">--text-5xl</span>
+      <p class="type-sample t-display" style="font-size: 64px; line-height: 1;">Stat</p>
+      <span class="type-meta">64 · XL stat</span>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ SPACING ═══════════════════════════════ -->
+  <section class="ds-section" id="spacing">
+    <span class="ds-num">03 · Foundation</span>
+    <h1 class="ds-h1">Spacing — 4-pt grid</h1>
+    <p class="ds-lede">
+      16 ступеней. Все компоненты выровнены по 4 — рифма читается даже
+      непривычным глазом. Без 3px, 5px, 7px — система не должна угадывать.
+    </p>
+
+    <div class="sp-strip">
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:2px; height:18px"></span><span class="sp-strip__label">sp-1<br>2</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:4px; height:18px"></span><span class="sp-strip__label">sp-2<br>4</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:6px; height:18px"></span><span class="sp-strip__label">sp-3<br>6</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:8px; height:18px"></span><span class="sp-strip__label">sp-4<br>8</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:10px; height:18px"></span><span class="sp-strip__label">sp-5<br>10</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:12px; height:18px"></span><span class="sp-strip__label">sp-6<br>12</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:14px; height:18px"></span><span class="sp-strip__label">sp-7<br>14</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:16px; height:18px"></span><span class="sp-strip__label">sp-8<br>16</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:20px; height:18px"></span><span class="sp-strip__label">sp-10<br>20</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:24px; height:18px"></span><span class="sp-strip__label">sp-12<br>24</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:32px; height:18px"></span><span class="sp-strip__label">sp-16<br>32</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:48px; height:18px"></span><span class="sp-strip__label">sp-24<br>48</span></div>
+      <div class="sp-strip__item"><span class="sp-strip__box" style="width:64px; height:18px"></span><span class="sp-strip__label">sp-32<br>64</span></div>
+    </div>
+
+    <p class="ds-note">
+      <strong>Rhythm rules.</strong> Card internal padding: <code style="font-family:var(--font-mono); color:var(--ink-2)">14px 16px</code> (sp-7 sp-8). Stack
+      gap внутри card: <code style="font-family:var(--font-mono); color:var(--ink-2)">10px</code> (sp-5). Section margins: 80px (sp-32 + sp-16).
+      Только когда сетка нарушается — намерено, иногда: editorial split.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════ RADII ═══════════════════════════════ -->
+  <section class="ds-section" id="radii">
+    <span class="ds-num">04 · Foundation</span>
+    <h1 class="ds-h1">Radii — sharp, не <em>squishy</em></h1>
+    <p class="ds-lede">
+      Editorial, не bubblegum. 4 ступени. Без 8/10/14px между ними —
+      угадывание роли уровнем закругления нарушает систему.
+    </p>
+
+    <div class="r-row">
+      <div class="r-cell r-cell--sharp"><b>2</b>--r-sharp<br>chip-in-chip</div>
+      <div class="r-cell r-cell--control"><b>5</b>--r-control<br>buttons, inputs</div>
+      <div class="r-cell r-cell--card"><b>6</b>--r-card<br>cards, modals</div>
+      <div class="r-cell r-cell--pill"><b>999</b>--r-pill<br>pills, action-circles</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ SHADOW ═══════════════════════════════ -->
+  <section class="ds-section" id="shadow">
+    <span class="ds-num">05 · Foundation</span>
+    <h1 class="ds-h1">Shadows — hairline-first</h1>
+    <p class="ds-lede">
+      Default — <em>только</em> 1px hairline ring. Тени появляются как
+      <em>событие</em>: hover, popover, modal, focus. Никогда — как декорация.
+    </p>
+
+    <div class="sh-row">
+      <div class="sh-cell sh-cell--card">--sh-card<br>0 0 0 1px hairline</div>
+      <div class="sh-cell sh-cell--hover">--sh-card-hover<br>+ 2px 6px 6% ink</div>
+      <div class="sh-cell sh-cell--popover">--sh-popover<br>+ 8px 24px 10% ink</div>
+      <div class="sh-cell sh-cell--focus">--sh-focus<br>3px indigo-tint</div>
+    </div>
+
+    <p class="ds-note">
+      sh-modal — наибольший: <code style="font-family:var(--font-mono); color:var(--ink-2)">+ 24px 64px 14% ink</code>.
+      Используется только для full-screen modals — даёт ощущение «всё остальное под полотном».
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════ MOTION ═══════════════════════════════ -->
+  <section class="ds-section" id="motion">
+    <span class="ds-num">06 · Foundation</span>
+    <h1 class="ds-h1">Motion — deliberate, settle</h1>
+    <p class="ds-lede">
+      Один ease, два duration. Никаких bounce, никаких spring — это
+      editorial, не toy.
+    </p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div style="padding: 18px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--paper);">
+        <span class="label-mono">--ease</span>
+        <p style="font-family: var(--font-display); font-size: 18px; color: var(--ink); margin: 4px 0 8px;">cubic-bezier(0.32, 0.72, 0.30, 1)</p>
+        <p class="label-em">Slow start, settle. Чувствуется как «вещь устанавливается на место», не «прыгает».</p>
+      </div>
+      <div style="padding: 18px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--paper);">
+        <span class="label-mono">--dur-fast / --dur-med</span>
+        <p style="font-family: var(--font-display); font-size: 18px; color: var(--ink); margin: 4px 0 8px;">140ms · 220ms</p>
+        <p class="label-em">fast для hover/color flip. med для panel slide-in, dropdown reveal.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ SECTION IDENTITY ═══════════════════ -->
+  <section class="ds-section" id="sections">
+    <span class="ds-num">07 · System</span>
+    <h1 class="ds-h1">Section identity</h1>
+    <p class="ds-lede">
+      Каждая основная страница приложения имеет свой <em>editorial</em>
+      цвет. Цвет несёт смысл — moss-зелёный для Goals потому что
+      «рост / достижение», не потому что хотелось зелёного.
+    </p>
+
+    <div class="section-row">
+      <span class="section-row__dot" style="background: var(--indigo)"></span>
+      <span class="section-row__name">Notes</span>
+      <span class="section-row__token">--indigo · #2C4A60</span>
+      <span class="section-row__use">Глубина мысли. Knowledge.</span>
+    </div>
+    <div class="section-row">
+      <span class="section-row__dot" style="background: var(--moss)"></span>
+      <span class="section-row__name">Goals</span>
+      <span class="section-row__token">--moss · #6B7A4F</span>
+      <span class="section-row__use">Рост, достижение, успех.</span>
+    </div>
+    <div class="section-row">
+      <span class="section-row__dot" style="background: var(--ochre)"></span>
+      <span class="section-row__name">Routines</span>
+      <span class="section-row__token">--ochre · #A18030</span>
+      <span class="section-row__use">Тепло повторения, ритм.</span>
+    </div>
+    <div class="section-row">
+      <span class="section-row__dot" style="background: var(--slate)"></span>
+      <span class="section-row__name">Sprints</span>
+      <span class="section-row__token">--slate · #5A6B78</span>
+      <span class="section-row__use">Период фокуса, прохладный нейтрал.</span>
+    </div>
+    <div class="section-row">
+      <span class="section-row__dot" style="background: var(--walnut)"></span>
+      <span class="section-row__name">Analysis</span>
+      <span class="section-row__token">--walnut · #4A3A2D</span>
+      <span class="section-row__use">Глубина данных, размышление.</span>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ HEIGHTS ═══════════════════════════════ -->
+  <section class="ds-section" id="heights">
+    <span class="ds-num">08 · System</span>
+    <h1 class="ds-h1">Control heights</h1>
+    <p class="ds-lede">5 размеров. md — стандарт. xs — для chip-in-chip.</p>
+
+    <div style="display: flex; gap: 12px; align-items: flex-end; padding: 14px 0;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <button class="ds-btn ds-btn--secondary" style="height: 24px; padding: 0 8px; font-size: 11px;">xs · 24</button>
+        <span class="label-mono">--h-xs</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <button class="ds-btn ds-btn--secondary" style="height: 28px; padding: 0 12px; font-size: 12px;">sm · 28</button>
+        <span class="label-mono">--h-sm</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <button class="ds-btn ds-btn--secondary" style="height: 32px;">md · 32</button>
+        <span class="label-mono">--h-md</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <button class="ds-btn ds-btn--secondary" style="height: 40px;">lg · 40</button>
+        <span class="label-mono">--h-lg</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <button class="ds-btn ds-btn--secondary" style="height: 48px; padding: 0 22px;">xl · 48</button>
+        <span class="label-mono">--h-xl</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ BUTTONS ═══════════════════════════════ -->
+  <section class="ds-section" id="buttons">
+    <span class="ds-num">09 · Components</span>
+    <h1 class="ds-h1">Buttons</h1>
+    <p class="ds-lede">5 variants × 3 sizes.
+    <em>primary</em> — индиго brand. <em>secondary</em> — outline.
+    <em>ghost</em> — без рамки. <em>success / danger</em> — moss / rust для
+    destructive и success actions, не «зелёный кружок».
+    </p>
+
+    <h3 class="ds-h3">Primary · Secondary · Ghost</h3>
+    <div class="cmp-row">
+      <button class="ds-btn ds-btn--primary ds-btn--md">Save</button>
+      <button class="ds-btn ds-btn--secondary ds-btn--md">Cancel</button>
+      <button class="ds-btn ds-btn--ghost ds-btn--md">Close</button>
+    </div>
+
+    <h3 class="ds-h3">Success · Danger (semantic intents)</h3>
+    <div class="cmp-row">
+      <button class="ds-btn ds-btn--success ds-btn--md">Mark as done</button>
+      <button class="ds-btn ds-btn--danger ds-btn--md">Delete</button>
+    </div>
+
+    <h3 class="ds-h3">Sizes</h3>
+    <div class="cmp-row">
+      <button class="ds-btn ds-btn--primary ds-btn--sm">Small</button>
+      <button class="ds-btn ds-btn--primary ds-btn--md">Medium</button>
+      <button class="ds-btn ds-btn--primary ds-btn--lg">Large</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ INPUTS ═══════════════════════════════ -->
+  <section class="ds-section" id="inputs">
+    <span class="ds-num">10 · Components</span>
+    <h1 class="ds-h1">Inputs</h1>
+    <p class="ds-lede">
+      Cream-fill, hairline border. На focus — paper-bg + ink-4 border +
+      <em>indigo-tint</em> 3px ring.
+    </p>
+    <div class="cmp-row">
+      <input class="ds-input" placeholder="Untitled note" />
+      <input class="ds-input" value="Launch Jarvnote 3.0" />
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ PILLS ═══════════════════════════════ -->
+  <section class="ds-section" id="pills">
+    <span class="ds-num">11 · Components</span>
+    <h1 class="ds-h1">Pills &amp; chips</h1>
+    <p class="ds-lede">
+      Status pill, priority pill, chip-group (segment). Always uppercase 10px,
+      letter-spacing 0.10em. <em>Inter</em>, не Fraunces.
+    </p>
+
+    <h3 class="ds-h3">Status pills · editorial colors</h3>
+    <div class="cmp-row">
+      <span class="pill pill--moss"><span class="pill__dot"></span>Active</span>
+      <span class="pill pill--ochre"><span class="pill__dot"></span>On hold</span>
+      <span class="pill pill--slate"><span class="pill__dot"></span>Backlog</span>
+      <span class="pill pill--indigo"><span class="pill__dot"></span>Done</span>
+      <span class="pill pill--rust"><span class="pill__dot"></span>Missed</span>
+    </div>
+
+    <h3 class="ds-h3">Chip-group (segmented control)</h3>
+    <div class="cmp-row">
+      <div class="chip-group">
+        <button aria-pressed="true">7d</button>
+        <button aria-pressed="false">30d</button>
+        <button aria-pressed="false">90d</button>
+        <button aria-pressed="false">All</button>
+      </div>
+      <div class="chip-group">
+        <button aria-pressed="false">Past</button>
+        <button aria-pressed="true">Today</button>
+        <button aria-pressed="false">Future</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ TAGS ═══════════════════════════════ -->
+  <section class="ds-section" id="tags">
+    <span class="ds-num">12 · Components</span>
+    <h1 class="ds-h1">Tags</h1>
+    <p class="ds-lede">
+      Square dot (radius 2px) — отличает теги от status pills (которые с
+      круглым dot). Цвет dot задаётся самим тегом, не системой.
+    </p>
+    <div class="cmp-row">
+      <span class="tag-chip"><span class="tag-chip__dot" style="background:#6366F1"></span>work</span>
+      <span class="tag-chip"><span class="tag-chip__dot" style="background:#10B981"></span>learning</span>
+      <span class="tag-chip"><span class="tag-chip__dot" style="background:#F59E0B"></span>health</span>
+      <span class="tag-chip"><span class="tag-chip__dot" style="background:#A855F7"></span>family</span>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ TG CARD ═══════════════════════════════ -->
+  <section class="ds-section" id="card-tg">
+    <span class="ds-num">13 · Compositions</span>
+    <h1 class="ds-h1">Go target card</h1>
+    <p class="ds-lede">
+      Каждая карточка несёт <em>цвет своей цели</em> через border-left 3px.
+      Внутри — kind-row (chips), title (Fraunces 17), desc (Source Serif 13),
+      actions (Inter 36px controls).
+    </p>
+
+    <article class="demo-tg">
+      <div class="demo-tg__row">
+        <span class="pill pill--moss" style="background:var(--moss-soft); color:var(--moss); border:1px solid var(--paper);">
+          <span class="pill__dot" style="background:var(--moss)"></span>Launch Jarvnote 3.0
+        </span>
+        <span class="pill pill--indigo">
+          <em style="font-family:var(--font-display); font-style:italic;">02</em>&nbsp;Build backend
+        </span>
+      </div>
+      <h3 class="demo-tg__title">Build NoteAttachment API</h3>
+      <p class="demo-tg__desc">Endpoint POST /notes/{id}/attachments + signed URLs, MIME validation, 25 MB cap. Frontend ResizableImage + FileAttachment block nodes.</p>
+      <div class="demo-tg__period">📅 May 12 → 18 · day 3 of 7</div>
+      <div class="demo-tg__actions">
+        <button class="demo-tg__btn">✓ Mark as done</button>
+        <button class="demo-tg__icon">×</button>
+      </div>
+    </article>
+  </section>
+
+  <!-- ═══════════════════════════════ TIMELINE ═══════════════════════════════ -->
+  <section class="ds-section" id="timeline">
+    <span class="ds-num">14 · Compositions</span>
+    <h1 class="ds-h1">Steps timeline</h1>
+    <p class="ds-lede">
+      Subway-style. Gradient rail (moss done → ochre active → hairline upcoming).
+      Italic Fraunces numbers, Inter title, mono count, italic status.
+    </p>
+
+    <div style="background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-card); padding: 22px 28px;">
+      <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:22px;">
+        <span style="font-family:var(--font-ui); font-size:11px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-4)">Steps</span>
+        <span style="flex:1; height:1px; background:var(--hairline);"></span>
+        <span style="font-family:var(--font-ui); font-size:11px; color:var(--ink-5)"><b style="color:var(--ink-2); font-family:var(--font-mono); font-weight:600;">3</b> steps · <b style="color:var(--ink-2); font-family:var(--font-mono); font-weight:600;">1</b> done</span>
+      </div>
+
+      <div style="position:relative;">
+        <div class="demo-rail"></div>
+        <div class="demo-stations">
+          <div class="demo-station demo-station--done">
+            <span class="demo-station__num">01</span>
+            <span class="demo-station__dot"></span>
+            <span class="demo-station__title">Design phase</span>
+            <span class="demo-station__meta">2 / 2</span>
+          </div>
+          <div class="demo-station demo-station--active">
+            <span class="demo-station__num">02</span>
+            <span class="demo-station__dot"></span>
+            <span class="demo-station__title">Build backend</span>
+            <span class="demo-station__meta">1 / 3</span>
+          </div>
+          <div class="demo-station demo-station--upcoming">
+            <span class="demo-station__num">03</span>
+            <span class="demo-station__dot"></span>
+            <span class="demo-station__title">Ship</span>
+            <span class="demo-station__meta">0 / 2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ EMPTY STATE ═══════════════════════════════ -->
+  <section class="ds-section" id="empty">
+    <span class="ds-num">15 · Compositions</span>
+    <h1 class="ds-h1">Empty state</h1>
+    <p class="ds-lede">
+      Dashed hairline-strong border. Italic Source Serif body. Two CTAs
+      max — primary (indigo) и ghost (secondary outline).
+    </p>
+
+    <div class="demo-empty">
+      <p class="demo-empty__hint">
+        Break this goal into milestones. Each step holds its own Gos.
+      </p>
+      <div style="display:inline-flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+        <button class="ds-btn ds-btn--primary ds-btn--sm">+ Add first step</button>
+        <button class="ds-btn ds-btn--secondary ds-btn--sm">+ Add go</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ DROPPED ═══════════════════════════════ -->
+  <section class="ds-section" id="dropped">
+    <span class="ds-num">99 · Hygiene</span>
+    <h1 class="ds-h1" style="color: var(--rust)">What we <em>dropped</em></h1>
+    <p class="ds-lede">
+      Эти токены / шрифты / цвета жили в системе и больше <em>не нужны</em>.
+      Каждое удаление освобождает дизайн-словарь и снижает энтропию.
+      Список — <em>обязательная</em> часть док-та: новый дизайнер должен
+      знать что не воскрешать.
+    </p>
+
+    <ul class="drop-list">
+      <li>
+        <code>--font-sans (system stack)</code>
+        <p>Дубль <em>--font-ui</em>. Inter покрывает UI. System fallback теперь внутри font-ui declaration.</p>
+      </li>
+      <li>
+        <code>--font-serif (Tiempos Text)</code>
+        <p>Дубль <em>--font-body</em>. Source Serif 4 уже стоит — никакой Tiempos нигде не подключён, призрак.</p>
+      </li>
+      <li>
+        <code>--brand-50 → --brand-900 (10-step ramp)</code>
+        <p>Tailwind-style ramp избыточен. Нужны только <em>--indigo</em> + <em>-soft</em> + <em>-tint</em>. Никаких brand-300 / brand-700.</p>
+      </li>
+      <li>
+        <code>--accent-notes / -goals / -routines / -sprints / -analysis (Tailwind 500 rainbow)</code>
+        <p>Amber #F59E0B, emerald #10B981, cyan #06B6D4, violet #A855F7 — генерик SaaS-палитра. Сейчас идентичность секций через editorial: indigo / moss / ochre / slate / walnut. Они <em>несут смысл</em>.</p>
+      </li>
+      <li>
+        <code>--bg-app / -shell / -card / -elevated / -hover / -active / -input стек</code>
+        <p>7 переменных под фон. Замена: <em>--paper / --cream / --soft / --rail-bg</em> — 4 ступени, ясная иерархия.</p>
+      </li>
+      <li>
+        <code>--fg-primary / -secondary / -tertiary / -muted / -faint / -inverse</code>
+        <p>Дубль ink-системы. Заменено: <em>--ink / --ink-2 .. --ink-5</em>. Mnemonic чище.</p>
+      </li>
+      <li>
+        <code>--line / -strong / -faint</code>
+        <p>Дубль hairline. Заменено: <em>--hairline / -strong / -faint</em>. Имя точнее (это <em>волосок</em>, не line-через-весь-блок).</p>
+      </li>
+      <li>
+        <code>--radius / -sm / -md / -lg / -xl (shadcn aliases)</code>
+        <p>8 / 6 / 8 / 12 / 14 — пять значений, два дубля. Editorial система — 4 чёткие ступени: 2 / 5 / 6 / 999.</p>
+      </li>
+      <li>
+        <code>--r-card: 12px (legacy)</code>
+        <p>Конфликт с editorial <em>--r-card: 6px</em>. 12px — squishy, не для нашего голоса.</p>
+      </li>
+      <li>
+        <code>shadcn shim: --background / --card / --popover / --secondary / --muted / --accent / --destructive / --border / --input / --ring / --primary-foreground + sidebar-*</code>
+        <p>Tailwind v4 / shadcn alias-щит. Использовался только в одном-двух местах, давно вычищенных. Сейчас все consumer'ы читают <em>editorial</em> tokens напрямую.</p>
+      </li>
+      <li>
+        <code>--ease-spring · --dur-base · --dur-slow</code>
+        <p>Spring ease для toy-style анимаций — не наш язык. dur-base 240ms / dur-slow 380ms — три duration избыточно, остались два: <em>fast 140ms</em> + <em>med 220ms</em>.</p>
+      </li>
+      <li>
+        <code>--text-md duplicate (14.5 vs 15.5)</code>
+        <p>Одна переменная — одно значение. 15.5 — canonical body editor size, побеждает.</p>
+      </li>
+      <li>
+        <code>Dark mode duplicate brand ramp</code>
+        <p>В <em>[data-theme="dark"]</em> сидел ещё один brand-50..900 ramp под legacy mobile shell. Не нужен — все consumer'ы переехали.</p>
+      </li>
+      <li>
+        <code>--bg-overlay light/dark</code>
+        <p>Один токен на всю систему: <em>rgba(15, 24, 32, 0.40)</em> для light, <em>rgba(0, 0, 0, 0.60)</em> для dark.
+        Раньше было 2 разных значения в legacy.</p>
+      </li>
+    </ul>
+
+    <p class="ds-note">
+      <strong>Принцип хранения.</strong> Если токен встретился &lt; 3 раз в коде —
+      проверь, есть ли альтернатива. Если есть semantic-alias к другому
+      токену (success → moss) — это значит <em>система знает</em>, что они
+      одно и то же. Тогда оставляй один.
+    </p>
+  </section>
+
+  <div style="margin-top: 80px; padding-top: 32px; border-top: 1px solid var(--hairline);">
+    <p class="label-em" style="text-align: center;">
+      Indigo Editorial · v1.0 · последний пересмотр: 14 May 2026
+    </p>
+  </div>
+
+</main>
+
+<script>
+const root = document.documentElement;
+document.querySelectorAll('[data-tt]').forEach(b => b.addEventListener('click', () => {
+  const t = b.dataset.tt;
+  if (t === 'dark') root.setAttribute('data-theme', 'dark');
+  else root.removeAttribute('data-theme');
+  document.querySelectorAll('[data-tt]').forEach(x =>
+    x.setAttribute('aria-pressed', String(x.dataset.tt === t))
+  );
+}));
+</script>
+</body>
+</html>
