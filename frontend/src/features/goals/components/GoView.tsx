@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Check, Edit3, Minus, Plus, Repeat, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Check, ChevronDown, Edit3, Minus, Plus, Repeat, Search, X } from 'lucide-react';
 import type { Go, Step, Task } from '../../../api/types';
 import { goCurrentStreak, groupGosByGoal } from '../hooks/useGos';
 import type { GoMode } from './GoalsView';
@@ -197,19 +197,22 @@ export function GoView({ gos: allGos, goals, mode, onLog, onSkip, onSelectGoal }
   }, [allGos]);
 
   const grouped = useMemo(() => groupGosByGoal(gos), [gos]);
+  // Sidebar pool: groups computed off the FULL un-bucketed list. This way the
+  // sidebar stays stable when the user toggles Past/Today/Future and they can
+  // always pick a goal — even one that has nothing scheduled today.
+  const groupedAll = useMemo(() => groupGosByGoal(allGos), [allGos]);
   const goalById = useMemo(() => {
     const m = new Map<string, Task>();
     for (const t of goals) m.set(t.id, t);
     return m;
   }, [goals]);
 
-  // Goals that have at least one Go in the current day-filter view. We exclude
-  // 'done' (archived) goals so the list stays focused on actionable work.
+  // Goals user is actively working on (any go at all + not archived).
   const activeGoals = useMemo(
     () => goals
-      .filter((t) => t.status !== 'done' && (grouped.get(t.id)?.length ?? 0) > 0)
+      .filter((t) => t.status !== 'done' && (groupedAll.get(t.id)?.length ?? 0) > 0)
       .sort((a, b) => a.order - b.order),
-    [goals, grouped],
+    [goals, groupedAll],
   );
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1048,7 +1051,6 @@ function FilterBar({
   goalsFilter,
   onGoalsFilter,
 }: FilterBarProps) {
-  const allGoalsSelected = !goalsFilter || goalsFilter.size === 0;
   const visibleGoals = useMemo(
     () => (goals ?? []).filter((g) => g.status !== 'done'),
     [goals],
@@ -1076,32 +1078,11 @@ function FilterBar({
       {showGoals && visibleGoals.length > 0 && (
         <div className="filter-group">
           <span className="filter-group__label">Goals</span>
-          <div className="chip-group chip-group--multi">
-            <button
-              type="button"
-              aria-pressed={allGoalsSelected}
-              onClick={() => onGoalsFilter?.(null)}
-            >All</button>
-            {visibleGoals.map((g) => {
-              const on = goalsFilter?.has(g.id) ?? false;
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  aria-pressed={on}
-                  style={{ ['--gc' as any]: accentFor(g.id) }}
-                  onClick={() => {
-                    const next = new Set(goalsFilter ?? []);
-                    if (on) next.delete(g.id); else next.add(g.id);
-                    onGoalsFilter?.(next.size === 0 ? null : next);
-                  }}
-                >
-                  <span className="g-dot" />
-                  {g.title}
-                </button>
-              );
-            })}
-          </div>
+          <GoalsPicker
+            goals={visibleGoals}
+            value={goalsFilter ?? null}
+            onChange={onGoalsFilter ?? (() => {})}
+          />
         </div>
       )}
       <span className="filter-bar__count">
@@ -1169,5 +1150,133 @@ function DayGroupedCards({
         </button>
       )}
     </>
+  );
+}
+
+/* ── GoalsPicker: compact searchable multi-select for cross-goal filter ── */
+
+interface GoalsPickerProps {
+  goals: Task[];
+  value: Set<string> | null;
+  onChange: (s: Set<string> | null) => void;
+}
+
+function GoalsPicker({ goals, value, onChange }: GoalsPickerProps) {
+  const [open, setOpen]     = useState(false);
+  const [search, setSearch] = useState('');
+  const rootRef             = useRef<HTMLDivElement>(null);
+
+  // Click-outside + Escape — only while open, to avoid leaking listeners.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  // Reset search when closing so the next open starts fresh.
+  useEffect(() => { if (!open) setSearch(''); }, [open]);
+
+  const all = !value || value.size === 0;
+  const selectedCount = value?.size ?? 0;
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return goals;
+    const q = search.toLowerCase();
+    return goals.filter((g) => g.title.toLowerCase().includes(q));
+  }, [goals, search]);
+
+  const summary = all
+    ? `All · ${goals.length}`
+    : `${selectedCount} selected`;
+
+  const toggle = (id: string) => {
+    const next = new Set(value ?? []);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    onChange(next.size === 0 ? null : next);
+  };
+
+  return (
+    <div className="goals-picker" ref={rootRef}>
+      <button
+        type="button"
+        className="goals-picker__btn"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <b>{summary}</b>
+        <ChevronDown size={12} />
+      </button>
+      {open && (
+        <div className="goals-picker__panel" role="dialog" aria-label="Filter by goal">
+          <div className="goals-picker__search-row">
+            <Search size={12} aria-hidden />
+            <input
+              className="goals-picker__search"
+              type="search"
+              placeholder="Search goals…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="goals-picker__actions">
+            <button
+              type="button"
+              className="goals-picker__action"
+              data-on={all || undefined}
+              onClick={() => onChange(null)}
+            >All</button>
+            {!all && (
+              <button
+                type="button"
+                className="goals-picker__action"
+                onClick={() => onChange(null)}
+              >Clear</button>
+            )}
+            <span className="goals-picker__actions-rule" />
+            <span className="goals-picker__count">
+              {filtered.length} {filtered.length === 1 ? 'goal' : 'goals'}
+            </span>
+          </div>
+          <div className="goals-picker__list">
+            {filtered.length === 0 ? (
+              <div className="goals-picker__empty">No goals match.</div>
+            ) : filtered.map((g) => {
+              const on = value?.has(g.id) ?? false;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  className="goals-picker__item"
+                  aria-pressed={on}
+                  onClick={() => toggle(g.id)}
+                >
+                  <span className="goals-picker__check" data-on={on || undefined}>
+                    {on && <Check size={9} strokeWidth={3} />}
+                  </span>
+                  <span
+                    className="goals-picker__dot"
+                    style={{ background: accentFor(g.id) }}
+                  />
+                  <span className="goals-picker__name">{g.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
