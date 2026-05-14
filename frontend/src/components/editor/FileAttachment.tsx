@@ -1,17 +1,20 @@
 /**
- * Tiptap node for inline file attachments (xlsx / docx / pdf / csv / …).
+ * Tiptap node for block-level file attachments (xlsx / docx / pdf / csv / …).
  *
  * Rendered as a clickable card with a colored type-badge, filename + size,
- * and a download button. Storage:
- *   <a class="rt-file-attachment" data-file-attachment href="…" data-filename="…" data-mime="…" data-size="…">
- * Persisting as a bare <a> means the attachment is still meaningful if the
- * editor is later swapped out — it degrades to a plain download link.
+ * and a download icon. Persisted as `<a class="rt-file-attachment"
+ * data-file-attachment href="…" data-filename="…" data-mime="…" data-size="…">`
+ * so the attachment degrades to a plain link if the editor is later removed.
  *
- * The `href` stored in the saved HTML is the bare authenticated URL
- * (e.g. /api/attachments/notes/<id>/attachments/<uuid>.xlsx) without the
- * access-token query parameter. The token is injected at render time by the
- * API client's helpers — see `injectImageToken` / `stripImageToken`.
+ * Auth:
+ * The stored `href` is the bare authenticated URL (no `?token=` baked in) —
+ * tokens go stale across refreshes, so we keep storage clean. At render time
+ * the NodeView uses a real `<a>` element whose `href` is set to
+ * `resolveUrl(url)` and refreshed on every interaction (mousedown / focus)
+ * — that way left-click, middle-click, Cmd+click, "Copy link" and
+ * "Save link as" all carry the current access_token automatically.
  */
+import { useCallback, useState } from 'react';
 import { Node, mergeAttributes } from '@tiptap/core';
 import { NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
 import { Download } from 'lucide-react';
@@ -48,7 +51,7 @@ function formatSize(bytes: number): string {
   return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`;
 }
 
-function AttachmentView({ node, editor, selected }: any) {
+function AttachmentView({ node, selected }: any) {
   const { url, filename, mimeType, size } = node.attrs as {
     url: string;
     filename: string;
@@ -56,40 +59,29 @@ function AttachmentView({ node, editor, selected }: any) {
     size: number;
   };
   const kind = fileKind(filename, mimeType);
-  const readonly = !editor?.isEditable;
 
-  // Compute the auth-bearing href on every click so the *current* access_token
-  // is used (refreshes since render don't leave a stale token in the DOM).
-  const buildHref = () => resolveUrl(url);
+  // Track the resolved (token-bearing) href in state so the browser can use it
+  // for *any* interaction: left-click, middle-click, Cmd+click, right-click
+  // → "Copy link" / "Save link as". Refresh it on every pointer/keyboard
+  // gesture so a token refreshed since mount is still applied just before use.
+  const [href, setHref] = useState<string>(() => resolveUrl(url));
+  const refreshHref = useCallback(() => {
+    const next = resolveUrl(url);
+    setHref((cur) => (cur === next ? cur : next));
+  }, [url]);
 
-  const onCardClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const href = buildHref();
-    if (href) window.open(href, '_blank', 'noopener,noreferrer');
-  };
-
-  const onDownload = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const href = buildHref();
-    if (href) window.open(href, '_blank', 'noopener,noreferrer');
-  };
-
-  // Render the card as a <span role="link"> instead of <a> because a real <a>
-  // with an outdated href would let middle-click / right-click open a stale
-  // tokenized URL. With <span>, every "open" goes through buildHref() which
-  // reads the live access_token. We also avoid the (invalid) <button> inside <a>.
   return (
-    <NodeViewWrapper as="span" className="inline-block align-middle" data-drag-handle>
-      <span
-        role={readonly ? 'link' : undefined}
-        tabIndex={0}
+    <NodeViewWrapper className="rt-file-attachment-wrap" data-drag-handle>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
         className="rt-file-attachment"
         data-active={selected ? 'true' : undefined}
-        onClick={onCardClick}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCardClick(e as any); }
-        }}
+        onMouseDown={refreshHref}
+        onMouseEnter={refreshHref}
+        onFocus={refreshHref}
+        onTouchStart={refreshHref}
         title={filename}
         contentEditable={false}
       >
@@ -98,16 +90,14 @@ function AttachmentView({ node, editor, selected }: any) {
           <span className="rt-file-attachment__name">{filename || 'Attachment'}</span>
           <span className="rt-file-attachment__meta">{formatSize(size)}</span>
         </span>
-        <button
-          type="button"
+        <span
           className="rt-file-attachment__download"
-          onClick={onDownload}
           aria-label="Download"
           title="Download"
         >
           <Download size={15} />
-        </button>
-      </span>
+        </span>
+      </a>
     </NodeViewWrapper>
   );
 }
@@ -155,8 +145,11 @@ function FileIcon({ kind }: { kind: string }) {
 
 export const FileAttachment = Node.create({
   name: 'fileAttachment',
-  group: 'inline',
-  inline: true,
+  // Block-level: an attachment is a standalone unit, not a word inside a
+  // paragraph. Critical UX: when the user is inside a numbered or bulleted
+  // list and inserts a file, the list's marker should NOT pollute the file
+  // card. Block placement also matches Notion / Linear / Confluence.
+  group: 'block',
   atom: true,
   draggable: true,
   // selectable: false → arrow keys skip the card in one step instead of first

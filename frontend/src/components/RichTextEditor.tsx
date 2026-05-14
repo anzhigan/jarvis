@@ -12,7 +12,8 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
-import { mergeAttributes, Node } from '@tiptap/core';
+import { findParentNode, mergeAttributes, Node } from '@tiptap/core';
+import type { Editor } from '@tiptap/react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { notesApi, injectImageToken, stripImageToken } from '../api/client';
@@ -274,10 +275,68 @@ function ImgBtn({
   );
 }
 
+/**
+ * Insert a block-level media node (image / file attachment) at the most natural
+ * location relative to the caret.
+ *
+ *  - If the caret is inside a bullet/ordered list, place the node AFTER the
+ *    whole list (a common-sense interpretation: media doesn't belong "in" a
+ *    list item; it belongs between items or after the list). The list keeps
+ *    its bullets/numbers intact.
+ *  - Inside a blockquote / toggle body / cell → same rule: walk out to the
+ *    nearest block-allowing container.
+ *  - Otherwise → insert at the caret as usual.
+ *
+ * Returns true if the editor accepted the insert.
+ */
+function insertMediaBlock(
+  editor: Editor,
+  node: { type: string; attrs: Record<string, any> },
+  fallbackPos?: number,
+): boolean {
+  const isListNode = (n: { type: { name: string } }) => {
+    const name = n.type.name;
+    return name === 'bulletList' || name === 'orderedList' || name === 'taskList';
+  };
+
+  // Drag/drop / paste path — caller passes a document position. Resolve it and
+  // walk up the doc tree from there to find any wrapping list, then place the
+  // block AFTER that list. This keeps "drop inside the 3rd item" intuitive: the
+  // image lands below the list, not as a new bulleted line.
+  if (typeof fallbackPos === 'number') {
+    try {
+      const $pos = editor.state.doc.resolve(fallbackPos);
+      for (let d = $pos.depth; d > 0; d--) {
+        const parent = $pos.node(d);
+        if (isListNode(parent)) {
+          const insertAt = $pos.before(d) + parent.nodeSize;
+          return editor.chain().focus().insertContentAt(insertAt, node).run();
+        }
+      }
+    } catch { /* fall through to plain insert at the given position */ }
+    return editor.chain().focus().insertContentAt(fallbackPos, node).run();
+  }
+
+  // Toolbar / keyboard path — use the current selection. If the caret is inside
+  // a list, place the block as a sibling AFTER the whole list.
+  const wrappingList = findParentNode(isListNode)(editor.state.selection);
+  if (wrappingList) {
+    const insertAt = wrappingList.pos + wrappingList.node.nodeSize;
+    return editor.chain().focus().insertContentAt(insertAt, node).run();
+  }
+  return editor.chain().focus().insertContent(node).run();
+}
+
 const ResizableImage = Node.create({
   name: 'image',
-  group: 'inline',
-  inline: true,
+  // Block-level: an image lives on its own line, never as an inline word. This
+  // is the Notion / Linear behavior and avoids two papercuts: (a) images inside
+  // <li> inherit the list marker (bullet / number) — which feels wrong, the
+  // marker is for text not media; (b) cursor accidentally lands "in" the
+  // middle of an inline image. With block placement plus the insertMediaBlock
+  // helper, an image inserted while caret is inside a list ends up AFTER the
+  // entire list.
+  group: 'block',
   // atom + selectable: false → the cursor treats the image as a single "gap":
   // pressing Right at the position before the image jumps straight past it
   // (no intermediate "node-selected" state). Resize/rotate controls inside
@@ -391,7 +450,6 @@ const InlineMath = Node.create({
 });
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-import type { Editor } from '@tiptap/react';
 
 /** Helpers exposed alongside the editor — they trigger our internal dialogs
  *  (link / table / math) and the file picker for image upload. The parent
@@ -670,11 +728,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         ? `${result.url}?token=${encodeURIComponent(token)}`
         : result.url;
       const node = { type: 'image', attrs: { src, width: 'auto' } };
-      if (typeof at === 'number') {
-        ed.chain().focus().insertContentAt(at, node).run();
-      } else {
-        ed.chain().focus().insertContent(node).run();
-      }
+      insertMediaBlock(ed, node, typeof at === 'number' ? at : undefined);
       toast.success('Image uploaded');
       return true;
     } catch (e: any) {
@@ -711,11 +765,7 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         size: result.size_bytes,
       };
       const node = { type: 'fileAttachment', attrs };
-      if (typeof at === 'number') {
-        ed.chain().focus().insertContentAt(at, node).run();
-      } else {
-        ed.chain().focus().insertContent(node).run();
-      }
+      insertMediaBlock(ed, node, typeof at === 'number' ? at : undefined);
       toast.success('File attached');
       return true;
     } catch (e: any) {

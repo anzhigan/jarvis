@@ -1071,11 +1071,18 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 .rt-color-reset:hover { background: var(--bg-hover); }
 .rt-color-reset .rt-color-swatch--reset { width: 20px; height: 20px; }
 
-/* ── Inline file attachment card (Tiptap FileAttachment node) ── */
+/* ── Block-level file attachment card (Tiptap FileAttachment node) ──
+   The NodeView wraps the card in <div.rt-file-attachment-wrap> so it occupies
+   its own line in the document. The card itself stays inline-flex so it sizes
+   to its content (filename + meta + download), not the full content width. */
+.rt-file-attachment-wrap {
+  display: block;
+  margin: 8px 0;
+}
 .rt-file-attachment {
   display: inline-flex; align-items: center; gap: 10px;
   max-width: 100%; min-width: 0;
-  margin: 4px 2px;
+  margin: 0;
   padding: 8px 10px;
   background: var(--bg-card);
   border: 1px solid var(--line);
