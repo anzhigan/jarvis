@@ -1347,30 +1347,6 @@
   flex-wrap: wrap;
   margin: 0;
 }
-.tg-kind-pill {
-  font-family: var(--font-ui);
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--indigo);
-  text-transform: uppercase;
-  letter-spacing: 0.10em;
-  padding: 2px 7px;
-  background: var(--indigo-soft);
-  border-radius: var(--r-pill);
-}
-.tg-card[data-kind="boolean"] .tg-kind-pill {
-  color: var(--slate);
-  background: var(--slate-soft);
-}
-.tg-card[data-done] .tg-kind-pill {
-  color: var(--moss);
-  background: rgba(107, 122, 79, 0.18);
-}
-/* tg-parent (italic "in <goalTitle>") — goal context already shown in the
-   goal-ctx header above, so we keep it out of every card to free up space.
-   The visual goal pill (tg-goal-crumb) covers cross-goal mode. */
-.tg-parent { display: none; }
-
 /* tg-card-desc — collapsible description with line-clamp + fade. */
 .tg-card-desc {
   position: relative;
@@ -2649,8 +2625,6 @@
   flex-shrink: 0;
 }
 .go-shell[data-mode="cross-goal"] .tg-goal-crumb { display: inline-flex; }
-/* The textual "in <em>parent</em>" is redundant when the goal pill is on. */
-.go-shell[data-mode="cross-goal"] .tg-parent { display: none; }
 
 /* ── tg-step-crumb (visible only in single-goal mode) ──────────────────── */
 .tg-step-crumb {
