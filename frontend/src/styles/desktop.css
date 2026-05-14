@@ -515,17 +515,17 @@
   background: var(--rail-bg);
   border-right: 1px solid var(--hairline);
   display: flex; flex-direction: column; align-items: center;
-  padding: 18px 0 16px;
+  padding: 22px 0 20px;
 }
 .rail-brand {
   width: 40px; height: 40px;
   display: inline-flex; align-items: center; justify-content: center;
   color: var(--indigo);
-  margin-bottom: 18px;
+  margin-bottom: 22px;
 }
 .rail-brand svg { width: 32px; height: 32px; display: block; overflow: visible; }
-.rail-section { display: flex; flex-direction: column; gap: 6px; align-items: center; }
-.rail-divider { width: 24px; height: 1px; background: var(--hairline-strong); margin: 14px 0; }
+.rail-section { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.rail-divider { width: 24px; height: 1px; background: var(--hairline-strong); margin: 16px 0; }
 .rail-btn {
   width: 40px; height: 40px;
   display: inline-flex; align-items: center; justify-content: center;
@@ -593,7 +593,7 @@
 .pane[data-collapsed] { width: 0; border-right: 0; overflow: hidden; }
 
 .pane-head {
-  padding: 22px 22px 14px;
+  padding: 16px 16px 10px;
   border-bottom: 1px solid var(--hairline-faint);
 }
 .pane-eyebrow {
@@ -628,7 +628,7 @@
 
 .pane-body {
   flex: 1; overflow-y: auto;
-  padding: 16px 10px;
+  padding: 10px 6px;
   scrollbar-width: thin;
   scrollbar-color: var(--hairline-strong) transparent;
 }
@@ -778,7 +778,7 @@
 
 .lib-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 7px 14px;
+  padding: 6px 10px;
   border-radius: var(--r-control);
   background: transparent; border: 0;
   color: var(--ink-2);
