@@ -12,9 +12,12 @@ import { GoalDetailPanel } from './GoalDetailPanel';
 import { GoalCreateDialog } from './GoalCreateDialog';
 import {
   GoCreateDialog,
+  GoEditDialog,
   RoutineCreateForGoalDialog,
   StepCreateDialog,
+  StepEditDialog,
 } from './GoalChildDialogs';
+import type { Step } from '../../../api/types';
 import './goals.css';
 // Reuse the heatmap + action-circle styles from the Routines view so the
 // routine subcard inside a Goal looks identical (same cells, same buttons).
@@ -74,6 +77,9 @@ export default function GoalsView() {
   const [goCreateOpen, setGoCreateOpen] = useState(false);
   // Step-create dialog — taskId is the parent goal.
   const [stepDialogTaskId, setStepDialogTaskId] = useState<string | null>(null);
+  // Edit dialogs — null means closed.
+  const [editingStep, setEditingStep] = useState<Step | null>(null);
+  const [editingGo,   setEditingGo]   = useState<Go | null>(null);
 
   const onAddGoal = useCallback((status: TaskStatus) => {
     setCreateStatus(status);
@@ -81,6 +87,8 @@ export default function GoalsView() {
   }, []);
   const onSelectGoal = useCallback((id: string) => setDetailGoalId(id), []);
   const onAddStep    = useCallback((taskId: string) => setStepDialogTaskId(taskId), []);
+  const onEditStep   = useCallback((step: Step) => setEditingStep(step), []);
+  const onEditGo     = useCallback((go: Go) => setEditingGo(go), []);
 
   // ── Stable callbacks for the kanban + sub-views ──────────────────────────
 
@@ -257,6 +265,8 @@ export default function GoalsView() {
             onSelectGoal={onSelectGoal}
             onAddStep={onAddStep}
             onAddGo={onAddGo}
+            onEditStep={onEditStep}
+            onEditGo={onEditGo}
           />
         ) : (
           <div className="content-scroll" style={{ overflowX: 'auto' }}>
@@ -396,6 +406,19 @@ export default function GoalsView() {
         onOpenChange={(o) => { if (!o) setStepDialogTaskId(null); }}
         taskId={stepDialogTaskId}
         onCreated={goals.refresh}
+      />
+
+      <StepEditDialog
+        step={editingStep}
+        onOpenChange={(o) => { if (!o) setEditingStep(null); }}
+        onSaved={goals.refresh}
+      />
+
+      <GoEditDialog
+        go={editingGo}
+        goals={goals.tasks}
+        onOpenChange={(o) => { if (!o) setEditingGo(null); }}
+        onSaved={goals.refresh}
       />
 
       <RoutineCreateForGoalDialog

@@ -46,6 +46,10 @@ interface Props {
   onAddStep: (taskId: string) => void;
   /** Open the "create go" dialog pre-filled to this goal. */
   onAddGo: (taskId: string) => void;
+  /** Open the edit dialog for a Step. Click on a timeline station triggers this. */
+  onEditStep: (step: Step) => void;
+  /** Open the edit dialog for a Go. Click on a tg-card body triggers this. */
+  onEditGo: (go: Go) => void;
 }
 
 const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--slate)', 'var(--ochre)', 'var(--rust)'] as const;
@@ -141,7 +145,18 @@ function relativeLabel(dateStr: string): string | null {
   return null;
 }
 
-export function GoView({ gos: allGos, goals, mode, onLog, onSkip, onSelectGoal, onAddStep, onAddGo }: Props) {
+export function GoView({
+  gos: allGos,
+  goals,
+  mode,
+  onLog,
+  onSkip,
+  onSelectGoal,
+  onAddStep,
+  onAddGo,
+  onEditStep,
+  onEditGo,
+}: Props) {
   const [dayFilter, setDayFilter] = useState<DayFilter>('today');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
   // null = "all goals" — only meaningful in cross-goal mode.
@@ -410,6 +425,8 @@ export function GoView({ gos: allGos, goals, mode, onLog, onSkip, onSelectGoal, 
                   onEditGoal={() => onSelectGoal(selectedId)}
                   onAddStep={onAddStep}
                   onAddGo={onAddGo}
+                  onEditStep={onEditStep}
+                  onEditGo={onEditGo}
                 />
               ) : (
                 <div className="content-empty" style={{ minHeight: 320 }}>
@@ -436,6 +453,7 @@ export function GoView({ gos: allGos, goals, mode, onLog, onSkip, onSelectGoal, 
               pageTabs={pageTabs}
               onLog={onLog}
               onSkip={onSkip}
+              onEditGo={onEditGo}
             />
           )}
         </div>
@@ -462,6 +480,8 @@ interface FocusedProps {
   onEditGoal: () => void;
   onAddStep: (taskId: string) => void;
   onAddGo: (taskId: string) => void;
+  onEditStep: (step: Step) => void;
+  onEditGo: (go: Go) => void;
 }
 
 function FocusedGoal({
@@ -480,6 +500,8 @@ function FocusedGoal({
   onEditGoal,
   onAddStep,
   onAddGo,
+  onEditStep,
+  onEditGo,
 }: FocusedProps) {
   const accent = accentFor(goal.id);
   const pct = goalPct(goal);
@@ -577,6 +599,7 @@ function FocusedGoal({
         onSelect={onSelectStep}
         onAddStep={() => onAddStep(goal.id)}
         onAddGo={() => onAddGo(goal.id)}
+        onEditStep={onEditStep}
       />
 
       {pageTabs}
@@ -609,6 +632,7 @@ function FocusedGoal({
               step={go.step_id ? stepById.get(go.step_id) ?? null : null}
               onLog={onLog}
               onSkip={onSkip}
+              onEdit={onEditGo}
             />
           ))}
         </div>
@@ -627,6 +651,7 @@ function FocusedGoal({
               step={go.step_id ? stepById.get(go.step_id) ?? null : null}
               onLog={onLog}
               onSkip={onSkip}
+              onEdit={onEditGo}
             />
           )}
         />
@@ -680,6 +705,7 @@ interface CrossGoalProps {
   pageTabs: ReactNode;
   onLog: (go: Go, value: number) => void;
   onSkip: (go: Go) => void;
+  onEditGo: (go: Go) => void;
 }
 
 function CrossGoalView({
@@ -697,6 +723,7 @@ function CrossGoalView({
   pageTabs,
   onLog,
   onSkip,
+  onEditGo,
 }: CrossGoalProps) {
   const goalById = useMemo(() => {
     const m = new Map<string, Task>();
@@ -790,6 +817,7 @@ function CrossGoalView({
                 step={go.step_id ? stepById.get(go.step_id) ?? null : null}
                 onLog={onLog}
                 onSkip={onSkip}
+                onEdit={onEditGo}
               />
             );
           })}
@@ -811,6 +839,7 @@ function CrossGoalView({
                 step={go.step_id ? stepById.get(go.step_id) ?? null : null}
                 onLog={onLog}
                 onSkip={onSkip}
+                onEdit={onEditGo}
               />
             );
           }}
@@ -833,9 +862,22 @@ interface TgProps {
   step?: Step | null;
   onLog: (go: Go, value: number) => void;
   onSkip: (go: Go) => void;
+  /** Clicking the card body (not the action buttons) opens an edit dialog. */
+  onEdit: (go: Go) => void;
 }
 
-function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip }: TgProps) {
+function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: TgProps) {
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [descTruncated, setDescTruncated] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
+
+  // Detect whether the description overflows the 2-line clamp so we only
+  // render the "…" expand button when there's actually hidden content.
+  useEffect(() => {
+    const el = descRef.current;
+    if (!el) { setDescTruncated(false); return; }
+    setDescTruncated(el.scrollHeight > el.clientHeight + 1);
+  }, [go.description, descExpanded]);
   const stepCrumb = step ? (
     <span className="tg-step-crumb">
       <span className="tg-step-crumb__num">{String(step.position + 1).padStart(2, '0')}</span>
@@ -856,38 +898,67 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip }: TgProps) {
   const stepSize = go.target_value !== null && Number.isInteger(go.target_value) ? 1 : 0.1;
   const round = (n: number) => Math.round(n * 10) / 10;
 
+  // Bail out of card-click → edit when click originated on an action button.
+  const handleCardClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    onEdit(go);
+  };
+
+  const kindRow = (kindLabel: string) => (
+    <div className="tg-kind-row">
+      <span className="tg-kind-pill">{kindLabel}</span>
+      <span className="tg-goal-crumb" style={{ ['--gc' as any]: goalAccent }}>
+        <span className="tg-goal-crumb__dot" />
+        {parentTitle}
+      </span>
+      {stepCrumb}
+    </div>
+  );
+
+  const descBlock = go.description?.trim() ? (
+    <div className={`tg-card-desc${descExpanded ? ' tg-card-desc--expanded' : ''}`}>
+      <p ref={descRef} className="tg-card-desc__text">{go.description}</p>
+      {!descExpanded && descTruncated && (
+        <button
+          type="button"
+          className="tg-card-desc__more"
+          aria-label="Show full description"
+          onClick={(e) => { e.stopPropagation(); setDescExpanded(true); }}
+        >…</button>
+      )}
+    </div>
+  ) : null;
+
   if (go.kind === 'boolean') {
     return (
-      <article className="tg-card" data-kind="boolean" data-done={targetMet || undefined}>
+      <article
+        className="tg-card"
+        data-kind="boolean"
+        data-done={targetMet || undefined}
+        onClick={handleCardClick}
+      >
         <header className="tg-card-head">
           <div className="tg-card-text">
-            <div className="tg-kind-row">
-              <span className="tg-kind-pill">boolean</span>
-              <span className="tg-goal-crumb" style={{ ['--gc' as any]: goalAccent }}>
-                <span className="tg-goal-crumb__dot" />
-                {parentTitle}
-              </span>
-              {stepCrumb}
-              <span className="tg-parent">in <em>{parentTitle}</em></span>
-            </div>
+            {kindRow('boolean')}
             <h3 className="tg-card-title">{go.title}</h3>
+            {descBlock}
           </div>
         </header>
 
         <div className="tg-bool-block">
           <button
             className={`tg-bool-btn${targetMet ? ' tg-bool-btn-done' : ''}`}
-            onClick={() => onLog(go, targetMet ? 0 : 1)}
+            onClick={(e) => { e.stopPropagation(); onLog(go, targetMet ? 0 : 1); }}
           >
-            <Check size={16} /> <span>{targetMet ? 'Done' : 'Mark as done'}</span>
+            <Check size={14} /> <span>{targetMet ? 'Done' : 'Mark as done'}</span>
           </button>
           <button
             className="tg-skip-btn"
             title="Delete go"
-            onClick={() => onSkip(go)}
+            onClick={(e) => { e.stopPropagation(); onSkip(go); }}
             aria-label="Delete go"
           >
-            <X size={14} />
+            <X size={12} />
           </button>
         </div>
       </article>
@@ -900,19 +971,13 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip }: TgProps) {
       data-kind="numeric"
       data-done={targetMet || undefined}
       data-partial={partial || undefined}
+      onClick={handleCardClick}
     >
       <header className="tg-card-head">
         <div className="tg-card-text">
-          <div className="tg-kind-row">
-            <span className="tg-kind-pill">numeric</span>
-            <span className="tg-goal-crumb" style={{ ['--gc' as any]: goalAccent }}>
-              <span className="tg-goal-crumb__dot" />
-              {parentTitle}
-            </span>
-            {stepCrumb}
-            <span className="tg-parent">in <em>{parentTitle}</em></span>
-          </div>
+          {kindRow('numeric')}
           <h3 className="tg-card-title">{go.title}</h3>
+          {descBlock}
         </div>
       </header>
 
@@ -927,7 +992,7 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip }: TgProps) {
           <button
             className="tg-step-btn"
             title="Decrease"
-            onClick={() => onLog(go, Math.max(0, round(value - stepSize)))}
+            onClick={(e) => { e.stopPropagation(); onLog(go, Math.max(0, round(value - stepSize))); }}
             aria-label="Decrease"
           >
             <Minus size={13} />
@@ -935,7 +1000,7 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip }: TgProps) {
           <button
             className="tg-step-btn"
             title="Increase"
-            onClick={() => onLog(go, round(value + stepSize))}
+            onClick={(e) => { e.stopPropagation(); onLog(go, round(value + stepSize)); }}
             aria-label="Increase"
           >
             <Plus size={13} />
@@ -971,9 +1036,17 @@ interface StepsTimelineProps {
   onSelect: (stepId: string | null) => void;
   onAddStep: () => void;
   onAddGo: () => void;
+  onEditStep: (step: Step) => void;
 }
 
-function StepsTimeline({ steps, selectedStepId, onSelect, onAddStep, onAddGo }: StepsTimelineProps) {
+function StepsTimeline({
+  steps,
+  selectedStepId,
+  onSelect,
+  onAddStep,
+  onAddGo,
+  onEditStep,
+}: StepsTimelineProps) {
   const sorted = useMemo(
     () => [...steps].sort((a, b) => a.position - b.position),
     [steps],
@@ -1059,9 +1132,15 @@ function StepsTimeline({ steps, selectedStepId, onSelect, onAddStep, onAddGo }: 
                 key={s.id}
                 type="button"
                 className="station"
+                title={`Edit "${s.title}" — ⌘/Ctrl+click to filter`}
                 data-state={state}
                 data-highlight={isHighlighted || undefined}
-                onClick={() => onSelect(isHighlighted ? null : s.id)}
+                onClick={(e) => {
+                  // Cmd/Ctrl-click toggles the step filter (power-user shortcut).
+                  // Plain click opens the edit dialog.
+                  if (e.metaKey || e.ctrlKey) onSelect(isHighlighted ? null : s.id);
+                  else onEditStep(s);
+                }}
                 aria-pressed={isHighlighted}
               >
                 <span className="station__num">{String(i + 1).padStart(2, '0')}</span>

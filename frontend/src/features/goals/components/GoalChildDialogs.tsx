@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button, Dialog, Input } from '../../../components/ui';
 import { gosApi, routinesApi, stepsApi } from '../../../api/client';
-import type { Step, StepStatus, Task } from '../../../api/types';
+import type { Go, GoKind, GoRecurrence, Step, StepStatus, Task } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
 import type { GosLibrary } from '../hooks/useGos';
 
@@ -578,6 +578,350 @@ export function StepCreateDialog({ open, onOpenChange, taskId, onCreated }: Step
             value={firstGoTitle}
             onChange={(e) => setFirstGoTitle(e.target.value)}
           />
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ── Step edit dialog (with delete) ──────────────────────────────────────────
+
+interface StepEditProps {
+  step: Step | null;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => Promise<void> | void;
+}
+
+export function StepEditDialog({ step, onOpenChange, onSaved }: StepEditProps) {
+  const [title, setTitle]             = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus]           = useState<StepStatus>('not_started');
+  const [start, setStart]             = useState('');
+  const [end, setEnd]                 = useState('');
+  const [submitting, setSubmitting]   = useState(false);
+
+  useEffect(() => {
+    if (step) {
+      setTitle(step.title);
+      setDescription(step.description ?? '');
+      setStatus(step.status);
+      setStart(step.start_date ?? '');
+      setEnd(step.end_date ?? '');
+    }
+  }, [step]);
+
+  const save = async () => {
+    if (!step) return;
+    const t = title.trim();
+    if (!t) return;
+    setSubmitting(true);
+    try {
+      await stepsApi.update(step.id, {
+        title: t,
+        description: description.trim(),
+        status,
+        start_date: start || null,
+        end_date: end || null,
+      });
+      await onSaved();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to save step');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!step) return;
+    if (!window.confirm(`Delete step "${step.title}"? Its Gos lose their step link but stay.`)) return;
+    setSubmitting(true);
+    try {
+      await stepsApi.delete(step.id);
+      await onSaved();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to delete step');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={step !== null}
+      onOpenChange={onOpenChange}
+      title="Edit step"
+      description="Update title, status, dates — or delete the step."
+      footer={
+        <>
+          <Button variant="ghost" data-tone="danger" onClick={remove} disabled={submitting}>Delete</Button>
+          <span style={{ flex: 1 }} />
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="primary" onClick={save} disabled={submitting || !title.trim()}>
+            {submitting ? 'Saving…' : 'Save'}
+          </Button>
+        </>
+      }
+    >
+      <div className="ui-form">
+        <Input
+          autoFocus
+          placeholder="Step title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) save(); }}
+        />
+        <textarea
+          className="ui-input"
+          data-size="textarea"
+          placeholder="Notes (optional)"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <div className="ui-field">
+          <span className="ui-field-label">Status</span>
+          <div className="pill-seg" role="radiogroup">
+            {STEP_STATUSES.map((s) => (
+              <button
+                key={s.key}
+                className={status === s.key ? 'on' : ''}
+                role="radio"
+                aria-checked={status === s.key}
+                onClick={() => setStatus(s.key)}
+              >{s.label}</button>
+            ))}
+          </div>
+        </div>
+        <div className="ui-form-row">
+          <div className="ui-field">
+            <span className="ui-field-label">Start (optional)</span>
+            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          </div>
+          <div className="ui-field">
+            <span className="ui-field-label">End (optional)</span>
+            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </div>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ── Go edit dialog (with delete) ────────────────────────────────────────────
+
+interface GoEditProps {
+  go: Go | null;
+  goals: Task[];
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => Promise<void> | void;
+}
+
+export function GoEditDialog({ go, goals, onOpenChange, onSaved }: GoEditProps) {
+  const [title, setTitle]             = useState('');
+  const [description, setDescription] = useState('');
+  const [kind, setKind]               = useState<GoKind>('boolean');
+  const [target, setTarget]           = useState('');
+  const [unit, setUnit]               = useState('');
+  const [recurrence, setRecurrence]   = useState<GoRecurrence>('none');
+  const [start, setStart]             = useState('');
+  const [due, setDue]                 = useState('');
+  const [taskId, setTaskId]           = useState<string | null>(null);
+  const [stepId, setStepId]           = useState<string | null>(null);
+  const [submitting, setSubmitting]   = useState(false);
+
+  useEffect(() => {
+    if (go) {
+      setTitle(go.title);
+      setDescription(go.description ?? '');
+      setKind(go.kind);
+      setTarget(go.target_value != null ? String(go.target_value) : '');
+      setUnit(go.unit ?? '');
+      setRecurrence(go.recurrence);
+      setStart(go.start_date ?? '');
+      setDue(go.due_date ?? '');
+      setTaskId(go.task_id);
+      setStepId(go.step_id);
+    }
+  }, [go]);
+
+  const pickedGoal = useMemo(
+    () => goals.find((g) => g.id === taskId) ?? null,
+    [goals, taskId],
+  );
+  const stepsForGoal = useMemo<Step[]>(
+    () => [...(pickedGoal?.steps ?? [])].sort((a, b) => a.position - b.position),
+    [pickedGoal],
+  );
+
+  const save = async () => {
+    if (!go) return;
+    const t = title.trim();
+    if (!t) return;
+    setSubmitting(true);
+    try {
+      await gosApi.update(go.id, {
+        title: t,
+        description: description.trim(),
+        kind,
+        unit: kind === 'numeric' ? unit.trim() : '',
+        target_value: kind === 'numeric' && target ? Number(target) : null,
+        recurrence,
+        start_date: start || null,
+        due_date: due || null,
+        task_id: taskId,
+        step_id: stepId,
+      });
+      await onSaved();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to save go');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!go) return;
+    if (!window.confirm(`Delete "${go.title}"? This cannot be undone.`)) return;
+    setSubmitting(true);
+    try {
+      await gosApi.delete(go.id);
+      await onSaved();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to delete go');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={go !== null}
+      onOpenChange={onOpenChange}
+      title="Edit go"
+      description="Update fields — or delete the go."
+      footer={
+        <>
+          <Button variant="ghost" data-tone="danger" onClick={remove} disabled={submitting}>Delete</Button>
+          <span style={{ flex: 1 }} />
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="primary" onClick={save} disabled={submitting || !title.trim()}>
+            {submitting ? 'Saving…' : 'Save'}
+          </Button>
+        </>
+      }
+    >
+      <div className="ui-form">
+        <Input
+          autoFocus
+          placeholder="Go title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) save(); }}
+        />
+        <textarea
+          className="ui-input"
+          data-size="textarea"
+          placeholder="Notes (optional)"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <div className="ui-form-row">
+          <div className="ui-field">
+            <span className="ui-field-label">Goal</span>
+            <select
+              className="ui-input"
+              value={taskId ?? ''}
+              onChange={(e) => { setTaskId(e.target.value || null); setStepId(null); }}
+            >
+              <option value="">Standalone (no goal)</option>
+              {goals
+                .filter((g) => g.status !== 'done')
+                .sort((a, b) => a.order - b.order)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>{g.title}</option>
+                ))}
+            </select>
+          </div>
+          <div className="ui-field">
+            <span className="ui-field-label">Step</span>
+            <select
+              className="ui-input"
+              value={stepId ?? ''}
+              onChange={(e) => setStepId(e.target.value || null)}
+              disabled={!taskId || stepsForGoal.length === 0}
+            >
+              <option value="">
+                {!taskId
+                  ? 'pick a goal first'
+                  : stepsForGoal.length === 0
+                    ? 'no steps yet'
+                    : 'no step'}
+              </option>
+              {stepsForGoal.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {String(s.position + 1).padStart(2, '0')} · {s.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="ui-field">
+          <span className="ui-field-label">Tracking</span>
+          <div className="pill-seg" role="radiogroup">
+            <button
+              className={kind === 'boolean' ? 'on' : ''}
+              role="radio" aria-checked={kind === 'boolean'}
+              onClick={() => setKind('boolean')}
+            >Done / not</button>
+            <button
+              className={kind === 'numeric' ? 'on' : ''}
+              role="radio" aria-checked={kind === 'numeric'}
+              onClick={() => setKind('numeric')}
+            >Numeric</button>
+          </div>
+        </div>
+
+        {kind === 'numeric' && (
+          <div className="ui-form-row">
+            <div className="ui-field">
+              <span className="ui-field-label">Target</span>
+              <Input type="number" value={target} onChange={(e) => setTarget(e.target.value)} />
+            </div>
+            <div className="ui-field">
+              <span className="ui-field-label">Unit</span>
+              <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        <div className="ui-field">
+          <span className="ui-field-label">Recurrence</span>
+          <div className="pill-seg" role="radiogroup">
+            {(['none', 'daily', 'weekly'] as GoRecurrence[]).map((r) => (
+              <button
+                key={r}
+                className={recurrence === r ? 'on' : ''}
+                role="radio" aria-checked={recurrence === r}
+                onClick={() => setRecurrence(r)}
+              >{r === 'none' ? 'One-off' : r === 'daily' ? 'Daily' : 'Weekly'}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="ui-form-row">
+          <div className="ui-field">
+            <span className="ui-field-label">Start (optional)</span>
+            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          </div>
+          <div className="ui-field">
+            <span className="ui-field-label">Due (optional)</span>
+            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          </div>
         </div>
       </div>
     </Dialog>
