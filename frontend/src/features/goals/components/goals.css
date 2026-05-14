@@ -991,7 +991,74 @@
 }
 .goal-ctx-tag-row {
   display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
   margin-bottom: 14px;
+}
+.goal-ctx-meta-pills {
+  display: inline-flex; align-items: center; flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Status pill — color-coded by goal lifecycle. */
+.goal-ctx-status {
+  display: inline-flex; align-items: center;
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+.goal-ctx-status[data-status="backlog"] { background: var(--slate-soft); color: var(--slate); }
+.goal-ctx-status[data-status="active"]  { background: var(--moss-soft);  color: var(--moss); }
+.goal-ctx-status[data-status="paused"]  { background: var(--ochre-soft); color: var(--ochre); }
+.goal-ctx-status[data-status="done"]    { background: var(--indigo-soft); color: var(--indigo); }
+
+/* Priority pill with a colored dot. */
+.goal-ctx-prio {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.goal-ctx-prio__dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.goal-ctx-prio[data-prio="high"]   .goal-ctx-prio__dot { background: var(--rust); }
+.goal-ctx-prio[data-prio="medium"] .goal-ctx-prio__dot { background: var(--ochre); }
+.goal-ctx-prio[data-prio="low"]    .goal-ctx-prio__dot { background: var(--ink-5); }
+
+/* Tag chips inherit the tag's color for the dot, keep the rest neutral. */
+.goal-ctx-tag-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--cream);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.goal-ctx-tag-chip__dot {
+  width: 6px; height: 6px;
+  border-radius: 2px;
+  background: var(--tag-color, var(--ink-4));
+  flex-shrink: 0;
 }
 .goal-ctx-tag {
   display: inline-block;

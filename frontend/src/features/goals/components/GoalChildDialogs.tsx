@@ -673,17 +673,30 @@ export function StepCreateDialog({ open, onOpenChange, taskId, goals, onCreated 
 
 interface StepEditProps {
   step: Step | null;
+  /** All goals — needed to resolve the step's goal so we can list its Gos. */
+  goals?: Task[];
   onOpenChange: (open: boolean) => void;
   onSaved: () => Promise<void> | void;
 }
 
-export function StepEditDialog({ step, onOpenChange, onSaved }: StepEditProps) {
+export function StepEditDialog({ step, goals, onOpenChange, onSaved }: StepEditProps) {
   const [title, setTitle]             = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus]           = useState<StepStatus>('not_started');
   const [start, setStart]             = useState('');
   const [end, setEnd]                 = useState('');
+  /** Gos currently attached to this step + ones the user wants to attach. */
+  const [attachIds, setAttachIds] = useState<Set<string>>(new Set());
+  const [attachSearch, setAttachSearch] = useState('');
+  /** Snapshot of originally-attached gos for diff-on-save. */
+  const [originalIds, setOriginalIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting]   = useState(false);
+
+  const parentGoal = useMemo(
+    () => (step && goals) ? goals.find((g) => g.id === step.goal_id) ?? null : null,
+    [step, goals],
+  );
+  const goalGos = useMemo<Go[]>(() => parentGoal?.gos ?? [], [parentGoal]);
 
   useEffect(() => {
     if (step) {
@@ -692,8 +705,28 @@ export function StepEditDialog({ step, onOpenChange, onSaved }: StepEditProps) {
       setStatus(step.status);
       setStart(step.start_date ?? '');
       setEnd(step.end_date ?? '');
+      setAttachSearch('');
+      // Pre-fill checkbox state with gos that already point to this step.
+      const ids = new Set<string>();
+      for (const g of step ? (goals?.find((x) => x.id === step.goal_id)?.gos ?? []) : []) {
+        if (g.step_id === step.id) ids.add(g.id);
+      }
+      setAttachIds(new Set(ids));
+      setOriginalIds(new Set(ids));
     }
-  }, [step]);
+  }, [step, goals]);
+
+  const filteredGos = useMemo(() => {
+    const q = attachSearch.trim().toLowerCase();
+    if (!q) return goalGos;
+    return goalGos.filter((g) => g.title.toLowerCase().includes(q));
+  }, [goalGos, attachSearch]);
+
+  const toggleAttach = (id: string) => setAttachIds((cur) => {
+    const next = new Set(cur);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const save = async () => {
     if (!step) return;
@@ -708,6 +741,13 @@ export function StepEditDialog({ step, onOpenChange, onSaved }: StepEditProps) {
         start_date: start || null,
         end_date: end || null,
       });
+      // Diff attached gos: attach newly-checked, detach un-checked.
+      const toAttach = Array.from(attachIds).filter((id) => !originalIds.has(id));
+      const toDetach = Array.from(originalIds).filter((id) => !attachIds.has(id));
+      await Promise.all([
+        ...toAttach.map((gid) => gosApi.update(gid, { step_id: step.id })),
+        ...toDetach.map((gid) => gosApi.update(gid, { step_id: null })),
+      ]);
       await onSaved();
       onOpenChange(false);
     } catch (e: any) {
@@ -789,6 +829,52 @@ export function StepEditDialog({ step, onOpenChange, onSaved }: StepEditProps) {
             <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
           </div>
         </div>
+
+        {goalGos.length > 0 && (
+          <div className="ui-field">
+            <span className="ui-field-label">
+              Attached gos
+              {attachIds.size > 0 && (
+                <span className="ui-field-counter">{attachIds.size} attached</span>
+              )}
+            </span>
+            <div className="step-attach__search-row">
+              <input
+                type="search"
+                className="ui-input"
+                placeholder="Search this goal's gos…"
+                value={attachSearch}
+                onChange={(e) => setAttachSearch(e.target.value)}
+              />
+            </div>
+            <div className="step-attach__list">
+              {filteredGos.length === 0 && (
+                <div className="step-attach__empty">No gos match.</div>
+              )}
+              {filteredGos.map((g) => {
+                const on = attachIds.has(g.id);
+                const inOtherStep = !on && g.step_id !== null && g.step_id !== (step?.id ?? null);
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className="step-attach__item"
+                    aria-pressed={on}
+                    onClick={() => toggleAttach(g.id)}
+                  >
+                    <span className="step-attach__check" data-on={on || undefined}>
+                      {on && <Check size={9} strokeWidth={3} />}
+                    </span>
+                    <span className="step-attach__name">{g.title}</span>
+                    {inOtherStep && (
+                      <span className="step-attach__hint">in another step</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </Drawer>
   );

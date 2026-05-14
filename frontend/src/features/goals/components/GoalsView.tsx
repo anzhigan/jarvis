@@ -422,6 +422,7 @@ export default function GoalsView() {
 
       <StepEditDialog
         step={editingStep}
+        goals={goals.tasks}
         onOpenChange={(o) => { if (!o) setEditingStep(null); }}
         onSaved={goals.refresh}
       />

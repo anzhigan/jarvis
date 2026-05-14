@@ -212,19 +212,6 @@ export function GoView({
   // Reset paging whenever any filter changes.
   useEffect(() => { setShownLimit(PAGE_SIZE); }, [dayFilter, periodFilter, goalsFilter, mode]);
 
-  // Per-bucket counts for the page-tabs badges (computed off the unfiltered list).
-  const dayCounts = useMemo(() => {
-    const today = ymd(new Date());
-    let past = 0, todayN = 0, future = 0;
-    for (const g of allGos) {
-      const due = g.due_date;
-      if (!!due && due < today) past++;
-      else if (!!due && due > today) future++;
-      else todayN++;
-    }
-    return { past, today: todayN, future };
-  }, [allGos]);
-
   const grouped = useMemo(() => groupGosByGoal(gos), [gos]);
   // Sidebar pool: groups computed off the FULL un-bucketed list. This way the
   // sidebar stays stable when the user toggles Past/Today/Future and they can
@@ -290,6 +277,24 @@ export function GoView({
   // and filters tg-cards to that step's gos. Reset whenever the goal changes.
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   useEffect(() => { setSelectedStepId(null); }, [selectedId]);
+
+  // Per-bucket counts for the page-tabs badges — mode-aware:
+  //   single-goal → only the focused goal's gos
+  //   cross-goal  → all gos
+  const dayCounts = useMemo(() => {
+    const source = mode === 'single-goal'
+      ? allGos.filter((g) => g.task_id === selectedId)
+      : allGos;
+    const today = ymd(new Date());
+    let past = 0, todayN = 0, future = 0;
+    for (const g of source) {
+      const due = g.due_date;
+      if (!!due && due < today) past++;
+      else if (!!due && due > today) future++;
+      else todayN++;
+    }
+    return { past, today: todayN, future };
+  }, [allGos, mode, selectedId]);
 
   const totals = useMemo(() => {
     const done = gos.filter((g) => g.is_done_today).length;
@@ -675,7 +680,25 @@ function FocusedGoal({
     <>
       <header className="goal-ctx" style={{ ['--gc' as any]: accent }}>
         <div className="goal-ctx-tag-row">
-          <div className="goal-ctx-tag">In focus</div>
+          <div className="goal-ctx-meta-pills">
+            <span className="goal-ctx-status" data-status={goal.status}>
+              {goal.status === 'paused' ? 'On hold' : goal.status[0].toUpperCase() + goal.status.slice(1)}
+            </span>
+            <span className="goal-ctx-prio" data-prio={goal.priority}>
+              <span className="goal-ctx-prio__dot" />
+              {goal.priority[0].toUpperCase() + goal.priority.slice(1)}
+            </span>
+            {goal.tags.map((tag) => (
+              <span
+                key={tag.id}
+                className="goal-ctx-tag-chip"
+                style={{ ['--tag-color' as any]: tag.color }}
+              >
+                <span className="goal-ctx-tag-chip__dot" />
+                {tag.name}
+              </span>
+            ))}
+          </div>
           <button className="goal-ctx-edit" title="Edit goal" onClick={onEditGoal}>
             <Edit3 size={12} />
           </button>

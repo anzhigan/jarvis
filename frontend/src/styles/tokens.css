@@ -308,9 +308,12 @@
   --soft:     #242B33;
   --rail-bg:  #1A1F26;
 
-  --hairline:        rgba(239, 241, 240, 0.08);
-  --hairline-strong: rgba(239, 241, 240, 0.18);
-  --hairline-faint:  rgba(239, 241, 240, 0.04);
+  /* Borders in dark mode were too faint to separate cards from the canvas.
+     Bumped opacity so card edges, sidebar dividers and timeline rails carry
+     visible weight without going harsh. */
+  --hairline:        rgba(239, 241, 240, 0.16);
+  --hairline-strong: rgba(239, 241, 240, 0.28);
+  --hairline-faint:  rgba(239, 241, 240, 0.08);
 
   --ink:    #EFF1F0;
   --ink-2:  #C8CDD0;
