@@ -64,6 +64,49 @@ class Task(Base):
         foreign_keys="GoalRoutineLink.goal_id",
         order_by="GoalRoutineLink.created_at",
     )
+    steps: Mapped[list["Step"]] = relationship(
+        back_populates="goal",
+        cascade="all, delete-orphan",
+        foreign_keys="Step.goal_id",
+        order_by="Step.position",
+    )
+
+
+class Step(Base):
+    """A milestone phase within a Goal. Goal → Step → Go.
+
+    Steps are ordered (position) and have a lifecycle: not_started | in_progress | done.
+    A Go may belong to a Step (Go.step_id) — optional.
+    """
+
+    __tablename__ = "steps"
+    __table_args__ = (UniqueConstraint("goal_id", "position", name="uq_steps_goal_position"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    goal_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="not_started")
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    goal: Mapped["Task"] = relationship(back_populates="steps", foreign_keys=[goal_id])
+    gos: Mapped[list["Go"]] = relationship(
+        back_populates="step", foreign_keys="Go.step_id",
+    )
 
 
 class Go(Base):
@@ -83,6 +126,9 @@ class Go(Base):
     task_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True,
     )
+    step_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("steps.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
     kind: Mapped[str] = mapped_column(String(20), default="boolean")  # boolean | numeric
@@ -96,6 +142,7 @@ class Go(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     task: Mapped["Task | None"] = relationship(back_populates="gos")
+    step: Mapped["Step | None"] = relationship(back_populates="gos", foreign_keys=[step_id])
     user: Mapped["User"] = relationship(back_populates="gos")  # noqa: F821
     entries: Mapped[list["GoEntry"]] = relationship(
         back_populates="go", cascade="all, delete-orphan", order_by="GoEntry.date",

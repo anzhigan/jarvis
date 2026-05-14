@@ -17,7 +17,7 @@ from app.core.middleware import request_context_middleware
 from app.core.rate_limit import limiter
 from app.core.sentry import init_sentry
 from app.models import *  # noqa: F401, F403
-from app.routers import auth, focus_sprints, notes, routines, tags, tasks
+from app.routers import auth, focus_sprints, notes, routines, steps, tags, tasks
 from app.services.s3 import _get_client, ensure_bucket_exists
 
 setup_logging(level="DEBUG" if settings.APP_ENV != "production" else "INFO")
@@ -73,7 +73,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Canonical API v1. New code should always use /api/v1/*.
-_routers = (auth.router, notes.router, tags.router, tasks.router,
+_routers = (auth.router, notes.router, tags.router, tasks.router, steps.router,
             routines.router, focus_sprints.router)
 for r in _routers:
     app.include_router(r, prefix="/api/v1")

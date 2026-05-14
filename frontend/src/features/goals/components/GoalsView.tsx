@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Go, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
@@ -27,11 +27,11 @@ const VIEW_LABELS: Record<GoalsViewMode, string> = {
   go:    'Go',
 };
 
-type DayFilter = 'past' | 'today' | 'future';
-const DAY_LABELS: Record<DayFilter, string> = {
-  past:   'Past',
-  today:  'Today',
-  future: 'Future',
+export type GoMode = 'single-goal' | 'cross-goal';
+const GO_MODE_STORAGE = 'jarvnote:goals:goMode';
+const readGoMode = (): GoMode => {
+  const v = localStorage.getItem(GO_MODE_STORAGE);
+  return v === 'cross-goal' ? 'cross-goal' : 'single-goal';
 };
 
 type StatusFilter = 'all' | TaskStatus;
@@ -43,16 +43,14 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'done',    label: 'Done'     },
 ];
 
-const ymd = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
 export default function GoalsView() {
   const goals = useGoals();
   const gos   = useGos(goals);
   const view  = useGoalsView();
 
-  // Day-bucket filter for Go mode (Past / Today / Future).
-  const [dayFilter, setDayFilter] = useState<DayFilter>('today');
+  // Single-goal ↔ Cross-goal mode for Go view (persisted in localStorage).
+  const [goMode, setGoMode] = useState<GoMode>(readGoMode);
+  useEffect(() => { localStorage.setItem(GO_MODE_STORAGE, goMode); }, [goMode]);
 
   // Kanban filters — status (single-select) + tags (multi-select) + priority (multi-select).
   const [statusFilter, setStatusFilter]   = useState<StatusFilter>('all');
@@ -143,17 +141,6 @@ export default function GoalsView() {
   const closeRoutineDialog = useCallback((o: boolean) => { if (!o) setRoutineDialogTaskId(null); }, []);
   const closeDetail        = useCallback((o: boolean) => { if (!o) setDetailGoalId(null); }, []);
 
-  const dayFilteredGos = useMemo(() => {
-    if (view.mode !== 'go') return gos.gos;
-    const today = ymd(new Date());
-    return gos.gos.filter((g) => {
-      const due = g.due_date;
-      if (dayFilter === 'past')   return !!due && due < today;
-      if (dayFilter === 'future') return !!due && due > today;
-      return !due || due === today || g.is_done_today;
-    });
-  }, [gos.gos, dayFilter, view.mode]);
-
   // Tag pool — all tags actually present on goals (not the global tag list).
   const tagPool = useMemo<Tag[]>(() => {
     const seen = new Map<string, Tag>();
@@ -226,28 +213,32 @@ export default function GoalsView() {
 
           <div className="content-bar-end">
             {showSecondarySeg && (
-              <div className="pill-seg pill-seg-secondary" role="tablist">
-                {(['past', 'today', 'future'] as DayFilter[]).map((k) => (
-                  <button
-                    key={k}
-                    className={dayFilter === k ? 'on' : ''}
-                    role="tab"
-                    aria-selected={dayFilter === k}
-                    onClick={() => setDayFilter(k)}
-                  >{DAY_LABELS[k]}</button>
-                ))}
+              <div className="pill-seg pill-seg-secondary" role="tablist" aria-label="Goal scope">
+                <button
+                  className={goMode === 'single-goal' ? 'on' : ''}
+                  role="tab"
+                  aria-selected={goMode === 'single-goal'}
+                  onClick={() => setGoMode('single-goal')}
+                >Single goal</button>
+                <button
+                  className={goMode === 'cross-goal' ? 'on' : ''}
+                  role="tab"
+                  aria-selected={goMode === 'cross-goal'}
+                  onClick={() => setGoMode('cross-goal')}
+                >Cross-goal</button>
               </div>
             )}
             <button className="new-btn" onClick={() => onAddGoal('active')}>
-              <Plus /> {view.mode === 'go' ? 'Add go' : 'New goal'}
+              <Plus /> {view.mode === 'go' ? 'Go' : 'New goal'}
             </button>
           </div>
         </div>
 
         {view.mode === 'go' ? (
           <GoView
-            gos={dayFilteredGos}
+            gos={gos.gos}
             goals={goals.tasks}
+            mode={goMode}
             onLog={onLogGo}
             onSkip={onDeleteGo}
             onSelectGoal={onSelectGoal}

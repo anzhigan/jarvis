@@ -288,6 +288,7 @@ export const gosApi = {
     due_date?: string | null;
     color?: string;
     task_id?: string | null;
+    step_id?: string | null;
   }) => request<Go>('/gos', { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id: string, data: {
@@ -301,6 +302,7 @@ export const gosApi = {
     due_date?: string | null;
     color?: string;
     task_id?: string | null;
+    step_id?: string | null;
   }) => request<Go>(`/gos/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   delete: (id: string) => request<void>(`/gos/${id}`, { method: 'DELETE' }),
@@ -313,6 +315,41 @@ export const gosApi = {
 
   agenda: (section: 'today' | 'future' | 'past', daysBack = 30) =>
     request<Go[]>(`/gos/agenda?section=${section}&days_back=${daysBack}`),
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Steps API — milestone phases inside a Goal
+// ═══════════════════════════════════════════════════════════════════════════
+import type { Step, StepStatus } from './types';
+
+export const stepsApi = {
+  list: (taskId: string) => request<Step[]>(`/tasks/${taskId}/steps`),
+
+  create: (taskId: string, data: {
+    title: string;
+    description?: string;
+    position?: number;
+    status?: StepStatus;
+    start_date?: string | null;
+    end_date?: string | null;
+  }) => request<Step>(`/tasks/${taskId}/steps`, { method: 'POST', body: JSON.stringify(data) }),
+
+  update: (stepId: string, data: {
+    title?: string;
+    description?: string;
+    position?: number;
+    status?: StepStatus;
+    start_date?: string | null;
+    end_date?: string | null;
+  }) => request<Step>(`/steps/${stepId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  delete: (stepId: string) => request<void>(`/steps/${stepId}`, { method: 'DELETE' }),
+
+  reorder: (taskId: string, stepIds: string[]) =>
+    request<Step[]>(`/tasks/${taskId}/steps/reorder`, {
+      method: 'POST',
+      body: JSON.stringify({ step_ids: stepIds }),
+    }),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

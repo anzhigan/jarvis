@@ -1,11 +1,41 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Check, Edit3, Minus, Plus, Repeat, X } from 'lucide-react';
-import type { Go, Task } from '../../../api/types';
+import type { Go, Step, Task } from '../../../api/types';
 import { goCurrentStreak, groupGosByGoal } from '../hooks/useGos';
+import type { GoMode } from './GoalsView';
+
+type DayFilter = 'past' | 'today' | 'future';
+const DAY_LABELS: Record<DayFilter, string> = {
+  past:   'Past',
+  today:  'Today',
+  future: 'Future',
+};
+
+type PeriodFilter = '7d' | '30d' | '90d' | 'all';
+const PERIODS: PeriodFilter[] = ['7d', '30d', '90d', 'all'];
+const PERIOD_LABELS: Record<PeriodFilter, string> = {
+  '7d':  '7d',
+  '30d': '30d',
+  '90d': '90d',
+  all:   'All',
+};
+/** Maps a period chip to its day-count window (null = unlimited). */
+const PERIOD_DAYS: Record<PeriodFilter, number | null> = {
+  '7d':  7,
+  '30d': 30,
+  '90d': 90,
+  all:   null,
+};
+
+/** Initial cards shown per Past/Future panel. Bumped via "Show older" button. */
+const PAGE_SIZE = 20;
 
 interface Props {
+  /** Full list of all gos (un-filtered) — GoView applies its own day-bucket filter. */
   gos: Go[];
   goals: Task[];
+  /** Page-level scope: focus one goal vs. aggregate across all. */
+  mode: GoMode;
   /** Boolean toggle ↔ numeric set: parent decides next value before calling. */
   onLog: (go: Go, nextValue: number) => void;
   /** Skip = log 0; kept as a separate prop so the parent can attach analytics if needed. */
@@ -52,7 +82,120 @@ function goalPct(t: Task): number {
   return Math.round(t.progress);
 }
 
-export function GoView({ gos, goals, onLog, onSkip, onSelectGoal }: Props) {
+/** Was the go's target met on the given date? Pulled from its entries. */
+function isDoneOnDate(go: Go, dateStr: string): boolean {
+  const e = go.entries.find((x) => x.date === dateStr);
+  if (!e || e.value <= 0) return false;
+  if (go.kind === 'boolean') return true;
+  return go.target_value !== null ? e.value >= go.target_value : e.value > 0;
+}
+
+interface DayGroup {
+  date: string;
+  label: string;
+  gos: Go[];
+  done: number;
+  miss: number;
+}
+
+/** Group gos by due_date and return an ordered list of day groups.
+ *  direction='past'   → descending (newest → oldest)
+ *  direction='future' → ascending  (soonest → latest) */
+function groupByDay(gos: Go[], direction: 'past' | 'future'): DayGroup[] {
+  const map = new Map<string, Go[]>();
+  for (const g of gos) {
+    if (!g.due_date) continue;
+    if (!map.has(g.due_date)) map.set(g.due_date, []);
+    map.get(g.due_date)!.push(g);
+  }
+  const entries = Array.from(map.entries()).sort(([a], [b]) =>
+    direction === 'past' ? b.localeCompare(a) : a.localeCompare(b),
+  );
+  return entries.map(([date, ds]) => {
+    const done = ds.filter((g) => isDoneOnDate(g, date)).length;
+    const dt = new Date(date + 'T00:00:00');
+    const label = dt.toLocaleDateString(undefined, {
+      weekday: 'short', day: 'numeric', month: 'short',
+    });
+    return { date, label, gos: ds, done, miss: ds.length - done };
+  });
+}
+
+/** Relative-day decorator: yesterday/tomorrow/today suffix on a date. */
+function relativeLabel(dateStr: string): string | null {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr + 'T00:00:00');
+  const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+  if (diff === 0)  return 'today';
+  if (diff === -1) return 'yesterday';
+  if (diff === 1)  return 'tomorrow';
+  if (diff === -2) return '2 days ago';
+  if (diff === 2)  return 'in 2 days';
+  return null;
+}
+
+export function GoView({ gos: allGos, goals, mode, onLog, onSkip, onSelectGoal }: Props) {
+  const [dayFilter, setDayFilter] = useState<DayFilter>('today');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
+  // null = "all goals" — only meaningful in cross-goal mode.
+  const [goalsFilter, setGoalsFilter] = useState<Set<string> | null>(null);
+  const [shownLimit, setShownLimit] = useState<number>(PAGE_SIZE);
+
+  // Day-bucket filter: past / today / future. A go without a due_date falls
+  // into "today" so standalone daily checks stay visible.
+  const dayFiltered = useMemo(() => {
+    const today = ymd(new Date());
+    return allGos.filter((g) => {
+      const due = g.due_date;
+      if (dayFilter === 'past')   return !!due && due < today;
+      if (dayFilter === 'future') return !!due && due > today;
+      return !due || due === today || g.is_done_today;
+    });
+  }, [allGos, dayFilter]);
+
+  // Period filter (7d / 30d / 90d / all) — narrows the past/future window.
+  // Today bucket ignores period (it's already a single-day window).
+  const periodFiltered = useMemo(() => {
+    if (dayFilter === 'today') return dayFiltered;
+    const days = PERIOD_DAYS[periodFilter];
+    if (days == null) return dayFiltered;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const earliest = new Date(today); earliest.setDate(earliest.getDate() - days);
+    const latest   = new Date(today); latest.setDate(latest.getDate()   + days);
+    const earliestStr = ymd(earliest);
+    const latestStr   = ymd(latest);
+    return dayFiltered.filter((g) => {
+      if (!g.due_date) return false;
+      if (dayFilter === 'past')   return g.due_date >= earliestStr;
+      if (dayFilter === 'future') return g.due_date <= latestStr;
+      return true;
+    });
+  }, [dayFiltered, dayFilter, periodFilter]);
+
+  // Goals subset filter (cross-goal only). null/empty Set = include everyone.
+  const gos = useMemo(() => {
+    if (mode !== 'cross-goal' || !goalsFilter || goalsFilter.size === 0) {
+      return periodFiltered;
+    }
+    return periodFiltered.filter((g) => g.task_id && goalsFilter.has(g.task_id));
+  }, [periodFiltered, mode, goalsFilter]);
+
+  // Reset paging whenever any filter changes.
+  useEffect(() => { setShownLimit(PAGE_SIZE); }, [dayFilter, periodFilter, goalsFilter, mode]);
+
+  // Per-bucket counts for the page-tabs badges (computed off the unfiltered list).
+  const dayCounts = useMemo(() => {
+    const today = ymd(new Date());
+    let past = 0, todayN = 0, future = 0;
+    for (const g of allGos) {
+      const due = g.due_date;
+      if (!!due && due < today) past++;
+      else if (!!due && due > today) future++;
+      else todayN++;
+    }
+    return { past, today: todayN, future };
+  }, [allGos]);
+
   const grouped = useMemo(() => groupGosByGoal(gos), [gos]);
   const goalById = useMemo(() => {
     const m = new Map<string, Task>();
@@ -78,6 +221,11 @@ export function GoView({ gos, goals, onLog, onSkip, onSelectGoal }: Props) {
     }
   }, [activeGoals, selectedId]);
 
+  // Selected Step inside the focused goal — drives the timeline highlight
+  // and filters tg-cards to that step's gos. Reset whenever the goal changes.
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  useEffect(() => { setSelectedStepId(null); }, [selectedId]);
+
   const totals = useMemo(() => {
     const done = gos.filter((g) => g.is_done_today).length;
     const total = gos.length;
@@ -88,7 +236,7 @@ export function GoView({ gos, goals, onLog, onSkip, onSelectGoal }: Props) {
     return { done, total, pending, advancingGoals: goalsWithDoneToday, totalGoals: activeGoals.length };
   }, [gos, activeGoals.length]);
 
-  if (gos.length === 0) {
+  if (allGos.length === 0) {
     return (
       <div className="content-empty">
         <div className="content-empty-eyebrow">Go · today</div>
@@ -102,6 +250,29 @@ export function GoView({ gos, goals, onLog, onSkip, onSelectGoal }: Props) {
     );
   }
 
+  const pageTabs = (
+    <div className="go-section-tabs">
+      <div className="goal-section-head">
+        <h2 className="goal-section-title">Gos</h2>
+        <span className="goal-section-rule" />
+        <div className="pill-seg pill-seg-secondary" role="tablist" aria-label="Time bucket">
+          {(['past', 'today', 'future'] as DayFilter[]).map((k) => (
+            <button
+              key={k}
+              className={dayFilter === k ? 'on' : ''}
+              role="tab"
+              aria-selected={dayFilter === k}
+              onClick={() => setDayFilter(k)}
+            >
+              {DAY_LABELS[k]}
+              <span className="pill-seg-count">{dayCounts[k]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   const heroTitle = totals.total === 0
     ? <>Nothing scheduled<br />for today.</>
     : totals.done === 0
@@ -111,7 +282,7 @@ export function GoView({ gos, goals, onLog, onSkip, onSelectGoal }: Props) {
         : <><em>{totals.done} of {totals.total}</em>,<br />on the board.</>;
 
   return (
-    <div className="go-shell">
+    <div className="go-shell" data-mode={mode}>
       <aside className="go-leftpane">
         <header className="go-leftpane-head">
           <div className="go-eyebrow">{fmtToday()}</div>
@@ -208,22 +379,50 @@ export function GoView({ gos, goals, onLog, onSkip, onSelectGoal }: Props) {
 
       <section className="go-rightpane">
         <div className="content-scroll">
-          {selectedId && goalById.has(selectedId) && (
-            <FocusedGoal
-              goal={goalById.get(selectedId)!}
-              gos={grouped.get(selectedId) ?? []}
+          {mode === 'single-goal' ? (
+            <>
+              {selectedId && goalById.has(selectedId) ? (
+                <FocusedGoal
+                  goal={goalById.get(selectedId)!}
+                  gos={grouped.get(selectedId) ?? []}
+                  pageTabs={pageTabs}
+                  dayFilter={dayFilter}
+                  periodFilter={periodFilter}
+                  onPeriodFilter={setPeriodFilter}
+                  selectedStepId={selectedStepId}
+                  onSelectStep={setSelectedStepId}
+                  shownLimit={shownLimit}
+                  onLoadMore={() => setShownLimit((n) => n + PAGE_SIZE)}
+                  onLog={onLog}
+                  onSkip={onSkip}
+                  onEditGoal={() => onSelectGoal(selectedId)}
+                />
+              ) : (
+                <div className="content-empty" style={{ minHeight: 320 }}>
+                  <div className="content-empty-eyebrow">No goal selected</div>
+                  <div className="content-empty-title">
+                    Pick a goal <em>on the left</em>.
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <CrossGoalView
+              gos={gos}
+              goals={goals}
+              activeGoalsCount={activeGoals.length}
+              dayFilter={dayFilter}
+              dayCounts={dayCounts}
+              periodFilter={periodFilter}
+              onPeriodFilter={setPeriodFilter}
+              goalsFilter={goalsFilter}
+              onGoalsFilter={setGoalsFilter}
+              shownLimit={shownLimit}
+              onLoadMore={() => setShownLimit((n) => n + PAGE_SIZE)}
+              pageTabs={pageTabs}
               onLog={onLog}
               onSkip={onSkip}
-              onEditGoal={() => onSelectGoal(selectedId)}
             />
-          )}
-          {!selectedId && (
-            <div className="content-empty" style={{ minHeight: 320 }}>
-              <div className="content-empty-eyebrow">No goal selected</div>
-              <div className="content-empty-title">
-                Pick a goal <em>on the left</em>.
-              </div>
-            </div>
           )}
         </div>
       </section>
@@ -236,15 +435,52 @@ export function GoView({ gos, goals, onLog, onSkip, onSelectGoal }: Props) {
 interface FocusedProps {
   goal: Task;
   gos: Go[];
+  pageTabs: ReactNode;
+  dayFilter: DayFilter;
+  periodFilter: PeriodFilter;
+  onPeriodFilter: (p: PeriodFilter) => void;
+  selectedStepId: string | null;
+  onSelectStep: (id: string | null) => void;
+  shownLimit: number;
+  onLoadMore: () => void;
   onLog: (go: Go, value: number) => void;
   onSkip: (go: Go) => void;
   onEditGoal: () => void;
 }
 
-function FocusedGoal({ goal, gos, onLog, onSkip, onEditGoal }: FocusedProps) {
+function FocusedGoal({
+  goal,
+  gos: allGoalGos,
+  pageTabs,
+  dayFilter,
+  periodFilter,
+  onPeriodFilter,
+  selectedStepId,
+  onSelectStep,
+  shownLimit,
+  onLoadMore,
+  onLog,
+  onSkip,
+  onEditGoal,
+}: FocusedProps) {
   const accent = accentFor(goal.id);
   const pct = goalPct(goal);
   const due = fmtDue(goal.due_date);
+
+  const steps = goal.steps ?? [];
+  const stepById = useMemo(() => {
+    const m = new Map<string, Step>();
+    for (const s of steps) m.set(s.id, s);
+    return m;
+  }, [steps]);
+
+  // Filter by selected step (if any) — applied AFTER the goal's gos were
+  // already filtered by day-bucket at the GoView level.
+  const gos = useMemo(() => {
+    if (!selectedStepId) return allGoalGos;
+    return allGoalGos.filter((g) => g.step_id === selectedStepId);
+  }, [allGoalGos, selectedStepId]);
+
   const todayDone = gos.filter((g) => g.is_done_today).length;
   const maxStreak = gos.reduce((m, g) => Math.max(m, goCurrentStreak(g)), 0);
 
@@ -317,41 +553,251 @@ function FocusedGoal({ goal, gos, onLog, onSkip, onEditGoal }: FocusedProps) {
         </div>
       </header>
 
-      <div className="goal-section-head">
-        <h2 className="goal-section-title">Today's targets</h2>
-        <span className="goal-section-rule" />
-        <span className="goal-section-meta">
-          {gos.length} {gos.length === 1 ? 'item' : 'items'} · log values inline
-        </span>
-      </div>
+      {steps.length > 0 && (
+        <StepsTimeline
+          steps={steps}
+          selectedStepId={selectedStepId}
+          onSelect={onSelectStep}
+        />
+      )}
 
-      <div className="tg-cards">
-        {gos.map((go) => (
-          <TgCard key={go.id} go={go} parentTitle={goal.title} onLog={onLog} onSkip={onSkip} />
-        ))}
-      </div>
+      {pageTabs}
 
-      <div className="goal-section-head" style={{ marginTop: 36 }}>
-        <h2 className="goal-section-title">Recent days</h2>
-        <span className="goal-section-rule" />
-        <span className="goal-section-meta">last 6 days · daily completion summary</span>
-      </div>
+      {dayFilter !== 'today' && (
+        <FilterBar
+          dayFilter={dayFilter}
+          periodFilter={periodFilter}
+          onPeriodFilter={onPeriodFilter}
+          totalCount={allGoalGos.length}
+        />
+      )}
 
-      <div className="rl-list">
-        {recentDays.map(({ date, done, total }) => {
-          const dateLbl = date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-          const cls = total === 0 || done === 0 ? '' : done === total ? 'rl-rate-full' : 'rl-rate-partial';
-          return (
-            <div className="rl-row" key={dateLbl}>
-              <span className="rl-date">{dateLbl}</span>
-              <span className={`rl-rate ${cls}`}>{done}/{total}</span>
-              <span className="rl-note">
-                {total === 0 ? '—' : done === total ? 'all targets hit' : done === 0 ? 'no progress logged' : `${done} of ${total} hit`}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {gos.length === 0 ? (
+        <div className="tg-cards-empty">
+          {dayFilter === 'past'
+            ? 'No past gos to show in this period.'
+            : dayFilter === 'future'
+              ? 'No upcoming gos scheduled.'
+              : 'Nothing scheduled today.'}
+        </div>
+      ) : dayFilter === 'today' ? (
+        <div className="tg-cards">
+          {gos.map((go) => (
+            <TgCard
+              key={go.id}
+              go={go}
+              parentTitle={goal.title}
+              goalAccent={accent}
+              step={go.step_id ? stepById.get(go.step_id) ?? null : null}
+              onLog={onLog}
+              onSkip={onSkip}
+            />
+          ))}
+        </div>
+      ) : (
+        <DayGroupedCards
+          gos={gos}
+          direction={dayFilter}
+          shownLimit={shownLimit}
+          onLoadMore={onLoadMore}
+          renderCard={(go) => (
+            <TgCard
+              key={go.id}
+              go={go}
+              parentTitle={goal.title}
+              goalAccent={accent}
+              step={go.step_id ? stepById.get(go.step_id) ?? null : null}
+              onLog={onLog}
+              onSkip={onSkip}
+            />
+          )}
+        />
+      )}
+
+      {dayFilter === 'today' && (
+        <>
+          <div className="goal-section-head" style={{ marginTop: 36 }}>
+            <h2 className="goal-section-title">Recent days</h2>
+            <span className="goal-section-rule" />
+            <span className="goal-section-meta">last 6 days · daily completion summary</span>
+          </div>
+
+          <div className="rl-list">
+            {recentDays.map(({ date, done, total }) => {
+              const dateLbl = date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+              const cls = total === 0 || done === 0 ? '' : done === total ? 'rl-rate-full' : 'rl-rate-partial';
+              return (
+                <div className="rl-row" key={dateLbl}>
+                  <span className="rl-date">{dateLbl}</span>
+                  <span className={`rl-rate ${cls}`}>{done}/{total}</span>
+                  <span className="rl-note">
+                    {total === 0 ? '—' : done === total ? 'all targets hit' : done === 0 ? 'no progress logged' : `${done} of ${total} hit`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <div style={{ height: 60 }} />
+    </>
+  );
+}
+
+/* ── Cross-goal view: flat list of gos across all active goals ───────────── */
+
+interface CrossGoalProps {
+  gos: Go[];
+  goals: Task[];
+  activeGoalsCount: number;
+  dayFilter: DayFilter;
+  dayCounts: Record<DayFilter, number>;
+  periodFilter: PeriodFilter;
+  onPeriodFilter: (p: PeriodFilter) => void;
+  goalsFilter: Set<string> | null;
+  onGoalsFilter: (s: Set<string> | null) => void;
+  shownLimit: number;
+  onLoadMore: () => void;
+  pageTabs: ReactNode;
+  onLog: (go: Go, value: number) => void;
+  onSkip: (go: Go) => void;
+}
+
+function CrossGoalView({
+  gos,
+  goals,
+  activeGoalsCount,
+  dayFilter,
+  dayCounts,
+  periodFilter,
+  onPeriodFilter,
+  goalsFilter,
+  onGoalsFilter,
+  shownLimit,
+  onLoadMore,
+  pageTabs,
+  onLog,
+  onSkip,
+}: CrossGoalProps) {
+  const goalById = useMemo(() => {
+    const m = new Map<string, Task>();
+    for (const t of goals) m.set(t.id, t);
+    return m;
+  }, [goals]);
+
+  // Flat stepById across all goals — used to render tg-step-crumb.
+  const stepById = useMemo(() => {
+    const m = new Map<string, Step>();
+    for (const g of goals) for (const s of (g.steps ?? [])) m.set(s.id, s);
+    return m;
+  }, [goals]);
+
+  // Sort: pending today first, then by due date ascending, with goal title as tiebreaker.
+  const sorted = useMemo(() => {
+    return [...gos].sort((a, b) => {
+      if (dayFilter === 'today') {
+        const ap = a.is_done_today ? 1 : 0;
+        const bp = b.is_done_today ? 1 : 0;
+        if (ap !== bp) return ap - bp;
+      }
+      const ad = a.due_date ?? '';
+      const bd = b.due_date ?? '';
+      if (ad !== bd) return ad < bd ? -1 : 1;
+      return (a.title ?? '').localeCompare(b.title ?? '');
+    });
+  }, [gos, dayFilter]);
+
+  return (
+    <>
+      <header className="cross-goal-banner">
+        <div className="cgb-tag-row">
+          <span className="cgb-tag">Cross-goal view</span>
+        </div>
+        <h1 className="cgb-title">All goals · gos timeline</h1>
+        <p className="cgb-sub">
+          Aggregated past, current &amp; upcoming gos across every active goal.
+        </p>
+        <div className="cgb-meta">
+          <div className="cgb-meta__cell">
+            <span className="cgb-meta__num">{activeGoalsCount}</span>
+            <span className="cgb-meta__lab">Active goals</span>
+          </div>
+          <div className="cgb-meta__cell">
+            <span className="cgb-meta__num">{dayCounts.today}</span>
+            <span className="cgb-meta__lab">Gos today</span>
+          </div>
+          <div className="cgb-meta__cell">
+            <span className="cgb-meta__num">{dayCounts.past}</span>
+            <span className="cgb-meta__lab">Past</span>
+          </div>
+          <div className="cgb-meta__cell">
+            <span className="cgb-meta__num">{dayCounts.future}</span>
+            <span className="cgb-meta__lab">Upcoming</span>
+          </div>
+        </div>
+      </header>
+
+      {pageTabs}
+
+      <FilterBar
+        dayFilter={dayFilter}
+        periodFilter={periodFilter}
+        onPeriodFilter={onPeriodFilter}
+        totalCount={sorted.length}
+        showGoals
+        goals={goals}
+        goalsFilter={goalsFilter}
+        onGoalsFilter={onGoalsFilter}
+      />
+
+      {sorted.length === 0 ? (
+        <div className="tg-cards-empty">
+          {dayFilter === 'past'
+            ? 'No past gos to show.'
+            : dayFilter === 'future'
+              ? 'No upcoming gos scheduled.'
+              : 'Nothing scheduled across any goal today.'}
+        </div>
+      ) : dayFilter === 'today' ? (
+        <div className="tg-cards">
+          {sorted.map((go) => {
+            const parent = go.task_id ? goalById.get(go.task_id) : null;
+            return (
+              <TgCard
+                key={go.id}
+                go={go}
+                parentTitle={parent?.title ?? 'Standalone'}
+                goalAccent={parent ? accentFor(parent.id) : 'var(--ink-4)'}
+                step={go.step_id ? stepById.get(go.step_id) ?? null : null}
+                onLog={onLog}
+                onSkip={onSkip}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <DayGroupedCards
+          gos={sorted}
+          direction={dayFilter}
+          shownLimit={shownLimit}
+          onLoadMore={onLoadMore}
+          renderCard={(go) => {
+            const parent = go.task_id ? goalById.get(go.task_id) : null;
+            return (
+              <TgCard
+                key={go.id}
+                go={go}
+                parentTitle={parent?.title ?? 'Standalone'}
+                goalAccent={parent ? accentFor(parent.id) : 'var(--ink-4)'}
+                step={go.step_id ? stepById.get(go.step_id) ?? null : null}
+                onLog={onLog}
+                onSkip={onSkip}
+              />
+            );
+          }}
+        />
+      )}
 
       <div style={{ height: 60 }} />
     </>
@@ -363,11 +809,21 @@ function FocusedGoal({ goal, gos, onLog, onSkip, onEditGoal }: FocusedProps) {
 interface TgProps {
   go: Go;
   parentTitle: string;
+  /** Accent (CSS var or color) for this go's goal — drives the cross-goal crumb dot. */
+  goalAccent: string;
+  /** Step the go belongs to (if any) — drives the tg-step-crumb pill in single-goal mode. */
+  step?: Step | null;
   onLog: (go: Go, value: number) => void;
   onSkip: (go: Go) => void;
 }
 
-function TgCard({ go, parentTitle, onLog, onSkip }: TgProps) {
+function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip }: TgProps) {
+  const stepCrumb = step ? (
+    <span className="tg-step-crumb">
+      <span className="tg-step-crumb__num">{String(step.position + 1).padStart(2, '0')}</span>
+      {step.title}
+    </span>
+  ) : null;
   const value = todayValue(go);
   const target = go.target_value ?? 1;
   const targetMet = go.kind === 'numeric'
@@ -378,8 +834,8 @@ function TgCard({ go, parentTitle, onLog, onSkip }: TgProps) {
     ? Math.min(100, Math.round((value / go.target_value) * 100))
     : (value > 0 ? 100 : 0);
 
-  // Step size: 1 for integer targets, 0.1 for fractional.
-  const step = go.target_value !== null && Number.isInteger(go.target_value) ? 1 : 0.1;
+  // Increment for numeric stepper: 1 for integer targets, 0.1 for fractional.
+  const stepSize = go.target_value !== null && Number.isInteger(go.target_value) ? 1 : 0.1;
   const round = (n: number) => Math.round(n * 10) / 10;
 
   if (go.kind === 'boolean') {
@@ -389,6 +845,11 @@ function TgCard({ go, parentTitle, onLog, onSkip }: TgProps) {
           <div className="tg-card-text">
             <div className="tg-kind-row">
               <span className="tg-kind-pill">boolean</span>
+              <span className="tg-goal-crumb" style={{ ['--gc' as any]: goalAccent }}>
+                <span className="tg-goal-crumb__dot" />
+                {parentTitle}
+              </span>
+              {stepCrumb}
               <span className="tg-parent">in <em>{parentTitle}</em></span>
             </div>
             <h3 className="tg-card-title">{go.title}</h3>
@@ -426,6 +887,11 @@ function TgCard({ go, parentTitle, onLog, onSkip }: TgProps) {
         <div className="tg-card-text">
           <div className="tg-kind-row">
             <span className="tg-kind-pill">numeric</span>
+            <span className="tg-goal-crumb" style={{ ['--gc' as any]: goalAccent }}>
+              <span className="tg-goal-crumb__dot" />
+              {parentTitle}
+            </span>
+            {stepCrumb}
             <span className="tg-parent">in <em>{parentTitle}</em></span>
           </div>
           <h3 className="tg-card-title">{go.title}</h3>
@@ -443,7 +909,7 @@ function TgCard({ go, parentTitle, onLog, onSkip }: TgProps) {
           <button
             className="tg-step-btn"
             title="Decrease"
-            onClick={() => onLog(go, Math.max(0, round(value - step)))}
+            onClick={() => onLog(go, Math.max(0, round(value - stepSize)))}
             aria-label="Decrease"
           >
             <Minus size={13} />
@@ -451,7 +917,7 @@ function TgCard({ go, parentTitle, onLog, onSkip }: TgProps) {
           <button
             className="tg-step-btn"
             title="Increase"
-            onClick={() => onLog(go, round(value + step))}
+            onClick={() => onLog(go, round(value + stepSize))}
             aria-label="Increase"
           >
             <Plus size={13} />
@@ -476,5 +942,232 @@ function TgCard({ go, parentTitle, onLog, onSkip }: TgProps) {
         </span>
       </footer>
     </article>
+  );
+}
+
+/* ── StepsTimeline: editorial horizontal subway map of milestones ────────── */
+
+interface StepsTimelineProps {
+  steps: Step[];
+  selectedStepId: string | null;
+  onSelect: (stepId: string | null) => void;
+}
+
+function StepsTimeline({ steps, selectedStepId, onSelect }: StepsTimelineProps) {
+  const sorted = useMemo(
+    () => [...steps].sort((a, b) => a.position - b.position),
+    [steps],
+  );
+  const N = sorted.length;
+  if (N === 0) return null;
+
+  const doneCount = sorted.filter((s) => s.status === 'done').length;
+  const activeIdx = sorted.findIndex((s) => s.status === 'in_progress');
+
+  // Stations are evenly spaced. Station i is centered at ((i + 0.5) / N) %.
+  let lastDoneIdx = -1;
+  for (let i = 0; i < N; i++) if (sorted[i].status === 'done') lastDoneIdx = i;
+  const stationCenterPct = (i: number) => ((i + 0.5) / N) * 100;
+  const railDonePct = lastDoneIdx >= 0 ? stationCenterPct(lastDoneIdx) : 0;
+  const railActiveIdx = activeIdx >= 0 ? activeIdx : lastDoneIdx;
+  const railActivePct = railActiveIdx >= 0 ? stationCenterPct(railActiveIdx) : railDonePct;
+
+  return (
+    <section className="steps">
+      <div className="steps-head">
+        <span className="steps-head__label">Steps</span>
+        <span className="steps-head__rule" />
+        <span className="steps-head__meta">
+          <b>{N}</b> {N === 1 ? 'step' : 'steps'} · <b>{doneCount}</b> done
+          {activeIdx >= 0 && <> · current is <b>{String(activeIdx + 1).padStart(2, '0')}</b></>}
+        </span>
+      </div>
+      <div className="steps-track">
+        <div
+          className="steps-rail"
+          style={{
+            ['--rail-done' as any]: `${railDonePct}%`,
+            ['--rail-active' as any]: `${railActivePct}%`,
+          }}
+        />
+        <div className="steps-stations" style={{ gridTemplateColumns: `repeat(${N}, 1fr)` }}>
+          {sorted.map((s, i) => {
+            const state = s.status === 'done'
+              ? 'done'
+              : s.status === 'in_progress' ? 'active' : 'upcoming';
+            const isHighlighted = s.id === selectedStepId;
+            const statusLabel = state === 'done'
+              ? 'done'
+              : state === 'active'
+                ? 'in progress'
+                : 'upcoming';
+            return (
+              <button
+                key={s.id}
+                type="button"
+                className="station"
+                data-state={state}
+                data-highlight={isHighlighted || undefined}
+                onClick={() => onSelect(isHighlighted ? null : s.id)}
+                aria-pressed={isHighlighted}
+              >
+                <span className="station__num">{String(i + 1).padStart(2, '0')}</span>
+                <span className="station__dot" />
+                <span className="station__title">{s.title}</span>
+                <span className="station__count">{s.gos_done} / {s.gos_count}</span>
+                <span className="station__status">{statusLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── FilterBar: Period chips, optional Goals chip-group, count ─────────── */
+
+interface FilterBarProps {
+  dayFilter: DayFilter;
+  periodFilter: PeriodFilter;
+  onPeriodFilter: (p: PeriodFilter) => void;
+  totalCount: number;
+  showGoals?: boolean;
+  goals?: Task[];
+  goalsFilter?: Set<string> | null;
+  onGoalsFilter?: (s: Set<string> | null) => void;
+}
+
+function FilterBar({
+  dayFilter,
+  periodFilter,
+  onPeriodFilter,
+  totalCount,
+  showGoals,
+  goals,
+  goalsFilter,
+  onGoalsFilter,
+}: FilterBarProps) {
+  const allGoalsSelected = !goalsFilter || goalsFilter.size === 0;
+  const visibleGoals = useMemo(
+    () => (goals ?? []).filter((g) => g.status !== 'done'),
+    [goals],
+  );
+
+  return (
+    <div className="filter-bar">
+      {dayFilter !== 'today' && (
+        <div className="filter-group">
+          <span className="filter-group__label">Period</span>
+          <div className="chip-group" role="tablist" aria-label="Period">
+            {PERIODS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                aria-pressed={periodFilter === p}
+                onClick={() => onPeriodFilter(p)}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {showGoals && visibleGoals.length > 0 && (
+        <div className="filter-group">
+          <span className="filter-group__label">Goals</span>
+          <div className="chip-group chip-group--multi">
+            <button
+              type="button"
+              aria-pressed={allGoalsSelected}
+              onClick={() => onGoalsFilter?.(null)}
+            >All</button>
+            {visibleGoals.map((g) => {
+              const on = goalsFilter?.has(g.id) ?? false;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  aria-pressed={on}
+                  style={{ ['--gc' as any]: accentFor(g.id) }}
+                  onClick={() => {
+                    const next = new Set(goalsFilter ?? []);
+                    if (on) next.delete(g.id); else next.add(g.id);
+                    onGoalsFilter?.(next.size === 0 ? null : next);
+                  }}
+                >
+                  <span className="g-dot" />
+                  {g.title}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <span className="filter-bar__count">
+        <b>{totalCount}</b> {totalCount === 1 ? 'go' : 'gos'}
+      </span>
+    </div>
+  );
+}
+
+/* ── DayGroupedCards: groups gos by due_date, paginated ─────────────────── */
+
+interface DayGroupedCardsProps {
+  gos: Go[];
+  direction: 'past' | 'future';
+  shownLimit: number;
+  onLoadMore: () => void;
+  renderCard: (go: Go) => ReactNode;
+}
+
+function DayGroupedCards({
+  gos,
+  direction,
+  shownLimit,
+  onLoadMore,
+  renderCard,
+}: DayGroupedCardsProps) {
+  const slice = useMemo(() => gos.slice(0, shownLimit), [gos, shownLimit]);
+  const groups = useMemo(() => groupByDay(slice, direction), [slice, direction]);
+  const remaining = gos.length - slice.length;
+
+  return (
+    <>
+      {groups.map((group) => {
+        const rel = relativeLabel(group.date);
+        return (
+          <section key={group.date} className="day-group">
+            <header className="day-group__head">
+              <h4 className="day-group__date">
+                {group.label}
+                {rel && <em>{rel}</em>}
+              </h4>
+              <span className="day-group__rule" />
+              <span className="day-group__stats">
+                {direction === 'past' && group.done > 0 && (
+                  <><em className="hit">{group.done} done</em> · </>
+                )}
+                {direction === 'past' && group.miss > 0 && (
+                  <><em className="miss">{group.miss} missed</em> · </>
+                )}
+                <b>{group.gos.length}</b> total
+              </span>
+            </header>
+            <div className="tg-cards">
+              {group.gos.map((go) => renderCard(go))}
+            </div>
+          </section>
+        );
+      })}
+      {remaining > 0 && (
+        <button className="load-more" type="button" onClick={onLoadMore}>
+          {direction === 'past' ? 'Show older' : 'Show further'}
+          <span className="load-more__hint">
+            + {Math.min(remaining, PAGE_SIZE)} more · {remaining} hidden
+          </span>
+        </button>
+      )}
+    </>
   );
 }

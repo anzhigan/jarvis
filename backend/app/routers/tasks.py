@@ -61,6 +61,7 @@ def _go_dict(g: Go, task_title: str | None = None) -> dict:
         "id": g.id,
         "user_id": g.user_id,
         "task_id": g.task_id,
+        "step_id": g.step_id,
         "title": g.title,
         "description": g.description or "",
         "kind": g.kind,
@@ -79,6 +80,41 @@ def _go_dict(g: Go, task_title: str | None = None) -> dict:
         "is_done_today": _is_go_done_today(g),
         "created_at": g.created_at,
     }
+
+
+def _step_dict(s, goal_id: uuid.UUID) -> dict:
+    """Serialize a Step with hydrated counters (gos_count, gos_done) computed
+    from the parent Task's pre-loaded gos. The caller passes the Task's gos
+    list to avoid an N+1 query per step."""
+    return {
+        "id": s.id,
+        "user_id": s.user_id,
+        "goal_id": goal_id,
+        "title": s.title,
+        "description": s.description or "",
+        "position": s.position,
+        "status": s.status,
+        "start_date": s.start_date,
+        "end_date": s.end_date,
+        "completed_at": s.completed_at,
+        "gos_count": 0,
+        "gos_done": 0,
+        "created_at": s.created_at,
+        "updated_at": s.updated_at,
+    }
+
+
+def _hydrate_step_counts(step_dicts: list[dict], step_ids_to_idx: dict, gos: list[Go]) -> None:
+    """Fill gos_count / gos_done on step dicts using the pre-loaded Task.gos list."""
+    for g in gos:
+        if g.step_id is None or g.item_kind == "routine_legacy":
+            continue
+        idx = step_ids_to_idx.get(g.step_id)
+        if idx is None:
+            continue
+        step_dicts[idx]["gos_count"] += 1
+        if _is_go_done_today(g):
+            step_dicts[idx]["gos_done"] += 1
 
 
 def _task_dict(t: Task) -> dict:
@@ -123,6 +159,12 @@ def _task_dict(t: Task) -> dict:
                 "updated_at": r.updated_at,
             },
         })
+    # Steps with go counts hydrated from the parent Task.gos list.
+    raw_steps = getattr(t, "steps", []) or []
+    step_dicts = [_step_dict(s, goal_id=t.id) for s in raw_steps]
+    step_ids_to_idx = {s.id: i for i, s in enumerate(raw_steps)}
+    _hydrate_step_counts(step_dicts, step_ids_to_idx, direct_gos)
+
     return {
         "id": t.id,
         "title": t.title,
@@ -137,6 +179,7 @@ def _task_dict(t: Task) -> dict:
         "gos": gos_out,
         "tags": t.tags,
         "routines": routines_out,
+        "steps": step_dicts,
         "progress": _task_progress(t),
         "created_at": t.created_at,
         "updated_at": t.updated_at,
@@ -185,7 +228,7 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user), 
                 pg_insert(task_tags).values([{"task_id": t.id, "tag_id": tid} for tid in valid])
                 .on_conflict_do_nothing(),
             )
-    await db.refresh(t, ["gos", "tags", "routine_links"])
+    await db.refresh(t, ["gos", "tags", "routine_links", "steps"])
     return _task_dict(t)
 
 
@@ -223,9 +266,19 @@ async def create_go(body: GoCreate, user: User = Depends(get_current_user), db: 
 
     task = await _get_task(body.task_id, user, db) if body.task_id else None
 
+    step_id = None
+    if body.step_id is not None:
+        from app.services.tasks import get_step_or_404 as _get_step
+        step = await _get_step(body.step_id, user, db)
+        # A Step belongs to a goal — keep the link consistent.
+        if task is not None and step.goal_id != task.id:
+            raise HTTPException(400, "step_id does not belong to the given task_id")
+        step_id = step.id
+
     g = Go(
         user_id=user.id,
         task_id=task.id if task else None,
+        step_id=step_id,
         title=body.title, description=body.description, kind=body.kind, unit=body.unit,
         target_value=body.target_value,
         recurrence=body.recurrence, start_date=body.start_date, due_date=body.due_date,

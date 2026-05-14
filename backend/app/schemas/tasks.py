@@ -18,6 +18,7 @@ class GoCreate(BaseModel):
     due_date: date | None = None
     color: str = Field(default="#4f46e5", max_length=20)
     task_id: uuid.UUID | None = None
+    step_id: uuid.UUID | None = None
 
 
 class GoUpdate(BaseModel):
@@ -31,6 +32,7 @@ class GoUpdate(BaseModel):
     due_date: date | None = None
     color: str | None = None
     task_id: uuid.UUID | None = None
+    step_id: uuid.UUID | None = None
 
 
 class GoEntryUpsert(BaseModel):
@@ -51,6 +53,7 @@ class GoOut(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
     task_id: uuid.UUID | None
+    step_id: uuid.UUID | None = None
     title: str
     description: str = ""
     kind: str
@@ -67,6 +70,50 @@ class GoOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ─── Step ───────────────────────────────────────────────────────────────────
+
+class StepCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    description: str = ""
+    position: int = 0
+    status: str = "not_started"  # not_started | in_progress | done
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class StepUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=300)
+    description: str | None = None
+    position: int | None = None
+    status: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class StepOut(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    goal_id: uuid.UUID
+    title: str
+    description: str
+    position: int
+    status: str
+    start_date: date | None
+    end_date: date | None
+    completed_at: datetime | None
+    gos_count: int = 0
+    gos_done: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class StepReorder(BaseModel):
+    """Bulk-reorder steps inside a goal. The list is the new position order."""
+    step_ids: list[uuid.UUID]
 
 
 # ─── Task ───────────────────────────────────────────────────────────────────
@@ -109,6 +156,7 @@ class TaskOut(BaseModel):
     gos: list[GoOut] = []
     tags: list[TagOut] = []
     routines: list["GoalRoutineLinkOut"] = []
+    steps: list[StepOut] = []
     progress: int = 0
     created_at: datetime
     updated_at: datetime

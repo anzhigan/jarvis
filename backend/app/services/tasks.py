@@ -52,6 +52,7 @@ def task_eager_options():
         selectinload(Task.routine_links)
             .selectinload(GoalRoutineLink.routine)
             .selectinload(Routine.entries),
+        selectinload(Task.steps),
     )
 
 
@@ -77,6 +78,21 @@ async def get_go_or_404(go_id: uuid.UUID, user: User, db: AsyncSession) -> Go:
     if not g:
         raise HTTPException(404, "Go not found")
     return g
+
+
+async def get_step_or_404(step_id: uuid.UUID, user: User, db: AsyncSession):
+    """Load a Step ensuring the requesting user owns it."""
+    from app.models.tasks import Step
+    r = await db.execute(
+        select(Step).where(Step.id == step_id, Step.user_id == user.id),
+    )
+    s = r.scalar_one_or_none()
+    if not s:
+        raise HTTPException(404, "Step not found")
+    return s
+
+
+VALID_STEP_STATUSES = {"not_started", "in_progress", "done"}
 
 
 # ─── Pure progress helpers (no DB, no HTTP — unit-testable) ──────────────────

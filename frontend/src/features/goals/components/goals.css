@@ -2011,3 +2011,497 @@
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Phase A — Single-goal ↔ Cross-goal mode
+   .go-shell[data-mode] drives sidebar collapse, goal-ctx visibility,
+   tg-goal-crumb display, and content max-width.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.go-shell {
+  transition: grid-template-columns 320ms var(--ease);
+}
+.go-shell[data-mode="cross-goal"] {
+  grid-template-columns: 0 1fr;
+}
+.go-leftpane {
+  transition: padding 320ms var(--ease), opacity 200ms var(--ease);
+}
+.go-shell[data-mode="cross-goal"] .go-leftpane {
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  border-right: 0;
+}
+
+/* In cross-goal mode the focused goal header is hidden — the cross-goal
+   banner takes its place. */
+.go-shell[data-mode="cross-goal"] .goal-ctx { display: none; }
+.go-shell[data-mode="single-goal"] .cross-goal-banner { display: none; }
+
+/* ── Cross-goal banner (replaces .goal-ctx) ─────────────────────────────── */
+.cross-goal-banner {
+  padding: 24px 24px 22px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 8px;
+}
+.cgb-tag-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.cgb-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs); font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--slate-soft);
+  color: var(--slate);
+}
+.cgb-title {
+  font-family: var(--font-display);
+  font-size: 30px; font-weight: 500;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+.cgb-sub {
+  font-family: var(--font-body);
+  font-size: 17px;
+  color: var(--ink-3);
+  line-height: 1.45;
+  margin: 0 0 16px;
+}
+.cgb-meta {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+}
+.cgb-meta__cell {
+  text-align: center;
+  padding: 14px 8px;
+  border-right: 1px solid var(--hairline-faint);
+}
+.cgb-meta__cell:last-child { border-right: 0; }
+.cgb-meta__num {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+  display: block;
+  line-height: 1.1;
+}
+.cgb-meta__lab {
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--ink-4);
+  margin-top: 6px;
+  display: block;
+}
+
+/* ── Inline Past/Today/Future tabs (lives inside the right pane) ────────── */
+.go-section-tabs {
+  padding: 20px 24px 4px;
+}
+.go-section-tabs .goal-section-head {
+  margin: 0;
+  gap: 14px;
+}
+.go-section-tabs .pill-seg-secondary {
+  margin-left: auto;
+}
+.pill-seg-secondary .pill-seg-count {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: var(--r-pill);
+  background: var(--hairline);
+  color: var(--ink-4);
+}
+.pill-seg-secondary button.on .pill-seg-count {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+
+/* ── tg-goal-crumb (visible only in cross-goal mode) ────────────────────── */
+.tg-goal-crumb {
+  display: none;
+  align-items: center; gap: 5px;
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 2px 8px 2px 6px;
+  border-radius: var(--r-pill);
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tg-goal-crumb__dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--gc, var(--indigo));
+  flex-shrink: 0;
+}
+.go-shell[data-mode="cross-goal"] .tg-goal-crumb { display: inline-flex; }
+/* The textual "in <em>parent</em>" is redundant when the goal pill is on. */
+.go-shell[data-mode="cross-goal"] .tg-parent { display: none; }
+
+/* ── tg-step-crumb (visible only in single-goal mode) ──────────────────── */
+.tg-step-crumb {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--indigo);
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--indigo-soft);
+  white-space: nowrap;
+}
+.tg-step-crumb__num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin-right: 1px;
+}
+.go-shell[data-mode="cross-goal"] .tg-step-crumb { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Steps timeline — editorial horizontal subway map between goal-ctx
+   and page-tabs in single-goal mode.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.steps { margin: 16px 24px 8px; }
+.steps-head {
+  display: flex; align-items: baseline; gap: 14px;
+  margin-bottom: 22px;
+}
+.steps-head__label {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.steps-head__rule { flex: 1; height: 1px; background: var(--hairline); }
+.steps-head__meta {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: var(--ink-5);
+}
+.steps-head__meta b {
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.steps-track {
+  position: relative;
+  padding: 0 16px;
+}
+.steps-rail {
+  position: absolute;
+  left: 16px; right: 16px;
+  top: 22px;
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    var(--moss) 0%,
+    var(--moss) var(--rail-done, 0%),
+    var(--ochre) var(--rail-done, 0%),
+    var(--ochre) var(--rail-active, 0%),
+    var(--hairline-strong) var(--rail-active, 0%),
+    var(--hairline-strong) 100%
+  );
+  pointer-events: none;
+}
+.steps-rail::after {
+  content: '';
+  position: absolute;
+  left: var(--rail-active, 0%); right: 0;
+  top: 50%; height: 0;
+  border-top: 2px dashed var(--ink-5);
+  opacity: 0.35;
+  transform: translateY(-50%);
+}
+.steps-stations {
+  display: grid;
+  position: relative;
+}
+.station {
+  position: relative;
+  display: flex; flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 0 6px;
+  background: transparent;
+  border: 0;
+  font-family: inherit;
+  text-align: center;
+  color: inherit;
+}
+.station__num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: var(--ink-5);
+  letter-spacing: 0;
+  margin-bottom: 8px;
+}
+.station__dot {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--ink-5);
+  position: relative;
+  z-index: 2;
+  transition: transform var(--dur-fast) var(--ease);
+}
+.station:hover .station__dot { transform: scale(1.12); }
+.station[data-state="done"] .station__dot {
+  background: var(--moss);
+  box-shadow: inset 0 0 0 2px var(--moss);
+}
+.station[data-state="done"] .station__dot::after {
+  content: '';
+  position: absolute;
+  left: 5px; top: 3.5px;
+  width: 5px; height: 8px;
+  border: solid var(--paper);
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+}
+.station[data-state="active"] .station__dot {
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2.4px var(--ochre);
+}
+.station[data-state="active"] .station__dot::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--ochre);
+}
+.station[data-state="active"]::before {
+  content: 'today';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ochre);
+  background: var(--paper);
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  box-shadow: 0 0 0 1px var(--ochre-soft);
+  white-space: nowrap;
+}
+.station__title {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: var(--tracking-snug);
+  color: var(--ink);
+  margin: 12px 0 2px;
+  line-height: 1.2;
+}
+.station[data-state="done"]    .station__title { color: var(--moss); }
+.station[data-state="active"]  .station__title { color: var(--ochre); }
+.station[data-state="upcoming"] .station__title { color: var(--ink-4); }
+.station__count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  margin-bottom: 2px;
+}
+.station[data-state="upcoming"] .station__count { color: var(--ink-5); }
+.station__status {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-style: italic;
+  color: var(--ink-4);
+  letter-spacing: 0.04em;
+}
+.station[data-state="done"]    .station__status { color: var(--moss); }
+.station[data-state="active"]  .station__status { color: var(--ochre); font-style: normal; font-weight: 500; }
+.station[data-highlight="true"] {
+  outline: 2px solid var(--indigo-soft);
+  outline-offset: 4px;
+  border-radius: var(--r-card);
+}
+
+.go-shell[data-mode="cross-goal"] .steps { display: none; }
+
+/* ── Empty state for filtered tg-cards ──────────────────────────────────── */
+.tg-cards-empty {
+  margin: 16px 24px 32px;
+  padding: 32px 24px;
+  text-align: center;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--r-card);
+  background: var(--paper);
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-md);
+  color: var(--ink-4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Filter bar — Period chips + (cross-goal) Goals multi-select + count
+   Sits between page-tabs and the cards list in Past/Future panels.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.filter-bar {
+  display: flex; align-items: center; gap: 16px;
+  flex-wrap: wrap;
+  margin: 8px 24px 14px;
+  padding: 10px 14px;
+  background: var(--cream);
+  border-radius: var(--r-card);
+  border: 1px solid var(--hairline);
+}
+.filter-bar .filter-group {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-width: 0;
+}
+.filter-bar .filter-group__label {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-5);
+}
+.filter-bar .chip-group {
+  display: inline-flex; gap: 2px;
+  background: var(--paper);
+  padding: 2px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  flex-wrap: wrap;
+}
+.filter-bar .chip-group button {
+  background: transparent; border: 0;
+  padding: 4px 11px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-4);
+  cursor: pointer;
+  border-radius: var(--r-pill);
+  font-variant-numeric: tabular-nums;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.filter-bar .chip-group button:hover { color: var(--ink-2); }
+.filter-bar .chip-group button[aria-pressed="true"] {
+  background: var(--indigo); color: var(--paper);
+}
+.filter-bar .chip-group--multi button[aria-pressed="true"] .g-dot { background: var(--paper); }
+.filter-bar .chip-group--multi .g-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--gc, var(--indigo));
+  flex-shrink: 0;
+}
+.filter-bar__count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.filter-bar__count b { color: var(--ink-2); font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Day grouping for Past / Future tabs — date header + cards grid
+   ═══════════════════════════════════════════════════════════════════════════ */
+.day-group {
+  margin: 0 24px 22px;
+}
+.day-group:last-of-type { margin-bottom: 8px; }
+.day-group__head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 10px;
+}
+.day-group__date {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--ink-2);
+  letter-spacing: var(--tracking-snug);
+  margin: 0;
+}
+.day-group__date em {
+  font-family: var(--font-ui);
+  font-style: italic;
+  font-size: var(--text-2xs);
+  color: var(--ink-4);
+  font-weight: 400;
+  margin-left: 6px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.day-group__rule { flex: 1; height: 1px; background: var(--hairline); }
+.day-group__stats {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.day-group__stats b { color: var(--ink-2); font-weight: 600; }
+.day-group__stats em.hit  { font-style: normal; color: var(--moss); font-weight: 600; }
+.day-group__stats em.miss { font-style: normal; color: var(--rust); font-weight: 600; }
+.day-group .tg-cards { margin: 0; }
+
+/* ── Pagination button at the bottom of a paginated list ──────────────── */
+.load-more {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px;
+  margin: 14px 24px 24px;
+  padding: 14px;
+  background: transparent;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--r-card);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--ink-4);
+  cursor: pointer;
+  transition: all var(--dur-fast);
+}
+.load-more:hover {
+  border-color: var(--indigo);
+  color: var(--indigo);
+  background: var(--indigo-soft);
+}
+.load-more__hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-5);
+  font-variant-numeric: tabular-nums;
+}

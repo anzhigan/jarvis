@@ -244,7 +244,7 @@
   /* Light surfaces — cool slate, brighter pass.
      Exception: --paper is the editor "canvas" (note body background). It uses
      a slightly warm off-white so writing surface feels paper-like, not LCD-like. */
-  --paper:    #FFFDF7;   /* canvas — warm white, brighter than the rest */
+  --paper:    #FCFCF9;   /* canvas — near-white with a whisper of warmth */
   --cream:    #ECEEEF;   /* secondary surface — input bg, even rows, hover */
   --soft:     #DEE1E2;   /* tertiary — hover on cream, swatches */
   --rail-bg:  #D6DADB;   /* rail — slightly darker than soft so it recedes */
@@ -263,7 +263,7 @@
 
   /* Brand — deep cool indigo */
   --indigo:      #2C4A60;
-  --indigo-2:    #1B3447;
+    --indigo-2:    #1B3447;
   --indigo-soft: rgba(44, 74, 96, 0.10);
   --indigo-tint: rgba(44, 74, 96, 0.18);
 

@@ -82,6 +82,7 @@ export interface Go {
   id: string;
   user_id: string;
   task_id: string | null;
+  step_id: string | null;
   title: string;
   description: string;
   kind: GoKind;
@@ -98,6 +99,31 @@ export interface Go {
   created_at: string;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Step — milestone phase inside a Goal. Goal → Step → Go.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type StepStatus = 'not_started' | 'in_progress' | 'done';
+
+export interface Step {
+  id: string;
+  user_id: string;
+  goal_id: string;
+  title: string;
+  description: string;
+  position: number;
+  status: StepStatus;
+  start_date: string | null;
+  end_date: string | null;
+  completed_at: string | null;
+  /** Total non-routine Gos attached to this Step. */
+  gos_count: number;
+  /** Subset of gos_count that count as "done today". */
+  gos_done: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -112,6 +138,7 @@ export interface Task {
   gos: Go[];
   tags: Tag[];
   routines: GoalRoutineLink[];
+  steps: Step[];
   progress: number;
   created_at: string;
   updated_at: string;
