@@ -123,7 +123,7 @@ export default function GoalsView() {
   }, [goals]);
 
   const onLogGo = useCallback(
-    (go: Go, v: number) => { void gos.logToday(go.id, v); },
+    (go: Go, v: number) => { void gos.logFor(go, v); },
     [gos],
   );
 

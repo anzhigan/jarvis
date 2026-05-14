@@ -56,9 +56,12 @@ function accentFor(goalId: string): string {
 const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-function todayValue(go: Go): number {
-  const k = ymd(new Date());
-  return go.entries.find((e) => e.date === k)?.value ?? 0;
+/** The entry value that matters for this go's display:
+ *  past/future gos use their due_date entry; today/no-due use today's. */
+function relevantValue(go: Go): number {
+  const today = ymd(new Date());
+  const date = go.due_date && go.due_date !== today ? go.due_date : today;
+  return go.entries.find((e) => e.date === date)?.value ?? 0;
 }
 
 function fmtToday(): string {
@@ -141,15 +144,17 @@ export function GoView({ gos: allGos, goals, mode, onLog, onSkip, onSelectGoal }
   const [goalsFilter, setGoalsFilter] = useState<Set<string> | null>(null);
   const [shownLimit, setShownLimit] = useState<number>(PAGE_SIZE);
 
-  // Day-bucket filter: past / today / future. A go without a due_date falls
-  // into "today" so standalone daily checks stay visible.
+  // Day-bucket filter: past / today / future, derived purely from due_date.
+  // Standalone gos (no due_date) live in the Today bucket as daily checks.
+  // We intentionally don't pull "is_done_today=true" gos into Today — that
+  // used to leak past gos into Today after their late-completion click.
   const dayFiltered = useMemo(() => {
     const today = ymd(new Date());
     return allGos.filter((g) => {
       const due = g.due_date;
       if (dayFilter === 'past')   return !!due && due < today;
       if (dayFilter === 'future') return !!due && due > today;
-      return !due || due === today || g.is_done_today;
+      return !due || due === today;
     });
   }, [allGos, dayFilter]);
 
@@ -827,7 +832,7 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip }: TgProps) {
       {step.title}
     </span>
   ) : null;
-  const value = todayValue(go);
+  const value = relevantValue(go);
   const target = go.target_value ?? 1;
   const targetMet = go.kind === 'numeric'
     ? (go.target_value !== null && value >= go.target_value)

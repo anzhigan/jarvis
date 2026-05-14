@@ -950,11 +950,11 @@
 }
 .tg-card-title {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--ink);
   letter-spacing: var(--tracking-tight);
-  line-height: 1.2;
+  line-height: 1.25;
   margin: 0;
 }
 .tg-card[data-done] .tg-card-title { color: var(--ink-3); }

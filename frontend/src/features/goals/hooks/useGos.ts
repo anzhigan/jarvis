@@ -120,7 +120,23 @@ export function useGos(goals?: GoalsLibrary) {
     }
   }, [refresh]);
 
-  return { gos, loading, refresh, grouped, createGo, updateGo, deleteGo, logToday };
+  /** Log a value for a Go on its "relevant" date:
+   *  - past / future gos with a due_date → that date (so completion is
+   *    recorded on the proper day and the go doesn't leak into Today)
+   *  - today / no-due-date gos → today
+   */
+  const logFor = useCallback(async (go: Go, value: number) => {
+    const today = ymd(new Date());
+    const date = go.due_date && go.due_date !== today ? go.due_date : today;
+    try {
+      await gosApi.upsertEntry(go.id, date, value);
+      await refresh();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to log Go');
+    }
+  }, [refresh]);
+
+  return { gos, loading, refresh, grouped, createGo, updateGo, deleteGo, logToday, logFor };
 }
 
 export type GosLibrary = ReturnType<typeof useGos>;
