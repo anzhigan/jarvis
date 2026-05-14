@@ -1,5 +1,5 @@
-import { memo, useMemo, useState } from 'react';
-import { Check, ChevronRight, Flag, Plus, Repeat, Unlink2, X } from 'lucide-react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronRight, Flag, Pencil, Plus, Repeat, Unlink2, X } from 'lucide-react';
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor,
   useDraggable, useDroppable, useSensor, useSensors,
@@ -82,6 +82,17 @@ function GoalCardContent({
   onToggleExpand?: (e: React.MouseEvent | React.KeyboardEvent) => void;
   callbacks?: CardCallbacks;
 }) {
+  // Collapsible description (mirrors tg-card behavior).
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [descTruncated, setDescTruncated] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (descExpanded) return;
+    const el = descRef.current;
+    if (!el) return;
+    setDescTruncated(el.scrollHeight > el.clientHeight + 1);
+  }, [task.description, descExpanded]);
+
   const pct = Math.round(task.progress ?? 0);
   // Always show progress so the goal card carries an at-a-glance % across all
   // statuses (backlog, active, paused, done).
@@ -112,7 +123,26 @@ function GoalCardContent({
           <Flag size={11} />
         </span>
       </div>
-      {task.description && <p className="kc-desc">{task.description}</p>}
+      {task.description?.trim() && (
+        <div className={`kc-desc-block${descExpanded ? ' kc-desc-block--expanded' : ''}`}>
+          <p ref={descRef} className="kc-desc">{task.description}</p>
+          {!descExpanded && descTruncated && (
+            <button
+              type="button"
+              className="kc-desc__more"
+              aria-label="Show full description"
+              onClick={(e) => { e.stopPropagation(); setDescExpanded(true); }}
+            >…</button>
+          )}
+          {descExpanded && descTruncated && (
+            <button
+              type="button"
+              className="kc-desc__less"
+              onClick={(e) => { e.stopPropagation(); setDescExpanded(false); }}
+            >Show less</button>
+          )}
+        </div>
+      )}
 
       {showProgress && (
         <div className="kc-progress">
@@ -193,6 +223,23 @@ function GoalChildren({
     [task.steps],
   );
 
+  // Split task.gos: those attached to a step go inside the matching StepSubcard,
+  // orphans (no step_id) render under the standalone "Gos" section below.
+  const { gosByStep, orphanGos } = useMemo(() => {
+    const map = new Map<string, import('../../../api/types').Go[]>();
+    const orphans: import('../../../api/types').Go[] = [];
+    for (const g of task.gos) {
+      if (g.step_id) {
+        const arr = map.get(g.step_id) ?? [];
+        arr.push(g);
+        map.set(g.step_id, arr);
+      } else {
+        orphans.push(g);
+      }
+    }
+    return { gosByStep: map, orphanGos: orphans };
+  }, [task.gos]);
+
   return (
     <>
       {(sortedSteps.length > 0 || callbacks?.onAddStep) && (
@@ -202,8 +249,10 @@ function GoalChildren({
             <StepSubcard
               key={s.id}
               step={s}
-              onClick={callbacks?.onEditStep}
+              gos={gosByStep.get(s.id) ?? []}
+              onEdit={callbacks?.onEditStep}
               onAddGoInStep={callbacks?.onAddGo ? () => callbacks.onAddGo?.(task.id, s.id) : undefined}
+              onToggleGo={callbacks?.onToggleGoDone}
             />
           ))}
           {callbacks?.onAddStep && (
@@ -219,10 +268,12 @@ function GoalChildren({
         </div>
       )}
 
-      {(task.gos.length > 0 || callbacks?.onAddGo) && (
+      {(orphanGos.length > 0 || callbacks?.onAddGo) && (
         <div className="kc-section">
-          <div className="kc-section-label">Gos</div>
-          {task.gos.map((g) => (
+          <div className="kc-section-label">
+            {sortedSteps.length > 0 ? 'Gos · no step' : 'Gos'}
+          </div>
+          {orphanGos.map((g) => (
             <GoSubcard key={g.id} go={g} onToggle={callbacks?.onToggleGoDone} />
           ))}
           {callbacks?.onAddGo && (
@@ -271,16 +322,19 @@ type RoutineCellState = 'done' | 'partial' | 'skipped' | 'empty';
 const ymdDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-/** Step shown inline inside a Kanban goal card — title, status, gos counter.
- *  Click anywhere on the row → edit. The "+ Go" affordance creates a Go that's
- *  already attached to this step. */
+/** Step shown inline inside a Kanban goal card — title, status, gos counter,
+ *  expandable to reveal its attached Gos. Row click toggles expand; pencil
+ *  icon opens edit; "+ Go" creates a Go pre-attached to this step. */
 const StepSubcard = memo(function StepSubcard({
-  step, onClick, onAddGoInStep,
+  step, gos, onEdit, onAddGoInStep, onToggleGo,
 }: {
   step: import('../../../api/types').Step;
-  onClick?: (step: import('../../../api/types').Step) => void | Promise<void>;
+  gos: import('../../../api/types').Go[];
+  onEdit?: (step: import('../../../api/types').Step) => void | Promise<void>;
   onAddGoInStep?: () => void;
+  onToggleGo?: (go: import('../../../api/types').Go) => void | Promise<void>;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const state = step.status === 'done'
     ? 'done'
     : step.status === 'in_progress' ? 'active' : 'upcoming';
@@ -289,16 +343,29 @@ const StepSubcard = memo(function StepSubcard({
       className="kc-child"
       data-kind="step"
       data-state={state}
-      onClick={(e) => { e.stopPropagation(); onClick?.(step); }}
-      role="button"
-      tabIndex={0}
+      data-expanded={expanded || undefined}
     >
-      <div className="kc-child-row">
+      <div
+        className="kc-child-row"
+        onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+        role="button"
+        tabIndex={0}
+      >
+        <ChevronRight size={12} className="kc-child-chevron" />
         <span className="kc-child-num">{String(step.position + 1).padStart(2, '0')}</span>
         <span className="kc-child-name">{step.title}</span>
         <span className="kc-child-meta-inline">
           {step.gos_done} / {step.gos_count}
         </span>
+        {onEdit && (
+          <button
+            type="button"
+            className="kc-child-icon"
+            title="Edit step"
+            aria-label="Edit step"
+            onClick={(e) => { e.stopPropagation(); onEdit(step); }}
+          ><Pencil size={10} /></button>
+        )}
         {onAddGoInStep && (
           <button
             type="button"
@@ -309,6 +376,17 @@ const StepSubcard = memo(function StepSubcard({
           ><Plus size={11} /></button>
         )}
       </div>
+      {expanded && (
+        <div className="kc-step-children">
+          {gos.length === 0 ? (
+            <div className="kc-step-empty">No gos in this step yet.</div>
+          ) : (
+            gos.map((g) => (
+              <GoSubcard key={g.id} go={g} onToggle={onToggleGo} />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 });

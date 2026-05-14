@@ -149,6 +149,12 @@
   line-height: 1.25;
   letter-spacing: var(--tracking-tight);
   margin: 0 0 4px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.kc-desc-block {
+  position: relative;
+  min-width: 0;
 }
 .kc-desc {
   font-family: var(--font-body);
@@ -156,7 +162,46 @@
   line-height: 1.45;
   color: var(--ink-3);
   margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
+.kc-desc-block--expanded .kc-desc {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+.kc-desc__more {
+  position: absolute;
+  bottom: 0; right: 0;
+  padding: 0 0 0 24px;
+  background: linear-gradient(to right, transparent 0%, var(--paper) 30%);
+  border: 0;
+  color: var(--ink-4);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.kc-desc__more:hover { color: var(--indigo); }
+.kc-desc__less {
+  display: inline-flex; align-items: center;
+  margin-top: 4px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--ink-4);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.kc-desc__less:hover { color: var(--indigo); }
 .kc-progress {
   display: flex; align-items: center; gap: 10px;
   margin-top: 12px;
@@ -311,6 +356,54 @@
   background: var(--indigo);
   border-color: var(--indigo);
   color: var(--paper);
+}
+
+/* Edit pencil — visible on hover, edits the step. */
+.kc-child-icon {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-control);
+  color: var(--ink-5);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: all var(--dur-fast) var(--ease);
+}
+.kc-child:hover .kc-child-icon { opacity: 0.8; }
+.kc-child-icon:hover { background: var(--cream); color: var(--ink-2); opacity: 1; }
+
+/* Step expand chevron — rotates 90° when expanded. */
+.kc-child-chevron {
+  color: var(--ink-4);
+  transition: transform var(--dur-fast) var(--ease);
+  flex-shrink: 0;
+}
+.kc-child[data-expanded] .kc-child-chevron {
+  transform: rotate(90deg);
+  color: var(--ink-2);
+}
+
+/* Nested Gos rendered when a step is expanded. Indented under the step row. */
+.kc-step-children {
+  display: flex; flex-direction: column;
+  gap: 4px;
+  padding: 6px 6px 4px 22px;
+  margin-top: 2px;
+  border-left: 1px dashed var(--hairline-strong);
+  margin-left: 12px;
+}
+.kc-step-empty {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink-5);
+  padding: 6px 4px;
+}
+/* Slightly smaller Go subcards inside steps to keep the goal card dense. */
+.kc-step-children .kc-child {
+  padding: 6px 8px;
 }
 
 .kc-child-row {
