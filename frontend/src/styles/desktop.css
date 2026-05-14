@@ -549,6 +549,15 @@
   background: var(--indigo);
 }
 .rail-btn svg { width: 17px; height: 17px; }
+
+/* Section-specific rail buttons (Hide-sidebar appears only in Notes) reserve
+   their slot through this placeholder when inactive — so the nav buttons
+   below stay anchored at the same vertical position across all sections. */
+.rail-btn-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; align-items: center; }
 .rail-avatar {
   width: 32px; height: 32px;

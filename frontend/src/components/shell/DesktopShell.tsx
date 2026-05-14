@@ -74,7 +74,10 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
               <Search />
             </button>
           </Tooltip>
-          {tab === 'notes' && (
+          {/* Hide-sidebar slot — only active in Notes, but the slot is always
+              present (rendered as a hidden placeholder elsewhere) so the nav
+              buttons below stay in the same vertical position across sections. */}
+          {tab === 'notes' ? (
             <Tooltip content={notesPaneCollapsed ? 'Show sidebar' : 'Hide sidebar'} side="right">
               <button
                 className="rail-btn"
@@ -88,6 +91,8 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
                 <PanelLeft />
               </button>
             </Tooltip>
+          ) : (
+            <div className="rail-btn rail-btn-placeholder" aria-hidden="true" />
           )}
         </div>
 
