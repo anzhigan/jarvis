@@ -365,8 +365,18 @@ export interface ScheduleSlot {
   note: string;
 }
 
+export interface ScheduleSummary {
+  /** What to prioritise today. */
+  focus: string;
+  /** Where the user is on/ahead of track. */
+  doing_well: string;
+  /** Stale work, overdue items, falling-behind areas. */
+  needs_attention: string;
+}
+
 export interface ScheduleOutput {
   date: string;
+  summary: ScheduleSummary;
   slots: ScheduleSlot[];
   total_active_minutes: number;
 }

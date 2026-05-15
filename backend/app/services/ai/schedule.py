@@ -1,19 +1,23 @@
-"""Schedule handler — turn the user's open Gos + active routines into a
-time-blocked plan for the day.
+"""Schedule handler — turn the user's open Gos into a time-blocked plan,
+plus a short narrative reading their broader state (focus / strengths /
+weaknesses). Routines are intentionally excluded — they live in their
+own cadence and the user manages them separately.
 
 Data flow:
-  1. Load Gos with due_date == target_date (owned by user).
-  2. Load active routines that fire on target_date (non-paused, in window,
-     and schedule_type indicates today).
-  3. Build prompt with this context + work hours.
-  4. LLM emits {date, slots[]} JSON.
-  5. Parse + light post-processing (sort by start_time, compute active minutes).
+  1. Load Gos due_date == target_date (today's targets — to schedule).
+  2. Load overdue Gos (due_date < target_date, within 30-day window — for
+     "needs attention" narrative).
+  3. Load active Goals (Task rows with status='active' — for "focus" /
+     overall context).
+  4. Build prompt with this context + work hours.
+  5. LLM emits {date, summary, slots[]} JSON.
+  6. Parse + post-process.
 
 The output is stored as job.output_json. Phase 6b will add commit-to-sprint.
 """
 import json
 import logging
-from datetime import date as date_cls
+from datetime import date as date_cls, timedelta
 from typing import Any
 
 from pydantic import ValidationError
@@ -21,86 +25,93 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai import AIJob
-from app.models.tasks import Go, Routine, Task
-from app.schemas.ai import ScheduleCreate, ScheduleSlot
+from app.models.tasks import Go, Task
+from app.schemas.ai import ScheduleCreate, ScheduleSlot, ScheduleSummary
 from app.services.ai.jobs import register_handler
 from app.services.ai.ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
 
+# How far back we look for overdue items — past this, an item is essentially
+# abandoned and not worth surfacing in today's narrative.
+OVERDUE_WINDOW_DAYS = 30
+
 
 SYSTEM_PROMPT = """\
 /no_think
 
-You are a productivity planner. Given a user's tasks for today and their work \
-hours, you produce a realistic time-blocked schedule. Hard rules:
-1. Output language must match the language of the user's task titles.
-2. Slot times must fall within the given work hours and not overlap.
-3. Always include at least one short break (10-15 min) between deep blocks. \
-Include a 30-60 min lunch around mid-day.
-4. Each slot is concrete: a single goal-work block (not "miscellaneous tasks").
-5. Group routines into one routine_block if there are 3+ on the same day.
+You are a productivity planner + coach. Given the user's Go-tasks for today, \
+overdue tasks, and active goals — you produce TWO things:
+  a) a short narrative reading their state (focus / strengths / weaknesses),
+  b) a time-blocked schedule of TODAY's go-tasks only.
+
+Hard rules:
+1. Output language matches the language of the user's task titles.
+2. Schedule slots come ONLY from today's go-tasks. Do NOT invent slots; do NOT \
+include routines or backlog items. Group breaks/lunch sensibly between blocks.
+3. Slot times fall within the work hours and do not overlap.
+4. Always include at least one 10-15 min break between deep blocks, and a \
+30-60 min lunch around mid-day.
+5. The narrative summary is grounded in the actual data — no platitudes. \
+Each of {focus, doing_well, needs_attention} is 1-2 sentences. If you genuinely \
+can't observe something, leave that field as empty string "".
 6. Output STRICTLY valid JSON. No prose, no markdown, no <think> blocks."""
-
-
-def _routine_fires_on(r: Routine, d: date_cls) -> bool:
-    """Best-effort: include daily routines and weekly_on_days that match weekday.
-
-    every_n_days / times_per_week / month — phase-6b territory. We don't have
-    last-fire data here, so we conservatively SKIP them rather than over-include.
-    """
-    if r.is_paused:
-        return False
-    if r.start_date and r.start_date > d:
-        return False
-    if r.end_date and r.end_date < d:
-        return False
-    if r.schedule_type == "daily":
-        return True
-    if r.schedule_type == "weekly_on_days":
-        weekday = d.weekday()  # 0=Mon
-        days = [int(x) for x in (r.schedule_days or "").split(",") if x.strip().isdigit()]
-        return weekday in days
-    return False
 
 
 async def _load_today_context(
     user_id, target_date: date_cls, db: AsyncSession,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Return {gos: [...], routines: [...]} for the prompt."""
-    # Gos due today, owned by user.
-    gos_q = await db.execute(
+    """Return today's gos + overdue gos + active goals (for narrative)."""
+    # --- Today's Go items (scheduling input) ---
+    today_q = await db.execute(
         select(Go, Task).outerjoin(Task, Go.task_id == Task.id)
         .where(Go.user_id == user_id, Go.due_date == target_date),
     )
-    gos: list[dict] = []
-    for go, task in gos_q.all():
-        gos.append({
+    today_gos: list[dict] = []
+    for go, task in today_q.all():
+        today_gos.append({
             "id": str(go.id),
             "title": go.title,
             "goal": task.title if task else None,
-            "kind": go.kind,
-            "target_value": go.target_value,
-            "unit": go.unit or None,
         })
 
-    # Active routines firing today.
-    routines_q = await db.execute(
-        select(Routine).where(Routine.user_id == user_id, Routine.is_paused.is_(False)),
+    # --- Overdue Go items (narrative input only — NOT scheduled) ---
+    overdue_cutoff = target_date - timedelta(days=OVERDUE_WINDOW_DAYS)
+    overdue_q = await db.execute(
+        select(Go, Task).outerjoin(Task, Go.task_id == Task.id).where(
+            Go.user_id == user_id,
+            Go.due_date.isnot(None),
+            Go.due_date < target_date,
+            Go.due_date >= overdue_cutoff,
+        ),
     )
-    routines: list[dict] = []
-    for r in routines_q.scalars().all():
-        if not _routine_fires_on(r, target_date):
-            continue
-        routines.append({
-            "id": str(r.id),
-            "title": r.title,
-            "kind": r.kind,
-            "target_value": r.target_value,
-            "unit": r.unit or None,
+    overdue_gos: list[dict] = []
+    for go, task in overdue_q.all():
+        days_overdue = (target_date - go.due_date).days if go.due_date else None
+        overdue_gos.append({
+            "id": str(go.id),
+            "title": go.title,
+            "goal": task.title if task else None,
+            "days_overdue": days_overdue,
         })
 
-    return {"gos": gos, "routines": routines}
+    # --- Active goals (high-level context for the narrative) ---
+    goals_q = await db.execute(
+        select(Task).where(Task.user_id == user_id, Task.status == "active"),
+    )
+    active_goals: list[dict] = []
+    for t in goals_q.scalars().all():
+        active_goals.append({
+            "title": t.title,
+            "priority": t.priority,
+            "has_due_date": t.due_date is not None,
+        })
+
+    return {
+        "today_gos": today_gos,
+        "overdue_gos": overdue_gos,
+        "active_goals": active_goals,
+    }
 
 
 def _build_prompt(
@@ -110,9 +121,10 @@ def _build_prompt(
     context: dict,
     prefs: list[str],
 ) -> str:
-    gos_block = json.dumps(context["gos"], ensure_ascii=False, indent=2)
-    routines_block = json.dumps(context["routines"], ensure_ascii=False, indent=2)
-    prefs_block = ", ".join(prefs) if prefs else "(no special preferences)"
+    today_block    = json.dumps(context["today_gos"],   ensure_ascii=False, indent=2)
+    overdue_block  = json.dumps(context["overdue_gos"], ensure_ascii=False, indent=2)
+    goals_block    = json.dumps(context["active_goals"], ensure_ascii=False, indent=2)
+    prefs_block    = ", ".join(prefs) if prefs else "(no special preferences)"
 
     return f"""\
 Plan the day {target_date.isoformat()} for the user.
@@ -120,27 +132,42 @@ Plan the day {target_date.isoformat()} for the user.
 Work hours: {start_h:02d}:00 to {end_h:02d}:00.
 Preferences: {prefs_block}.
 
-Today's GO items (one-off tasks due today):
-{gos_block}
+═══ TODAY'S GO ITEMS (the ONLY source for schedule slots) ═══
+{today_block}
 
-Today's active ROUTINES:
-{routines_block}
+═══ OVERDUE GO ITEMS (for narrative only — do NOT schedule) ═══
+{overdue_block}
 
-Build a time-blocked schedule. For each goal-work block, set source_kind="go" \
-and source_id to the Go's id from above. For routine blocks, source_kind="routine" \
-(or use one consolidated block if there are 3+ routines). For breaks/lunch, omit \
-source_kind/source_id.
+═══ ACTIVE GOALS (high-level context for narrative) ═══
+{goals_block}
+
+Build:
+1. `summary`: 3 short observations about the user's state.
+   - focus: what to prioritise today (lean on today's gos + their goals).
+   - doing_well: anything observably on track (e.g. high-priority goal has \
+items moving today, no overdue items in some goal, etc.).
+   - needs_attention: stale work, overdue items, goals without due dates, etc.
+   Be concrete and reference real numbers/titles. Empty string "" if you genuinely \
+can't observe something.
+2. `slots`: time-blocked schedule from TODAY'S go-tasks only. For each goal-work \
+slot, set source_kind="go" and source_id to the Go's id. For breaks/lunch, omit \
+both. Do NOT include overdue items, routines, or invented tasks.
 
 JSON schema:
 {{
   "date": "{target_date.isoformat()}",
+  "summary": {{
+    "focus": "...",
+    "doing_well": "...",
+    "needs_attention": "..."
+  }},
   "slots": [
     {{
       "start_time": "09:00",
       "end_time": "09:45",
-      "kind": "goal" | "routine" | "deep_work" | "admin" | "break" | "lunch" | "other",
+      "kind": "goal" | "deep_work" | "admin" | "break" | "lunch" | "other",
       "title": "Short title",
-      "source_kind": "go" | "task" | "routine" | null,
+      "source_kind": "go" | null,
       "source_id": "<uuid>" | null,
       "note": "1-line rationale"
     }}
@@ -178,8 +205,17 @@ def _parse_output(raw: str) -> dict:
 
     # Sort by start_time; light post-processing.
     slots.sort(key=lambda s: s.start_time)
+
+    # Summary — best-effort parse. Missing keys default to "".
+    summary_raw = data.get("summary") or {}
+    try:
+        summary = ScheduleSummary.model_validate(summary_raw if isinstance(summary_raw, dict) else {})
+    except ValidationError:
+        summary = ScheduleSummary()
+
     return {
         "date": str(data.get("date", "")),
+        "summary": summary.model_dump(mode="json"),
         "slots": [s.model_dump(mode="json") for s in slots],
         "total_active_minutes": int(data.get("total_active_minutes") or 0),
     }
@@ -211,9 +247,12 @@ async def run_schedule_job(
         raise ValueError("hours.end_h must be greater than hours.start_h")
 
     context = await _load_today_context(job.user_id, target_date, db)
-    if not context["gos"] and not context["routines"]:
+    if not context["today_gos"]:
+        # Even with overdue items + active goals, without anything due TODAY we
+        # have no slots to build — let the UI surface a friendly empty state.
         raise ValueError(
-            "no open gos or active routines for this date — nothing to schedule",
+            "no open go-tasks due on this date — add a task with today's "
+            "due date to plan your day",
         )
 
     prompt = _build_prompt(
@@ -234,8 +273,9 @@ async def run_schedule_job(
         output = _parse_output(raw)
 
     logger.info(
-        "schedule generated: date=%s slots=%d gos=%d routines=%d",
+        "schedule generated: date=%s slots=%d today_gos=%d overdue=%d goals=%d",
         target_date, len(output["slots"]),
-        len(context["gos"]), len(context["routines"]),
+        len(context["today_gos"]), len(context["overdue_gos"]),
+        len(context["active_goals"]),
     )
     return output

@@ -455,6 +455,49 @@
 }
 .ai-btn--ghost:hover:not(:disabled) { background: var(--cream); color: var(--ink); }
 
+/* ── Schedule narrative summary (above the timeline) ───────────────────── */
+.ai-sched-summary {
+  display: flex; flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+.ai-sched-summary__row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--paper);
+  border-left: 3px solid var(--indigo);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+}
+.ai-sched-summary__row[data-tone="success"] { border-left-color: var(--moss); }
+.ai-sched-summary__row[data-tone="warning"] { border-left-color: var(--ochre); }
+.ai-sched-summary__row[data-tone="focus"]   { border-left-color: var(--indigo); }
+
+.ai-sched-summary__label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.ai-sched-summary__row[data-tone="success"] .ai-sched-summary__label { color: var(--moss); }
+.ai-sched-summary__row[data-tone="warning"] .ai-sched-summary__label { color: var(--ochre); }
+.ai-sched-summary__row[data-tone="focus"]   .ai-sched-summary__label { color: var(--indigo); }
+
+.ai-sched-summary__text {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0;
+}
+
 /* ── Schedule timeline (vertical, rail-of-dots) ─────────────────────────── */
 .ai-tl {
   position: relative;

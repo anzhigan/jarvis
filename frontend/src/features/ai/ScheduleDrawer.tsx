@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { Drawer } from '../../components/ui';
-import type { AIJob, ScheduleOutput, ScheduleSlot, ScheduleSlotKind } from '../../api/types';
+import type {
+  AIJob, ScheduleOutput, ScheduleSlot, ScheduleSlotKind, ScheduleSummary,
+} from '../../api/types';
 import { useAIJob } from './useAIJob';
 import './ai.css';
 
@@ -70,8 +72,36 @@ export function ScheduleDrawer({ jobId, dateLabel, onClose, onRegenerate }: Prop
     >
       {view.kind === 'loading' && <LoadingView job={view.job} />}
       {view.kind === 'failed'  && <FailedView error={view.error} />}
-      {view.kind === 'result'  && <ResultView slots={view.data.slots} />}
+      {view.kind === 'result'  && (
+        <>
+          <SummaryCard summary={view.data.summary} />
+          <ResultView slots={view.data.slots} />
+        </>
+      )}
     </Drawer>
+  );
+}
+
+
+// ── Narrative summary card (above the timeline) ──────────────────────────────
+
+function SummaryCard({ summary }: { summary: ScheduleSummary | undefined }) {
+  if (!summary) return null;
+  const rows: { tone: 'focus' | 'success' | 'warning'; label: string; text: string }[] = [];
+  if (summary.focus?.trim())            rows.push({ tone: 'focus',   label: 'Focus',     text: summary.focus });
+  if (summary.doing_well?.trim())       rows.push({ tone: 'success', label: 'On track',  text: summary.doing_well });
+  if (summary.needs_attention?.trim())  rows.push({ tone: 'warning', label: 'Needs attention', text: summary.needs_attention });
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="ai-sched-summary">
+      {rows.map((r) => (
+        <div className="ai-sched-summary__row" data-tone={r.tone} key={r.label}>
+          <div className="ai-sched-summary__label">{r.label}</div>
+          <p className="ai-sched-summary__text">{r.text}</p>
+        </div>
+      ))}
+    </div>
   );
 }
 

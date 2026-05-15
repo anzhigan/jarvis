@@ -197,7 +197,15 @@ class ScheduleSlot(BaseModel):
     note: str = ""                    # 1-line rationale from the model
 
 
+class ScheduleSummary(BaseModel):
+    """Narrative observations the model adds alongside the schedule."""
+    focus: str = ""           # what to prioritise today
+    doing_well: str = ""      # where the user is on/ahead of track
+    needs_attention: str = "" # stale work, falling behind, gaps
+
+
 class ScheduleOutput(BaseModel):
     date: str
+    summary: ScheduleSummary = Field(default_factory=ScheduleSummary)
     slots: list[ScheduleSlot]
     total_active_minutes: int
