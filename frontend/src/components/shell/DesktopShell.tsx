@@ -58,10 +58,11 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
       <aside className="rail">
         <div className="rail-brand" aria-label="Jarvnote">
           <svg viewBox="0 0 32 32" fill="none">
-            <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth={1.4} fill="none" />
+            {/* Ring removed; sparkle grows to fill the box. Path is the same
+                four-point editorial sparkle from before, scaled to 28px tall. */}
             <g transform="rotate(25 16 16)">
               <path
-                d="M16 5 C16 11 13.5 13.5 8 16 C13.5 18.5 16 21 16 27 C16 21 18.5 18.5 24 16 C18.5 13.5 16 11 16 5 Z"
+                d="M16 2 C16 9 13 12 5 16 C13 20 16 23 16 30 C16 23 19 20 27 16 C19 12 16 9 16 2 Z"
                 fill="currentColor"
               />
             </g>

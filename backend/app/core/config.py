@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     OLLAMA_URL: str = "http://localhost:11434"
     LLM_MODEL: str = "qwen3:8b"
     EMBED_MODEL: str = "nomic-embed-text"
-    LLM_REQUEST_TIMEOUT_S: int = 600
+    LLM_REQUEST_TIMEOUT_S: int = 1200
     EMBED_DIM: int = 768
 
     # Observability — Sentry is opt-in. Empty DSN = no-op.
