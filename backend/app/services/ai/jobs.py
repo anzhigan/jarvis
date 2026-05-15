@@ -70,8 +70,13 @@ async def create_job(
     input_data: dict[str, Any],
     eta_seconds: int | None,
     db: AsyncSession,
+    cache_key: str | None = None,
 ) -> AIJob:
-    """Insert a queued job row. Caller must commit (or rely on get_db's commit)."""
+    """Insert a queued job row. Caller must commit (or rely on get_db's commit).
+
+    `cache_key`: content fingerprint of inputs. When set, future requests with
+    the same key will short-circuit to the prior result. See services/ai/cache.py.
+    """
     if kind not in _HANDLERS:
         raise ValueError(f"unknown job kind: {kind!r}")
     job = AIJob(
@@ -80,6 +85,7 @@ async def create_job(
         status="queued",
         input_json=input_data,
         eta_seconds=eta_seconds,
+        cache_key=cache_key,
     )
     db.add(job)
     await db.flush()

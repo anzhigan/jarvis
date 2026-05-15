@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # LLM (local Ollama runtime). Empty OLLAMA_URL disables AI features entirely.
     OLLAMA_URL: str = "http://localhost:11434"
-    LLM_MODEL: str = "qwen3:4b"
+    LLM_MODEL: str = "qwen3:8b"
     EMBED_MODEL: str = "nomic-embed-text"
     LLM_REQUEST_TIMEOUT_S: int = 300
     EMBED_DIM: int = 768

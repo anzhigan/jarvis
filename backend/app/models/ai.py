@@ -52,6 +52,9 @@ class AIJob(Base):
     output_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     eta_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Content-fingerprint of inputs. See app.services.ai.cache. Filtered index
+    # in migration 024 makes lookups by (user_id, kind, cache_key) cheap.
+    cache_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC),
     )

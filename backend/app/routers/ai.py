@@ -38,6 +38,12 @@ from app.schemas.ai import (
     TasksCommitOutput,
     TasksExtractCreate,
 )
+from app.services.ai.cache import (
+    find_cached,
+    quiz_cache_key,
+    schedule_cache_key,
+    tasks_extract_cache_key,
+)
 from app.services.ai.jobs import (
     cancel_job,
     create_job,
@@ -210,6 +216,14 @@ async def create_quiz(
     # Ownership check up-front (catches "wrong UUID" or "someone else's note").
     await _check_note_owned(body.scope.id, user.id, db)
 
+    # Cache lookup: if note content + params unchanged since last run, return
+    # the prior done-job. Frontend's polling will see status=done immediately.
+    cache_key = await quiz_cache_key(body.scope.id, body.difficulty, body.count, db)
+    if cache_key is not None:
+        cached = await find_cached(cache_key, user.id, "quiz", db)
+        if cached is not None:
+            return cached
+
     async with OllamaClient() as ollama:
         if not await ollama.health():
             raise HTTPException(
@@ -222,6 +236,7 @@ async def create_quiz(
         kind="quiz",
         input_data=body.model_dump(mode="json"),
         eta_seconds=_estimate_eta("quiz", body.model_dump()),
+        cache_key=cache_key,
         db=db,
     )
     # Commit BEFORE scheduling: see comment in enqueue_job above.
@@ -344,6 +359,13 @@ async def create_tasks_extract(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="scope.kind must be 'note'")
     await _check_note_owned(body.scope.id, user.id, db)
 
+    # Cache lookup: same note content → return prior extraction.
+    cache_key = await tasks_extract_cache_key(body.scope.id, db)
+    if cache_key is not None:
+        cached = await find_cached(cache_key, user.id, "tasks_extract", db)
+        if cached is not None:
+            return cached
+
     async with OllamaClient() as ollama:
         if not await ollama.health():
             raise HTTPException(
@@ -356,6 +378,7 @@ async def create_tasks_extract(
         kind="tasks_extract",
         input_data=body.model_dump(mode="json"),
         eta_seconds=_estimate_eta("tasks_extract", body.model_dump()),
+        cache_key=cache_key,
         db=db,
     )
     await db.commit()
@@ -452,6 +475,25 @@ async def create_schedule(
     the LLM to time-block them within the given work hours. No persistence
     beyond job.output_json in this phase — Phase 6b adds commit-to-sprint.
     """
+    # Resolve date once — needed both for cache key and for the run itself.
+    target_date = datetime.now(UTC).date()
+    if body.date:
+        try:
+            target_date = datetime.fromisoformat(body.date).date()
+        except ValueError:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"invalid date {body.date!r}",
+            )
+
+    # Cache lookup: if Gos haven't changed since last run, return prior schedule.
+    cache_key = await schedule_cache_key(
+        user.id, target_date, body.hours.start_h, body.hours.end_h, db,
+    )
+    cached = await find_cached(cache_key, user.id, "schedule", db)
+    if cached is not None:
+        return cached
+
     async with OllamaClient() as ollama:
         if not await ollama.health():
             raise HTTPException(
@@ -465,6 +507,7 @@ async def create_schedule(
             kind="schedule",
             input_data=body.model_dump(mode="json"),
             eta_seconds=_estimate_eta("schedule", body.model_dump()),
+            cache_key=cache_key,
             db=db,
         )
     except ValueError as e:
