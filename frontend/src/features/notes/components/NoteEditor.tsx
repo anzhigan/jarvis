@@ -17,6 +17,7 @@ const ShareDialog = lazy(() => import('./ShareDialog'));
 // AI quiz drawer — loaded only after user clicks the AI menu.
 const QuizDrawer = lazy(() => import('../../ai/QuizDrawer').then((m) => ({ default: m.QuizDrawer })));
 const QuizGenerationToast = lazy(() => import('../../ai/QuizGenerationToast').then((m) => ({ default: m.QuizGenerationToast })));
+const TasksDrawer = lazy(() => import('../../ai/TasksDrawer').then((m) => ({ default: m.TasksDrawer })));
 // BubbleMenu / FloatingMenu also live in their own chunk — they pull in
 // floating-ui and the @tiptap/react/menus plugin which we don't need on the
 // notes-library list view.
@@ -575,22 +576,33 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   // without losing it.
   const [quizJobId, setQuizJobId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [tasksJobId, setTasksJobId] = useState<string | null>(null);
   const [quizError, setQuizError] = useState<string | null>(null);
 
   const handleAIAction = useCallback(async (action: 'quiz' | 'tasks_extract' | 'summarize') => {
     if (!note) return;
-    if (action !== 'quiz') return;  // Phase 3 ships quiz only
     setQuizError(null);
     try {
-      const job = await aiApi.createQuiz({
-        scope: { kind: 'note', id: note.id },
-        difficulty: 'medium',
-        count: 5,
-      });
-      setQuizJobId(job.id);
-      setDrawerOpen(true);
+      if (action === 'quiz') {
+        // count=3 by default — on CPU-only inference, 5 questions push the wall-
+        // clock to ~90s while 3 stays under a minute. Future Phase 4 will surface
+        // a picker so the user can opt into longer tests.
+        const job = await aiApi.createQuiz({
+          scope: { kind: 'note', id: note.id },
+          difficulty: 'medium',
+          count: 3,
+        });
+        setQuizJobId(job.id);
+        setDrawerOpen(true);
+      } else if (action === 'tasks_extract') {
+        const job = await aiApi.extractTasks({
+          scope: { kind: 'note', id: note.id },
+        });
+        setTasksJobId(job.id);
+      }
+      // 'summarize' not wired yet — handled by the menu's disabled flag.
     } catch (e) {
-      setQuizError(e instanceof Error ? e.message : 'failed to start quiz');
+      setQuizError(e instanceof Error ? e.message : 'failed to start AI action');
     }
   }, [note]);
 
@@ -624,6 +636,7 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   useEffect(() => {
     setQuizJobId(null);
     setDrawerOpen(false);
+    setTasksJobId(null);
     setQuizError(null);
   }, [note?.id]);
 
@@ -730,6 +743,15 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
           />
         </Suspense>
       )}
+      {tasksJobId !== null && (
+        <Suspense fallback={null}>
+          <TasksDrawer
+            jobId={tasksJobId}
+            noteTitle={note.name || 'untitled'}
+            onClose={() => setTasksJobId(null)}
+          />
+        </Suspense>
+      )}
       {quizError && (
         <div role="alert" className="ai-toast-error">
           {quizError}
@@ -766,7 +788,7 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
               <AIMenuTrigger
                 contextLabel={`«${note.name || 'untitled'}»`}
                 onSelect={handleAIAction}
-                enabledActions={['quiz']}
+                enabledActions={['quiz', 'tasks_extract']}
               />
               <button
                 type="button"

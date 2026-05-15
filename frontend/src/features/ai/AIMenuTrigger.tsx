@@ -35,11 +35,14 @@ const ALL_ITEMS: MenuItem[] = [
   {
     key: 'tasks_extract',
     title: 'Generate tasks',
-    sub: 'вытащить action items',
+    sub: 'вытащить action items в Goals',
     Icon: ListChecks,
     available: true,
   },
 ];
+
+// Sentinel — keep in sync with the default param at the consumer:
+//   <AIMenuTrigger enabledActions={['quiz', 'tasks_extract']} />
 
 export function AIMenuTrigger({
   contextLabel,

@@ -22,6 +22,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.ai import AIJob, AIQuiz, AIQuizAttempt
 from app.models.notes import Note, Topic, Way
+from app.models.tasks import Go, Step, Task
 from app.models.user import User
 from app.schemas.ai import (
     AIJobBrief,
@@ -32,6 +33,9 @@ from app.schemas.ai import (
     QuizAttemptItemOut,
     QuizAttemptOut,
     QuizCreate,
+    TasksCommitInput,
+    TasksCommitOutput,
+    TasksExtractCreate,
 )
 from app.services.ai.jobs import (
     cancel_job,
@@ -316,4 +320,116 @@ async def submit_attempt(
         items=items,
         next_review_at=next_review,
         completed_at=now,
+    )
+
+
+# ── Tasks-extract feature ────────────────────────────────────────────────────
+
+
+@router.post("/tasks/extract", response_model=AIJobOut, status_code=status.HTTP_202_ACCEPTED)
+async def create_tasks_extract(
+    body: TasksExtractCreate,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Enqueue a tasks-extract job — AI scans a note and proposes action items.
+
+    Returns job_id immediately. Client polls; once done, output.items[] holds
+    {title, quote} pairs. User then calls POST /ai/tasks/commit with picked
+    indices + target Goal/Step to materialise as Go rows.
+    """
+    if body.scope.kind != "note":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="scope.kind must be 'note'")
+    await _check_note_owned(body.scope.id, user.id, db)
+
+    async with OllamaClient() as ollama:
+        if not await ollama.health():
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI runtime is offline. Try again in a moment.",
+            )
+
+    job = await create_job(
+        user_id=user.id,
+        kind="tasks_extract",
+        input_data=body.model_dump(mode="json"),
+        eta_seconds=_estimate_eta("tasks_extract", body.model_dump()),
+        db=db,
+    )
+    await db.commit()
+    background_tasks.add_task(run_job, job.id)
+    return job
+
+
+@router.post("/tasks/commit", response_model=TasksCommitOutput, status_code=status.HTTP_201_CREATED)
+async def commit_tasks(
+    body: TasksCommitInput,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Materialise picked AI-suggested items as real Go rows.
+
+    Validates job ownership, target Goal/Step ownership, indices in range,
+    then creates Go rows in a single transaction. AI suggests, user owns
+    what enters the system — no auto-commit.
+    """
+    # Load + own-check the job.
+    job = await db.get(AIJob, body.job_id)
+    if job is None or job.user_id != user.id or job.kind != "tasks_extract":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="job not found")
+    if job.status != "done":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"job is {job.status}, not done")
+
+    output = job.output_json or {}
+    items = output.get("items") or []
+    if not items:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="job has no items to commit")
+
+    # Validate target Goal/Step ownership (if provided).
+    if body.task_id is not None:
+        task = await db.get(Task, body.task_id)
+        if task is None or task.user_id != user.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="goal not found")
+    if body.step_id is not None:
+        step = await db.get(Step, body.step_id)
+        if step is None or step.user_id != user.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="step not found")
+        # If a Goal was also passed, the Step must belong to that Goal.
+        if body.task_id is not None and step.goal_id != body.task_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="step does not belong to the given goal",
+            )
+
+    # Validate indices are in range, dedup.
+    picked = sorted(set(body.picked))
+    if any(i < 0 or i >= len(items) for i in picked):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="picked index out of range")
+
+    source_title = output.get("source_note_title", "")
+    created: list[Go] = []
+    for i in picked:
+        item = items[i]
+        title = (item.get("title") or "").strip()
+        if not title:
+            continue
+        quote = (item.get("quote") or "").strip()
+        description = f"From «{source_title}»\n\n«{quote}»" if quote else f"From «{source_title}»"
+        go = Go(
+            user_id=user.id,
+            task_id=body.task_id,
+            step_id=body.step_id,
+            title=title[:300],
+            description=description,
+            kind="boolean",
+            item_kind="one_off",
+        )
+        db.add(go)
+        created.append(go)
+    await db.flush()
+
+    return TasksCommitOutput(
+        created_count=len(created),
+        created_ids=[g.id for g in created],
     )
