@@ -46,7 +46,11 @@ services:
       S3_PUBLIC_URL: https://jarvnote.ru/s3/jarvis
       ALLOWED_ORIGINS: https://jarvnote.ru,https://www.jarvnote.ru
       OLLAMA_URL: http://ollama:11434
-      LLM_MODEL: qwen3:8b
+      # qwen3:4b is the sweet spot for CPU inference — 8-10 tok/s on 8 vCPU
+      # (vs 4-5 for 8b). Quality on structured generation tasks (quiz, task
+      # extraction) is within a hair of 8b. Bump to qwen3:8b if you want
+      # slightly better narrative reasoning at the cost of 2-3x slower jobs.
+      LLM_MODEL: qwen3:4b
       EMBED_MODEL: nomic-embed-text
     deploy:
       resources:
