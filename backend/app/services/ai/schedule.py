@@ -21,7 +21,7 @@ from datetime import date as date_cls, timedelta
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai import AIJob
@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 # How far back we look for overdue items — past this, an item is essentially
 # abandoned and not worth surfacing in today's narrative.
 OVERDUE_WINDOW_DAYS = 30
+# Cap on schedulable items so the model isn't drowned in a 50-row backlog.
+MAX_TODAY_GOS = 12
 
 
 SYSTEM_PROMPT = """\
@@ -62,10 +64,25 @@ async def _load_today_context(
     user_id, target_date: date_cls, db: AsyncSession,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return today's gos + overdue gos + active goals (for narrative)."""
-    # --- Today's Go items (scheduling input) ---
+    # --- Schedulable Go items ---
+    # We include items in two buckets:
+    #   - due_date == target_date  (explicitly planned for today)
+    #   - due_date IS NULL         (dateless backlog — user wants them done
+    #                               sometime; AI can place a few each day)
+    # Overdue items (due_date < today) are NOT scheduled — they show up in
+    # the "needs attention" narrative instead.
     today_q = await db.execute(
         select(Go, Task).outerjoin(Task, Go.task_id == Task.id)
-        .where(Go.user_id == user_id, Go.due_date == target_date),
+        .where(
+            Go.user_id == user_id,
+            or_(Go.due_date == target_date, Go.due_date.is_(None)),
+        )
+        .order_by(
+            # Dated-today first (NULLs last), then by creation recency.
+            Go.due_date.desc().nullslast(),
+            Go.created_at.desc(),
+        )
+        .limit(MAX_TODAY_GOS),
     )
     today_gos: list[dict] = []
     for go, task in today_q.all():
@@ -73,6 +90,9 @@ async def _load_today_context(
             "id": str(go.id),
             "title": go.title,
             "goal": task.title if task else None,
+            # Tell the model which are explicitly due today vs dateless backlog.
+            # Helps it weight what to definitely-schedule vs skip if hours tight.
+            "dated_today": go.due_date is not None,
         })
 
     # --- Overdue Go items (narrative input only — NOT scheduled) ---
@@ -132,7 +152,11 @@ Plan the day {target_date.isoformat()} for the user.
 Work hours: {start_h:02d}:00 to {end_h:02d}:00.
 Preferences: {prefs_block}.
 
-═══ TODAY'S GO ITEMS (the ONLY source for schedule slots) ═══
+═══ SCHEDULABLE GO ITEMS (the ONLY source for schedule slots) ═══
+Items with dated_today=true are explicitly due today — schedule them. \
+Items with dated_today=false are dateless backlog — pick 2-4 to slot in if \
+hours allow, skip the rest.
+
 {today_block}
 
 ═══ OVERDUE GO ITEMS (for narrative only — do NOT schedule) ═══

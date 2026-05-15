@@ -476,7 +476,10 @@ export default function GoalsView() {
         go={editingGo}
         goals={goals.tasks}
         onOpenChange={(o) => { if (!o) setEditingGo(null); }}
-        onSaved={goals.refresh}
+        // Refresh both: goals (per-goal go counts hydrated server-side) AND
+        // gos (the dialog's `go` prop comes from this list — without refresh
+        // the next-time-open shows stale data).
+        onSaved={async () => { await Promise.all([goals.refresh(), gos.refresh()]); }}
       />
 
       <RoutineCreateForGoalDialog

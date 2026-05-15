@@ -143,8 +143,8 @@ function LoadingView({ job }: { job: AIJob | null }) {
 
 
 function FailedView({ error }: { error: string }) {
-  const friendly = error.toLowerCase().includes('no open gos')
-    ? 'No tasks due today and no routines scheduled. Add a goal item with today\'s due date or activate a daily routine, then try again.'
+  const friendly = error.toLowerCase().includes('no open go-tasks')
+    ? 'No open Go-tasks found. Create at least one Go in Kanban or Go view, then try again.'
     : error;
   return (
     <div className="ai-empty">
