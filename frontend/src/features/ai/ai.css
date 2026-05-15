@@ -450,6 +450,119 @@
 }
 .ai-btn--primary:hover:not(:disabled) { filter: brightness(1.07); }
 .ai-btn--sm { height: 28px; padding: 5px 12px; font-size: 12.5px; }
+.ai-btn--ghost {
+  background: transparent; color: var(--ink-3);
+}
+.ai-btn--ghost:hover:not(:disabled) { background: var(--cream); color: var(--ink); }
+
+/* ── Schedule timeline (vertical, rail-of-dots) ─────────────────────────── */
+.ai-tl {
+  position: relative;
+  padding-left: 0;
+}
+.ai-tl::before {
+  content: ''; position: absolute;
+  left: 56px; top: 12px; bottom: 12px;
+  width: 1px;
+  background: var(--hairline);
+}
+.ai-tl__slot {
+  display: grid;
+  grid-template-columns: 50px 14px 1fr;
+  align-items: start;
+  gap: 12px;
+  padding: 8px 0;
+}
+.ai-tl__time {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding-top: 3px;
+  line-height: 1.35;
+}
+.ai-tl__dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  margin-top: 6px;
+  margin-left: 3px;
+  background: var(--indigo);
+  box-shadow: 0 0 0 3px var(--paper);
+  position: relative;
+  z-index: 1;
+}
+.ai-tl__slot[data-kind="goal"]      .ai-tl__dot,
+.ai-tl__slot[data-kind="deep_work"] .ai-tl__dot { background: var(--moss); }
+.ai-tl__slot[data-kind="routine"]   .ai-tl__dot { background: var(--ochre); }
+.ai-tl__slot[data-kind="admin"]     .ai-tl__dot { background: var(--slate); }
+.ai-tl__slot[data-kind="lunch"]     .ai-tl__dot { background: var(--walnut); }
+.ai-tl__slot[data-kind="break"]     .ai-tl__dot {
+  background: var(--cream);
+  box-shadow: 0 0 0 3px var(--paper), inset 0 0 0 1px var(--ink-5);
+}
+.ai-tl__body { min-width: 0; }
+.ai-tl__title-row {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 2px;
+}
+.ai-tl__title {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0;
+  line-height: 1.3;
+  flex: 1; min-width: 0;
+}
+.ai-tl__slot[data-kind="break"] .ai-tl__title,
+.ai-tl__slot[data-kind="lunch"] .ai-tl__title {
+  color: var(--ink-3); font-style: italic;
+}
+.ai-tl__kind {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: var(--cream);
+  color: var(--ink-4);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ai-tl__slot[data-kind="goal"]      .ai-tl__kind,
+.ai-tl__slot[data-kind="deep_work"] .ai-tl__kind { background: var(--moss-soft); color: var(--moss); }
+.ai-tl__slot[data-kind="routine"]   .ai-tl__kind { background: var(--ochre-soft); color: var(--ochre); }
+.ai-tl__slot[data-kind="admin"]     .ai-tl__kind { background: var(--slate-soft); color: var(--slate); }
+.ai-tl__note {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-4);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* "Plan day" trigger button — fits next to .new-btn in Goals topbar */
+.ai-plan-trigger {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  background: var(--paper);
+  border: 1px solid var(--indigo-tint);
+  border-radius: var(--r-control);
+  font-family: var(--font-ui);
+  font-size: 12.5px; font-weight: 600;
+  color: var(--indigo);
+  cursor: pointer;
+}
+.ai-plan-trigger:hover:not(:disabled) { background: var(--indigo-soft); }
+.ai-plan-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+
 
 /* ── Result state ─────────────────────────────────────────────────────────── */
 .qz-result {

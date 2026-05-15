@@ -460,6 +460,7 @@ import type {
   QuizAttempt,
   QuizAttemptAnswer,
   QuizCreate,
+  ScheduleCreate,
   TasksCommitInput,
   TasksCommitOutput,
   TasksExtractCreate,
@@ -489,4 +490,7 @@ export const aiApi = {
 
   commitTasks: (body: TasksCommitInput) =>
     request<TasksCommitOutput>('/ai/tasks/commit', { method: 'POST', body: JSON.stringify(body) }),
+
+  createSchedule: (body: ScheduleCreate) =>
+    request<AIJob>('/ai/schedule', { method: 'POST', body: JSON.stringify(body) }),
 };

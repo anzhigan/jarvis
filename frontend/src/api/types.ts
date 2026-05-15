@@ -339,3 +339,34 @@ export interface TasksCommitOutput {
   created_count: number;
   created_ids: string[];
 }
+
+// Schedule (Plan day)
+export interface ScheduleHours {
+  start_h: number;
+  end_h: number;
+}
+
+export interface ScheduleCreate {
+  /** ISO YYYY-MM-DD; empty = server uses today. */
+  date?: string;
+  hours?: ScheduleHours;
+  prefs?: string[];
+}
+
+export type ScheduleSlotKind = 'goal' | 'routine' | 'admin' | 'break' | 'lunch' | 'deep_work' | 'other';
+
+export interface ScheduleSlot {
+  start_time: string;  // HH:MM
+  end_time: string;
+  kind: ScheduleSlotKind;
+  title: string;
+  source_kind: 'go' | 'task' | 'routine' | null;
+  source_id: string | null;
+  note: string;
+}
+
+export interface ScheduleOutput {
+  date: string;
+  slots: ScheduleSlot[];
+  total_active_minutes: number;
+}

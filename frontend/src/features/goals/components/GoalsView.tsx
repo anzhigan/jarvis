@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Go, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
-import { routinesApi } from '../../../api/client';
+import { aiApi, routinesApi } from '../../../api/client';
+
+// Lazy: only when user clicks "Plan day" — ~80kB of Radix Popover + drawer.
+const ScheduleDrawer = lazy(() => import('../../ai/ScheduleDrawer').then((m) => ({ default: m.ScheduleDrawer })));
 import { useGoals } from '../hooks/useGoals';
 import { useGos } from '../hooks/useGos';
 import { useGoalsView, type GoalsViewMode } from '../hooks/useGoalsView';
@@ -55,6 +58,23 @@ export default function GoalsView() {
   // Single-goal ↔ Cross-goal mode for Go view (persisted in localStorage).
   const [goMode, setGoMode] = useState<GoMode>(readGoMode);
   useEffect(() => { localStorage.setItem(GO_MODE_STORAGE, goMode); }, [goMode]);
+
+  // AI "Plan day" — job id while drawer is open. Null = closed.
+  const [scheduleJobId, setScheduleJobId] = useState<string | null>(null);
+
+  const handlePlanDay = useCallback(async () => {
+    try {
+      const job = await aiApi.createSchedule({
+        // Empty date → backend uses UTC today. Good enough; future patch can
+        // pass the user's locale day.
+        date: '',
+        hours: { start_h: 9, end_h: 18 },
+      });
+      setScheduleJobId(job.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to start planning');
+    }
+  }, []);
 
   // Kanban filters — status (single-select) + tags (multi-select) + priority (multi-select).
   const [statusFilter, setStatusFilter]   = useState<StatusFilter>('all');
@@ -251,6 +271,14 @@ export default function GoalsView() {
               </div>
             )}
             <button
+              className="ai-plan-trigger"
+              onClick={handlePlanDay}
+              disabled={scheduleJobId !== null}
+              title="Build a time-blocked plan for today from your goals + routines"
+            >
+              <Sparkles size={13} /> Plan day
+            </button>
+            <button
               className="new-btn"
               onClick={() => {
                 if (view.mode === 'go') setGoCreateOpen(true);
@@ -377,6 +405,23 @@ export default function GoalsView() {
           </div>
         )}
       </main>
+
+      {scheduleJobId !== null && (
+        <Suspense fallback={null}>
+          <ScheduleDrawer
+            jobId={scheduleJobId}
+            dateLabel={new Date().toLocaleDateString(undefined, {
+              weekday: 'short', day: 'numeric', month: 'short',
+            })}
+            onClose={() => setScheduleJobId(null)}
+            onRegenerate={() => {
+              setScheduleJobId(null);
+              // Defer so Drawer unmounts cleanly before we enqueue the next job.
+              setTimeout(handlePlanDay, 0);
+            }}
+          />
+        </Suspense>
+      )}
 
       <GoalDetailPanel
         goal={detailGoal}
