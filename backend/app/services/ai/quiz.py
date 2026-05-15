@@ -40,14 +40,36 @@ MAX_NOTE_CHARS = 6000
 
 
 SYSTEM_PROMPT = """\
-You are a study tutor. Given a personal note, generate multiple-choice \
-recall questions in the same language as the note. Each question must \
-have exactly 4 options (labeled A, B, C, D), exactly one correct answer, \
-and a 1-2 sentence explanation grounded in the note's content. Output \
-strictly valid JSON matching the requested schema — no prose, no markdown."""
+You are a study tutor. You generate multiple-choice recall questions \
+from a study note. Hard rules:
+1. EVERY output field (question, all four options, explanation, source_quote) \
+must be written in the same language as the note. If the note is Russian, \
+output 100% Russian. If English, output 100% English. Mixing is forbidden.
+2. Each question has exactly 4 options labeled A, B, C, D, with exactly \
+one correct answer.
+3. Wrong options must be PLAUSIBLE distractors — same topic, similar format. \
+Do NOT use random other facts from the note as wrong answers.
+4. Output strictly valid JSON matching the schema. No prose, no markdown."""
+
+
+def _detect_language(text: str) -> str:
+    """Crude language hint based on Cyrillic char ratio.
+
+    We pass this to the model as an explicit directive — Qwen otherwise tends
+    to slip into English for question stems even when the body is Russian.
+    """
+    sample = text[:2000]
+    if not sample:
+        return "the language of the note"
+    cyrillic = sum(1 for c in sample if "Ѐ" <= c <= "ӿ")
+    letters = sum(1 for c in sample if c.isalpha())
+    if letters and cyrillic / letters > 0.30:
+        return "Russian (русский)"
+    return "English"
 
 
 def _build_prompt(title: str, body: str, count: int, difficulty: str) -> str:
+    language = _detect_language(title + "\n" + body)
     difficulty_hint = {
         "easy": (
             "Easy: test surface recall of facts and terms explicitly stated in the note. "
@@ -65,6 +87,9 @@ def _build_prompt(title: str, body: str, count: int, difficulty: str) -> str:
     }[difficulty]
 
     return f"""\
+LANGUAGE: write EVERY field (question, options A/B/C/D, explanation, source_quote) \
+in {language}. Mixing languages is forbidden.
+
 Generate {count} multiple-choice questions ({difficulty} difficulty) from the note below.
 
 {difficulty_hint}
