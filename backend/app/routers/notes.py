@@ -15,7 +15,17 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,6 +53,7 @@ from app.schemas.notes import (
     WayOut,
     WayUpdate,
 )
+from app.services.ai.tasks import reembed_note_task
 from app.services.s3 import (
     delete_attachment,
     delete_image,
@@ -231,6 +242,7 @@ async def delete_topic(
 @router.post("/notes", response_model=NoteOut, status_code=status.HTTP_201_CREATED)
 async def create_note(
     body: NoteCreate,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -250,6 +262,9 @@ async def create_note(
     db.add(note)
     await db.flush()
     await db.refresh(note, ["images", "attachments", "tags"])
+    # Re-index for RAG after the response is sent. Failures are logged inside
+    # the task and never surface to the user — embedding is opportunistic.
+    background_tasks.add_task(reembed_note_task, note.id)
     return note
 
 
@@ -266,13 +281,23 @@ async def get_note(
 async def update_note(
     note_id: uuid.UUID,
     body: NoteUpdate,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     note = await _get_note_or_404(note_id, user, db)
-    for field, value in body.model_dump(exclude_none=True).items():
+    body_dict = body.model_dump(exclude_none=True)
+    # Only re-embed when the embeddable surface changed. Pin/order/move
+    # operations don't affect the text, so skip the LLM round-trip.
+    needs_reembed = (
+        ("name" in body_dict and body_dict["name"] != note.name)
+        or ("content" in body_dict and body_dict["content"] != note.content)
+    )
+    for field, value in body_dict.items():
         setattr(note, field, value)
     await db.flush()
+    if needs_reembed:
+        background_tasks.add_task(reembed_note_task, note.id)
     return note
 
 
