@@ -210,3 +210,37 @@ class ScheduleOutput(BaseModel):
     summary: ScheduleSummary = Field(default_factory=ScheduleSummary)
     slots: list[ScheduleSlot]
     total_active_minutes: int
+
+
+# ── Weekly insights feature ──────────────────────────────────────────────────
+
+
+class InsightsCreate(BaseModel):
+    """Body for POST /ai/insights/weekly.
+
+    `week_start` is the ISO date of the Monday of the target week. If empty,
+    backend uses the current week's Monday (or last week's if today is Sun).
+    """
+    week_start: str = Field(default="", description="ISO date YYYY-MM-DD")
+
+
+class InsightsSummary(BaseModel):
+    doing_well: str = ""
+    needs_attention: str = ""
+    focus: str = ""
+
+
+class InsightsMetrics(BaseModel):
+    """Raw metrics shown alongside the narrative for transparency."""
+    gos_created: int = 0
+    gos_closed: int = 0       # gos that had at least one GoEntry this week
+    notes_created: int = 0
+    overdue_count: int = 0
+    active_goals: int = 0
+
+
+class InsightsOutput(BaseModel):
+    week_start: str
+    week_end: str
+    summary: InsightsSummary
+    metrics: InsightsMetrics

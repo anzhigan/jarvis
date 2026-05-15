@@ -101,6 +101,57 @@ async def schedule_cache_key(
     return f"schedule:{user_id}:{target_date}:{start_h}-{end_h}:{_short_hash(fingerprint)}"
 
 
+async def insights_cache_key(
+    user_id: uuid.UUID,
+    week_start: date_cls,
+    db: AsyncSession,
+) -> str:
+    """Cache key for weekly insights. Depends on metrics that would feed into
+    the LLM — so any user activity within the week (new Gos, GoEntries, Notes)
+    invalidates the cache, but a passive day produces an identical fingerprint."""
+    from datetime import datetime as _dt
+    from sqlalchemy import func
+    from app.models.notes import Note, Way
+    from app.models.tasks import GoEntry, Task
+
+    week_end = week_start + timedelta(days=6)
+    week_start_dt = _dt.combine(week_start, _dt.min.time())
+    week_end_dt = _dt.combine(week_end, _dt.max.time())
+
+    gos_count = (await db.execute(
+        select(func.count()).select_from(Go).where(
+            Go.user_id == user_id,
+            Go.created_at >= week_start_dt,
+            Go.created_at <= week_end_dt,
+        ),
+    )).scalar_one()
+
+    entries_count = (await db.execute(
+        select(func.count()).select_from(GoEntry).join(Go, GoEntry.go_id == Go.id).where(
+            Go.user_id == user_id,
+            GoEntry.date >= week_start,
+            GoEntry.date <= week_end,
+        ),
+    )).scalar_one()
+
+    notes_count = (await db.execute(
+        select(func.count(Note.id)).outerjoin(Way, Note.way_id == Way.id).where(
+            Note.created_at >= week_start_dt,
+            Note.created_at <= week_end_dt,
+            Way.user_id == user_id,
+        ),
+    )).scalar_one()
+
+    active_goals_count = (await db.execute(
+        select(func.count()).select_from(Task).where(
+            Task.user_id == user_id, Task.status == "active",
+        ),
+    )).scalar_one()
+
+    fingerprint = f"{gos_count}|{entries_count}|{notes_count}|{active_goals_count}"
+    return f"insights:{user_id}:{week_start.isoformat()}:{_short_hash(fingerprint)}"
+
+
 async def find_cached(
     cache_key: str,
     user_id: uuid.UUID,

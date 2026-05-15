@@ -29,6 +29,7 @@ from app.schemas.ai import (
     AIJobCreate,
     AIJobOut,
     AIQuizOut,
+    InsightsCreate,
     QuizAttemptCreate,
     QuizAttemptItemOut,
     QuizAttemptOut,
@@ -40,6 +41,7 @@ from app.schemas.ai import (
 )
 from app.services.ai.cache import (
     find_cached,
+    insights_cache_key,
     quiz_cache_key,
     schedule_cache_key,
     tasks_extract_cache_key,
@@ -513,6 +515,58 @@ async def create_schedule(
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
+    await db.commit()
+    background_tasks.add_task(run_job, job.id)
+    return job
+
+
+# ── Weekly insights feature ──────────────────────────────────────────────────
+
+
+@router.post("/insights/weekly", response_model=AIJobOut, status_code=status.HTTP_202_ACCEPTED)
+async def create_weekly_insights(
+    body: InsightsCreate,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Enqueue a weekly-insights job. Returns immediately; client polls.
+
+    `week_start` empty → server resolves to this week's Monday (UTC).
+    """
+    if body.week_start:
+        try:
+            week_start = datetime.fromisoformat(body.week_start).date()
+        except ValueError:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"invalid week_start {body.week_start!r}",
+            )
+    else:
+        today = datetime.now(UTC).date()
+        week_start = today - timedelta(days=today.weekday())
+
+    # Cache lookup — same week + no activity changes since last run.
+    cache_key = await insights_cache_key(user.id, week_start, db)
+    cached = await find_cached(cache_key, user.id, "insights", db)
+    if cached is not None:
+        return cached
+
+    async with OllamaClient() as ollama:
+        if not await ollama.health():
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI runtime is offline. Try again in a moment.",
+            )
+
+    job = await create_job(
+        user_id=user.id,
+        kind="insights",
+        input_data={"week_start": week_start.isoformat()},
+        eta_seconds=_estimate_eta("insights", body.model_dump()),
+        cache_key=cache_key,
+        db=db,
+    )
     await db.commit()
     background_tasks.add_task(run_job, job.id)
     return job
