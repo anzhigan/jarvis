@@ -33,9 +33,6 @@ from app.schemas.ai import (
     QuizAttemptOut,
     QuizCreate,
 )
-# Side-effect import: registering handlers. Without this the registry is empty
-# at startup and POST /ai/jobs returns 400 for any kind.
-from app.services.ai import quiz as _quiz  # noqa: F401
 from app.services.ai.jobs import (
     cancel_job,
     create_job,
@@ -90,6 +87,11 @@ async def enqueue_job(
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
+    # Commit BEFORE scheduling — the BackgroundTask opens a new session and
+    # would otherwise race against the request's transaction, seeing 'job
+    # not found'. The dependency's post-yield commit becomes a harmless no-op
+    # after this point.
+    await db.commit()
     background_tasks.add_task(run_job, job.id)
     return job
 
@@ -214,6 +216,8 @@ async def create_quiz(
         eta_seconds=_estimate_eta("quiz", body.model_dump()),
         db=db,
     )
+    # Commit BEFORE scheduling: see comment in enqueue_job above.
+    await db.commit()
     background_tasks.add_task(run_job, job.id)
     return job
 
