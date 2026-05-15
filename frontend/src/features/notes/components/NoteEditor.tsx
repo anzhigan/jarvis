@@ -8,10 +8,14 @@ import type { Editor } from '@tiptap/react';
 import type { EditorHelpers } from '../../../components/RichTextEditor';
 import type { Note } from '../../../api/types';
 import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
+import { AIMenuTrigger } from '../../ai/AIMenuTrigger';
+import { aiApi } from '../../../api/client';
 
 // Tiptap is heavy (~280 KB gzip). Lazy-load only when a note is opened.
 const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
 const ShareDialog = lazy(() => import('./ShareDialog'));
+// AI quiz drawer — loaded only after user clicks the AI menu.
+const QuizDrawer = lazy(() => import('../../ai/QuizDrawer').then((m) => ({ default: m.QuizDrawer })));
 // BubbleMenu / FloatingMenu also live in their own chunk — they pull in
 // floating-ui and the @tiptap/react/menus plugin which we don't need on the
 // notes-library list view.
@@ -562,6 +566,25 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   const [editor, setEditor] = useState<Editor | null>(null);
   const [helpers, setHelpers] = useState<EditorHelpers | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  // AI quiz: job id while drawer is open, null when closed.
+  const [quizJobId, setQuizJobId] = useState<string | null>(null);
+  const [quizError, setQuizError] = useState<string | null>(null);
+
+  const handleAIAction = useCallback(async (action: 'quiz' | 'tasks_extract' | 'summarize') => {
+    if (!note) return;
+    if (action !== 'quiz') return;  // Phase 3 ships quiz only
+    setQuizError(null);
+    try {
+      const job = await aiApi.createQuiz({
+        scope: { kind: 'note', id: note.id },
+        difficulty: 'medium',
+        count: 5,
+      });
+      setQuizJobId(job.id);
+    } catch (e) {
+      setQuizError(e instanceof Error ? e.message : 'failed to start quiz');
+    }
+  }, [note]);
 
   // Just sync localTitle when the note id changes — DON'T touch editor/helpers
   // here. Two reasons:
@@ -573,6 +596,14 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   useEffect(() => {
     setLocalTitle(note?.name ?? '');
   }, [note?.id, note?.name]);
+
+  // Close the AI quiz drawer when switching to a different note — the quiz
+  // belongs to the previous note, so re-using its drawer for a new note would
+  // mislead the user.
+  useEffect(() => {
+    setQuizJobId(null);
+    setQuizError(null);
+  }, [note?.id]);
 
   // Receive the new editor + helpers when RichTextEditor remounts. Atomic
   // replace — never clear in between or BubbleMenu will permanently detach.
@@ -659,6 +690,21 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       <Suspense fallback={null}>
         <ShareDialog noteId={note.id} open={shareOpen} onOpenChange={setShareOpen} />
       </Suspense>
+      {quizJobId !== null && (
+        <Suspense fallback={null}>
+          <QuizDrawer
+            jobId={quizJobId}
+            noteTitle={note.name || 'untitled'}
+            onClose={() => setQuizJobId(null)}
+          />
+        </Suspense>
+      )}
+      {quizError && (
+        <div role="alert" className="ai-toast-error">
+          {quizError}
+          <button type="button" onClick={() => setQuizError(null)} aria-label="dismiss">×</button>
+        </div>
+      )}
 
       {editor && (
         <Suspense fallback={null}>
@@ -686,6 +732,11 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
             <Breadcrumb items={breadcrumbs} />
             <div className="doc-actions">
               <SavedPill saving={saving} savedAt={savedAt} />
+              <AIMenuTrigger
+                contextLabel={`«${note.name || 'untitled'}»`}
+                onSelect={handleAIAction}
+                enabledActions={['quiz']}
+              />
               <button
                 type="button"
                 className="share-btn"

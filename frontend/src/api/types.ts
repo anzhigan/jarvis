@@ -226,3 +226,88 @@ export interface Sprint {
   created_at: string;
   updated_at: string;
 }
+
+// ── AI ────────────────────────────────────────────────────────────────────────
+// Generic job lifecycle mirrors AIJobOut in backend.
+
+export type AIJobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+export type AIJobKind = 'quiz' | 'tasks_extract' | 'schedule' | 'insights';
+
+export interface AIJob {
+  id: string;
+  kind: AIJobKind;
+  status: AIJobStatus;
+  input_json: Record<string, unknown>;
+  output_json: Record<string, unknown> | null;
+  error: string | null;
+  eta_seconds: number | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+// Quiz output (output_json for kind='quiz' jobs).
+export interface QuizJobOutput {
+  quiz_id: string;
+  total_questions: number;
+  title: string;
+}
+
+export interface QuizOptions { A: string; B: string; C: string; D: string }
+export type QuizLetter = 'A' | 'B' | 'C' | 'D';
+
+export interface QuizQuestion {
+  question: string;
+  options: QuizOptions;
+  correct: QuizLetter;
+  explanation: string;
+  source_quote: string | null;
+  source_note_id: string | null;
+  source_note_title: string | null;
+}
+
+export interface AIQuiz {
+  id: string;
+  title: string;
+  scope_kind: 'note' | 'topic' | 'way' | 'tag' | 'multi' | 'recent';
+  scope_ref: Record<string, unknown>;
+  difficulty: 'easy' | 'medium' | 'hard';
+  questions: QuizQuestion[];
+  created_at: string;
+}
+
+export interface QuizAttemptAnswer {
+  question_idx: number;
+  selected: QuizLetter;
+}
+
+export interface QuizAttemptItem {
+  question_idx: number;
+  selected: QuizLetter;
+  correct: boolean;
+  correct_answer: QuizLetter;
+  explanation: string;
+}
+
+export interface QuizAttempt {
+  id: string;
+  quiz_id: string;
+  score: number;
+  total: number;
+  items: QuizAttemptItem[];
+  next_review_at: string | null;
+  completed_at: string | null;
+}
+
+export interface QuizScope {
+  kind: 'note' | 'topic' | 'way' | 'tag' | 'multi' | 'recent';
+  id?: string;
+  ids?: string[];
+  days?: number;
+}
+
+export interface QuizCreate {
+  scope: QuizScope;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  count?: number;
+}

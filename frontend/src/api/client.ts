@@ -447,3 +447,37 @@ export const sprintsApi = {
   removeItem: (id: string, itemId: string) =>
     request<void>(`/focus-sprints/${id}/items/${itemId}`, { method: 'DELETE' }),
 };
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AI — generic job queue + per-feature sugar endpoints.
+// Generation is async: callers enqueue, then poll /ai/jobs/{id} until status
+// is done|failed. useAIJob hook wraps this.
+// ═══════════════════════════════════════════════════════════════════════════
+import type {
+  AIJob,
+  AIQuiz,
+  QuizAttempt,
+  QuizAttemptAnswer,
+  QuizCreate,
+} from './types';
+
+export const aiApi = {
+  health: () => request<{ ok: boolean; kinds: string[] }>('/ai/health'),
+
+  createQuiz: (body: QuizCreate) =>
+    request<AIJob>('/ai/quiz', { method: 'POST', body: JSON.stringify(body) }),
+
+  getJob: (jobId: string) => request<AIJob>(`/ai/jobs/${jobId}`),
+
+  cancelJob: (jobId: string) =>
+    request<AIJob>(`/ai/jobs/${jobId}/cancel`, { method: 'POST' }),
+
+  getQuiz: (quizId: string) => request<AIQuiz>(`/ai/quizzes/${quizId}`),
+
+  submitAttempt: (quizId: string, answers: QuizAttemptAnswer[]) =>
+    request<QuizAttempt>(`/ai/quizzes/${quizId}/attempts`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }),
+};
