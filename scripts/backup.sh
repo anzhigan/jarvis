@@ -30,7 +30,7 @@ DEST="$BACKUP_ROOT/$TODAY"
 mkdir -p "$DEST"
 cd "$PROJECT_ROOT"
 
-COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env"
+COMPOSE="docker compose --env-file .env"
 
 echo "[$(date)] Backup start → $DEST"
 

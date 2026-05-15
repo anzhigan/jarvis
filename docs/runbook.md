@@ -9,8 +9,7 @@ ssh user@vps
 cd /projects/jarvis
 ./scripts/backup.sh                                          # always before
 git pull --ff-only
-docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-  --env-file .env up -d --build
+docker compose --env-file .env up -d --build
 docker compose ps                                            # all containers Up
 docker compose exec api curl -sf http://localhost:8000/health/ready
 ```
@@ -24,8 +23,7 @@ If the new build is broken, get back to the previous image **without** restoring
 ```bash
 git log --oneline -5
 git checkout <prev-sha>
-docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-  --env-file .env up -d --build
+docker compose --env-file .env up -d --build
 ```
 
 If the bad release ran a migration that broke the schema, you also need to either:
@@ -124,8 +122,7 @@ openssl rand -hex 24       # MinIO root password
 docker compose exec minio mc admin user password local minioadmin <new-password>
 
 # redeploy
-docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-  --env-file .env up -d --build
+docker compose --env-file .env up -d --build
 ```
 
 Rotating `SECRET_KEY` invalidates every JWT — all users log out. Schedule for low-traffic time.

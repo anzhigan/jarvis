@@ -18,7 +18,7 @@ SRC="$(cd "$1" && pwd)"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env"
+COMPOSE="docker compose --env-file .env"
 
 echo "Restoring from: $SRC"
 read -p "This will OVERWRITE current data. Continue? [y/N] " ok
