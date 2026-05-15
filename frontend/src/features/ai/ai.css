@@ -925,12 +925,22 @@
 .ai-empty__icon[data-tone="moss"]  { background: var(--moss-soft);  color: var(--moss); }
 .ai-empty__icon[data-tone="slate"] { background: var(--slate-soft); color: var(--slate); }
 
-/* ── Generation toast (bottom-right while drawer is closed) ─────────────── */
-.ai-toast {
+/* ── Generation toasts — stacked bottom-right ───────────────────────────── */
+/* Container holds N toasts; pinned bottom-right. Each toast inside is just
+   a card (no own positioning). Newest job is on top of the stack. */
+.ai-toast-stack {
   position: fixed;
   bottom: 20px;
   right: 20px;
   z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+}
+.ai-toast-stack > * { pointer-events: auto; }
+
+.ai-toast {
   width: 320px;
   background: var(--paper);
   border: 1px solid var(--hairline-strong);

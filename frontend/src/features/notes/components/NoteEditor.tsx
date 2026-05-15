@@ -10,6 +10,7 @@ import type { Note } from '../../../api/types';
 import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
 import { AIMenuTrigger } from '../../ai/AIMenuTrigger';
 import { aiApi } from '../../../api/client';
+import { useAIJobsStore, AI_JOB_OPEN_EVENT, type AIJobOpenDetail } from '../../../store/aiJobs';
 
 // Tiptap is heavy (~280 KB gzip). Lazy-load only when a note is opened.
 const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
@@ -17,7 +18,6 @@ const ShareDialog = lazy(() => import('./ShareDialog'));
 // AI quiz drawer — loaded only after user clicks the AI menu.
 const QuizDrawer = lazy(() => import('../../ai/QuizDrawer').then((m) => ({ default: m.QuizDrawer })));
 const TasksDrawer = lazy(() => import('../../ai/TasksDrawer').then((m) => ({ default: m.TasksDrawer })));
-const AIGenerationToast = lazy(() => import('../../ai/AIGenerationToast').then((m) => ({ default: m.AIGenerationToast })));
 // BubbleMenu / FloatingMenu also live in their own chunk — they pull in
 // floating-ui and the @tiptap/react/menus plugin which we don't need on the
 // notes-library list view.
@@ -582,6 +582,9 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   const [tasksDrawerOpen, setTasksDrawerOpen] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
+  const addBgJob = useAIJobsStore((s) => s.add);
+  const removeBgJob = useAIJobsStore((s) => s.remove);
+
   const handleAIAction = useCallback(async (action: 'quiz' | 'tasks_extract' | 'summarize') => {
     if (!note) return;
     setQuizError(null);
@@ -610,18 +613,49 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     }
   }, [note]);
 
-  // Close drawer keeps the job alive — toast takes over. Dismissing the
-  // toast is what fully discards.
+  // Close drawer keeps the job alive — backgrounded toast (mounted at app
+  // shell) takes over via the global store. Dismissing the toast is what
+  // fully discards.
   const handleDrawerClose = useCallback(() => {
     setDrawerOpen(false);
-  }, []);
-  const handleToastOpen = useCallback(() => {
-    setDrawerOpen(true);
-  }, []);
-  const handleToastDismiss = useCallback(() => {
-    setQuizJobId(null);
-    setDrawerOpen(false);
-  }, []);
+    if (quizJobId && note) {
+      addBgJob({
+        jobId: quizJobId,
+        kind: 'quiz',
+        source: { section: 'notes', noteId: note.id },
+      });
+    }
+  }, [quizJobId, note, addBgJob]);
+
+  const handleTasksDrawerClose = useCallback(() => {
+    setTasksDrawerOpen(false);
+    if (tasksJobId && note) {
+      addBgJob({
+        jobId: tasksJobId,
+        kind: 'tasks_extract',
+        source: { section: 'notes', noteId: note.id },
+      });
+    }
+  }, [tasksJobId, note, addBgJob]);
+
+  // Listen for "open this backgrounded job" events fired from the toast.
+  // We only act on jobs whose source matches this note.
+  useEffect(() => {
+    if (!note) return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
+      if (detail.source.section !== 'notes' || detail.source.noteId !== note.id) return;
+      if (detail.kind === 'quiz') {
+        setQuizJobId(detail.jobId);
+        setDrawerOpen(true);
+      } else if (detail.kind === 'tasks_extract') {
+        setTasksJobId(detail.jobId);
+        setTasksDrawerOpen(true);
+      }
+    };
+    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
+  }, [note]);
 
   // Just sync localTitle when the note id changes — DON'T touch editor/helpers
   // here. Two reasons:
@@ -634,15 +668,23 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     setLocalTitle(note?.name ?? '');
   }, [note?.id, note?.name]);
 
-  // Close the AI quiz drawer + dismiss any pending toast when switching to a
-  // different note — the quiz belongs to the previous note, re-using it for
-  // a new note would mislead the user.
+  // Switching notes — backgrounded the currently-open AI drawers (if any)
+  // BEFORE clearing local state, so the job survives in the global toast
+  // stack. User can click Open on the toast later to come back to it.
   useEffect(() => {
+    if (quizJobId && note) {
+      addBgJob({ jobId: quizJobId, kind: 'quiz', source: { section: 'notes', noteId: note.id } });
+    }
+    if (tasksJobId && note) {
+      addBgJob({ jobId: tasksJobId, kind: 'tasks_extract', source: { section: 'notes', noteId: note.id } });
+    }
     setQuizJobId(null);
     setDrawerOpen(false);
     setTasksJobId(null);
     setTasksDrawerOpen(false);
     setQuizError(null);
+    // Only run on note id change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note?.id]);
 
   // Receive the new editor + helpers when RichTextEditor remounts. Atomic
@@ -739,30 +781,12 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
           />
         </Suspense>
       )}
-      {quizJobId !== null && !drawerOpen && (
-        <Suspense fallback={null}>
-          <AIGenerationToast
-            jobId={quizJobId}
-            onOpen={handleToastOpen}
-            onDismiss={handleToastDismiss}
-          />
-        </Suspense>
-      )}
       {tasksJobId !== null && tasksDrawerOpen && (
         <Suspense fallback={null}>
           <TasksDrawer
             jobId={tasksJobId}
             noteTitle={note.name || 'untitled'}
-            onClose={() => setTasksDrawerOpen(false)}
-          />
-        </Suspense>
-      )}
-      {tasksJobId !== null && !tasksDrawerOpen && (
-        <Suspense fallback={null}>
-          <AIGenerationToast
-            jobId={tasksJobId}
-            onOpen={() => setTasksDrawerOpen(true)}
-            onDismiss={() => { setTasksJobId(null); setTasksDrawerOpen(false); }}
+            onClose={handleTasksDrawerClose}
           />
         </Suspense>
       )}

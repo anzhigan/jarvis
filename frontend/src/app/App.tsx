@@ -9,6 +9,10 @@ import { MobileApp } from './MobileApp';
 import { DesktopApp } from './DesktopApp';
 import { VALID_TABS, type Tab } from './tabs';
 
+// Lazy: only loaded once the user starts an AI generation. Tiny but pulls
+// the AIGenerationToast bundle including pulse animation styles.
+const AIToastStack = lazy(() => import('../features/ai/AIToastStack').then((m) => ({ default: m.AIToastStack })));
+
 const PublicNoteView = lazy(() => import('../features/notes/components/PublicNoteView'));
 
 /** Match /share/<token> at any depth — returns the token or null. */
@@ -110,6 +114,9 @@ function AuthenticatedApp() {
         <DesktopApp tab={tab} onTabChange={setTab} dark={dark} onToggleTheme={toggleTheme} />
       )}
       {toaster}
+      <Suspense fallback={null}>
+        <AIToastStack />
+      </Suspense>
     </>
   );
 }

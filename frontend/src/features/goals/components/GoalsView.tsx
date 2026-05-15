@@ -6,10 +6,10 @@ import { aiApi, routinesApi } from '../../../api/client';
 
 // Lazy: only when user clicks "Plan day" — ~80kB of Radix Popover + drawer.
 const ScheduleDrawer = lazy(() => import('../../ai/ScheduleDrawer').then((m) => ({ default: m.ScheduleDrawer })));
-const AIGenerationToast = lazy(() => import('../../ai/AIGenerationToast').then((m) => ({ default: m.AIGenerationToast })));
 import { useGoals } from '../hooks/useGoals';
 import { useGos } from '../hooks/useGos';
 import { useGoalsView, type GoalsViewMode } from '../hooks/useGoalsView';
+import { useAIJobsStore, AI_JOB_OPEN_EVENT, type AIJobOpenDetail } from '../../../store/aiJobs';
 import { GoalsBoard } from './GoalsBoard';
 import { GoView } from './GoView';
 import { GoalDetailPanel } from './GoalDetailPanel';
@@ -61,9 +61,11 @@ export default function GoalsView() {
   useEffect(() => { localStorage.setItem(GO_MODE_STORAGE, goMode); }, [goMode]);
 
   // AI "Plan day" — split state lets the user background the generation:
-  // closing the drawer keeps the job and surfaces a bottom-right toast.
+  // closing the drawer pushes the job to the global store and the app-shell
+  // toast picks it up.
   const [scheduleJobId, setScheduleJobId] = useState<string | null>(null);
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
+  const addBgJob = useAIJobsStore((s) => s.add);
 
   const handlePlanDay = useCallback(async () => {
     try {
@@ -78,6 +80,30 @@ export default function GoalsView() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start planning');
     }
+  }, []);
+
+  const handleScheduleClose = useCallback(() => {
+    setScheduleDrawerOpen(false);
+    if (scheduleJobId) {
+      addBgJob({
+        jobId: scheduleJobId,
+        kind: 'schedule',
+        source: { section: 'goals' },
+      });
+    }
+  }, [scheduleJobId, addBgJob]);
+
+  // Cross-section "Open →" from the global toast — when the toast reopens a
+  // schedule that's already running, set local state to show its drawer here.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
+      if (detail.source.section !== 'goals' || detail.kind !== 'schedule') return;
+      setScheduleJobId(detail.jobId);
+      setScheduleDrawerOpen(true);
+    };
+    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
   }, []);
 
   // Kanban filters — status (single-select) + tags (multi-select) + priority (multi-select).
@@ -277,7 +303,6 @@ export default function GoalsView() {
             <button
               className="ai-plan-trigger"
               onClick={handlePlanDay}
-              disabled={scheduleJobId !== null && !scheduleDrawerOpen}
               title="Build a time-blocked plan for today from your goals + routines"
             >
               <Sparkles size={13} /> Plan day
@@ -417,21 +442,12 @@ export default function GoalsView() {
             dateLabel={new Date().toLocaleDateString(undefined, {
               weekday: 'short', day: 'numeric', month: 'short',
             })}
-            onClose={() => setScheduleDrawerOpen(false)}
+            onClose={handleScheduleClose}
             onRegenerate={() => {
               setScheduleJobId(null);
               setScheduleDrawerOpen(false);
               setTimeout(handlePlanDay, 0);
             }}
-          />
-        </Suspense>
-      )}
-      {scheduleJobId !== null && !scheduleDrawerOpen && (
-        <Suspense fallback={null}>
-          <AIGenerationToast
-            jobId={scheduleJobId}
-            onOpen={() => setScheduleDrawerOpen(true)}
-            onDismiss={() => { setScheduleJobId(null); setScheduleDrawerOpen(false); }}
           />
         </Suspense>
       )}

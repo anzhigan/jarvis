@@ -34,6 +34,18 @@ export default function NotesView() {
     return () => window.removeEventListener('jarvnote:toggleNotesPane', handler);
   }, []);
 
+  // Cross-section open: AIToastStack dispatches this when user clicks "Open →"
+  // on a quiz/tasks toast originating from a different note than currently
+  // shown. We re-select that note so the NoteEditor receives it.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const noteId = (e as CustomEvent<string>).detail;
+      if (noteId) editor.setSelectedNoteId(noteId);
+    };
+    window.addEventListener('jarvnote:openNote', handler);
+    return () => window.removeEventListener('jarvnote:openNote', handler);
+  }, [editor]);
+
   const handleSelectNote = useCallback(async (id: string) => {
     await save.flush();
     editor.setSelectedNoteId(id);
