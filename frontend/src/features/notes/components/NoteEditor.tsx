@@ -17,7 +17,6 @@ const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
 const ShareDialog = lazy(() => import('./ShareDialog'));
 // AI quiz drawer — loaded only after user clicks the AI menu.
 const QuizDrawer = lazy(() => import('../../ai/QuizDrawer').then((m) => ({ default: m.QuizDrawer })));
-const TasksDrawer = lazy(() => import('../../ai/TasksDrawer').then((m) => ({ default: m.TasksDrawer })));
 // BubbleMenu / FloatingMenu also live in their own chunk — they pull in
 // floating-ui and the @tiptap/react/menus plugin which we don't need on the
 // notes-library list view.
@@ -576,38 +575,25 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   // without losing it.
   const [quizJobId, setQuizJobId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [tasksJobId, setTasksJobId] = useState<string | null>(null);
-  // Tasks drawer also follows the visible/job-alive split — same pattern as quiz,
-  // so closing mid-generation surfaces a toast instead of cancelling silently.
-  const [tasksDrawerOpen, setTasksDrawerOpen] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
   const addBgJob = useAIJobsStore((s) => s.add);
-  const removeBgJob = useAIJobsStore((s) => s.remove);
 
   const handleAIAction = useCallback(async (action: 'quiz' | 'tasks_extract' | 'summarize') => {
     if (!note) return;
     setQuizError(null);
+    if (action !== 'quiz') return;  // only quiz wired up here
     try {
-      if (action === 'quiz') {
-        // count=3 by default — on CPU-only inference, 5 questions push the wall-
-        // clock to ~90s while 3 stays under a minute. Future Phase 4 will surface
-        // a picker so the user can opt into longer tests.
-        const job = await aiApi.createQuiz({
-          scope: { kind: 'note', id: note.id },
-          difficulty: 'medium',
-          count: 3,
-        });
-        setQuizJobId(job.id);
-        setDrawerOpen(true);
-      } else if (action === 'tasks_extract') {
-        const job = await aiApi.extractTasks({
-          scope: { kind: 'note', id: note.id },
-        });
-        setTasksJobId(job.id);
-        setTasksDrawerOpen(true);
-      }
-      // 'summarize' not wired yet — handled by the menu's disabled flag.
+      // count=3 by default — on CPU-only inference, 5 questions push the wall-
+      // clock to ~90s while 3 stays under a minute. Future phase will surface
+      // a picker so the user can opt into longer tests.
+      const job = await aiApi.createQuiz({
+        scope: { kind: 'note', id: note.id },
+        difficulty: 'medium',
+        count: 3,
+      });
+      setQuizJobId(job.id);
+      setDrawerOpen(true);
     } catch (e) {
       setQuizError(e instanceof Error ? e.message : 'failed to start AI action');
     }
@@ -627,19 +613,8 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     }
   }, [quizJobId, note, addBgJob]);
 
-  const handleTasksDrawerClose = useCallback(() => {
-    setTasksDrawerOpen(false);
-    if (tasksJobId && note) {
-      addBgJob({
-        jobId: tasksJobId,
-        kind: 'tasks_extract',
-        source: { section: 'notes', noteId: note.id },
-      });
-    }
-  }, [tasksJobId, note, addBgJob]);
-
   // Listen for "open this backgrounded job" events fired from the toast.
-  // We only act on jobs whose source matches this note.
+  // We only act on quiz jobs whose source matches this note.
   useEffect(() => {
     if (!note) return;
     const handler = (e: Event) => {
@@ -648,9 +623,6 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       if (detail.kind === 'quiz') {
         setQuizJobId(detail.jobId);
         setDrawerOpen(true);
-      } else if (detail.kind === 'tasks_extract') {
-        setTasksJobId(detail.jobId);
-        setTasksDrawerOpen(true);
       }
     };
     window.addEventListener(AI_JOB_OPEN_EVENT, handler);
@@ -668,20 +640,15 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     setLocalTitle(note?.name ?? '');
   }, [note?.id, note?.name]);
 
-  // Switching notes — backgrounded the currently-open AI drawers (if any)
+  // Switching notes — background the currently-open quiz drawer (if any)
   // BEFORE clearing local state, so the job survives in the global toast
-  // stack. User can click Open on the toast later to come back to it.
+  // stack.
   useEffect(() => {
     if (quizJobId && note) {
       addBgJob({ jobId: quizJobId, kind: 'quiz', source: { section: 'notes', noteId: note.id } });
     }
-    if (tasksJobId && note) {
-      addBgJob({ jobId: tasksJobId, kind: 'tasks_extract', source: { section: 'notes', noteId: note.id } });
-    }
     setQuizJobId(null);
     setDrawerOpen(false);
-    setTasksJobId(null);
-    setTasksDrawerOpen(false);
     setQuizError(null);
     // Only run on note id change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -778,15 +745,6 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
             jobId={quizJobId}
             noteTitle={note.name || 'untitled'}
             onClose={handleDrawerClose}
-          />
-        </Suspense>
-      )}
-      {tasksJobId !== null && tasksDrawerOpen && (
-        <Suspense fallback={null}>
-          <TasksDrawer
-            jobId={tasksJobId}
-            noteTitle={note.name || 'untitled'}
-            onClose={handleTasksDrawerClose}
           />
         </Suspense>
       )}

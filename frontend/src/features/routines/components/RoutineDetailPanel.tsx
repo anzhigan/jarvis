@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Trash2, Pause, Play, Calendar, Repeat, Target, Activity } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Trash2, Pause, Play, Calendar, Repeat, Target, Activity, Check, X } from 'lucide-react';
 import { Button, Drawer, Input } from '../../../components/ui';
 import type { Routine, RoutineScheduleType } from '../../../api/types';
 import type { RoutinesLibrary } from '../hooks/useRoutines';
@@ -55,6 +55,13 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
   const streak = currentStreak(routine);
   const rate30 = completionRate(routine, 30);
   const state = todayState(routine);
+
+  // All tracked days (newest first) — for the "All entries" expandable list.
+  const sortedEntries = useMemo(
+    () => [...routine.entries].sort((a, b) => b.date.localeCompare(a.date)),
+    [routine.entries],
+  );
+  const [allOpen, setAllOpen] = useState(false);
 
   return (
     <Drawer
@@ -141,6 +148,50 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
           </span>
         </div>
       )}
+
+      <div className="rt-entries">
+        <button
+          type="button"
+          className="rt-entries__head"
+          onClick={() => setAllOpen((v) => !v)}
+          aria-expanded={allOpen}
+        >
+          <span>All entries · {sortedEntries.length}</span>
+          <span className="rt-entries__chev">{allOpen ? '▾' : '▸'}</span>
+        </button>
+        {allOpen && (
+          sortedEntries.length === 0 ? (
+            <p className="rt-entries__empty">No days tracked yet.</p>
+          ) : (
+            <ul className="rt-entries__list">
+              {sortedEntries.map((e) => {
+                const isDone = e.value > 0
+                  && (routine.kind !== 'numeric' || !routine.target_value || e.value >= routine.target_value);
+                const isSkipped = e.value === 0;
+                return (
+                  <li className="rt-entries__row" key={e.date} data-tone={isDone ? 'done' : isSkipped ? 'skipped' : 'partial'}>
+                    <span className="rt-entries__date">{e.date}</span>
+                    <span className="rt-entries__val">
+                      {routine.kind === 'numeric'
+                        ? `${e.value}${routine.unit ? ' ' + routine.unit : ''}`
+                        : isDone ? <><Check size={12} /> done</> : <><X size={12} /> skipped</>}
+                    </span>
+                    <button
+                      type="button"
+                      className="rt-entries__clear"
+                      title="Remove this entry"
+                      aria-label="Clear"
+                      onClick={() => library.clearOn(routine.id, e.date)}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        )}
+      </div>
     </Drawer>
   );
 }

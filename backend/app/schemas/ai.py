@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class AIJobCreate(BaseModel):
     """Generic enqueue request. `input` is handler-specific."""
-    kind: str = Field(min_length=1, max_length=32, description="e.g. 'quiz', 'tasks_extract', 'schedule'")
+    kind: str = Field(min_length=1, max_length=32, description="e.g. 'quiz', 'schedule', 'insights'")
     input: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -126,47 +126,6 @@ class QuizAttemptOut(BaseModel):
     items: list[QuizAttemptItemOut]
     next_review_at: datetime | None
     completed_at: datetime | None
-
-
-# ── Tasks extraction feature ─────────────────────────────────────────────────
-
-
-class TasksExtractScope(BaseModel):
-    """Phase 5: kind='note' only. Phase 4-style multi-source can come later."""
-    kind: str = Field(pattern=r"^note$")
-    id: uuid.UUID
-
-
-class TasksExtractCreate(BaseModel):
-    scope: TasksExtractScope
-
-
-class TaskItem(BaseModel):
-    """One action item the model found in the note."""
-    title: str
-    quote: str = Field(default="", description="Short verbatim quote from the note supporting this item")
-
-
-class TasksExtractOutput(BaseModel):
-    """Shape that the tasks_extract handler stores in job.output_json."""
-    items: list[TaskItem]
-    source_note_id: uuid.UUID
-    source_note_title: str
-
-
-class TasksCommitInput(BaseModel):
-    """Body for POST /ai/tasks/commit — turns picked AI suggestions into real Go rows."""
-    job_id: uuid.UUID
-    # 0-based indices into the job's output.items array.
-    picked: list[int] = Field(min_length=1)
-    # Target: optional Goal (task_id) and optional Step within it.
-    task_id: uuid.UUID | None = None
-    step_id: uuid.UUID | None = None
-
-
-class TasksCommitOutput(BaseModel):
-    created_count: int
-    created_ids: list[uuid.UUID]
 
 
 # ── Schedule (Plan day) feature ──────────────────────────────────────────────

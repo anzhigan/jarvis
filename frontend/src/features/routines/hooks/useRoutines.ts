@@ -87,6 +87,40 @@ export function useRoutines() {
     }
   }, [refresh]);
 
+  /** Generic per-date toggle for boolean routines. Date is YYYY-MM-DD.
+   *  Same logic as toggleDoneToday: existing positive entry → delete; otherwise → log value 1. */
+  const toggleDoneOn = useCallback(async (routine: Routine, date: string) => {
+    const existing = routine.entries.find((e) => e.date === date);
+    if (existing && existing.value > 0) {
+      try { await routinesApi.deleteEntry(routine.id, date); await refresh(); }
+      catch (e: any) { toast.error(e?.detail ?? 'Failed to clear'); }
+    } else {
+      const v = routine.kind === 'numeric' ? (routine.target_value ?? 1) : 1;
+      try { await routinesApi.upsertEntry(routine.id, date, v); await refresh(); }
+      catch (e: any) { toast.error(e?.detail ?? 'Failed to log'); }
+    }
+  }, [refresh]);
+
+  /** Generic per-date skip (value=0). */
+  const skipOn = useCallback(async (id: string, date: string) => {
+    try {
+      await routinesApi.upsertEntry(id, date, 0);
+      await refresh();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to skip');
+    }
+  }, [refresh]);
+
+  /** Remove a day's entry entirely (back to "empty" state). */
+  const clearOn = useCallback(async (id: string, date: string) => {
+    try {
+      await routinesApi.deleteEntry(id, date);
+      await refresh();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to clear');
+    }
+  }, [refresh]);
+
   // ── Counts (used by pane Views section) ──────────────────────────────────
   const counts = useMemo(() => {
     const all = routines.length;
@@ -108,6 +142,7 @@ export function useRoutines() {
     counts, scheduleCounts,
     create, update, remove, togglePause,
     logToday, toggleDoneToday, skipToday,
+    toggleDoneOn, skipOn, clearOn,
   };
 }
 

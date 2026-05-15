@@ -53,7 +53,7 @@
   --h-xl: 48px;
 
   /* ── Surfaces ────────────────────────────────────────────────────────── */
-  --paper:    #FCFCF9;   /* canvas — near-white with warmth                 */
+  --paper:    #FCFCFC;   /* canvas — near-white, neutral (very slight cool) */
   --cream:    #ECEEEF;   /* secondary — inputs, hover, even rows             */
   --soft:     #DEE1E2;   /* tertiary  — hover on cream, swatches             */
   --rail-bg:  #D6DADB;   /* rail navigation                                  */

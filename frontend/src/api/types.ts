@@ -231,7 +231,7 @@ export interface Sprint {
 // Generic job lifecycle mirrors AIJobOut in backend.
 
 export type AIJobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
-export type AIJobKind = 'quiz' | 'tasks_extract' | 'schedule' | 'insights';
+export type AIJobKind = 'quiz' | 'schedule' | 'insights';
 
 export interface AIJob {
   id: string;
@@ -310,34 +310,6 @@ export interface QuizCreate {
   scope: QuizScope;
   difficulty?: 'easy' | 'medium' | 'hard';
   count?: number;
-}
-
-// Tasks extraction
-export interface TaskExtractItem {
-  title: string;
-  quote: string;
-}
-
-export interface TasksExtractOutput {
-  items: TaskExtractItem[];
-  source_note_id: string;
-  source_note_title: string;
-}
-
-export interface TasksExtractCreate {
-  scope: { kind: 'note'; id: string };
-}
-
-export interface TasksCommitInput {
-  job_id: string;
-  picked: number[];
-  task_id?: string | null;   // Goal (legacy naming)
-  step_id?: string | null;
-}
-
-export interface TasksCommitOutput {
-  created_count: number;
-  created_ids: string[];
 }
 
 // Schedule (Plan day)

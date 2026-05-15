@@ -117,10 +117,9 @@ export function AIGenerationToast({ jobId, onOpen, onDismiss }: Props) {
 }
 
 const LABELS: Record<AIJobKind, string> = {
-  quiz:          'quiz',
-  tasks_extract: 'task list',
-  schedule:      'schedule',
-  insights:      'review',
+  quiz:     'quiz',
+  schedule: 'schedule',
+  insights: 'review',
 };
 
 function capitalize(s: string): string {

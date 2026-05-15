@@ -5,9 +5,8 @@ import { useRoutines } from '../hooks/useRoutines';
 import { useRoutinesToday } from '../hooks/useRoutinesToday';
 import { useGoals } from '../../goals/hooks/useGoals';
 import {
-  completionRate, currentStreak, scheduleLabel, ymd, addDays, isScheduledOn,
+  completionRate, currentStreak, scheduleLabel, ymd, addDays,
 } from '../lib/heatmap';
-import { todayState } from '../hooks/useRoutinesToday';
 import { RoutineDetailPanel } from './RoutineDetailPanel';
 import { RoutineCreateDialog } from './RoutineCreateDialog';
 import './routines.css';
@@ -78,8 +77,16 @@ export default function RoutinesView() {
   );
   const [createOpen, setCreateOpen] = useState(false);
 
-  const onCheck = useCallback((r: Routine) => { void library.toggleDoneToday(r); }, [library]);
-  const onSkip  = useCallback((r: Routine) => { void library.skipToday(r.id); }, [library]);
+  // Per-row selected date for past-day editing. Map of routine.id → 'YYYY-MM-DD'.
+  // Default for a row is today (when nothing's selected yet).
+  const [selectedDate, setSelectedDate] = useState<Record<string, string>>({});
+
+  const onCheckDate = useCallback((r: Routine, date: string) => {
+    void library.toggleDoneOn(r, date);
+  }, [library]);
+  const onSkipDate = useCallback((id: string, date: string) => {
+    void library.skipOn(id, date);
+  }, [library]);
   const onNew   = useCallback(() => setCreateOpen(true), []);
 
   const todayDate = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
@@ -240,7 +247,7 @@ export default function RoutinesView() {
                       </th>
                       <th className="rt-th-streak">Streak</th>
                       <th className="rt-th-completion">Completion</th>
-                      <th className="rt-th-action">Today</th>
+                      <th className="rt-th-action">Mark</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -252,10 +259,8 @@ export default function RoutinesView() {
                       const rate = completionRate(r, 30);
                       const compClass = rate >= 80 ? 'rt-comp-strong' : rate < 50 ? 'rt-comp-weak' : '';
                       const streakClass = streak >= 7 ? 'rt-streak-strong' : streak === 0 ? 'rt-streak-zero' : '';
-                      const state = todayState(r);
                       const linkedGoal = r.goal_id ? goalById.get(r.goal_id) : null;
                       const goalAccent = r.goal_id ? accentFor(r.goal_id) : null;
-                      const scheduledToday = !r.is_paused && isScheduledOn(r, todayDate);
 
                       return (
                         <tr
@@ -292,12 +297,18 @@ export default function RoutinesView() {
                             <div className="rt-history-grid">
                               {historyDays.map((d) => {
                                 const s = cellState(r, entryByDate.get(d.ymd));
+                                const active = (selectedDate[r.id] ?? historyDays[historyDays.length - 1].ymd) === d.ymd;
                                 return (
-                                  <span
+                                  <button
                                     key={d.ymd}
+                                    type="button"
                                     className={`hg-cell hg-cell-${s}`}
                                     data-today={d.isToday || undefined}
-                                    title={`${d.ymd} · ${s}`}
+                                    data-active={active || undefined}
+                                    title={`${d.ymd} · ${s} · click to edit`}
+                                    onClick={() =>
+                                      setSelectedDate((m) => ({ ...m, [r.id]: d.ymd }))
+                                    }
                                   />
                                 );
                               })}
@@ -317,30 +328,40 @@ export default function RoutinesView() {
                           </td>
 
                           <td className="rt-cell-action" onClick={(e) => e.stopPropagation()}>
-                            {!scheduledToday ? (
-                              <div className="rt-actions"><span className="rt-na">—</span></div>
-                            ) : (
-                              <div className="rt-actions">
-                                <button
-                                  className="rt-action rt-action-check"
-                                  data-active={state === 'done' || undefined}
-                                  title="Mark done"
-                                  onClick={() => onCheck(r)}
-                                  aria-label="Mark done"
-                                >
-                                  <Check />
-                                </button>
-                                <button
-                                  className="rt-action rt-action-skip"
-                                  data-active={state === 'skipped' || undefined}
-                                  title="Skip"
-                                  onClick={() => onSkip(r)}
-                                  aria-label="Skip"
-                                >
-                                  <X />
-                                </button>
-                              </div>
-                            )}
+                            {(() => {
+                              // The day the action buttons apply to: clicked
+                              // heatmap cell, or today by default.
+                              const activeDate = selectedDate[r.id]
+                                ?? historyDays[historyDays.length - 1].ymd;
+                              const activeEntry = entryByDate.get(activeDate);
+                              const activeState: CellState = cellState(r, activeEntry);
+                              const isToday = activeDate === historyDays[historyDays.length - 1].ymd;
+                              return (
+                                <div className="rt-actions">
+                                  <div className="rt-action-date" title="Editing this date">
+                                    {isToday ? 'Today' : activeDate.slice(5)}
+                                  </div>
+                                  <button
+                                    className="rt-action rt-action-check"
+                                    data-active={activeState === 'done' || undefined}
+                                    title="Mark done"
+                                    onClick={() => onCheckDate(r, activeDate)}
+                                    aria-label="Mark done"
+                                  >
+                                    <Check />
+                                  </button>
+                                  <button
+                                    className="rt-action rt-action-skip"
+                                    data-active={activeState === 'skipped' || undefined}
+                                    title="Skip / clear"
+                                    onClick={() => onSkipDate(r.id, activeDate)}
+                                    aria-label="Skip"
+                                  >
+                                    <X />
+                                  </button>
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       );

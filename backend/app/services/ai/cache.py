@@ -52,15 +52,6 @@ async def quiz_cache_key(
     return f"quiz:{note_id}:{difficulty}:{count}:{_short_hash(body)}"
 
 
-async def tasks_extract_cache_key(note_id: uuid.UUID, db: AsyncSession) -> str | None:
-    """Cache key for tasks-extract on a single note."""
-    note = await db.get(Note, note_id)
-    if note is None:
-        return None
-    body = (note.name or "") + "\n" + (note.content or "")
-    return f"tasks:{note_id}:{_short_hash(body)}"
-
-
 async def schedule_cache_key(
     user_id: uuid.UUID,
     target_date: date_cls,
