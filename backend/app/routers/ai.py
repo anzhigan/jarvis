@@ -136,15 +136,18 @@ async def cancel(
 
 
 def _estimate_eta(kind: str, input_data: dict) -> int:
-    """Best-guess ETA for the loading UI. Tunes per kind."""
-    # Tuned for Qwen 3 8B q4_K_M on 8 vCPU (~5 tok/s). Will get more
-    # accurate as we measure real production runs.
+    """Best-guess ETA for the loading UI. Tunes per kind.
+
+    These are warm-state estimates (Qwen 3 8B q4_K_M on 8 vCPU at ~4 tok/s).
+    Add ~30s for cold start when the model has been unloaded from RAM —
+    OLLAMA_KEEP_ALIVE=10m mitigates this for back-to-back requests.
+    """
     return {
-        "quiz": 45,            # 8-14 questions ≈ 500-900 tokens
-        "tasks_extract": 30,   # short structured output ≈ 300 tokens
-        "schedule": 35,        # 10 slots ≈ 400 tokens
-        "insights": 60,        # narrative reasoning ≈ 600-1000 tokens
-    }.get(kind, 60)
+        "quiz": 90,            # 5-14 questions × ~80 tok each + JSON overhead
+        "tasks_extract": 60,
+        "schedule": 60,
+        "insights": 120,       # narrative reasoning is longest
+    }.get(kind, 90)
 
 
 # ── Quiz feature ─────────────────────────────────────────────────────────────

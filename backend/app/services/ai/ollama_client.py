@@ -72,7 +72,9 @@ class OllamaClient:
             r.raise_for_status()
             data = r.json()
         except httpx.HTTPError as e:
-            raise OllamaError(f"embed call failed: {e}") from e
+            # str(e) is empty for timeouts — include the class name so the job
+            # error string is actually informative.
+            raise OllamaError(f"embed call failed: {type(e).__name__}: {e}") from e
 
         embeddings = data.get("embeddings")
         if not embeddings or len(embeddings) != len(texts):
@@ -113,7 +115,7 @@ class OllamaClient:
             r.raise_for_status()
             data = r.json()
         except httpx.HTTPError as e:
-            raise OllamaError(f"generate call failed: {e}") from e
+            raise OllamaError(f"generate call failed: {type(e).__name__}: {e}") from e
         return data.get("response", "")
 
     async def health(self) -> bool:
