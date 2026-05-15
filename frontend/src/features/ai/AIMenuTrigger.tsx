@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover';
-import { ChevronDown, ListChecks, Sparkles } from 'lucide-react';
+import { ChevronDown, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import './ai.css';
 
@@ -32,17 +32,7 @@ const ALL_ITEMS: MenuItem[] = [
     Icon: Sparkles,
     available: true,
   },
-  {
-    key: 'tasks_extract',
-    title: 'Generate tasks',
-    sub: 'вытащить action items в Goals',
-    Icon: ListChecks,
-    available: true,
-  },
 ];
-
-// Sentinel — keep in sync with the default param at the consumer:
-//   <AIMenuTrigger enabledActions={['quiz', 'tasks_extract']} />
 
 export function AIMenuTrigger({
   contextLabel,

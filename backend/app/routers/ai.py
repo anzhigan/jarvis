@@ -488,9 +488,10 @@ async def create_schedule(
                 detail=f"invalid date {body.date!r}",
             )
 
-    # Cache lookup: if Gos haven't changed since last run, return prior schedule.
+    # Cache lookup: if backlog + mode unchanged since last run, return prior.
     cache_key = await schedule_cache_key(
-        user.id, target_date, body.hours.start_h, body.hours.end_h, db,
+        user.id, target_date, body.hours.start_h, body.hours.end_h,
+        body.time_blocked, db,
     )
     cached = await find_cached(cache_key, user.id, "schedule", db)
     if cached is not None:

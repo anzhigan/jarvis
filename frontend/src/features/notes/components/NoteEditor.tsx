@@ -826,7 +826,7 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
               <AIMenuTrigger
                 contextLabel={`«${note.name || 'untitled'}»`}
                 onSelect={handleAIAction}
-                enabledActions={['quiz', 'tasks_extract']}
+                enabledActions={['quiz']}
               />
               <button
                 type="button"

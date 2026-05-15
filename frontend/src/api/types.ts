@@ -351,6 +351,8 @@ export interface ScheduleCreate {
   date?: string;
   hours?: ScheduleHours;
   prefs?: string[];
+  /** Default true: HH:MM slot times. false → free-ordered priority list. */
+  time_blocked?: boolean;
 }
 
 export type ScheduleSlotKind = 'goal' | 'routine' | 'admin' | 'break' | 'lunch' | 'deep_work' | 'other';

@@ -65,22 +65,29 @@ export default function GoalsView() {
   // toast picks it up.
   const [scheduleJobId, setScheduleJobId] = useState<string | null>(null);
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
+  // User-facing toggle: time-blocked vs free-order. Persisted across reloads.
+  const [timeBlocked, setTimeBlocked] = useState<boolean>(() =>
+    localStorage.getItem('jarvnote:schedule:timeBlocked') !== '0',
+  );
+  useEffect(() => {
+    localStorage.setItem('jarvnote:schedule:timeBlocked', timeBlocked ? '1' : '0');
+  }, [timeBlocked]);
+
   const addBgJob = useAIJobsStore((s) => s.add);
 
   const handlePlanDay = useCallback(async () => {
     try {
       const job = await aiApi.createSchedule({
-        // Empty date → backend uses UTC today. Good enough; future patch can
-        // pass the user's locale day.
         date: '',
         hours: { start_h: 9, end_h: 18 },
+        time_blocked: timeBlocked,
       });
       setScheduleJobId(job.id);
       setScheduleDrawerOpen(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start planning');
     }
-  }, []);
+  }, [timeBlocked]);
 
   const handleScheduleClose = useCallback(() => {
     setScheduleDrawerOpen(false);
@@ -300,10 +307,24 @@ export default function GoalsView() {
                 >Cross-goal</button>
               </div>
             )}
+            <div className="pill-seg pill-seg-secondary" role="tablist" aria-label="Schedule mode">
+              <button
+                className={timeBlocked ? 'on' : ''}
+                role="tab" aria-selected={timeBlocked}
+                onClick={() => setTimeBlocked(true)}
+                title="Schedule with hour ranges"
+              >By hour</button>
+              <button
+                className={!timeBlocked ? 'on' : ''}
+                role="tab" aria-selected={!timeBlocked}
+                onClick={() => setTimeBlocked(false)}
+                title="Priority-ordered list without times"
+              >Priority</button>
+            </div>
             <button
               className="ai-plan-trigger"
               onClick={handlePlanDay}
-              title="Build a time-blocked plan for today from your goals + routines"
+              title="Build a plan for today from your full open backlog"
             >
               <Sparkles size={13} /> Plan day
             </button>

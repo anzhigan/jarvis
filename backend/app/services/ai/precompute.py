@@ -100,8 +100,10 @@ async def precompute_schedule_for_user(user_id: uuid.UUID, target_date) -> None:
     scheduling a BackgroundTask. The loop runs at night, so blocking is fine.
     """
     async with AsyncSessionLocal() as db:
+        # Default to time-blocked schedule for the morning precompute — most
+        # users want a structured plan to land into.
         cache_key = await schedule_cache_key(
-            user_id, target_date, DEFAULT_START_H, DEFAULT_END_H, db,
+            user_id, target_date, DEFAULT_START_H, DEFAULT_END_H, True, db,
         )
         cached = await find_cached(cache_key, user_id, "schedule", db)
         if cached is not None:
@@ -115,6 +117,7 @@ async def precompute_schedule_for_user(user_id: uuid.UUID, target_date) -> None:
                 "date": target_date.isoformat(),
                 "hours": {"start_h": DEFAULT_START_H, "end_h": DEFAULT_END_H},
                 "prefs": [],
+                "time_blocked": True,
             },
             eta_seconds=120,
             cache_key=cache_key,

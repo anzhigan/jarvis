@@ -215,11 +215,34 @@ interface ActiveProps {
 
 const LETTERS: QuizLetter[] = ['A', 'B', 'C', 'D'];
 
+const QUIZ_HIDE_OPTS_KEY = 'jarvnote:quiz:hideOptions';
+
 function ActiveView({
   quiz, currentIdx, answers, revealed, onPick, onSubmit, onNext, onFinish,
 }: ActiveProps) {
   const total = quiz.questions.length;
   const q = quiz.questions[currentIdx];
+
+  // Persisted preference: show options up-front, or "think first" mode where
+  // user has to click reveal before seeing A/B/C/D.
+  const [hideOptions, setHideOptions] = useState<boolean>(() =>
+    localStorage.getItem(QUIZ_HIDE_OPTS_KEY) === '1',
+  );
+  // Per-question "I want to see options now" override — resets each question.
+  const [forceShow, setForceShow] = useState(false);
+  useEffect(() => { setForceShow(false); }, [currentIdx]);
+
+  const toggleHide = () => {
+    setHideOptions((v) => {
+      const next = !v;
+      localStorage.setItem(QUIZ_HIDE_OPTS_KEY, next ? '1' : '0');
+      return next;
+    });
+  };
+
+  // Options are visible if: feature off, user requested for this Q, or already revealed.
+  const optionsVisible = !hideOptions || forceShow || revealed;
+
   if (!q) return null;
 
   const selected = answers[currentIdx];
@@ -230,39 +253,54 @@ function ActiveView({
     <div className="qz">
       <div className="qz-progress">
         <span>Question <b>{currentIdx + 1} of {total}</b></span>
-        {q.source_quote && (
-          <span className="qz-source" title={q.source_quote}>
-            from the note
-          </span>
-        )}
+        <label className="qz-toggle" title="Hide options on first read">
+          <input
+            type="checkbox"
+            checked={hideOptions}
+            onChange={toggleHide}
+          />
+          <span>Think first</span>
+        </label>
       </div>
       <div className="qz-bar"><div className="qz-bar__fill" style={{ width: `${progressPct}%` }} /></div>
 
       <p className="qz-q">{q.question}</p>
 
-      <div className="qz-opts">
-        {LETTERS.map((letter) => {
-          const text = q.options[letter];
-          const isPicked = selected === letter;
-          const isCorrect = revealed && letter === q.correct;
-          const isWrong = revealed && isPicked && letter !== q.correct;
-          return (
-            <button
-              key={letter}
-              type="button"
-              className="qz-opt"
-              data-selected={isPicked && !revealed || undefined}
-              data-correct={isCorrect || undefined}
-              data-wrong={isWrong || undefined}
-              disabled={revealed}
-              onClick={() => onPick(letter)}
-            >
-              <span className="qz-opt__letter">{letter}</span>
-              <span className="qz-opt__text">{text}</span>
-            </button>
-          );
-        })}
-      </div>
+      {!optionsVisible && (
+        <button
+          type="button"
+          className="qz-reveal"
+          onClick={() => setForceShow(true)}
+        >
+          Show options
+        </button>
+      )}
+
+      {optionsVisible && (
+        <div className="qz-opts">
+          {LETTERS.map((letter) => {
+            const text = q.options[letter];
+            const isPicked = selected === letter;
+            const isCorrect = revealed && letter === q.correct;
+            const isWrong = revealed && isPicked && letter !== q.correct;
+            return (
+              <button
+                key={letter}
+                type="button"
+                className="qz-opt"
+                data-selected={isPicked && !revealed || undefined}
+                data-correct={isCorrect || undefined}
+                data-wrong={isWrong || undefined}
+                disabled={revealed}
+                onClick={() => onPick(letter)}
+              >
+                <span className="qz-opt__letter">{letter}</span>
+                <span className="qz-opt__text">{text}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {revealed && (
         <div

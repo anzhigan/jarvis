@@ -184,13 +184,19 @@ class ScheduleCreate(BaseModel):
     hours: ScheduleHours = Field(default_factory=ScheduleHours)
     # Free-form prefs (e.g. ["lunch:13", "coffee:11,15"]) — Phase 6b.
     prefs: list[str] = Field(default_factory=list)
+    # If true → slots get start_time/end_time. If false → slots have empty
+    # times, ordered list by priority. Cache key includes this flag.
+    time_blocked: bool = True
 
 
 class ScheduleSlot(BaseModel):
-    """One block in the generated day. Times are HH:MM strings within work
-    hours; the LLM ensures non-overlapping ordering."""
-    start_time: str = Field(pattern=r"^[0-2]\d:[0-5]\d$")
-    end_time: str = Field(pattern=r"^[0-2]\d:[0-5]\d$")
+    """One block in the generated day.
+
+    Time-blocked mode (default): start_time/end_time are HH:MM within work hours.
+    Free-order mode (time_blocked=false): both empty; order is implied by index.
+    """
+    start_time: str = ""  # empty in free-order mode
+    end_time: str = ""
     kind: str = Field(pattern=r"^(goal|routine|admin|break|lunch|deep_work|other)$")
     title: str
     source_kind: str | None = None  # 'go' | 'task' | 'routine'

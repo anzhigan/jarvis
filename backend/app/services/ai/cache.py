@@ -66,39 +66,39 @@ async def schedule_cache_key(
     target_date: date_cls,
     start_h: int,
     end_h: int,
+    time_blocked: bool,
     db: AsyncSession,
 ) -> str:
     """Cache key for a day's schedule. Depends on every Go that would feed
-    into the prompt — today's dated items, dateless backlog, and overdue."""
-    # Today + dateless (schedule input)
-    today_q = await db.execute(
+    into the prompt — the whole open one-off backlog (overdue + today + future
+    + dateless), plus time_blocked mode. Step membership/position is included
+    so adding/changing a Step relationship invalidates the cache."""
+    from app.models.tasks import GoEntry
+
+    future_cutoff = target_date + timedelta(days=14)
+    overdue_cutoff = target_date - timedelta(days=SCHEDULE_OVERDUE_WINDOW_DAYS)
+
+    done_subq = select(GoEntry.go_id).where(GoEntry.value > 0).scalar_subquery()
+    backlog_q = await db.execute(
         select(Go).where(
             Go.user_id == user_id,
-            or_(Go.due_date == target_date, Go.due_date.is_(None)),
+            Go.item_kind == "one_off",
+            Go.id.notin_(done_subq),
+            or_(
+                Go.due_date.is_(None),
+                Go.due_date == target_date,
+                (Go.due_date < target_date) & (Go.due_date >= overdue_cutoff),
+                (Go.due_date > target_date) & (Go.due_date <= future_cutoff),
+            ),
         ).order_by(Go.id),
     )
-    today_signature = [
-        f"{g.id}|{g.title}|{g.due_date.isoformat() if g.due_date else 'none'}"
-        for g in today_q.scalars().all()
+    backlog_signature = [
+        f"{g.id}|{g.title}|{g.due_date.isoformat() if g.due_date else 'none'}|{g.step_id or 'no-step'}"
+        for g in backlog_q.scalars().all()
     ]
-
-    # Overdue (narrative input)
-    overdue_q = await db.execute(
-        select(Go).where(
-            Go.user_id == user_id,
-            Go.due_date.isnot(None),
-            Go.due_date < target_date,
-            Go.due_date >= target_date - timedelta(days=SCHEDULE_OVERDUE_WINDOW_DAYS),
-        ).order_by(Go.id),
-    )
-    overdue_signature = [str(g.id) for g in overdue_q.scalars().all()]
-
-    fingerprint = json.dumps(
-        {"today": today_signature, "overdue": overdue_signature},
-        ensure_ascii=False,
-        sort_keys=True,
-    )
-    return f"schedule:{user_id}:{target_date}:{start_h}-{end_h}:{_short_hash(fingerprint)}"
+    fingerprint = json.dumps({"backlog": backlog_signature}, ensure_ascii=False, sort_keys=True)
+    mode = "t" if time_blocked else "f"
+    return f"schedule:{user_id}:{target_date}:{start_h}-{end_h}:{mode}:{_short_hash(fingerprint)}"
 
 
 async def insights_cache_key(

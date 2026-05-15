@@ -25,7 +25,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai import AIJob
-from app.models.tasks import Go, Task
+from app.models.tasks import Go, GoEntry, Step, Task
 from app.schemas.ai import ScheduleCreate, ScheduleSlot, ScheduleSummary
 from app.services.ai.jobs import register_handler
 from app.services.ai.ollama_client import OllamaClient
@@ -35,87 +35,118 @@ logger = logging.getLogger(__name__)
 # How far back we look for overdue items — past this, an item is essentially
 # abandoned and not worth surfacing in today's narrative.
 OVERDUE_WINDOW_DAYS = 30
-# Cap on schedulable items so the model isn't drowned in a 50-row backlog.
-MAX_TODAY_GOS = 12
+# Cap on the total OPEN backlog we hand to the model. Prevents prompt blow-up
+# while still giving enough context to find step precedence.
+MAX_OPEN_GOS = 30
 
 
 SYSTEM_PROMPT = """\
 /no_think
 
-You are a productivity planner + coach. Given the user's Go-tasks for today, \
-overdue tasks, and active goals — you produce TWO things:
+You are a productivity planner + coach. Given the user's FULL open backlog of \
+Go-tasks (overdue, today, future, dateless), active goals + step structure, \
+you produce TWO things:
   a) a short narrative reading their state (focus / strengths / weaknesses),
-  b) a time-blocked schedule of TODAY's go-tasks only.
+  b) a schedule of WHAT THEY SHOULD DO TODAY — pulled from across the backlog.
+
+CORE PRINCIPLE — STEP PRECEDENCE:
+Many Gos belong to a Step (a sub-phase of a Goal). Steps have an ordering: \
+position 0 first, then 1, etc. If a Step has multiple Gos, do the LOWER-POSITION \
+Go before the HIGHER one. Don't schedule a later-step Go when its prerequisite \
+is still open. If a higher-position Go is "due today" but a lower-position Go in \
+the same Step is incomplete — INCLUDE BOTH today, with the lower-position one \
+ranked higher and noted as "blocking the next step".
+
+PRIORITY ORDER:
+1. Overdue Gos (due_date < today) — top priority, slip-handling.
+2. Step prerequisites — unblocking work, even if dated future.
+3. Today's Gos (due_date == today).
+4. Dateless backlog — opportunistic fill.
+5. Future-dated Gos — only if they unblock today's chain.
 
 Hard rules:
 1. Output language matches the language of the user's task titles.
-2. Schedule slots come ONLY from today's go-tasks. Do NOT invent slots; do NOT \
-include routines or backlog items. Group breaks/lunch sensibly between blocks.
-3. Slot times fall within the work hours and do not overlap.
-4. Always include at least one 10-15 min break between deep blocks, and a \
-30-60 min lunch around mid-day.
-5. The narrative summary is grounded in the actual data — no platitudes. \
-Each of {focus, doing_well, needs_attention} is 1-2 sentences. If you genuinely \
-can't observe something, leave that field as empty string "".
-6. Output STRICTLY valid JSON. No prose, no markdown, no <think> blocks."""
+2. Time-blocked mode: slot times fall within work hours, do not overlap, include \
+breaks every ~90 min + a lunch.
+3. Free-order mode (time_blocked=false): leave start_time/end_time as empty \
+strings. Order slots by priority — first slot is most important.
+4. The narrative is grounded in the actual backlog — reference real Steps + Gos \
++ overdue counts. If something is genuinely absent, return "" for that field.
+5. Output STRICTLY valid JSON. No prose, no markdown, no <think> blocks."""
 
 
 async def _load_today_context(
     user_id, target_date: date_cls, db: AsyncSession,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Return today's gos + overdue gos + active goals (for narrative)."""
-    # --- Schedulable Go items ---
-    # We include items in two buckets:
-    #   - due_date == target_date  (explicitly planned for today)
-    #   - due_date IS NULL         (dateless backlog — user wants them done
-    #                               sometime; AI can place a few each day)
-    # Overdue items (due_date < today) are NOT scheduled — they show up in
-    # the "needs attention" narrative instead.
-    today_q = await db.execute(
-        select(Go, Task).outerjoin(Task, Go.task_id == Task.id)
+    """Load the user's whole open backlog + step structure + active goals.
+
+    "Open" here = item_kind='one_off' AND has no GoEntry with value > 0 (no
+    progress recorded). For numeric tasks this is approximate; refining
+    completion logic per-kind is Phase 6b territory.
+    """
+    overdue_cutoff = target_date - timedelta(days=OVERDUE_WINDOW_DAYS)
+
+    # --- All OPEN one-off Gos for this user ---
+    # We pull: overdue (due_date < today, within window), today (==), future
+    # (> today, within ~14 days), and dateless. Capped via MAX_OPEN_GOS so the
+    # prompt doesn't blow up on a 200-row backlog.
+    future_cutoff = target_date + timedelta(days=14)
+    done_subq = (
+        select(GoEntry.go_id)
+        .where(GoEntry.value > 0)
+        .scalar_subquery()
+    )
+    open_q = await db.execute(
+        select(Go, Task, Step).outerjoin(Task, Go.task_id == Task.id)
+        .outerjoin(Step, Go.step_id == Step.id)
         .where(
             Go.user_id == user_id,
-            or_(Go.due_date == target_date, Go.due_date.is_(None)),
+            Go.item_kind == "one_off",
+            Go.id.notin_(done_subq),
+            or_(
+                Go.due_date.is_(None),
+                Go.due_date == target_date,
+                (Go.due_date < target_date) & (Go.due_date >= overdue_cutoff),
+                (Go.due_date > target_date) & (Go.due_date <= future_cutoff),
+            ),
         )
         .order_by(
-            # Dated-today first (NULLs last), then by creation recency.
-            Go.due_date.desc().nullslast(),
+            # Overdue first, then today, then near-future, then dateless.
+            Go.due_date.asc().nullslast(),
+            Step.position.asc().nullslast(),
             Go.created_at.desc(),
         )
-        .limit(MAX_TODAY_GOS),
+        .limit(MAX_OPEN_GOS),
     )
-    today_gos: list[dict] = []
-    for go, task in today_q.all():
-        today_gos.append({
-            "id": str(go.id),
-            "title": go.title,
-            "goal": task.title if task else None,
-            # Tell the model which are explicitly due today vs dateless backlog.
-            # Helps it weight what to definitely-schedule vs skip if hours tight.
-            "dated_today": go.due_date is not None,
-        })
-
-    # --- Overdue Go items (narrative input only — NOT scheduled) ---
-    overdue_cutoff = target_date - timedelta(days=OVERDUE_WINDOW_DAYS)
-    overdue_q = await db.execute(
-        select(Go, Task).outerjoin(Task, Go.task_id == Task.id).where(
-            Go.user_id == user_id,
-            Go.due_date.isnot(None),
-            Go.due_date < target_date,
-            Go.due_date >= overdue_cutoff,
-        ),
-    )
+    open_gos: list[dict] = []
     overdue_gos: list[dict] = []
-    for go, task in overdue_q.all():
-        days_overdue = (target_date - go.due_date).days if go.due_date else None
-        overdue_gos.append({
+    for go, task, step in open_q.all():
+        bucket: str
+        if go.due_date is None:
+            bucket = "dateless"
+        elif go.due_date < target_date:
+            bucket = "overdue"
+        elif go.due_date == target_date:
+            bucket = "today"
+        else:
+            bucket = "future"
+
+        item = {
             "id": str(go.id),
             "title": go.title,
             "goal": task.title if task else None,
-            "days_overdue": days_overdue,
-        })
+            "step": step.title if step else None,
+            "step_id": str(step.id) if step else None,
+            "step_position": step.position if step else None,
+            "due_date": go.due_date.isoformat() if go.due_date else None,
+            "bucket": bucket,
+        }
+        open_gos.append(item)
+        if bucket == "overdue":
+            days_overdue = (target_date - go.due_date).days
+            overdue_gos.append({**item, "days_overdue": days_overdue})
 
-    # --- Active goals (high-level context for the narrative) ---
+    # --- Active goals + their steps (for structural awareness) ---
     goals_q = await db.execute(
         select(Task).where(Task.user_id == user_id, Task.status == "active"),
     )
@@ -128,7 +159,7 @@ async def _load_today_context(
         })
 
     return {
-        "today_gos": today_gos,
+        "open_gos": open_gos,
         "overdue_gos": overdue_gos,
         "active_goals": active_goals,
     }
@@ -140,55 +171,66 @@ def _build_prompt(
     end_h: int,
     context: dict,
     prefs: list[str],
+    time_blocked: bool,
 ) -> str:
-    today_block    = json.dumps(context["today_gos"],   ensure_ascii=False, indent=2)
-    overdue_block  = json.dumps(context["overdue_gos"], ensure_ascii=False, indent=2)
+    open_block     = json.dumps(context["open_gos"], ensure_ascii=False, indent=2)
     goals_block    = json.dumps(context["active_goals"], ensure_ascii=False, indent=2)
-    prefs_block    = ", ".join(prefs) if prefs else "(no special preferences)"
+    prefs_block    = ", ".join(prefs) if prefs else "(none)"
+
+    n_overdue = sum(1 for g in context["open_gos"] if g["bucket"] == "overdue")
+    n_today   = sum(1 for g in context["open_gos"] if g["bucket"] == "today")
+    n_future  = sum(1 for g in context["open_gos"] if g["bucket"] == "future")
+    n_dateless= sum(1 for g in context["open_gos"] if g["bucket"] == "dateless")
+
+    mode_intro = (
+        "Output a TIME-BLOCKED schedule: each slot has start_time/end_time within "
+        f"{start_h:02d}:00–{end_h:02d}:00, no overlaps, breaks every ~90 min, lunch mid-day."
+    ) if time_blocked else (
+        "Output a FREE-ORDER list: leave start_time and end_time as empty strings. "
+        "Order slots by priority — first = most important. No need for breaks/lunch slots."
+    )
 
     return f"""\
-Plan the day {target_date.isoformat()} for the user.
+Plan {target_date.isoformat()} for the user.
 
-Work hours: {start_h:02d}:00 to {end_h:02d}:00.
-Preferences: {prefs_block}.
+Work hours: {start_h:02d}:00–{end_h:02d}:00.   Prefs: {prefs_block}.
+Backlog snapshot: {n_overdue} overdue · {n_today} due today · {n_future} due-soon · {n_dateless} dateless.
 
-═══ SCHEDULABLE GO ITEMS (the ONLY source for schedule slots) ═══
-Items with dated_today=true are explicitly due today — schedule them. \
-Items with dated_today=false are dateless backlog — pick 2-4 to slot in if \
-hours allow, skip the rest.
+═══ OPEN GO BACKLOG (single source — pick what goes into today) ═══
+Each item: bucket = where it sits in time; step + step_position = its place in a
+Step (lower position blocks higher). Look at SAME-STEP groups: if a low-position
+Go is incomplete and a high-position Go in the SAME step has due_date=today —
+include BOTH today, with the low-position one ranked above (mark in note that it
+unblocks the next).
 
-{today_block}
+{open_block}
 
-═══ OVERDUE GO ITEMS (for narrative only — do NOT schedule) ═══
-{overdue_block}
-
-═══ ACTIVE GOALS (high-level context for narrative) ═══
+═══ ACTIVE GOALS (high-level context) ═══
 {goals_block}
 
 Build:
-1. `summary`: 3 short observations about the user's state.
-   - focus: what to prioritise today (lean on today's gos + their goals).
-   - doing_well: anything observably on track (e.g. high-priority goal has \
-items moving today, no overdue items in some goal, etc.).
-   - needs_attention: stale work, overdue items, goals without due dates, etc.
-   Be concrete and reference real numbers/titles. Empty string "" if you genuinely \
-can't observe something.
-2. `slots`: time-blocked schedule from TODAY'S go-tasks only. For each goal-work \
-slot, set source_kind="go" and source_id to the Go's id. For breaks/lunch, omit \
-both. Do NOT include overdue items, routines, or invented tasks.
+1. `summary` — three concrete observations, grounded in titles + numbers above:
+   - focus: priority area for today, citing the actual goal/step under load.
+   - doing_well: where the backlog is healthy (low overdue, step chains
+     advancing, etc.).
+   - needs_attention: overdue clusters, blocked step chains, abandoned items.
+   Empty "" if you can't say it honestly.
+
+2. `slots` — what to do today.
+   {mode_intro}
+   For each work slot, set source_kind="go" + source_id to the Go's id.
+   For breaks/lunch (time-blocked mode only), omit both.
+   In `note` (1 line) explain WHY this item now — overdue / unblocks step X /
+   continues yesterday's chain / etc.
 
 JSON schema:
 {{
   "date": "{target_date.isoformat()}",
-  "summary": {{
-    "focus": "...",
-    "doing_well": "...",
-    "needs_attention": "..."
-  }},
+  "summary": {{ "focus": "...", "doing_well": "...", "needs_attention": "..." }},
   "slots": [
     {{
-      "start_time": "09:00",
-      "end_time": "09:45",
+      "start_time": "{('09:00' if time_blocked else '')}",
+      "end_time":   "{('09:45' if time_blocked else '')}",
       "kind": "goal" | "deep_work" | "admin" | "break" | "lunch" | "other",
       "title": "Short title",
       "source_kind": "go" | null,
@@ -271,16 +313,19 @@ async def run_schedule_job(
         raise ValueError("hours.end_h must be greater than hours.start_h")
 
     context = await _load_today_context(job.user_id, target_date, db)
-    if not context["today_gos"]:
-        # Even with overdue items + active goals, without anything due TODAY we
-        # have no slots to build — let the UI surface a friendly empty state.
+    if not context["open_gos"]:
+        # Truly nothing — no overdue, no today, no future, no dateless.
         raise ValueError(
-            "no open go-tasks due on this date — add a task with today's "
-            "due date to plan your day",
+            "no open go-tasks anywhere — create at least one go-item, then try again",
         )
 
     prompt = _build_prompt(
-        target_date, params.hours.start_h, params.hours.end_h, context, params.prefs,
+        target_date,
+        params.hours.start_h,
+        params.hours.end_h,
+        context,
+        params.prefs,
+        params.time_blocked,
     )
 
     raw = await ollama.generate(
@@ -297,9 +342,12 @@ async def run_schedule_job(
         output = _parse_output(raw)
 
     logger.info(
-        "schedule generated: date=%s slots=%d today_gos=%d overdue=%d goals=%d",
-        target_date, len(output["slots"]),
-        len(context["today_gos"]), len(context["overdue_gos"]),
+        "schedule generated: date=%s mode=%s slots=%d open=%d overdue=%d goals=%d",
+        target_date,
+        "time" if params.time_blocked else "free",
+        len(output["slots"]),
+        len(context["open_gos"]),
+        len(context["overdue_gos"]),
         len(context["active_goals"]),
     )
     return output

@@ -180,14 +180,18 @@ function ResultView({ slots }: { slots: ScheduleSlot[] }) {
       </div>
     );
   }
+  // Free-order mode if first slot has no start_time. Render as numbered list.
+  const freeOrder = !slots[0].start_time;
   return (
-    <div className="ai-tl">
+    <div className="ai-tl" data-mode={freeOrder ? 'free' : 'time'}>
       {slots.map((s, i) => (
         <div className="ai-tl__slot" key={i} data-kind={s.kind}>
           <div className="ai-tl__time">
-            {s.start_time}
-            <br />
-            {s.end_time}
+            {freeOrder ? (
+              <span className="ai-tl__rank">{i + 1}</span>
+            ) : (
+              <>{s.start_time}<br />{s.end_time}</>
+            )}
           </div>
           <span className="ai-tl__dot" />
           <div className="ai-tl__body">
