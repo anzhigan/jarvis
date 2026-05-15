@@ -337,3 +337,162 @@
   padding: 18px 0;
   text-align: center;
 }
+
+/* ── InsightsCard — AI narrative review at the top of Analysis ───────────── */
+.ana-insights-card {
+  background: linear-gradient(165deg, var(--indigo-soft), transparent 60%);
+  border: 1px solid var(--indigo-tint);
+  border-radius: var(--r-card);
+  padding: 16px 18px;
+}
+.ana-insights-card__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ana-insights-card__title-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.ana-insights-card__spk {
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1px solid var(--indigo-tint);
+  color: var(--indigo);
+}
+.ana-insights-card__title {
+  font-family: var(--font-display);
+  font-size: 18px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0;
+}
+.ana-insights-card__title em { font-style: italic; color: var(--indigo); }
+.ana-insights-card__period {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-left: 4px;
+}
+.ana-insights-card__refresh {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-control);
+  color: var(--ink-4);
+  cursor: pointer;
+}
+.ana-insights-card__refresh:hover:not(:disabled) {
+  background: var(--paper); color: var(--ink);
+}
+.ana-insights-card__refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ana-insights-card__loading {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 0;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--ink-3);
+  font-style: italic;
+}
+.ana-insights-card__loading .ai-spk {
+  width: 16px; height: 16px;
+  color: var(--indigo);
+  animation: ai-pulse 2.4s ease-in-out infinite;
+}
+.ana-insights-card__loading .ai-spk::before { width: 16px; top: 7px; }
+.ana-insights-card__loading .ai-spk::after  { height: 16px; left: 7px; }
+.ana-insights-card__elapsed {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-5);
+  margin-left: 6px;
+}
+.ana-insights-card__empty {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-4);
+  margin: 0;
+  padding: 6px 0;
+}
+
+.ana-insights-card__body {
+  display: flex; flex-direction: column;
+  gap: 10px;
+}
+.ana-insights-card__rows {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 900px) {
+  .ana-insights-card__rows { grid-template-columns: 1fr; }
+}
+.ana-insights-card__row {
+  padding: 10px 12px;
+  background: var(--paper);
+  border-left: 3px solid var(--indigo);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+}
+.ana-insights-card__row[data-tone="success"] { border-left-color: var(--moss); }
+.ana-insights-card__row[data-tone="warning"] { border-left-color: var(--ochre); }
+.ana-insights-card__row[data-tone="focus"]   { border-left-color: var(--indigo); }
+.ana-insights-card__row-label {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin-bottom: 4px;
+}
+.ana-insights-card__row[data-tone="success"] .ana-insights-card__row-label { color: var(--moss); }
+.ana-insights-card__row[data-tone="warning"] .ana-insights-card__row-label { color: var(--ochre); }
+.ana-insights-card__row[data-tone="focus"]   .ana-insights-card__row-label { color: var(--indigo); }
+.ana-insights-card__row-text {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.ana-insights-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-top: 4px;
+}
+.ana-insights-card__metric {
+  text-align: center;
+  padding: 6px 4px;
+  background: var(--paper);
+  border-radius: var(--r-control);
+  box-shadow: var(--sh-card);
+}
+.ana-insights-card__metric[data-tone="warning"] {
+  background: var(--ochre-soft);
+}
+.ana-insights-card__metric-val {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.ana-insights-card__metric[data-tone="warning"] .ana-insights-card__metric-val { color: var(--ochre); }
+.ana-insights-card__metric-lbl {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}

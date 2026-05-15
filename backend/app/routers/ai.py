@@ -523,31 +523,35 @@ async def create_schedule(
 # ── Weekly insights feature ──────────────────────────────────────────────────
 
 
-@router.post("/insights/weekly", response_model=AIJobOut, status_code=status.HTTP_202_ACCEPTED)
-async def create_weekly_insights(
+@router.post("/insights", response_model=AIJobOut, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/insights/weekly", response_model=AIJobOut, status_code=status.HTTP_202_ACCEPTED, include_in_schema=False)
+async def create_insights(
     body: InsightsCreate,
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Enqueue a weekly-insights job. Returns immediately; client polls.
+    """Enqueue an insights job for an arbitrary date window. Returns immediately.
 
-    `week_start` empty → server resolves to this week's Monday (UTC).
+    Body:
+      - `range_days` — days back from today (default 7). 30/90/365 also work.
+      - `week_start` — legacy: explicit Monday anchor; overrides range_days.
     """
+    today = datetime.now(UTC).date()
     if body.week_start:
         try:
-            week_start = datetime.fromisoformat(body.week_start).date()
+            window_start = datetime.fromisoformat(body.week_start).date()
+            window_end = window_start + timedelta(days=6)
         except ValueError:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail=f"invalid week_start {body.week_start!r}",
             )
     else:
-        today = datetime.now(UTC).date()
-        week_start = today - timedelta(days=today.weekday())
+        window_start = today - timedelta(days=body.range_days - 1)
+        window_end = today
 
-    # Cache lookup — same week + no activity changes since last run.
-    cache_key = await insights_cache_key(user.id, week_start, db)
+    cache_key = await insights_cache_key(user.id, window_start, window_end, db)
     cached = await find_cached(cache_key, user.id, "insights", db)
     if cached is not None:
         return cached
@@ -562,7 +566,7 @@ async def create_weekly_insights(
     job = await create_job(
         user_id=user.id,
         kind="insights",
-        input_data={"week_start": week_start.isoformat()},
+        input_data=body.model_dump(mode="json"),
         eta_seconds=_estimate_eta("insights", body.model_dump()),
         cache_key=cache_key,
         db=db,

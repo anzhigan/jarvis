@@ -1,69 +1,71 @@
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import type { AIJobKind } from '../../api/types';
 import { useAIJob } from './useAIJob';
 import './ai.css';
 
 interface Props {
   jobId: string;
+  /** Called when user clicks "Open →" on a done toast. */
   onOpen: () => void;
+  /** Called when user X's the toast OR success auto-dismiss timer fires. */
   onDismiss: () => void;
 }
 
 /**
- * Bottom-right toast that appears when the QuizDrawer is closed mid-generation.
+ * Universal bottom-right toast for any backgrounded AI generation.
  *
  * Three states based on the polled job:
- *  - queued/running → "Generating quiz · Xs"
- *  - done           → "Quiz ready · Open →"
- *  - failed         → "Generation failed"
+ *  - queued/running → "Generating <kind> · elapsed Xs"
+ *  - done           → "<kind> ready · Open →"
+ *  - failed         → "Generation failed · <error>"
  *
- * Auto-dismisses 8s after success if the user doesn't click Open.
+ * Labels adapt to job.kind. Auto-dismisses 8s after success if user
+ * doesn't click Open.
  */
-export function QuizGenerationToast({ jobId, onOpen, onDismiss }: Props) {
+export function AIGenerationToast({ jobId, onOpen, onDismiss }: Props) {
   const { job } = useAIJob(jobId);
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [elapsedSec, setElapsedSec] = useState<number>(0);
 
-  // Countdown of "estimated seconds remaining" — shrinks from eta_seconds at
-  // the moment running started. This is a UX hint, not load-bearing.
+  // Live elapsed counter — ticks every second while job is in non-terminal state.
   useEffect(() => {
-    if (!job || job.status !== 'running' || !job.started_at) {
-      setSecondsLeft(null);
+    if (!job) return;
+    if (job.status !== 'queued' && job.status !== 'running') {
+      setElapsedSec(0);
       return;
     }
-    const eta = job.eta_seconds ?? 60;
-    const startedAt = new Date(job.started_at).getTime();
-    const tick = () => {
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const remaining = Math.max(0, eta - elapsed);
-      setSecondsLeft(remaining);
-    };
+    const anchor = job.started_at ?? job.created_at;
+    if (!anchor) return;
+    const anchorMs = new Date(anchor).getTime();
+    const tick = () => setElapsedSec(Math.floor((Date.now() - anchorMs) / 1000));
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [job?.status, job?.started_at, job?.eta_seconds]);
+  }, [job?.status, job?.started_at, job?.created_at]);
 
-  // Auto-dismiss done toasts after 8 seconds so they don't linger forever.
+  // Auto-dismiss done toasts after 8s so they don't linger.
   useEffect(() => {
     if (job?.status !== 'done') return;
     const t = setTimeout(onDismiss, 8000);
     return () => clearTimeout(t);
   }, [job?.status, onDismiss]);
 
-  if (!job) {
-    return null;
-  }
+  if (!job) return null;
 
   const isWorking = job.status === 'queued' || job.status === 'running';
   const isDone = job.status === 'done';
   const isFailed = job.status === 'failed';
 
-  // Progress percentage for the bar: estimated.
+  const label = LABELS[job.kind] ?? 'AI task';
+  const eta = job.eta_seconds ?? 60;
+
+  // Progress bar — based on elapsed vs ETA. Capped at 95% so it doesn't
+  // claim "done" before the job actually finishes.
   let progressPct = 0;
   if (isDone) {
     progressPct = 100;
-  } else if (job.status === 'running' && job.started_at && job.eta_seconds) {
-    const elapsed = (Date.now() - new Date(job.started_at).getTime()) / 1000;
-    progressPct = Math.min(95, (elapsed / job.eta_seconds) * 100);
+  } else if (isWorking && eta > 0) {
+    progressPct = Math.min(95, (elapsedSec / eta) * 100);
   }
 
   return (
@@ -74,9 +76,9 @@ export function QuizGenerationToast({ jobId, onOpen, onDismiss }: Props) {
       <div className="ai-toast__body">
         {isWorking && (
           <>
-            <p className="ai-toast__title">Generating quiz</p>
+            <p className="ai-toast__title">Generating {label}</p>
             <p className="ai-toast__sub">
-              {secondsLeft != null ? `~${secondsLeft}s remaining` : 'starting up…'}
+              {elapsedSec}s elapsed · ~{eta}s estimated
             </p>
             <div className="ai-toast__bar">
               <div className="ai-toast__bar-fill" style={{ width: `${progressPct}%` }} />
@@ -85,7 +87,7 @@ export function QuizGenerationToast({ jobId, onOpen, onDismiss }: Props) {
         )}
         {isDone && (
           <>
-            <p className="ai-toast__title">Quiz ready</p>
+            <p className="ai-toast__title">{capitalize(label)} ready</p>
             <button
               type="button"
               className="ai-toast__cta"
@@ -112,4 +114,15 @@ export function QuizGenerationToast({ jobId, onOpen, onDismiss }: Props) {
       </button>
     </div>
   );
+}
+
+const LABELS: Record<AIJobKind, string> = {
+  quiz:          'quiz',
+  tasks_extract: 'task list',
+  schedule:      'schedule',
+  insights:      'review',
+};
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

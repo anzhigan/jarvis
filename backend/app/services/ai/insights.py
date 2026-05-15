@@ -36,25 +36,34 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """\
 /no_think
 
-You are a productivity coach reviewing a user's last 7 days. Given concrete \
-metrics and entity titles, produce a SHORT narrative review with three sections:
+You are a productivity coach. Given concrete metrics + entity titles for a \
+date window, produce a SHORT narrative review with three sections:
 1. doing_well — observable positive patterns (1-2 sentences, ground in numbers/titles)
 2. needs_attention — stale work, overdue items, dropped routines (1-2 sentences)
-3. focus — what to prioritise next week (1-2 sentences)
+3. focus — what to prioritise next (1-2 sentences)
 
 Hard rules:
 - Output language matches the language of goal/note titles in the data.
 - Be CONCRETE — reference real numbers and titles, never platitudes.
+- Match observations to the WINDOW LENGTH: don't talk about weekly patterns \
+on a 365-day window, or annual trends on a 7-day window.
 - If you genuinely can't observe something, return an empty string for that field.
 - Output STRICTLY valid JSON. No prose, no markdown, no <think> blocks."""
 
 
-def _resolve_week_start(week_start_str: str) -> date_cls:
-    if week_start_str:
-        return date_cls.fromisoformat(week_start_str)
-    # Default: this week's Monday. If today IS Monday, use this Monday (looking back).
+def _resolve_window(params: InsightsCreate) -> tuple[date_cls, date_cls]:
+    """Return (start, end) — inclusive on both ends.
+
+    Priority:
+      1. If params.week_start is set → that Monday-anchored 7-day window.
+      2. Otherwise → today and (today - range_days + 1).
+    """
     today = datetime.now(UTC).date()
-    return today - timedelta(days=today.weekday())
+    if params.week_start:
+        start = date_cls.fromisoformat(params.week_start)
+        return start, start + timedelta(days=6)
+    start = today - timedelta(days=params.range_days - 1)
+    return start, today
 
 
 async def _load_weekly_metrics(
@@ -155,8 +164,10 @@ def _build_prompt(week_start: date_cls, week_end: date_cls, context: dict) -> st
     goals_block = json.dumps(context["active_goals"], ensure_ascii=False, indent=2)
     overdue_block = json.dumps(context["overdue_sample"], ensure_ascii=False, indent=2)
 
+    days = (week_end - week_start).days + 1
     return f"""\
-Review the user's week of {week_start.isoformat()} — {week_end.isoformat()}.
+Review the user's activity from {week_start.isoformat()} to {week_end.isoformat()} \
+({days} days).
 
 ═══ METRICS ═══
 - Gos created:    {m['gos_created']}
@@ -215,8 +226,7 @@ async def run_insights_job(
     except ValidationError as e:
         raise ValueError(f"invalid insights input: {e.errors()[:2]}") from e
 
-    week_start = _resolve_week_start(params.week_start)
-    week_end = week_start + timedelta(days=6)
+    week_start, week_end = _resolve_window(params)
 
     context = await _load_weekly_metrics(job.user_id, week_start, week_end, db)
     if context["metrics"]["active_goals"] == 0 and context["metrics"]["gos_created"] == 0:

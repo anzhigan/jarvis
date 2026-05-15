@@ -7,6 +7,7 @@ import {
   RoutineCompletionChart, GoalsProgressChart, TopStreaksTrending,
   PracticeActivityChart, YearHeatmapCard,
 } from './AnalysisCharts';
+import { InsightsCard } from './InsightsCard';
 import './analytics.css';
 
 const PERIOD_TABS: { key: PeriodKey; label: string }[] = [
@@ -146,6 +147,9 @@ export default function AnalysisView() {
                 </div>
                 <KpiGrid kpis={a.kpis} trends={kpiTrends} />
               </section>
+
+              {/* Row 1.5 — AI narrative review for the current period */}
+              <InsightsCard period={a.period} />
 
               {/* Row 2 — Routine completion line + Goals progress bars */}
               <section className="ana-row ana-row-charts-1">

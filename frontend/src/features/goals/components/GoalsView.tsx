@@ -1,12 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, Loader2, Plus, Sparkles } from 'lucide-react';
+import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Go, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { aiApi, routinesApi } from '../../../api/client';
 
 // Lazy: only when user clicks "Plan day" — ~80kB of Radix Popover + drawer.
 const ScheduleDrawer = lazy(() => import('../../ai/ScheduleDrawer').then((m) => ({ default: m.ScheduleDrawer })));
-const InsightsDrawer = lazy(() => import('../../ai/InsightsDrawer').then((m) => ({ default: m.InsightsDrawer })));
+const AIGenerationToast = lazy(() => import('../../ai/AIGenerationToast').then((m) => ({ default: m.AIGenerationToast })));
 import { useGoals } from '../hooks/useGoals';
 import { useGos } from '../hooks/useGos';
 import { useGoalsView, type GoalsViewMode } from '../hooks/useGoalsView';
@@ -60,10 +60,10 @@ export default function GoalsView() {
   const [goMode, setGoMode] = useState<GoMode>(readGoMode);
   useEffect(() => { localStorage.setItem(GO_MODE_STORAGE, goMode); }, [goMode]);
 
-  // AI "Plan day" — job id while drawer is open. Null = closed.
+  // AI "Plan day" — split state lets the user background the generation:
+  // closing the drawer keeps the job and surfaces a bottom-right toast.
   const [scheduleJobId, setScheduleJobId] = useState<string | null>(null);
-  // AI "Weekly review"
-  const [insightsJobId, setInsightsJobId] = useState<string | null>(null);
+  const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
 
   const handlePlanDay = useCallback(async () => {
     try {
@@ -74,17 +74,9 @@ export default function GoalsView() {
         hours: { start_h: 9, end_h: 18 },
       });
       setScheduleJobId(job.id);
+      setScheduleDrawerOpen(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start planning');
-    }
-  }, []);
-
-  const handleWeeklyReview = useCallback(async () => {
-    try {
-      const job = await aiApi.createWeeklyInsights({});
-      setInsightsJobId(job.id);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to start review');
     }
   }, []);
 
@@ -285,18 +277,10 @@ export default function GoalsView() {
             <button
               className="ai-plan-trigger"
               onClick={handlePlanDay}
-              disabled={scheduleJobId !== null}
+              disabled={scheduleJobId !== null && !scheduleDrawerOpen}
               title="Build a time-blocked plan for today from your goals + routines"
             >
               <Sparkles size={13} /> Plan day
-            </button>
-            <button
-              className="ai-plan-trigger"
-              onClick={handleWeeklyReview}
-              disabled={insightsJobId !== null}
-              title="AI review of this week: doing well / needs attention / focus"
-            >
-              <BarChart3 size={13} /> Weekly review
             </button>
             <button
               className="new-btn"
@@ -426,32 +410,28 @@ export default function GoalsView() {
         )}
       </main>
 
-      {scheduleJobId !== null && (
+      {scheduleJobId !== null && scheduleDrawerOpen && (
         <Suspense fallback={null}>
           <ScheduleDrawer
             jobId={scheduleJobId}
             dateLabel={new Date().toLocaleDateString(undefined, {
               weekday: 'short', day: 'numeric', month: 'short',
             })}
-            onClose={() => setScheduleJobId(null)}
+            onClose={() => setScheduleDrawerOpen(false)}
             onRegenerate={() => {
               setScheduleJobId(null);
-              // Defer so Drawer unmounts cleanly before we enqueue the next job.
+              setScheduleDrawerOpen(false);
               setTimeout(handlePlanDay, 0);
             }}
           />
         </Suspense>
       )}
-
-      {insightsJobId !== null && (
+      {scheduleJobId !== null && !scheduleDrawerOpen && (
         <Suspense fallback={null}>
-          <InsightsDrawer
-            jobId={insightsJobId}
-            onClose={() => setInsightsJobId(null)}
-            onRegenerate={() => {
-              setInsightsJobId(null);
-              setTimeout(handleWeeklyReview, 0);
-            }}
+          <AIGenerationToast
+            jobId={scheduleJobId}
+            onOpen={() => setScheduleDrawerOpen(true)}
+            onDismiss={() => { setScheduleJobId(null); setScheduleDrawerOpen(false); }}
           />
         </Suspense>
       )}

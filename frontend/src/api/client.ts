@@ -495,6 +495,6 @@ export const aiApi = {
   createSchedule: (body: ScheduleCreate) =>
     request<AIJob>('/ai/schedule', { method: 'POST', body: JSON.stringify(body) }),
 
-  createWeeklyInsights: (body: InsightsCreate) =>
-    request<AIJob>('/ai/insights/weekly', { method: 'POST', body: JSON.stringify(body) }),
+  createInsights: (body: InsightsCreate) =>
+    request<AIJob>('/ai/insights', { method: 'POST', body: JSON.stringify(body) }),
 };

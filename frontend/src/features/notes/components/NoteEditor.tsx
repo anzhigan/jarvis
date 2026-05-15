@@ -16,8 +16,8 @@ const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
 const ShareDialog = lazy(() => import('./ShareDialog'));
 // AI quiz drawer — loaded only after user clicks the AI menu.
 const QuizDrawer = lazy(() => import('../../ai/QuizDrawer').then((m) => ({ default: m.QuizDrawer })));
-const QuizGenerationToast = lazy(() => import('../../ai/QuizGenerationToast').then((m) => ({ default: m.QuizGenerationToast })));
 const TasksDrawer = lazy(() => import('../../ai/TasksDrawer').then((m) => ({ default: m.TasksDrawer })));
+const AIGenerationToast = lazy(() => import('../../ai/AIGenerationToast').then((m) => ({ default: m.AIGenerationToast })));
 // BubbleMenu / FloatingMenu also live in their own chunk — they pull in
 // floating-ui and the @tiptap/react/menus plugin which we don't need on the
 // notes-library list view.
@@ -577,6 +577,9 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   const [quizJobId, setQuizJobId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [tasksJobId, setTasksJobId] = useState<string | null>(null);
+  // Tasks drawer also follows the visible/job-alive split — same pattern as quiz,
+  // so closing mid-generation surfaces a toast instead of cancelling silently.
+  const [tasksDrawerOpen, setTasksDrawerOpen] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
   const handleAIAction = useCallback(async (action: 'quiz' | 'tasks_extract' | 'summarize') => {
@@ -599,6 +602,7 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
           scope: { kind: 'note', id: note.id },
         });
         setTasksJobId(job.id);
+        setTasksDrawerOpen(true);
       }
       // 'summarize' not wired yet — handled by the menu's disabled flag.
     } catch (e) {
@@ -637,6 +641,7 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     setQuizJobId(null);
     setDrawerOpen(false);
     setTasksJobId(null);
+    setTasksDrawerOpen(false);
     setQuizError(null);
   }, [note?.id]);
 
@@ -736,19 +741,28 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       )}
       {quizJobId !== null && !drawerOpen && (
         <Suspense fallback={null}>
-          <QuizGenerationToast
+          <AIGenerationToast
             jobId={quizJobId}
             onOpen={handleToastOpen}
             onDismiss={handleToastDismiss}
           />
         </Suspense>
       )}
-      {tasksJobId !== null && (
+      {tasksJobId !== null && tasksDrawerOpen && (
         <Suspense fallback={null}>
           <TasksDrawer
             jobId={tasksJobId}
             noteTitle={note.name || 'untitled'}
-            onClose={() => setTasksJobId(null)}
+            onClose={() => setTasksDrawerOpen(false)}
+          />
+        </Suspense>
+      )}
+      {tasksJobId !== null && !tasksDrawerOpen && (
+        <Suspense fallback={null}>
+          <AIGenerationToast
+            jobId={tasksJobId}
+            onOpen={() => setTasksDrawerOpen(true)}
+            onDismiss={() => { setTasksJobId(null); setTasksDrawerOpen(false); }}
           />
         </Suspense>
       )}

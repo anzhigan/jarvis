@@ -216,12 +216,15 @@ class ScheduleOutput(BaseModel):
 
 
 class InsightsCreate(BaseModel):
-    """Body for POST /ai/insights/weekly.
+    """Body for POST /ai/insights.
 
-    `week_start` is the ISO date of the Monday of the target week. If empty,
-    backend uses the current week's Monday (or last week's if today is Sun).
+    `range_days`: how many days back from today to analyze. 7=this week,
+    30=last month, 90=last quarter, 365=last year. Defaults to 7.
+    `week_start` is kept for backward compat — if set, takes precedence over
+    range_days (anchors the window to a specific week).
     """
-    week_start: str = Field(default="", description="ISO date YYYY-MM-DD")
+    range_days: int = Field(default=7, ge=1, le=730)
+    week_start: str = Field(default="", description="Legacy: ISO YYYY-MM-DD anchor")
 
 
 class InsightsSummary(BaseModel):

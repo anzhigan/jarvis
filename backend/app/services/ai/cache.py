@@ -103,18 +103,20 @@ async def schedule_cache_key(
 
 async def insights_cache_key(
     user_id: uuid.UUID,
-    week_start: date_cls,
+    window_start: date_cls,
+    window_end: date_cls,
     db: AsyncSession,
 ) -> str:
-    """Cache key for weekly insights. Depends on metrics that would feed into
-    the LLM — so any user activity within the week (new Gos, GoEntries, Notes)
-    invalidates the cache, but a passive day produces an identical fingerprint."""
+    """Cache key for insights. Depends on metrics that would feed into the LLM
+    — any user activity within the window (new Gos, GoEntries, Notes) invalidates
+    the cache, but a passive day produces an identical fingerprint."""
     from datetime import datetime as _dt
     from sqlalchemy import func
     from app.models.notes import Note, Way
     from app.models.tasks import GoEntry, Task
 
-    week_end = week_start + timedelta(days=6)
+    week_start = window_start
+    week_end = window_end
     week_start_dt = _dt.combine(week_start, _dt.min.time())
     week_end_dt = _dt.combine(week_end, _dt.max.time())
 
@@ -148,8 +150,9 @@ async def insights_cache_key(
         ),
     )).scalar_one()
 
+    days = (week_end - week_start).days + 1
     fingerprint = f"{gos_count}|{entries_count}|{notes_count}|{active_goals_count}"
-    return f"insights:{user_id}:{week_start.isoformat()}:{_short_hash(fingerprint)}"
+    return f"insights:{user_id}:{week_start.isoformat()}:{days}d:{_short_hash(fingerprint)}"
 
 
 async def find_cached(

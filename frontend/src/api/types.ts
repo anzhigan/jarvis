@@ -383,7 +383,9 @@ export interface ScheduleOutput {
 
 // Weekly insights
 export interface InsightsCreate {
-  /** ISO YYYY-MM-DD; empty = this week's Monday (server-resolved). */
+  /** Days back from today. 7/30/90/365. Default 7. */
+  range_days?: number;
+  /** Legacy: explicit Monday anchor. Overrides range_days if set. */
   week_start?: string;
 }
 
