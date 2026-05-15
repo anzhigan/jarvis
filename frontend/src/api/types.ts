@@ -380,3 +380,30 @@ export interface ScheduleOutput {
   slots: ScheduleSlot[];
   total_active_minutes: number;
 }
+
+// Weekly insights
+export interface InsightsCreate {
+  /** ISO YYYY-MM-DD; empty = this week's Monday (server-resolved). */
+  week_start?: string;
+}
+
+export interface InsightsSummary {
+  doing_well: string;
+  needs_attention: string;
+  focus: string;
+}
+
+export interface InsightsMetrics {
+  gos_created: number;
+  gos_closed: number;
+  notes_created: number;
+  overdue_count: number;
+  active_goals: number;
+}
+
+export interface InsightsOutput {
+  week_start: string;
+  week_end: string;
+  summary: InsightsSummary;
+  metrics: InsightsMetrics;
+}

@@ -457,6 +457,7 @@ export const sprintsApi = {
 import type {
   AIJob,
   AIQuiz,
+  InsightsCreate,
   QuizAttempt,
   QuizAttemptAnswer,
   QuizCreate,
@@ -493,4 +494,7 @@ export const aiApi = {
 
   createSchedule: (body: ScheduleCreate) =>
     request<AIJob>('/ai/schedule', { method: 'POST', body: JSON.stringify(body) }),
+
+  createWeeklyInsights: (body: InsightsCreate) =>
+    request<AIJob>('/ai/insights/weekly', { method: 'POST', body: JSON.stringify(body) }),
 };

@@ -1,11 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Sparkles } from 'lucide-react';
+import { BarChart3, Loader2, Plus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Go, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { aiApi, routinesApi } from '../../../api/client';
 
 // Lazy: only when user clicks "Plan day" — ~80kB of Radix Popover + drawer.
 const ScheduleDrawer = lazy(() => import('../../ai/ScheduleDrawer').then((m) => ({ default: m.ScheduleDrawer })));
+const InsightsDrawer = lazy(() => import('../../ai/InsightsDrawer').then((m) => ({ default: m.InsightsDrawer })));
 import { useGoals } from '../hooks/useGoals';
 import { useGos } from '../hooks/useGos';
 import { useGoalsView, type GoalsViewMode } from '../hooks/useGoalsView';
@@ -61,6 +62,8 @@ export default function GoalsView() {
 
   // AI "Plan day" — job id while drawer is open. Null = closed.
   const [scheduleJobId, setScheduleJobId] = useState<string | null>(null);
+  // AI "Weekly review"
+  const [insightsJobId, setInsightsJobId] = useState<string | null>(null);
 
   const handlePlanDay = useCallback(async () => {
     try {
@@ -73,6 +76,15 @@ export default function GoalsView() {
       setScheduleJobId(job.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start planning');
+    }
+  }, []);
+
+  const handleWeeklyReview = useCallback(async () => {
+    try {
+      const job = await aiApi.createWeeklyInsights({});
+      setInsightsJobId(job.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to start review');
     }
   }, []);
 
@@ -279,6 +291,14 @@ export default function GoalsView() {
               <Sparkles size={13} /> Plan day
             </button>
             <button
+              className="ai-plan-trigger"
+              onClick={handleWeeklyReview}
+              disabled={insightsJobId !== null}
+              title="AI review of this week: doing well / needs attention / focus"
+            >
+              <BarChart3 size={13} /> Weekly review
+            </button>
+            <button
               className="new-btn"
               onClick={() => {
                 if (view.mode === 'go') setGoCreateOpen(true);
@@ -418,6 +438,19 @@ export default function GoalsView() {
               setScheduleJobId(null);
               // Defer so Drawer unmounts cleanly before we enqueue the next job.
               setTimeout(handlePlanDay, 0);
+            }}
+          />
+        </Suspense>
+      )}
+
+      {insightsJobId !== null && (
+        <Suspense fallback={null}>
+          <InsightsDrawer
+            jobId={insightsJobId}
+            onClose={() => setInsightsJobId(null)}
+            onRegenerate={() => {
+              setInsightsJobId(null);
+              setTimeout(handleWeeklyReview, 0);
             }}
           />
         </Suspense>

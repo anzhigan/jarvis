@@ -590,6 +590,97 @@
   margin: 0;
 }
 
+/* ── Weekly insights — 3-card narrative + metrics strip ─────────────────── */
+.ai-insights-rows {
+  display: flex; flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.ai-insight-row {
+  padding: 14px 16px;
+  background: var(--paper);
+  border-left: 3px solid var(--indigo);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+}
+.ai-insight-row[data-tone="success"] { border-left-color: var(--moss); }
+.ai-insight-row[data-tone="warning"] { border-left-color: var(--ochre); }
+.ai-insight-row[data-tone="focus"]   { border-left-color: var(--indigo); }
+
+.ai-insight-row__head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+.ai-insight-row__icon {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.ai-insight-row__icon[data-tone="success"] { background: var(--moss-soft);  color: var(--moss); }
+.ai-insight-row__icon[data-tone="warning"] { background: var(--ochre-soft); color: var(--ochre); }
+.ai-insight-row__icon[data-tone="focus"]   { background: var(--indigo-soft); color: var(--indigo); }
+
+.ai-insight-row__label {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.ai-insight-row[data-tone="success"] .ai-insight-row__label { color: var(--moss); }
+.ai-insight-row[data-tone="warning"] .ai-insight-row__label { color: var(--ochre); }
+.ai-insight-row[data-tone="focus"]   .ai-insight-row__label { color: var(--indigo); }
+
+.ai-insight-row__text {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+/* Metrics strip — small numeric cards below the narrative */
+.ai-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline-faint);
+}
+.ai-metric {
+  text-align: center;
+  padding: 8px 4px;
+  background: var(--cream);
+  border-radius: var(--r-control);
+}
+.ai-metric[data-tone="warning"] {
+  background: var(--ochre-soft);
+}
+.ai-metric__value {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: 3px;
+}
+.ai-metric[data-tone="warning"] .ai-metric__value { color: var(--ochre); }
+.ai-metric__label {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
 /* "Plan day" trigger button — fits next to .new-btn in Goals topbar */
 .ai-plan-trigger {
   display: inline-flex; align-items: center; gap: 5px;
