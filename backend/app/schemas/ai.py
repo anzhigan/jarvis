@@ -42,3 +42,86 @@ class AIJobBrief(BaseModel):
     error: str | None = None
     created_at: datetime
     finished_at: datetime | None = None
+
+
+# ── Quiz feature ─────────────────────────────────────────────────────────────
+
+
+class QuizScope(BaseModel):
+    """Phase 3 only supports kind='note'. Phase 4 expands to topic/way/tag/multi."""
+    kind: str = Field(pattern=r"^(note|topic|way|tag|multi|recent)$")
+    id: uuid.UUID | None = None
+    ids: list[uuid.UUID] | None = None
+    days: int | None = None  # for kind='recent'
+
+
+class QuizCreate(BaseModel):
+    """Request body for POST /ai/quiz."""
+    scope: QuizScope
+    difficulty: str = Field(default="medium", pattern=r"^(easy|medium|hard)$")
+    count: int = Field(default=8, ge=3, le=20)
+
+
+class QuizOptions(BaseModel):
+    A: str
+    B: str
+    C: str
+    D: str
+
+
+class QuizQuestionOut(BaseModel):
+    """One question as stored in AIQuiz.questions JSON.
+
+    `source_note_id` / `source_note_title` only filled for multi-note scopes
+    (Phase 4); for single-note quiz the whole quiz is from one note so the
+    quiz-level title is enough.
+    """
+    question: str
+    options: QuizOptions
+    correct: str = Field(pattern=r"^[ABCD]$")
+    explanation: str
+    source_quote: str | None = None
+    source_note_id: uuid.UUID | None = None
+    source_note_title: str | None = None
+
+
+class AIQuizOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    scope_kind: str
+    scope_ref: dict
+    difficulty: str
+    questions: list[QuizQuestionOut]
+    created_at: datetime
+
+
+class QuizAttemptAnswer(BaseModel):
+    question_idx: int = Field(ge=0)
+    selected: str = Field(pattern=r"^[ABCD]$")
+
+
+class QuizAttemptCreate(BaseModel):
+    answers: list[QuizAttemptAnswer]
+
+
+class QuizAttemptItemOut(BaseModel):
+    """Per-question feedback in the attempt response."""
+    question_idx: int
+    selected: str
+    correct: bool
+    correct_answer: str  # the actual letter — surfaced post-submit so UI can highlight
+    explanation: str
+
+
+class QuizAttemptOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    quiz_id: uuid.UUID
+    score: int
+    total: int
+    items: list[QuizAttemptItemOut]
+    next_review_at: datetime | None
+    completed_at: datetime | None
