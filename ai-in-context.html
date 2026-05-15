@@ -1,4 +1,4 @@
-<!doctype html>
+поч<!doctype html>
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="utf-8" />
@@ -390,6 +390,280 @@ html, body {
 .btn--sm { height: 26px; padding: 4px 10px; font-size: 12px; }
 .btn--lg { height: 36px; padding: 8px 18px; font-size: 13.5px; }
 .btn--ai { background: var(--indigo); color: var(--paper); border-color: var(--indigo); }
+.btn--ai-trigger {
+  background: var(--paper);
+  color: var(--indigo);
+  border: 1px solid var(--indigo-tint);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.btn--ai-trigger:hover { background: var(--indigo-soft); }
+.btn--ai-trigger[data-open] {
+  background: var(--indigo-soft);
+  border-color: var(--indigo);
+}
+.chev { font-family: var(--font-ui); font-size: 10px; opacity: 0.5; margin-left: 1px; }
+
+/* ═══ AI MENU popover (appears below trigger) ═══ */
+.ai-menu {
+  position: absolute;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-popover);
+  width: 300px;
+  padding: 6px;
+  z-index: 20;
+}
+.ai-menu__item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-control);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+}
+.ai-menu__item:hover { background: var(--cream); }
+.ai-menu__item-icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.ai-menu__item-text { flex: 1; min-width: 0; }
+.ai-menu__item-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0 0 2px;
+}
+.ai-menu__item-sub {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-4);
+  line-height: 1.35;
+  margin: 0;
+}
+.ai-menu__divider {
+  height: 1px;
+  background: var(--hairline);
+  margin: 4px 4px;
+}
+.ai-menu__context {
+  padding: 8px 12px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  display: flex; align-items: center; gap: 6px;
+}
+.ai-menu__context-label {
+  font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase;
+  font-size: 9.5px;
+  color: var(--ink-5);
+}
+
+/* ═══ SCOPE picker — for cross-notes quiz ═══ */
+.scope-list {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.scope-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--ink-2);
+  text-align: left;
+  width: 100%;
+}
+.scope-row:hover { border-color: var(--hairline-strong); }
+.scope-row[data-selected] {
+  border-color: var(--indigo);
+  background: var(--indigo-soft);
+}
+.scope-row__radio {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+.scope-row[data-selected] .scope-row__radio {
+  border-color: var(--indigo);
+  background: var(--paper);
+}
+.scope-row[data-selected] .scope-row__radio::after {
+  content: ''; position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--indigo);
+}
+.scope-row__text { flex: 1; min-width: 0; }
+.scope-row__title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0;
+}
+.scope-row__sub {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-4);
+  margin: 1px 0 0;
+}
+.scope-row__count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+
+.scope-controls {
+  display: flex; align-items: center; gap: 18px;
+  padding: 12px 14px;
+  background: var(--cream);
+  border-radius: var(--r-card);
+  margin-bottom: 14px;
+}
+.scope-control { display: flex; align-items: center; gap: 8px; }
+.scope-control__label {
+  font-family: var(--font-ui);
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.scope-control__pillset {
+  display: inline-flex;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  padding: 2px;
+  border-radius: var(--r-pill);
+}
+.scope-control__pillset button {
+  background: transparent; border: 0;
+  padding: 3px 10px;
+  font-family: var(--font-ui);
+  font-size: 11px; font-weight: 500;
+  color: var(--ink-4);
+  cursor: pointer;
+  border-radius: var(--r-pill);
+}
+.scope-control__pillset button[aria-pressed="true"] {
+  background: var(--indigo); color: var(--paper);
+}
+
+/* Source attribution badge inside quiz */
+.qz-source {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 14px;
+  padding: 5px 10px;
+  background: var(--cream);
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  color: var(--ink-4);
+}
+.qz-source b {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+/* ═══ TASK list — generated suggestions ═══ */
+.task-extract {
+  display: flex; flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.task-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+}
+.task-row[data-selected] {
+  border-color: var(--indigo);
+  background: var(--indigo-soft);
+}
+.task-row__check {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: var(--r-sharp);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.task-row[data-selected] .task-row__check {
+  background: var(--indigo);
+  border-color: var(--indigo);
+}
+.task-row[data-selected] .task-row__check::after {
+  content: ''; width: 4px; height: 7px;
+  border: solid var(--paper);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+.task-row__body { flex: 1; min-width: 0; }
+.task-row__title {
+  font-family: var(--font-display);
+  font-size: 14.5px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+.task-row__quote {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-4);
+  border-left: 2px solid var(--hairline);
+  padding-left: 8px;
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+.task-row__suggest {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.task-row__suggest-label {
+  color: var(--ink-5);
+}
+.task-row__assign {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px;
+  background: var(--cream);
+  border-radius: var(--r-pill);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.task-row__assign-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--moss);
+}
+
 .btn--icon {
   width: 30px; height: 30px; padding: 0; justify-content: center;
   background: transparent; color: var(--ink-3);
@@ -1322,6 +1596,14 @@ html, body {
       <a href="#scene-8">Toast while generating</a>
     </div>
 
+    <div class="toc__group">
+      <div class="toc__group-label">Universal AI button</div>
+      <a href="#scene-9">Topbar trigger + menu</a>
+      <a href="#scene-10">Cross-notes quiz · picker</a>
+      <a href="#scene-11">Cross-notes quiz · sources</a>
+      <a href="#scene-12">Generate tasks · drawer</a>
+    </div>
+
     <div class="toc__theme">
       <button data-tt="light" aria-pressed="true">Light</button>
       <button data-tt="dark"  aria-pressed="false">Dark</button>
@@ -1406,6 +1688,9 @@ html, body {
               <b>NoteAttachment API</b>
             </div>
             <div class="topbar__actions">
+              <button class="btn btn--ai-trigger btn--sm">
+                <span class="spk spk--sm"></span> AI <span class="chev">▾</span>
+              </button>
               <button class="btn btn--icon" title="Pin">⌑</button>
               <button class="btn btn--icon" title="Tags">#</button>
               <button class="btn btn--icon" title="Share">↗</button>
@@ -1843,6 +2128,9 @@ Content-Type: multipart/form-data
                 <button aria-pressed="true">Single goal</button>
                 <button aria-pressed="false">Cross-goal</button>
               </div>
+              <button class="btn btn--ai-trigger btn--sm">
+                <span class="spk spk--sm"></span> AI <span class="chev">▾</span>
+              </button>
               <button class="btn btn--icon">⋯</button>
             </div>
           </div>
@@ -2174,6 +2462,9 @@ Content-Type: multipart/form-data
                 <button aria-pressed="false">This month</button>
                 <button aria-pressed="false">All time</button>
               </div>
+              <button class="btn btn--ai-trigger btn--sm">
+                <span class="spk spk--sm"></span> AI <span class="chev">▾</span>
+              </button>
             </div>
           </div>
           <div class="content">
@@ -2455,6 +2746,9 @@ Content-Type: multipart/form-data
           <div class="topbar">
             <div class="topbar__crumbs"><b>Routines</b><span class="topbar__crumbs-sep">›</span><b>Reading · 30 pages</b></div>
             <div class="topbar__actions">
+              <button class="btn btn--ai-trigger btn--sm">
+                <span class="spk spk--sm"></span> AI <span class="chev">▾</span>
+              </button>
               <button class="btn btn--icon">⋯</button>
             </div>
           </div>
@@ -2500,6 +2794,655 @@ Content-Type: multipart/form-data
         <b>Не блокирующий.</b> Toast только информирует. По завершению
         sparkle перестаёт пульсировать, title меняется на «Quiz ready»,
         bar заменяется на CTA «Open quiz →».
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 9: Universal AI button — menu open ═══════════════════ -->
+    <section class="scene" id="scene-9">
+      <div class="scene__num">09 · Universal pattern</div>
+      <h1 class="scene__title">AI кнопка · <em>в каждом topbar</em></h1>
+      <p class="scene__lede">
+        В topbar каждого раздела (Notes/Goals/Routines/Sprints/Analysis) живёт
+        одна и та же <em>AI-кнопка</em>: sparkle + текст «AI» + chevron. Клик —
+        открывается popover с двумя core-действиями: <em>Smart test</em>
+        (умный тест по контексту страницы) и <em>Generate tasks</em>
+        (вытащить action items из материала). Контекст внизу меню — что
+        именно сейчас «в обзоре».
+      </p>
+
+      <div class="app">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn" data-active>N</button>
+            <button class="rail__btn">G</button>
+            <button class="rail__btn">R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn">A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Notes</h2>
+              <button class="btn btn--icon">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search notes..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Jarvnote 3.0 <span class="pane__group-count">12</span></div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--indigo);"></span>NoteAttachment API <span class="lib-row__count">8</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--slate);"></span>Editorial design system</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>VPS migration</div>
+            </div>
+            <div class="pane__group">
+              <div class="pane__group-label">Learning</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>React 18 useTransition</div>
+            </div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="topbar" style="position: relative; z-index: 5;">
+            <div class="topbar__crumbs">
+              <b>Jarvnote 3.0</b><span class="topbar__crumbs-sep">›</span><b>NoteAttachment API</b>
+            </div>
+            <div class="topbar__actions">
+              <button class="btn btn--ai-trigger btn--sm" data-open>
+                <span class="spk spk--sm"></span> AI <span class="chev">▾</span>
+              </button>
+              <button class="btn btn--icon">⌑</button>
+              <button class="btn btn--icon">#</button>
+              <button class="btn btn--icon">⋯</button>
+            </div>
+            <!-- POPOVER -->
+            <div class="ai-menu" style="top: 46px; right: 116px;">
+              <button class="ai-menu__item">
+                <span class="ai-menu__item-icon"><span class="spk"></span></span>
+                <span class="ai-menu__item-text">
+                  <h4 class="ai-menu__item-title">Smart test</h4>
+                  <p class="ai-menu__item-sub">проверь знания по этой заметке, теме или way</p>
+                </span>
+              </button>
+              <button class="ai-menu__item">
+                <span class="ai-menu__item-icon" style="background: var(--moss-soft); color: var(--moss);">▤</span>
+                <span class="ai-menu__item-text">
+                  <h4 class="ai-menu__item-title">Generate tasks</h4>
+                  <p class="ai-menu__item-sub">вытащить action items в гол или степ</p>
+                </span>
+              </button>
+              <div class="ai-menu__divider"></div>
+              <button class="ai-menu__item">
+                <span class="ai-menu__item-icon" style="background: var(--slate-soft); color: var(--slate);">≡</span>
+                <span class="ai-menu__item-text">
+                  <h4 class="ai-menu__item-title">Summarize</h4>
+                  <p class="ai-menu__item-sub">короткое резюме для inbox или сториз</p>
+                </span>
+              </button>
+              <div class="ai-menu__divider"></div>
+              <div class="ai-menu__context">
+                <span class="ai-menu__context-label">Context</span>
+                <span style="font-style: italic;">«NoteAttachment API» · 847 words</span>
+              </div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__inner">
+              <header class="note-head">
+                <p class="note-eyebrow">Engineering · created 11 may</p>
+                <h1 class="note-title">Build <em>NoteAttachment API</em></h1>
+              </header>
+              <div class="note-body" style="opacity: 0.65;">
+                <p>Файлы внутри заметки — это не дополнение, а первоклассная единица контента.</p>
+                <h2>Архитектурное решение: <em>inline atom node</em></h2>
+                <p>В TipTap есть два пути представить attachment: как <em>mark</em> вокруг текста или как <em>node</em>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="scene__caption">
+        <b>Контекст меняется по странице.</b> На Goals: «Generate tasks» предложит
+        следующие Go-items в текущий Step. На Analysis: «Smart test» спросит
+        по последним инсайтам. На Routines: предложит related-routine ideas.
+        Pattern один, контент адаптивен.
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 10: Cross-notes quiz picker ═══════════════════ -->
+    <section class="scene" id="scene-10">
+      <div class="scene__num">10 · Cross-notes</div>
+      <h1 class="scene__title">Smart test · <em>выбор охвата</em></h1>
+      <p class="scene__lede">
+        Нажал «Smart test» в меню — drawer с picker'ом. Главное решение:
+        <em>что охватить</em> — одну заметку, тему (Topic), целый Way
+        («Engineering»), несколько заметок руками, или вообще всё с тегом.
+        Плюс настройки: difficulty + количество вопросов. Один CTA внизу.
+      </p>
+
+      <div class="app app--two-pane">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn" data-active>N</button>
+            <button class="rail__btn">G</button>
+            <button class="rail__btn">R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn">A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Notes</h2>
+              <button class="btn btn--icon">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Jarvnote 3.0 <span class="pane__group-count">12</span></div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--indigo);"></span>NoteAttachment API</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--slate);"></span>Editorial design system</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>VPS migration</div>
+            </div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs"><b>Jarvnote 3.0</b><span class="topbar__crumbs-sep">›</span><b>NoteAttachment API</b></div>
+            <div class="topbar__actions">
+              <button class="btn btn--ai-trigger btn--sm" data-open>
+                <span class="spk spk--sm"></span> AI <span class="chev">▾</span>
+              </button>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__inner">
+              <header class="note-head" style="opacity: 0.5;">
+                <h1 class="note-title">Build <em>NoteAttachment API</em></h1>
+              </header>
+              <div class="note-body" style="opacity: 0.45;">
+                <p>Файлы внутри заметки — это не дополнение, а первоклассная единица контента.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DRAWER: scope picker -->
+        <aside class="drawer">
+          <header class="drawer__head">
+            <div>
+              <div class="drawer__eyebrow">Smart test · choose scope</div>
+              <h3 class="drawer__title">What to <em>cover</em>?</h3>
+            </div>
+            <button class="drawer__close">×</button>
+          </header>
+          <div class="drawer__body">
+            <div class="scope-list">
+              <button class="scope-row">
+                <span class="scope-row__radio"></span>
+                <span class="scope-row__text">
+                  <h5 class="scope-row__title">This note</h5>
+                  <p class="scope-row__sub">«NoteAttachment API»</p>
+                </span>
+                <span class="scope-row__count">~8 q</span>
+              </button>
+              <button class="scope-row" data-selected>
+                <span class="scope-row__radio"></span>
+                <span class="scope-row__text">
+                  <h5 class="scope-row__title">This way</h5>
+                  <p class="scope-row__sub">«Jarvnote 3.0» — all 12 notes</p>
+                </span>
+                <span class="scope-row__count">12 notes · ~14 q</span>
+              </button>
+              <button class="scope-row">
+                <span class="scope-row__radio"></span>
+                <span class="scope-row__text">
+                  <h5 class="scope-row__title">This topic</h5>
+                  <p class="scope-row__sub">«Engineering backend» — 4 notes</p>
+                </span>
+                <span class="scope-row__count">4 notes · ~10 q</span>
+              </button>
+              <button class="scope-row">
+                <span class="scope-row__radio"></span>
+                <span class="scope-row__text">
+                  <h5 class="scope-row__title">By tag</h5>
+                  <p class="scope-row__sub">choose tag → all notes with it</p>
+                </span>
+                <span class="scope-row__count">→</span>
+              </button>
+              <button class="scope-row">
+                <span class="scope-row__radio"></span>
+                <span class="scope-row__text">
+                  <h5 class="scope-row__title">Multiple notes</h5>
+                  <p class="scope-row__sub">pick any from your library</p>
+                </span>
+                <span class="scope-row__count">→</span>
+              </button>
+              <button class="scope-row">
+                <span class="scope-row__radio"></span>
+                <span class="scope-row__text">
+                  <h5 class="scope-row__title">Everything · last 30 days</h5>
+                  <p class="scope-row__sub">recent additions only</p>
+                </span>
+                <span class="scope-row__count">23 notes</span>
+              </button>
+            </div>
+
+            <div class="scope-controls">
+              <div class="scope-control">
+                <span class="scope-control__label">Difficulty</span>
+                <div class="scope-control__pillset">
+                  <button>Easy</button>
+                  <button aria-pressed="true">Medium</button>
+                  <button>Hard</button>
+                </div>
+              </div>
+            </div>
+            <div class="scope-controls">
+              <div class="scope-control">
+                <span class="scope-control__label">Questions</span>
+                <div class="scope-control__pillset">
+                  <button>5</button>
+                  <button aria-pressed="true">10</button>
+                  <button>15</button>
+                  <button>20</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="drawer__foot">
+            <span style="font-family: var(--font-body); font-style: italic; font-size: 12px; color: var(--ink-4);">
+              ~ 90 sec for 14 q across 12 notes
+            </span>
+            <button class="btn btn--primary btn--sm">
+              <span class="spk spk--sm"></span> Generate
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      <p class="scene__caption">
+        <b>Latency честно показана.</b> Чем шире охват — тем дольше генерация
+        (RAG-pipeline должен пробежать по всем заметкам). 14 вопросов по 12
+        заметкам ≈ 90 сек на CPU-only.
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 11: Cross-notes quiz — source ═══════════════════ -->
+    <section class="scene" id="scene-11">
+      <div class="scene__num">11 · Cross-notes</div>
+      <h1 class="scene__title">Quiz · <em>source attribution</em></h1>
+      <p class="scene__lede">
+        Тест по нескольким заметкам — каждый вопрос подписан <em>из какой
+        заметки он взялся</em>. После ответа можно открыть исходник одним
+        кликом, чтобы перечитать контекст. Это важно, потому что без
+        attribution cross-notes quiz превращается в чёрный ящик.
+      </p>
+
+      <div class="app app--two-pane">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn" data-active>N</button>
+            <button class="rail__btn">G</button>
+            <button class="rail__btn">R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn">A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Notes</h2>
+              <button class="btn btn--icon">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Jarvnote 3.0</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--indigo);"></span>NoteAttachment API</div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--slate);"></span>Editorial design system</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>VPS migration</div>
+            </div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs">
+              <b>Way · Jarvnote 3.0</b>
+              <span class="topbar__crumbs-sep">›</span>
+              <span style="color: var(--ink-4); font-style: italic;">Smart test · 12 notes</span>
+            </div>
+            <div class="topbar__actions">
+              <span class="pill pill--indigo"><span class="spk spk--sm"></span>Quiz active · 12 notes</span>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__inner" style="opacity: 0.45;">
+              <p style="font-family: var(--font-body); font-style: italic; color: var(--ink-4);">
+                Way-level overview здесь. Текст затемнён, фокус на drawer'е справа.
+              </p>
+            </div>
+          </div>
+        </div>
+        <aside class="drawer">
+          <header class="drawer__head">
+            <div>
+              <div class="drawer__eyebrow">Cross-notes · 12 notes</div>
+              <h3 class="drawer__title">Smart test · <em>Jarvnote 3.0</em></h3>
+            </div>
+            <button class="drawer__close">×</button>
+          </header>
+          <div class="drawer__body">
+            <div class="qz-progress">
+              <span>Question <b>3 of 14</b></span>
+              <span>2:08</span>
+            </div>
+            <div class="qz-bar"><div class="qz-bar__fill" style="width: 21%;"></div></div>
+
+            <p class="qz-q">
+              Какой editorial-токен заменил легаси <code>--accent-routines</code>
+              в новой дизайн-системе?
+            </p>
+            <div class="qz-opts">
+              <button class="qz-opt"><span class="qz-opt__letter">A</span>--indigo</button>
+              <button class="qz-opt"><span class="qz-opt__letter">B</span>--moss</button>
+              <button class="qz-opt" data-correct><span class="qz-opt__letter">C</span>--ochre</button>
+              <button class="qz-opt"><span class="qz-opt__letter">D</span>--rust</button>
+            </div>
+
+            <div class="qz-source">
+              <span class="spk spk--sm"></span>
+              From <b>«Editorial design system · v1.0»</b>
+              <a style="color: var(--indigo); text-decoration: none; margin-left: 4px;">↗ open</a>
+            </div>
+          </div>
+          <div class="drawer__foot">
+            <div class="qz-dots">
+              <span class="qz-dot qz-dot--done"></span>
+              <span class="qz-dot qz-dot--done"></span>
+              <span class="qz-dot qz-dot--current"></span>
+              <span class="qz-dot"></span><span class="qz-dot"></span>
+              <span class="qz-dot"></span><span class="qz-dot"></span>
+              <span class="qz-dot"></span><span class="qz-dot"></span>
+              <span class="qz-dot"></span><span class="qz-dot"></span>
+              <span class="qz-dot"></span><span class="qz-dot"></span>
+              <span class="qz-dot"></span>
+            </div>
+            <button class="btn btn--primary btn--sm">Next →</button>
+          </div>
+        </aside>
+      </div>
+
+      <p class="scene__caption">
+        <b>Source pill</b> внизу — это <em>RAG-attribution</em>. Когда AI
+        строил вопрос, конкретный chunk из этой заметки был source. Клик
+        «↗ open» переключает main pane на эту заметку (drawer остаётся).
+        После прохождения теста — экран результата покажет:
+        <em>«Слабее всего — Editorial design system, 1/3»</em>.
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 12: Generate tasks drawer ═══════════════════ -->
+    <section class="scene" id="scene-12">
+      <div class="scene__num">12 · Generate tasks</div>
+      <h1 class="scene__title">Generate tasks · <em>action items из материала</em></h1>
+      <p class="scene__lede">
+        AI читает заметку (или goal, или sprint) и предлагает <em>задачи
+        к добавлению</em>. Каждая задача показывает: title, цитата-источник
+        («откуда я её взяла»), и куда предлагается прикрепить (goal/step).
+        User выбирает галочками что добавить — это не auto-merge, это
+        ассистент с подтверждением.
+      </p>
+
+      <div class="app app--two-pane">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn" data-active>N</button>
+            <button class="rail__btn">G</button>
+            <button class="rail__btn">R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn">A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Notes</h2>
+              <button class="btn btn--icon">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Jarvnote 3.0</div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--indigo);"></span>NoteAttachment API</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--slate);"></span>Editorial design system</div>
+            </div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs"><b>Jarvnote 3.0</b><span class="topbar__crumbs-sep">›</span><b>NoteAttachment API</b></div>
+            <div class="topbar__actions">
+              <span class="pill pill--moss">7 tasks found</span>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__inner" style="opacity: 0.45;">
+              <header class="note-head">
+                <h1 class="note-title">Build <em>NoteAttachment API</em></h1>
+              </header>
+              <div class="note-body">
+                <p>Файлы внутри заметки — это не дополнение, а первоклассная единица контента.</p>
+                <h2>Endpoint: POST /notes/&#123;id&#125;/attachments</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DRAWER: task extraction -->
+        <aside class="drawer">
+          <header class="drawer__head">
+            <div>
+              <div class="drawer__eyebrow">From «NoteAttachment API»</div>
+              <h3 class="drawer__title">Found <em>7 action items</em></h3>
+            </div>
+            <button class="drawer__close">×</button>
+          </header>
+          <div class="drawer__body">
+            <p style="font-family: var(--font-body); font-style: italic; font-size: 12.5px; color: var(--ink-4); margin: 0 0 14px;">
+              Каждую задачу я предлагаю прикрепить к существующему Goal/Step.
+              Сними галочку с того что не нужно.
+            </p>
+
+            <div class="task-extract">
+              <div class="task-row" data-selected>
+                <span class="task-row__check"></span>
+                <div class="task-row__body">
+                  <h5 class="task-row__title">Setup presigned URL refresh</h5>
+                  <p class="task-row__quote">
+                    «URL token expires after 1 hour, need rotation»
+                  </p>
+                  <div class="task-row__suggest">
+                    <span class="task-row__suggest-label">→ add to</span>
+                    <span class="task-row__assign">
+                      <span class="task-row__assign-dot"></span>
+                      Jarvnote 3.0 · Step 02
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="task-row" data-selected>
+                <span class="task-row__check"></span>
+                <div class="task-row__body">
+                  <h5 class="task-row__title">Add MIME-type validation</h5>
+                  <p class="task-row__quote">
+                    «Backend should validate before accepting; current path
+                    blindly trusts client»
+                  </p>
+                  <div class="task-row__suggest">
+                    <span class="task-row__suggest-label">→ add to</span>
+                    <span class="task-row__assign">
+                      <span class="task-row__assign-dot"></span>
+                      Jarvnote 3.0 · Step 02
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="task-row" data-selected>
+                <span class="task-row__check"></span>
+                <div class="task-row__body">
+                  <h5 class="task-row__title">Integration tests for upload</h5>
+                  <p class="task-row__quote">
+                    «TipTap node needs hover/click coverage; right-click open
+                    must refresh token»
+                  </p>
+                  <div class="task-row__suggest">
+                    <span class="task-row__suggest-label">→ add to</span>
+                    <span class="task-row__assign">
+                      <span class="task-row__assign-dot"></span>
+                      Jarvnote 3.0 · Step 03
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="task-row">
+                <span class="task-row__check"></span>
+                <div class="task-row__body">
+                  <h5 class="task-row__title">Investigate S3 multipart upload</h5>
+                  <p class="task-row__quote">
+                    «Files &gt; 20MB hit nginx limit — multipart could fix»
+                  </p>
+                  <div class="task-row__suggest">
+                    <span class="task-row__suggest-label">→ add as</span>
+                    <span class="task-row__assign">
+                      <span class="task-row__assign-dot" style="background: var(--ink-5);"></span>
+                      Backlog
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="task-row" data-selected>
+                <span class="task-row__check"></span>
+                <div class="task-row__body">
+                  <h5 class="task-row__title">Document API in /docs/api.md</h5>
+                  <p class="task-row__quote">
+                    «Endpoint описан только тут — нужно зеркало в docs»
+                  </p>
+                  <div class="task-row__suggest">
+                    <span class="task-row__suggest-label">→ add to</span>
+                    <span class="task-row__assign">
+                      <span class="task-row__assign-dot"></span>
+                      Jarvnote 3.0 · Step 04
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="task-row" data-selected>
+                <span class="task-row__check"></span>
+                <div class="task-row__body">
+                  <h5 class="task-row__title">Cleanup orphan attachments</h5>
+                  <p class="task-row__quote">
+                    «При удалении заметки attachments в S3 остаются — нужен
+                    background job»
+                  </p>
+                  <div class="task-row__suggest">
+                    <span class="task-row__suggest-label">→ add to</span>
+                    <span class="task-row__assign">
+                      <span class="task-row__assign-dot"></span>
+                      Jarvnote 3.0 · Step 03
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="task-row">
+                <span class="task-row__check"></span>
+                <div class="task-row__body">
+                  <h5 class="task-row__title">Add audit log for downloads</h5>
+                  <p class="task-row__quote">
+                    «Кто и когда скачивал — было бы полезно для security»
+                  </p>
+                  <div class="task-row__suggest">
+                    <span class="task-row__suggest-label">→ add as</span>
+                    <span class="task-row__assign">
+                      <span class="task-row__assign-dot" style="background: var(--ink-5);"></span>
+                      Backlog
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="drawer__foot">
+            <span style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-4);">
+              <b style="color: var(--ink-2); font-family: var(--font-display); font-weight: 500;">5</b> of 7 selected
+            </span>
+            <div style="display: inline-flex; gap: 6px;">
+              <button class="btn btn--ghost btn--sm">Edit before adding</button>
+              <button class="btn btn--primary btn--sm">Add 5 tasks</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <p class="scene__caption">
+        <b>Не auto-merge.</b> AI <em>предлагает</em>, user <em>подтверждает</em>.
+        Это важно для доверия: если ассистент молча создаёт 7 Go-items, через
+        неделю backlog забит мусором. С галочками — user остаётся owner'ом
+        что попадает в систему. Кнопка «Edit before adding» открывает task
+        в обычной GoCreateDialog с предзаполненными полями.
       </p>
     </section>
 

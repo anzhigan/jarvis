@@ -7,7 +7,16 @@ services:
       resources:
         limits:
           cpus: '1.5'
-          memory: 1G
+          memory: 1.5G
+
+  ollama:
+    # 6 CPU + 6 GB room for Qwen 3 8B q4_K_M (~5 GB) and a 1 GB head for
+    # the embed model (nomic-embed-text) when both are loaded.
+    deploy:
+      resources:
+        limits:
+          cpus: '6'
+          memory: 6G
 
   minio:
     ports: !reset []
@@ -36,6 +45,9 @@ services:
       S3_BUCKET_NAME: jarvis
       S3_PUBLIC_URL: https://jarvnote.ru/s3/jarvis
       ALLOWED_ORIGINS: https://jarvnote.ru,https://www.jarvnote.ru
+      OLLAMA_URL: http://ollama:11434
+      LLM_MODEL: qwen3:8b
+      EMBED_MODEL: nomic-embed-text
     deploy:
       resources:
         limits:

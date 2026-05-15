@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
+    # LLM (local Ollama runtime). Empty OLLAMA_URL disables AI features entirely.
+    OLLAMA_URL: str = "http://localhost:11434"
+    LLM_MODEL: str = "qwen3:8b"
+    EMBED_MODEL: str = "nomic-embed-text"
+    LLM_REQUEST_TIMEOUT_S: int = 180
+    EMBED_DIM: int = 768
+
     # Observability — Sentry is opt-in. Empty DSN = no-op.
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.1
