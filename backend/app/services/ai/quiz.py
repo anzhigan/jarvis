@@ -40,6 +40,8 @@ MAX_NOTE_CHARS = 6000
 
 
 SYSTEM_PROMPT = """\
+/no_think
+
 You are a study tutor. You generate multiple-choice recall questions \
 from a study note. Hard rules:
 1. EVERY output field (question, all four options, explanation, source_quote) \
@@ -49,7 +51,8 @@ output 100% Russian. If English, output 100% English. Mixing is forbidden.
 one correct answer.
 3. Wrong options must be PLAUSIBLE distractors — same topic, similar format. \
 Do NOT use random other facts from the note as wrong answers.
-4. Output strictly valid JSON matching the schema. No prose, no markdown."""
+4. Output strictly valid JSON matching the schema. No prose, no markdown, \
+no <think> blocks — go directly to JSON."""
 
 
 def _detect_language(text: str) -> str:
@@ -189,7 +192,12 @@ async def run_quiz_job(
 
     prompt = _build_prompt(title, body, params.count, params.difficulty)
 
-    raw = await ollama.generate(prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.5)
+    # think=False — quiz generation is structured extraction, not reasoning.
+    # Without this, Qwen 3 burns its token budget on a <think> block and
+    # returns an empty `response` field, causing "empty response from model".
+    raw = await ollama.generate(
+        prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.5, think=False,
+    )
     try:
         questions = _parse_questions(raw)
     except ValueError as e:
@@ -201,7 +209,7 @@ async def run_quiz_job(
             + "\n\nREMINDER: respond with ONLY a JSON object. No prose, no markdown."
         )
         raw = await ollama.generate(
-            retry_prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.3,
+            retry_prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.3, think=False,
         )
         questions = _parse_questions(raw)  # second failure propagates → job failed
 

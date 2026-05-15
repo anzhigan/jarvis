@@ -16,6 +16,7 @@ const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
 const ShareDialog = lazy(() => import('./ShareDialog'));
 // AI quiz drawer — loaded only after user clicks the AI menu.
 const QuizDrawer = lazy(() => import('../../ai/QuizDrawer').then((m) => ({ default: m.QuizDrawer })));
+const QuizGenerationToast = lazy(() => import('../../ai/QuizGenerationToast').then((m) => ({ default: m.QuizGenerationToast })));
 // BubbleMenu / FloatingMenu also live in their own chunk — they pull in
 // floating-ui and the @tiptap/react/menus plugin which we don't need on the
 // notes-library list view.
@@ -566,8 +567,14 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   const [editor, setEditor] = useState<Editor | null>(null);
   const [helpers, setHelpers] = useState<EditorHelpers | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  // AI quiz: job id while drawer is open, null when closed.
+  // AI quiz lifecycle:
+  //   quizJobId  — the job exists (may be running, done, or just finished).
+  //   drawerOpen — drawer is visible. Closing drawer without dismissing keeps
+  //                the job and shows the bottom-right toast instead.
+  // Splitting these lets the user "background" a long-running generation
+  // without losing it.
   const [quizJobId, setQuizJobId] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
   const handleAIAction = useCallback(async (action: 'quiz' | 'tasks_extract' | 'summarize') => {
@@ -581,10 +588,24 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
         count: 5,
       });
       setQuizJobId(job.id);
+      setDrawerOpen(true);
     } catch (e) {
       setQuizError(e instanceof Error ? e.message : 'failed to start quiz');
     }
   }, [note]);
+
+  // Close drawer keeps the job alive — toast takes over. Dismissing the
+  // toast is what fully discards.
+  const handleDrawerClose = useCallback(() => {
+    setDrawerOpen(false);
+  }, []);
+  const handleToastOpen = useCallback(() => {
+    setDrawerOpen(true);
+  }, []);
+  const handleToastDismiss = useCallback(() => {
+    setQuizJobId(null);
+    setDrawerOpen(false);
+  }, []);
 
   // Just sync localTitle when the note id changes — DON'T touch editor/helpers
   // here. Two reasons:
@@ -597,11 +618,12 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     setLocalTitle(note?.name ?? '');
   }, [note?.id, note?.name]);
 
-  // Close the AI quiz drawer when switching to a different note — the quiz
-  // belongs to the previous note, so re-using its drawer for a new note would
-  // mislead the user.
+  // Close the AI quiz drawer + dismiss any pending toast when switching to a
+  // different note — the quiz belongs to the previous note, re-using it for
+  // a new note would mislead the user.
   useEffect(() => {
     setQuizJobId(null);
+    setDrawerOpen(false);
     setQuizError(null);
   }, [note?.id]);
 
@@ -690,12 +712,21 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       <Suspense fallback={null}>
         <ShareDialog noteId={note.id} open={shareOpen} onOpenChange={setShareOpen} />
       </Suspense>
-      {quizJobId !== null && (
+      {quizJobId !== null && drawerOpen && (
         <Suspense fallback={null}>
           <QuizDrawer
             jobId={quizJobId}
             noteTitle={note.name || 'untitled'}
-            onClose={() => setQuizJobId(null)}
+            onClose={handleDrawerClose}
+          />
+        </Suspense>
+      )}
+      {quizJobId !== null && !drawerOpen && (
+        <Suspense fallback={null}>
+          <QuizGenerationToast
+            jobId={quizJobId}
+            onOpen={handleToastOpen}
+            onDismiss={handleToastDismiss}
           />
         </Suspense>
       )}

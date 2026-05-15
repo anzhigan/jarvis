@@ -92,12 +92,20 @@ class OllamaClient:
         system: Optional[str] = None,
         json_mode: bool = False,
         temperature: float = 0.4,
+        think: Optional[bool] = None,
     ) -> str:
         """Single-turn completion. Returns the raw text response.
 
         `json_mode=True` instructs Ollama to constrain output to valid JSON.
         Caller is still responsible for parsing — `json_mode` only ensures
         well-formed-ish JSON, not schema compliance.
+
+        `think`: Qwen 3 (and other reasoning models) generate a hidden chain-
+        of-thought by default. For structured-output tasks (quiz, tasks
+        extraction, schedule) we PASS think=False — the model would otherwise
+        burn its token budget on the chain-of-thought and return an empty
+        `response` field. For tasks where reasoning quality matters (weekly
+        insights), pass think=True (or None to keep model default).
         """
         model = model or settings.LLM_MODEL
         payload: dict = {
@@ -110,6 +118,8 @@ class OllamaClient:
             payload["system"] = system
         if json_mode:
             payload["format"] = "json"
+        if think is not None:
+            payload["think"] = think
         try:
             r = await self._client.post("/api/generate", json=payload)
             r.raise_for_status()

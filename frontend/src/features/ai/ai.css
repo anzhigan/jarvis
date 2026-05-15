@@ -509,6 +509,103 @@
   font-weight: 500;
 }
 
+/* ── Generation toast (bottom-right while drawer is closed) ─────────────── */
+.ai-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: var(--z-toast);
+  width: 320px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-popover);
+  padding: 12px 14px;
+  display: flex; align-items: flex-start; gap: 12px;
+  animation: ai-toast-in 200ms var(--ease);
+}
+@keyframes ai-toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ai-toast[data-state="done"] {
+  border-color: var(--moss);
+}
+.ai-toast[data-state="failed"] {
+  border-color: var(--rust);
+  background: var(--rust-soft);
+}
+.ai-toast__sparkle {
+  width: 28px; height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.ai-toast[data-state="done"]   .ai-toast__sparkle { background: var(--moss-soft); color: var(--moss); }
+.ai-toast[data-state="failed"] .ai-toast__sparkle { background: var(--paper); color: var(--rust); }
+.ai-toast__sparkle[data-pulsing] {
+  animation: ai-pulse 2.4s ease-in-out infinite;
+}
+.ai-toast__sparkle .ai-spk {
+  width: 14px; height: 14px;
+}
+.ai-toast__sparkle .ai-spk::before { width: 14px; top: 6px; }
+.ai-toast__sparkle .ai-spk::after  { height: 14px; left: 6px; }
+
+.ai-toast__body { flex: 1; min-width: 0; }
+.ai-toast__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 2px;
+}
+.ai-toast__sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  margin: 0 0 8px;
+}
+.ai-toast__bar {
+  height: 2px;
+  background: var(--cream);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ai-toast__bar-fill {
+  height: 100%;
+  background: var(--indigo);
+  transition: width 1s linear;
+}
+.ai-toast__cta {
+  display: inline-flex; align-items: center;
+  margin-top: 4px;
+  padding: 4px 12px;
+  height: 26px;
+  background: var(--moss);
+  color: var(--paper);
+  border: 0;
+  border-radius: var(--r-control);
+  font-family: var(--font-ui);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+}
+.ai-toast__cta:hover { filter: brightness(1.08); }
+.ai-toast__close {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--ink-4);
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: var(--r-control);
+}
+.ai-toast__close:hover { background: var(--cream); color: var(--ink); }
+
 /* Error toast shown when /ai/quiz POST fails (503 etc.) ──────────────────── */
 .ai-toast-error {
   position: fixed;
