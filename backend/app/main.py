@@ -18,6 +18,7 @@ from app.core.rate_limit import limiter
 from app.core.sentry import init_sentry
 from app.models import *  # noqa: F401, F403
 from app.routers import ai, auth, focus_sprints, notes, routines, steps, tags, tasks
+from app.services.ai.precompute import precompute_loop
 from app.services.s3 import _get_client, ensure_bucket_exists
 
 setup_logging(level="DEBUG" if settings.APP_ENV != "production" else "INFO")
@@ -32,7 +33,20 @@ async def lifespan(app: FastAPI):
         ensure_bucket_exists()
     except Exception as e:
         logger.warning("S3 bucket check failed: %s", e)
+
+    # Background AI pre-compute (Phase 8). Long-running asyncio task that
+    # wakes once a day to generate tomorrow's predictable artefacts (today's
+    # schedule, future: weekly insights, recently-edited-note quizzes).
+    # Errors inside the loop are caught & logged; we never propagate.
+    precompute_task = asyncio.create_task(precompute_loop(), name="precompute_loop")
+
     yield
+
+    precompute_task.cancel()
+    try:
+        await precompute_task
+    except asyncio.CancelledError:
+        pass
     await engine.dispose()
 
 
