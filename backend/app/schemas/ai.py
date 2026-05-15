@@ -166,3 +166,38 @@ class TasksCommitInput(BaseModel):
 class TasksCommitOutput(BaseModel):
     created_count: int
     created_ids: list[uuid.UUID]
+
+
+# ── Schedule (Plan day) feature ──────────────────────────────────────────────
+
+
+class ScheduleHours(BaseModel):
+    start_h: int = Field(default=9, ge=0, le=23)
+    end_h: int = Field(default=18, ge=1, le=24)
+
+
+class ScheduleCreate(BaseModel):
+    """Body for POST /ai/schedule. `date` defaults to today (resolved server-side
+    if absent so client doesn't need to compute timezone-aware today)."""
+    date: str = Field(description="ISO date YYYY-MM-DD; today if empty", default="")
+    hours: ScheduleHours = Field(default_factory=ScheduleHours)
+    # Free-form prefs (e.g. ["lunch:13", "coffee:11,15"]) — Phase 6b.
+    prefs: list[str] = Field(default_factory=list)
+
+
+class ScheduleSlot(BaseModel):
+    """One block in the generated day. Times are HH:MM strings within work
+    hours; the LLM ensures non-overlapping ordering."""
+    start_time: str = Field(pattern=r"^[0-2]\d:[0-5]\d$")
+    end_time: str = Field(pattern=r"^[0-2]\d:[0-5]\d$")
+    kind: str = Field(pattern=r"^(goal|routine|admin|break|lunch|deep_work|other)$")
+    title: str
+    source_kind: str | None = None  # 'go' | 'task' | 'routine'
+    source_id: str | None = None     # original entity id, if attributed
+    note: str = ""                    # 1-line rationale from the model
+
+
+class ScheduleOutput(BaseModel):
+    date: str
+    slots: list[ScheduleSlot]
+    total_active_minutes: int

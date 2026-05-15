@@ -33,6 +33,7 @@ from app.schemas.ai import (
     QuizAttemptItemOut,
     QuizAttemptOut,
     QuizCreate,
+    ScheduleCreate,
     TasksCommitInput,
     TasksCommitOutput,
     TasksExtractCreate,
@@ -433,3 +434,42 @@ async def commit_tasks(
         created_count=len(created),
         created_ids=[g.id for g in created],
     )
+
+
+# ── Schedule (Plan day) feature ──────────────────────────────────────────────
+
+
+@router.post("/schedule", response_model=AIJobOut, status_code=status.HTTP_202_ACCEPTED)
+async def create_schedule(
+    body: ScheduleCreate,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Enqueue a schedule-generation job.
+
+    Reads the user's open Gos for the target date + active routines, then asks
+    the LLM to time-block them within the given work hours. No persistence
+    beyond job.output_json in this phase — Phase 6b adds commit-to-sprint.
+    """
+    async with OllamaClient() as ollama:
+        if not await ollama.health():
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI runtime is offline. Try again in a moment.",
+            )
+
+    try:
+        job = await create_job(
+            user_id=user.id,
+            kind="schedule",
+            input_data=body.model_dump(mode="json"),
+            eta_seconds=_estimate_eta("schedule", body.model_dump()),
+            db=db,
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    await db.commit()
+    background_tasks.add_task(run_job, job.id)
+    return job
