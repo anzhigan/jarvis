@@ -510,7 +510,7 @@
 
 /* Rail (56px, warm stone) */
 .rail {
-  width: var(--indigo-rail-w);
+  width: var(--rail-w);
   flex-shrink: 0;
   background: var(--rail-bg);
   border-right: 1px solid var(--hairline);
@@ -583,7 +583,7 @@
 
 /* Pane (280px library) */
 .pane {
-  width: var(--indigo-pane-w);
+  width: var(--pane-w);
   flex-shrink: 0;
   background: var(--paper);
   border-right: 1px solid var(--hairline);
@@ -660,10 +660,10 @@
   min-height: 0;
 }
 .content-bar {
-  height: var(--indigo-topbar-h);
+  height: var(--topbar-h);
   flex-shrink: 0;
   padding: 0 28px;
-  border-bottom: 1px solid var(--hairline-faint);
+  border-bottom: 1px solid var(--hairline);
   display: flex; align-items: center; gap: 18px;
 }
 

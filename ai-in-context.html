@@ -1,0 +1,2527 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Jarvnote · AI in context — реальные экраны</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,1,400;9..144,1,500&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOKENS (sync with tokens.css — Indigo Editorial)
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body:    "Source Serif 4", Georgia, serif;
+  --font-ui:      "Inter", -apple-system, system-ui, sans-serif;
+  --font-mono:    ui-monospace, "SF Mono", Menlo, monospace;
+
+  --paper: #FCFCF9; --cream: #ECEEEF; --soft: #DEE1E2; --rail-bg: #D6DADB;
+  --ink:  #15202A; --ink-2: #2C353D; --ink-3: #455058; --ink-4: #6E7780; --ink-5: #9EA5AB;
+  --indigo: #2C4A60; --indigo-2: #1B3447;
+  --indigo-soft: rgba(44, 74, 96, 0.10);
+  --indigo-tint: rgba(44, 74, 96, 0.18);
+  --moss:   #6B7A4F; --moss-soft:  rgba(107, 122, 79, 0.16);
+  --ochre:  #A18030; --ochre-soft: rgba(161, 128, 48, 0.14);
+  --rust:   #A04A39; --rust-soft:  rgba(160, 74, 57, 0.10);
+  --slate:  #5A6B78; --slate-soft: rgba(90, 107, 120, 0.14);
+  --walnut: #4A3A2D;
+  --hairline:        rgba(15, 24, 32, 0.09);
+  --hairline-strong: rgba(15, 24, 32, 0.16);
+  --hairline-faint:  rgba(15, 24, 32, 0.04);
+  --r-sharp: 2px; --r-control: 5px; --r-card: 6px; --r-pill: 999px;
+  --tracking-display: -0.030em; --tracking-tight: -0.027em; --tracking-snug: -0.018em;
+  --sh-card: 0 0 0 1px var(--hairline);
+  --sh-card-hover: 0 0 0 1px var(--hairline-strong), 0 2px 6px rgba(15,24,32,0.06);
+  --sh-popover: 0 0 0 1px var(--hairline-strong), 0 8px 24px rgba(15,24,32,0.10);
+  --sh-drawer: -8px 0 24px -8px rgba(15, 24, 32, 0.12);
+  --ease: cubic-bezier(0.32, 0.72, 0.30, 1);
+  --heat-0: rgba(15, 24, 32, 0.06);
+  --heat-1: rgba(107, 122, 79, 0.22);
+  --heat-2: rgba(107, 122, 79, 0.42);
+  --heat-3: rgba(107, 122, 79, 0.65);
+  --heat-4: rgba(107, 122, 79, 0.92);
+}
+[data-theme="dark"] {
+  --paper: #131820; --cream: #1C2228; --soft: #242B33; --rail-bg: #1A1F26;
+  --hairline: rgba(239, 241, 240, 0.16);
+  --hairline-strong: rgba(239, 241, 240, 0.28);
+  --hairline-faint: rgba(239, 241, 240, 0.08);
+  --ink: #EFF1F0; --ink-2: #C8CDD0; --ink-3: #9EA5AB; --ink-4: #74797F; --ink-5: #4F555B;
+  --indigo: #6E94A8; --indigo-2: #4F7184;
+  --indigo-soft: rgba(110, 148, 168, 0.16);
+  --indigo-tint: rgba(110, 148, 168, 0.26);
+  --moss: #95A674; --moss-soft: rgba(149, 166, 116, 0.18);
+  --ochre: #C9A157; --ochre-soft: rgba(201, 161, 87, 0.18);
+  --rust: #C46959; --rust-soft: rgba(196, 105, 89, 0.14);
+  --slate: #889099; --slate-soft: rgba(136, 144, 153, 0.18);
+  --walnut: #B0916D;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--cream);
+  color: var(--ink-2);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11", "calt";
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE chrome — TOC + theme toggle
+   ═══════════════════════════════════════════════════════════════════════════ */
+.page { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.toc {
+  position: sticky; top: 0; align-self: start;
+  height: 100vh; overflow-y: auto;
+  padding: 28px 18px 28px 32px;
+  background: var(--paper);
+  border-right: 1px solid var(--hairline);
+}
+.toc__brand {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 600;
+  color: var(--ink); margin: 0 0 4px;
+  letter-spacing: var(--tracking-snug);
+}
+.toc__brand-dot { width: 8px; height: 8px; background: var(--indigo); }
+.toc__lead {
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ochre); margin-bottom: 22px;
+}
+.toc__group { margin-bottom: 18px; }
+.toc__group-label {
+  font-family: var(--font-ui);
+  font-size: 9.5px; font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-5);
+  padding: 0 6px; margin-bottom: 4px;
+}
+.toc a {
+  display: block;
+  padding: 4px 8px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  text-decoration: none;
+  border-radius: var(--r-control);
+}
+.toc a:hover { background: var(--cream); color: var(--ink); }
+.toc__theme {
+  margin-top: 22px;
+  display: inline-flex; gap: 2px;
+  background: var(--cream); padding: 2px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+}
+.toc__theme button {
+  background: transparent; border: 0;
+  padding: 4px 12px;
+  font: inherit; font-family: var(--font-ui); font-size: 11px;
+  cursor: pointer; color: var(--ink-4);
+  border-radius: var(--r-pill);
+}
+.toc__theme button[aria-pressed="true"] {
+  background: var(--indigo); color: var(--paper);
+}
+
+.canvas {
+  padding: 48px 32px 96px;
+}
+
+.scene { margin: 0 0 80px; }
+.scene__num {
+  font-family: var(--font-display); font-style: italic;
+  font-size: 14px; color: var(--ochre); margin-bottom: 4px;
+}
+.scene__title {
+  font-family: var(--font-display);
+  font-size: 30px; font-weight: 500;
+  letter-spacing: var(--tracking-display);
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.scene__title em { font-style: italic; color: var(--indigo); }
+.scene__lede {
+  font-family: var(--font-body);
+  font-size: 16px; color: var(--ink-3);
+  line-height: 1.55;
+  max-width: 720px;
+  margin: 0 0 24px;
+}
+.scene__lede em { font-style: italic; color: var(--indigo); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   APP CHROME — the actual Jarvnote app shell
+   ═══════════════════════════════════════════════════════════════════════════ */
+.app {
+  display: grid;
+  grid-template-columns: 56px 280px 1fr;
+  height: 720px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  box-shadow: 0 24px 64px -32px rgba(15, 24, 32, 0.20);
+  position: relative;
+}
+.app--no-pane { grid-template-columns: 56px 1fr; }
+.app--two-pane { grid-template-columns: 56px 280px 1fr 420px; }
+.app--three-pane { grid-template-columns: 56px 280px 1fr 360px; }
+
+/* RAIL */
+.rail {
+  background: var(--rail-bg);
+  border-right: 1px solid var(--hairline);
+  padding: 22px 0 20px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.rail__brand {
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 18px;
+  color: var(--indigo);
+  margin-bottom: 22px;
+}
+.rail__group {
+  display: flex; flex-direction: column;
+  gap: 8px; align-items: center;
+}
+.rail__divider {
+  width: 24px; height: 1px;
+  background: var(--hairline-strong);
+  margin: 16px 0;
+}
+.rail__btn {
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 0;
+  border-radius: var(--r-control);
+  color: var(--ink-3);
+  cursor: pointer; position: relative;
+  font-family: var(--font-ui); font-weight: 500; font-size: 12px;
+}
+.rail__btn:hover {
+  background: rgba(28, 24, 20, 0.06);
+  color: var(--ink);
+}
+.rail__btn[data-active] {
+  background: var(--paper);
+  color: var(--indigo);
+  box-shadow: var(--sh-card);
+}
+.rail__btn[data-active]::before {
+  content: ''; position: absolute;
+  left: -12px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px;
+  background: var(--indigo);
+}
+.rail__btn--ai[data-active] {
+  background: linear-gradient(135deg, var(--indigo-soft), var(--paper));
+}
+.rail__btn--ai[data-active]::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: var(--r-control);
+  border: 1px solid var(--indigo-tint);
+  pointer-events: none;
+}
+.rail__foot {
+  margin-top: auto;
+  display: flex; flex-direction: column;
+  gap: 6px; align-items: center;
+}
+
+/* Sparkle icon */
+.spk {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; position: relative;
+}
+.spk::before, .spk::after { content: ''; position: absolute; background: currentColor; }
+.spk::before { width: 14px; height: 2px; top: 6px; left: 0;
+  clip-path: polygon(0 50%, 35% 0, 65% 0, 100% 50%, 65% 100%, 35% 100%); }
+.spk::after { width: 2px; height: 14px; top: 0; left: 6px;
+  clip-path: polygon(50% 0, 100% 35%, 100% 65%, 50% 100%, 0 65%, 0 35%); }
+.spk--sm { width: 11px; height: 11px; }
+.spk--sm::before { width: 11px; top: 4.5px; }
+.spk--sm::after { height: 11px; left: 4.5px; }
+.spk--lg { width: 18px; height: 18px; }
+.spk--lg::before { width: 18px; top: 8px; }
+.spk--lg::after { height: 18px; left: 8px; }
+
+/* PANE (sidebar of current section) */
+.pane {
+  background: var(--paper);
+  border-right: 1px solid var(--hairline);
+  display: flex; flex-direction: column;
+}
+.pane__head {
+  padding: 16px 16px 10px;
+  border-bottom: 1px solid var(--hairline-faint);
+}
+.pane__title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.pane__title {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+.pane__title em { font-style: italic; color: var(--indigo); }
+.pane__search {
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.pane__body { padding: 10px 6px; flex: 1; overflow: auto; }
+.pane__group { margin-bottom: 12px; }
+.pane__group-label {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 10px;
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-5);
+}
+.pane__group-count {
+  font-family: var(--font-mono); font-size: 10px;
+  font-weight: 500; color: var(--ink-4);
+}
+
+.lib-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--r-control);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.lib-row:hover { background: var(--cream); }
+.lib-row[data-active] {
+  background: var(--indigo-soft); color: var(--indigo); font-weight: 500;
+}
+.lib-row__dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ink-5); flex-shrink: 0;
+}
+.lib-row__count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px; color: var(--ink-4);
+}
+.lib-row__child {
+  padding-left: 22px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* MAIN (content area) */
+.main {
+  display: flex; flex-direction: column;
+  background: var(--paper);
+  overflow: hidden;
+}
+.topbar {
+  height: 52px;
+  border-bottom: 1px solid var(--hairline);
+  padding: 0 24px;
+  display: flex; align-items: center; gap: 16px;
+}
+.topbar__crumbs {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--ink-3);
+  font-style: italic;
+}
+.topbar__crumbs b {
+  font-style: normal;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+.topbar__crumbs-sep {
+  margin: 0 8px;
+  color: var(--ink-5);
+}
+.topbar__actions {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.content { flex: 1; overflow: auto; padding: 0; position: relative; }
+.content__inner { padding: 28px 36px 36px; max-width: 760px; margin: 0 auto; }
+.content__wide { padding: 24px 32px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHARED — buttons, pills
+   ═══════════════════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 13px; font-weight: 500;
+  padding: 6px 14px;
+  height: 30px;
+  border-radius: var(--r-control);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.btn--primary { background: var(--indigo); color: var(--paper); border-color: var(--indigo); }
+.btn--secondary { background: var(--paper); color: var(--ink); border-color: var(--hairline-strong); }
+.btn--ghost { background: transparent; color: var(--ink-3); }
+.btn--ghost:hover { background: var(--cream); color: var(--ink); }
+.btn--sm { height: 26px; padding: 4px 10px; font-size: 12px; }
+.btn--lg { height: 36px; padding: 8px 18px; font-size: 13.5px; }
+.btn--ai { background: var(--indigo); color: var(--paper); border-color: var(--indigo); }
+.btn--icon {
+  width: 30px; height: 30px; padding: 0; justify-content: center;
+  background: transparent; color: var(--ink-3);
+}
+.btn--icon:hover { background: var(--cream); color: var(--ink); }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.pill--moss   { background: var(--moss-soft);   color: var(--moss); }
+.pill--ochre  { background: var(--ochre-soft);  color: var(--ochre); }
+.pill--rust   { background: var(--rust-soft);   color: var(--rust); }
+.pill--indigo { background: var(--indigo-soft); color: var(--indigo); }
+.pill--slate  { background: var(--slate-soft);  color: var(--slate); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI NUDGE — inline banner inside content
+   ═══════════════════════════════════════════════════════════════════════════ */
+.ai-nudge {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px;
+  background: var(--indigo-soft);
+  border: 1px solid var(--indigo-tint);
+  border-left: 3px solid var(--indigo);
+  border-radius: var(--r-card);
+  margin: 18px 0;
+}
+.ai-nudge--moss {
+  background: var(--moss-soft);
+  border-color: rgba(107, 122, 79, 0.30);
+  border-left-color: var(--moss);
+}
+.ai-nudge--ochre {
+  background: var(--ochre-soft);
+  border-color: rgba(161, 128, 48, 0.28);
+  border-left-color: var(--ochre);
+}
+.ai-nudge__icon {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--paper);
+  border-radius: 50%;
+  color: var(--indigo);
+  flex-shrink: 0;
+}
+.ai-nudge--moss .ai-nudge__icon { color: var(--moss); }
+.ai-nudge--ochre .ai-nudge__icon { color: var(--ochre); }
+.ai-nudge__text {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.45;
+  flex: 1;
+}
+.ai-nudge__text b {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  color: var(--ink);
+}
+.ai-nudge__dismiss {
+  background: transparent; border: 0;
+  font-family: var(--font-ui);
+  font-size: 18px;
+  color: var(--ink-5);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DRAWER — right-side panel that opens for AI flows
+   ═══════════════════════════════════════════════════════════════════════════ */
+.drawer {
+  background: var(--paper);
+  border-left: 1px solid var(--hairline-strong);
+  box-shadow: var(--sh-drawer);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.drawer__head {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px;
+}
+.drawer__title-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.drawer__eyebrow {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ochre);
+  margin: 0 0 4px;
+}
+.drawer__title {
+  font-family: var(--font-display);
+  font-size: 19px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.2;
+  margin: 0;
+}
+.drawer__title em { font-style: italic; color: var(--indigo); }
+.drawer__close {
+  width: 26px; height: 26px;
+  background: transparent; border: 0;
+  border-radius: var(--r-control);
+  color: var(--ink-4);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 18px; line-height: 1;
+}
+.drawer__close:hover { background: var(--cream); color: var(--ink); }
+.drawer__body {
+  flex: 1; overflow: auto;
+  padding: 20px 22px 24px;
+}
+.drawer__foot {
+  padding: 14px 22px;
+  border-top: 1px solid var(--hairline);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  background: var(--paper);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   QUIZ inside drawer
+   ═══════════════════════════════════════════════════════════════════════════ */
+.qz-progress {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+}
+.qz-progress b {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--ink);
+  font-size: 13px;
+}
+.qz-bar {
+  height: 3px;
+  background: var(--cream);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+.qz-bar__fill {
+  height: 100%;
+  background: var(--indigo);
+  width: 37.5%;
+}
+.qz-q {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.35;
+  color: var(--ink);
+  margin: 0 0 18px;
+}
+.qz-opts {
+  display: flex; flex-direction: column;
+  gap: 7px;
+}
+.qz-opt {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.4;
+  text-align: left;
+  width: 100%;
+}
+.qz-opt:hover { border-color: var(--hairline-strong); }
+.qz-opt[data-selected] {
+  border-color: var(--indigo);
+  background: var(--indigo-soft);
+}
+.qz-opt[data-correct] {
+  border-color: var(--moss);
+  background: var(--moss-soft);
+}
+.qz-opt__letter {
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ink-4);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  background: var(--paper);
+}
+.qz-opt[data-selected] .qz-opt__letter,
+.qz-opt[data-correct] .qz-opt__letter {
+  background: var(--indigo); border-color: var(--indigo); color: var(--paper);
+}
+.qz-opt[data-correct] .qz-opt__letter { background: var(--moss); border-color: var(--moss); }
+
+.qz-dots {
+  display: inline-flex; gap: 5px;
+}
+.qz-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--hairline-strong);
+}
+.qz-dot--done { background: var(--moss); }
+.qz-dot--wrong { background: var(--rust); }
+.qz-dot--current {
+  background: var(--ochre);
+  outline: 2px solid var(--ochre-soft);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NOTE EDITOR mock (Notes view content)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.note-head {
+  margin-bottom: 24px;
+}
+.note-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ochre);
+  margin: 0 0 6px;
+}
+.note-title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.1;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+.note-title em { font-style: italic; color: var(--indigo); }
+.note-meta {
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--ink-4);
+}
+.note-meta__tags {
+  display: inline-flex; gap: 6px;
+}
+.tag {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px;
+  background: var(--cream);
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+.tag::before {
+  content: '#';
+  color: var(--ink-5);
+  margin-right: 2px;
+}
+
+.note-body p {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  margin: 0 0 14px;
+}
+.note-body p em { font-style: italic; }
+.note-body h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink);
+  margin: 26px 0 10px;
+}
+.note-body h2 em { font-style: italic; color: var(--indigo); }
+.note-body ul {
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  padding-left: 22px;
+  margin: 0 0 14px;
+}
+.note-body ul li { margin-bottom: 4px; }
+.note-body code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--cream);
+  padding: 1px 6px;
+  border-radius: var(--r-sharp);
+  color: var(--ink-2);
+}
+.note-body pre {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  padding: 12px 14px;
+  margin: 0 0 16px;
+  color: var(--ink-2);
+  line-height: 1.55;
+  overflow-x: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GOALS view — Steps timeline + Go cards
+   ═══════════════════════════════════════════════════════════════════════════ */
+.goal-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+.goal-h-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink); margin: 0;
+}
+.goal-h-title em { font-style: italic; color: var(--indigo); }
+.goal-h-meta {
+  display: flex; gap: 14px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-4);
+  margin-top: 6px;
+}
+.goal-h-meta b { color: var(--ink); font-family: var(--font-display); font-weight: 500; }
+.goal-h-toggle {
+  display: inline-flex; gap: 2px;
+  padding: 2px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+}
+.goal-h-toggle button {
+  background: transparent; border: 0;
+  font: inherit; cursor: pointer;
+  padding: 4px 12px;
+  font-family: var(--font-ui);
+  font-size: 11.5px; font-weight: 500;
+  color: var(--ink-4);
+  border-radius: var(--r-pill);
+}
+.goal-h-toggle button[aria-pressed="true"] {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--hairline-strong);
+}
+
+.steps-tl { position: relative; padding-left: 22px; }
+.steps-tl::before {
+  content: ''; position: absolute;
+  left: 8px; top: 12px; bottom: 12px;
+  width: 1px; background: var(--hairline);
+}
+.step-card {
+  position: relative;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+}
+.step-card::before {
+  content: ''; position: absolute;
+  left: -22px; top: 18px;
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: var(--moss);
+  box-shadow: 0 0 0 3px var(--paper);
+}
+.step-card[data-status="active"]::before { background: var(--ochre); }
+.step-card[data-status="todo"]::before { background: var(--ink-5); }
+.step-card__head {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 6px;
+}
+.step-card__num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-4);
+}
+.step-card__title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-snug);
+  color: var(--ink);
+  margin: 0;
+}
+.step-card__progress {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.step-card__desc {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.go-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+.go-card {
+  padding: 10px 12px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.go-card__title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0;
+}
+.go-card__sub {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  display: flex; align-items: center; gap: 6px;
+}
+.go-card__check {
+  width: 14px; height: 14px;
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: var(--r-sharp);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.go-card[data-done] .go-card__check {
+  background: var(--moss);
+  border-color: var(--moss);
+}
+.go-card[data-done] .go-card__check::after {
+  content: ''; width: 4px; height: 7px;
+  border: solid var(--paper); border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+.go-card[data-done] .go-card__title {
+  color: var(--ink-4);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCHEDULE drawer body
+   ═══════════════════════════════════════════════════════════════════════════ */
+.timeline-mini {
+  display: flex; flex-direction: column;
+  position: relative;
+  padding-left: 0;
+}
+.timeline-mini::before {
+  content: ''; position: absolute;
+  left: 62px; top: 8px; bottom: 8px;
+  width: 1px; background: var(--hairline);
+}
+.slot-mini {
+  display: grid;
+  grid-template-columns: 56px 14px 1fr;
+  align-items: start;
+  gap: 12px;
+  padding: 9px 0;
+}
+.slot-mini__time {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding-top: 2px;
+  line-height: 1.4;
+}
+.slot-mini__dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--indigo);
+  margin-top: 5px;
+  margin-left: 3px;
+  position: relative; z-index: 1;
+  box-shadow: 0 0 0 3px var(--paper);
+}
+.slot-mini[data-kind="break"] .slot-mini__dot {
+  background: var(--cream);
+  box-shadow: 0 0 0 3px var(--paper), inset 0 0 0 1px var(--ink-5);
+}
+.slot-mini[data-kind="goal"]    .slot-mini__dot { background: var(--moss); }
+.slot-mini[data-kind="routine"] .slot-mini__dot { background: var(--ochre); }
+.slot-mini[data-kind="admin"]   .slot-mini__dot { background: var(--slate); }
+.slot-mini[data-kind="lunch"]   .slot-mini__dot { background: var(--walnut); }
+.slot-mini__content {
+  font-family: var(--font-body);
+}
+.slot-mini__title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0 0 1px;
+  line-height: 1.3;
+}
+.slot-mini[data-kind="break"] .slot-mini__title,
+.slot-mini[data-kind="lunch"] .slot-mini__title {
+  color: var(--ink-3); font-style: italic;
+}
+.slot-mini__sub {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DASHBOARD widgets + AI Insights
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dash-h {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.dash-h__title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink); margin: 0;
+}
+.dash-h__title em { font-style: italic; color: var(--indigo); }
+.dash-h__date {
+  font-family: var(--font-display); font-style: italic;
+  font-size: 13px; color: var(--ochre);
+}
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.dash-card {
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+}
+.dash-card__lab {
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-4); margin: 0 0 6px;
+}
+.dash-card__num {
+  font-family: var(--font-display);
+  font-size: 30px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+  margin: 0 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+.dash-card__num em {
+  font-style: normal; font-size: 13px;
+  color: var(--ink-4); margin-left: 4px;
+}
+.dash-card__delta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.dash-card__delta--up { color: var(--moss); }
+.dash-card__delta--down { color: var(--rust); }
+
+/* AI Insights block on dashboard */
+.ai-block {
+  background: linear-gradient(165deg, var(--indigo-soft), transparent 70%);
+  border: 1px solid var(--indigo-tint);
+  border-radius: var(--r-card);
+  padding: 20px 22px;
+  margin-bottom: 22px;
+  position: relative;
+}
+.ai-block__head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.ai-block__title-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.ai-block__icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--paper);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--indigo);
+  border: 1px solid var(--indigo-tint);
+}
+.ai-block__title {
+  font-family: var(--font-display);
+  font-size: 19px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0;
+}
+.ai-block__title em { font-style: italic; color: var(--indigo); }
+.ai-block__sub {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-4);
+}
+
+.ai-block__cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+}
+.ai-block__col {
+  background: var(--paper);
+  border-left: 3px solid var(--indigo);
+  border-radius: var(--r-card);
+  padding: 14px 16px;
+  box-shadow: var(--sh-card);
+}
+.ai-block__col[data-tone="success"] { border-left-color: var(--moss); }
+.ai-block__col[data-tone="warning"] { border-left-color: var(--ochre); }
+.ai-block__col[data-tone="focus"]   { border-left-color: var(--indigo); }
+.ai-block__col-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+.ai-block__col-icon {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 12px;
+}
+.ai-block__col[data-tone="success"] .ai-block__col-icon { background: var(--moss-soft); color: var(--moss); }
+.ai-block__col[data-tone="warning"] .ai-block__col-icon { background: var(--ochre-soft); color: var(--ochre); }
+.ai-block__col[data-tone="focus"]   .ai-block__col-icon { background: var(--indigo-soft); color: var(--indigo); }
+.ai-block__col-title {
+  font-family: var(--font-ui);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0;
+}
+.ai-block__col-body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0;
+}
+.ai-block__col-body b {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--ink);
+}
+.ai-block__col-body em { font-style: italic; color: var(--ink-3); }
+.ai-block__col-action {
+  margin-top: 8px;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--indigo);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ai-block__col-action::after { content: '→'; }
+
+/* Heatmap chunk for dashboard */
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  gap: 3px;
+}
+.heatmap__cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--heat-0);
+}
+.heatmap__cell[data-l="1"] { background: var(--heat-1); }
+.heatmap__cell[data-l="2"] { background: var(--heat-2); }
+.heatmap__cell[data-l="3"] { background: var(--heat-3); }
+.heatmap__cell[data-l="4"] { background: var(--heat-4); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GENERATION TOAST — bottom-right notification while AI runs in background
+   ═══════════════════════════════════════════════════════════════════════════ */
+.gen-toast {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 320px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-popover);
+  padding: 14px 16px;
+  display: flex; align-items: flex-start; gap: 12px;
+  z-index: 10;
+}
+.gen-toast__sparkle {
+  width: 26px; height: 26px;
+  background: var(--indigo-soft);
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--indigo);
+  flex-shrink: 0;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.gen-toast__body {
+  flex: 1;
+  min-width: 0;
+}
+.gen-toast__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px; font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 2px;
+}
+.gen-toast__sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  margin: 0 0 8px;
+}
+.gen-toast__bar {
+  height: 2px;
+  background: var(--cream);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.gen-toast__bar-fill {
+  height: 100%;
+  background: var(--indigo);
+  width: 60%;
+}
+
+/* AI Generating overlay for full drawer */
+.drawer-loading {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  flex: 1;
+}
+.drawer-loading__sparkle {
+  width: 48px; height: 48px;
+  margin: 0 auto 16px;
+  background: var(--indigo-soft);
+  border: 1px solid var(--indigo-tint);
+  border-radius: 50%;
+  color: var(--indigo);
+  display: inline-flex; align-items: center; justify-content: center;
+  animation: pulse-soft 2.4s ease-in-out infinite;
+}
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 var(--indigo-soft); }
+  50% { transform: scale(1.06); box-shadow: 0 0 0 14px transparent; }
+}
+.drawer-loading__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.drawer-loading__sub {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-4);
+  line-height: 1.5;
+  margin: 0 0 20px;
+  max-width: 280px;
+}
+.drawer-loading__steps {
+  display: flex; flex-direction: column; gap: 6px;
+  text-align: left;
+}
+.drawer-loading__step {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--ink-4);
+}
+.drawer-loading__step-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 1px solid var(--hairline-strong);
+  flex-shrink: 0;
+}
+.drawer-loading__step[data-done] .drawer-loading__step-dot {
+  background: var(--moss);
+  border-color: var(--moss);
+}
+.drawer-loading__step[data-current] .drawer-loading__step-dot {
+  background: var(--ochre);
+  border-color: var(--ochre);
+}
+.drawer-loading__step[data-current] { color: var(--ink-2); }
+.drawer-loading__step[data-done] { color: var(--ink-3); text-decoration: line-through; }
+
+.drawer-loading__eta {
+  margin-top: 16px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-5);
+}
+
+/* note marginalia callout — right-rail in note view (alternative to drawer) */
+.note-callout {
+  position: relative;
+  margin: 22px 0;
+  padding: 14px 16px;
+  background: var(--indigo-soft);
+  border-left: 3px solid var(--indigo);
+  border-radius: var(--r-card);
+}
+.note-callout__head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+.note-callout__head-spk {
+  color: var(--indigo);
+}
+.note-callout__title {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--indigo);
+}
+
+.label-mono { font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); }
+.scene__caption {
+  margin-top: 14px;
+  font-family: var(--font-body); font-style: italic;
+  font-size: 13px;
+  color: var(--ink-4);
+}
+.scene__caption b {
+  font-style: normal;
+  color: var(--ink-2);
+  font-family: var(--font-display); font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ─────────────────────────── TOC ─────────────────────────── -->
+  <aside class="toc">
+    <div class="toc__brand"><span class="toc__brand-dot"></span>Jarvnote</div>
+    <div class="toc__lead">AI · in-context · v1.0</div>
+
+    <div class="toc__group">
+      <div class="toc__group-label">Notes</div>
+      <a href="#scene-1">Note + quiz nudge</a>
+      <a href="#scene-2">Quiz drawer open</a>
+      <a href="#scene-3">Quiz generating</a>
+    </div>
+
+    <div class="toc__group">
+      <div class="toc__group-label">Goals</div>
+      <a href="#scene-4">Goal + plan-day nudge</a>
+      <a href="#scene-5">Schedule drawer open</a>
+    </div>
+
+    <div class="toc__group">
+      <div class="toc__group-label">Dashboard</div>
+      <a href="#scene-6">Dashboard + AI insights</a>
+      <a href="#scene-7">Friday — fresh review</a>
+    </div>
+
+    <div class="toc__group">
+      <div class="toc__group-label">Background state</div>
+      <a href="#scene-8">Toast while generating</a>
+    </div>
+
+    <div class="toc__theme">
+      <button data-tt="light" aria-pressed="true">Light</button>
+      <button data-tt="dark"  aria-pressed="false">Dark</button>
+    </div>
+  </aside>
+
+  <!-- ─────────────────────────── CANVAS ─────────────────────────── -->
+  <main class="canvas">
+
+    <!-- ═══════════════════ SCENE 1: Note + quiz nudge ═══════════════════ -->
+    <section class="scene" id="scene-1">
+      <div class="scene__num">01 · Notes</div>
+      <h1 class="scene__title">Заметка открыта · <em>nudge для quiz</em></h1>
+      <p class="scene__lede">
+        Длинная заметка (&gt;500 слов) — внизу появляется один встраиваемый
+        callout «test your memory». Никаких всплывашек, никаких модалок —
+        просто следующий блок в ленте чтения.
+      </p>
+
+      <div class="app">
+        <!-- RAIL -->
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn" title="Hide">⇤</button>
+            <button class="rail__btn" title="Search">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn" data-active title="Notes">N</button>
+            <button class="rail__btn" title="Goals">G</button>
+            <button class="rail__btn" title="Routines">R</button>
+            <button class="rail__btn" title="Sprints">S</button>
+            <button class="rail__btn" title="Analysis">A</button>
+            <button class="rail__btn rail__btn--ai" title="AI"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn" title="Theme">☼</button>
+            <button class="rail__btn" title="Profile">U</button>
+          </div>
+        </div>
+
+        <!-- PANE (Notes tree) -->
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Notes</h2>
+              <button class="btn btn--icon" title="New">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search notes..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Pinned <span class="pane__group-count">3</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--indigo);"></span>Engineering principles</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>Reading list 2026</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>Daily standup</div>
+            </div>
+            <div class="pane__group">
+              <div class="pane__group-label">Jarvnote 3.0 <span class="pane__group-count">12</span></div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--indigo);"></span>NoteAttachment API <span class="lib-row__count">8</span></div>
+              <div class="lib-row lib-row__child">TipTap atom node basics</div>
+              <div class="lib-row lib-row__child">S3 presigned URLs</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--slate);"></span>Editorial design system <span class="lib-row__count">5</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>VPS migration notes</div>
+            </div>
+            <div class="pane__group">
+              <div class="pane__group-label">Learning <span class="pane__group-count">8</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>React 18 useTransition</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>SQL · window functions</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>Postgres replication</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- MAIN (Note editor) -->
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs">
+              <b>Jarvnote 3.0</b>
+              <span class="topbar__crumbs-sep">›</span>
+              <b>NoteAttachment API</b>
+            </div>
+            <div class="topbar__actions">
+              <button class="btn btn--icon" title="Pin">⌑</button>
+              <button class="btn btn--icon" title="Tags">#</button>
+              <button class="btn btn--icon" title="Share">↗</button>
+              <button class="btn btn--icon" title="More">⋯</button>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__inner">
+              <header class="note-head">
+                <p class="note-eyebrow">Engineering · created 11 may</p>
+                <h1 class="note-title">Build <em>NoteAttachment API</em></h1>
+                <div class="note-meta">
+                  <span>edited 2 days ago</span>
+                  <span class="note-meta__tags">
+                    <span class="tag">backend</span>
+                    <span class="tag">tiptap</span>
+                    <span class="tag">jarvnote</span>
+                  </span>
+                </div>
+              </header>
+
+              <div class="note-body">
+                <p>
+                  Файлы внутри заметки — это не дополнение, а первоклассная
+                  единица контента. У них есть собственное API, отдельный
+                  storage в MinIO, и узел в TipTap-документе.
+                </p>
+
+                <h2>Архитектурное решение: <em>inline atom node</em></h2>
+                <p>
+                  В TipTap есть два пути представить attachment: как
+                  <em>mark</em> вокруг текста (вариант, который мы отвергли) или
+                  как <em>node</em>. Mark — это форматирование, которое
+                  оборачивает текст и сохраняет cursor inside. Node — это
+                  отдельная единица, которая не имеет текста внутри.
+                </p>
+                <p>
+                  Выбираем node с конфигурацией: <code>group: 'inline'</code>,
+                  <code>inline: true</code>, <code>atom: true</code>,
+                  <code>selectable: false</code>. Atom означает «неделимый» —
+                  курсор не может стоять внутри, только до или после.
+                </p>
+
+                <h2>Endpoint: <em>POST /notes/&#123;id&#125;/attachments</em></h2>
+                <p>Multipart upload, validates mime type, uploads to MinIO, returns presigned URL + S3 key. Backend хранит metadata в <code>note_attachments</code> таблице.</p>
+                <pre>POST /notes/abc-123/attachments
+Content-Type: multipart/form-data
+
+→ 201 Created
+{
+  "id": "att-xyz-456",
+  "url": "https://...signed=true&expires=...",
+  "key": "notes/abc-123/specdraft.pdf"
+}</pre>
+
+                <!-- ↓ AI nudge — встроен как очередной блок в потоке заметки -->
+                <div class="ai-nudge">
+                  <div class="ai-nudge__icon"><span class="spk"></span></div>
+                  <div class="ai-nudge__text">
+                    <b>Test your memory.</b> I read this note (~850 words) and can build
+                    a quick 8-question quiz to check what stuck. Takes ~30 seconds.
+                  </div>
+                  <button class="btn btn--ai btn--sm"><span class="spk spk--sm"></span> Quiz me</button>
+                  <button class="ai-nudge__dismiss" title="Dismiss">×</button>
+                </div>
+
+                <h2>NodeView — React component</h2>
+                <p>
+                  TipTap NodeView позволяет рендерить узел кастомным
+                  React-компонентом. Внутри — настоящий <code>&lt;a&gt;</code>
+                  тег с динамическим href, обновляющимся на каждом
+                  взаимодействии (mousedown, mouseenter, focus, touchstart),
+                  чтобы token не протухал к моменту middle-click открытия.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="scene__caption">
+        <b>Заметь:</b> ничего не выпрыгивает. AI-nudge — это просто блок в
+        ленте чтения. Можно прокрутить мимо, можно dismiss × кнопкой,
+        можно начать quiz. Никакого FOMO, никакого «not now» modal.
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 2: Quiz drawer ═══════════════════ -->
+    <section class="scene" id="scene-2">
+      <div class="scene__num">02 · Notes</div>
+      <h1 class="scene__title">Quiz drawer · <em>заметка остаётся видна</em></h1>
+      <p class="scene__lede">
+        Нажал «Quiz me» — справа выезжает 420px drawer с активным тестом.
+        <em>Заметка остаётся на экране слева</em> — можно подсмотреть, но это
+        ничего не меняет (это для понимания, а не для отметки). После
+        ответов карточка перезапланируется через spaced repetition.
+      </p>
+
+      <div class="app app--two-pane">
+        <!-- RAIL -->
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn" title="Hide">⇤</button>
+            <button class="rail__btn" title="Search">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn" data-active title="Notes">N</button>
+            <button class="rail__btn" title="Goals">G</button>
+            <button class="rail__btn" title="Routines">R</button>
+            <button class="rail__btn" title="Sprints">S</button>
+            <button class="rail__btn" title="Analysis">A</button>
+            <button class="rail__btn rail__btn--ai" title="AI"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn" title="Theme">☼</button>
+            <button class="rail__btn" title="Profile">U</button>
+          </div>
+        </div>
+
+        <!-- PANE -->
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Notes</h2>
+              <button class="btn btn--icon">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search notes..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Jarvnote 3.0 <span class="pane__group-count">12</span></div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--indigo);"></span>NoteAttachment API <span class="lib-row__count">8</span></div>
+              <div class="lib-row lib-row__child">TipTap atom node basics</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--slate);"></span>Editorial design system</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>VPS migration</div>
+            </div>
+            <div class="pane__group">
+              <div class="pane__group-label">Learning</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>React 18 useTransition</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>SQL · window functions</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- MAIN (Note still visible) -->
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs">
+              <b>Jarvnote 3.0</b>
+              <span class="topbar__crumbs-sep">›</span>
+              <b>NoteAttachment API</b>
+            </div>
+            <div class="topbar__actions">
+              <span class="pill pill--indigo"><span class="spk spk--sm"></span>Quiz active</span>
+              <button class="btn btn--icon">⋯</button>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__inner">
+              <header class="note-head">
+                <p class="note-eyebrow">Engineering · created 11 may</p>
+                <h1 class="note-title">Build <em>NoteAttachment API</em></h1>
+                <div class="note-meta">
+                  <span>edited 2 days ago</span>
+                  <span class="note-meta__tags">
+                    <span class="tag">backend</span>
+                    <span class="tag">tiptap</span>
+                  </span>
+                </div>
+              </header>
+              <div class="note-body" style="opacity: 0.65;">
+                <p>Файлы внутри заметки — это не дополнение, а первоклассная единица контента. У них есть собственное API, отдельный storage в MinIO, и узел в TipTap-документе.</p>
+                <h2>Архитектурное решение: <em>inline atom node</em></h2>
+                <p>В TipTap есть два пути представить attachment: как <em>mark</em> вокруг текста или как <em>node</em>. Mark — это форматирование. Node — это отдельная единица.</p>
+                <p>Выбираем node: <code>group: 'inline'</code>, <code>inline: true</code>, <code>atom: true</code>, <code>selectable: false</code>. Atom означает «неделимый».</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DRAWER (quiz) -->
+        <aside class="drawer">
+          <header class="drawer__head">
+            <div>
+              <div class="drawer__eyebrow">From your note</div>
+              <h3 class="drawer__title">Test memory · <em>NoteAttachment</em></h3>
+            </div>
+            <button class="drawer__close">×</button>
+          </header>
+          <div class="drawer__body">
+            <div class="qz-progress">
+              <span>Question <b>3 of 8</b></span>
+              <span>1:24</span>
+            </div>
+            <div class="qz-bar"><div class="qz-bar__fill"></div></div>
+
+            <p class="qz-q">
+              Какая TipTap-конфигурация используется для inline file attachments?
+            </p>
+            <div class="qz-opts">
+              <button class="qz-opt">
+                <span class="qz-opt__letter">A</span>
+                Mark — оборачивает текст, persists как wrapping span
+              </button>
+              <button class="qz-opt" data-selected>
+                <span class="qz-opt__letter">B</span>
+                Inline atom node — group inline, atom true, selectable false
+              </button>
+              <button class="qz-opt">
+                <span class="qz-opt__letter">C</span>
+                Block node — group block, рендерится отдельной строкой
+              </button>
+              <button class="qz-opt">
+                <span class="qz-opt__letter">D</span>
+                Decoration — visual-only, не сохраняется в документе
+              </button>
+            </div>
+          </div>
+          <div class="drawer__foot">
+            <div class="qz-dots">
+              <span class="qz-dot qz-dot--done"></span>
+              <span class="qz-dot qz-dot--wrong"></span>
+              <span class="qz-dot qz-dot--current"></span>
+              <span class="qz-dot"></span>
+              <span class="qz-dot"></span>
+              <span class="qz-dot"></span>
+              <span class="qz-dot"></span>
+              <span class="qz-dot"></span>
+            </div>
+            <div style="display: inline-flex; gap: 6px;">
+              <button class="btn btn--ghost btn--sm">Skip</button>
+              <button class="btn btn--primary btn--sm">Submit</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <p class="scene__caption">
+        <b>Drawer pattern.</b> Та же механика что у Goals/Step dialogs —
+        right-side panel 420px, ESC закрывает, фон main area не блокирован
+        (можно листать заметку). Это <em>не модалка</em>: ничто не запрещает
+        пользователю переключить заметку, скрыть pane, открыть command palette.
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 3: Quiz generating ═══════════════════ -->
+    <section class="scene" id="scene-3">
+      <div class="scene__num">03 · Notes</div>
+      <h1 class="scene__title">Quiz generating · <em>40–90 сек ожидания</em></h1>
+      <p class="scene__lede">
+        Сразу после клика «Quiz me» — drawer открыт, но внутри loading state с
+        реальными шагами процесса (читаю → строю контекст → генерирую →
+        вычитываю). Sparkle pulse, под steps — ETA.
+      </p>
+
+      <div class="app app--two-pane">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn" data-active>N</button>
+            <button class="rail__btn">G</button>
+            <button class="rail__btn">R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn">A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Notes</h2>
+              <button class="btn btn--icon">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search notes..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Jarvnote 3.0</div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--indigo);"></span>NoteAttachment API <span class="lib-row__count">8</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--slate);"></span>Editorial design system</div>
+            </div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs"><b>Jarvnote 3.0</b><span class="topbar__crumbs-sep">›</span><b>NoteAttachment API</b></div>
+            <div class="topbar__actions">
+              <span class="pill pill--indigo"><span class="spk spk--sm"></span>Generating</span>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__inner">
+              <header class="note-head">
+                <p class="note-eyebrow">Engineering · created 11 may</p>
+                <h1 class="note-title">Build <em>NoteAttachment API</em></h1>
+              </header>
+              <div class="note-body" style="opacity: 0.65;">
+                <p>Файлы внутри заметки — это не дополнение, а первоклассная единица контента. У них есть собственное API, отдельный storage в MinIO, и узел в TipTap-документе.</p>
+                <h2>Архитектурное решение: <em>inline atom node</em></h2>
+                <p>В TipTap есть два пути представить attachment: как <em>mark</em> вокруг текста или как <em>node</em>. Mark — это форматирование. Node — это отдельная единица.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="drawer">
+          <header class="drawer__head">
+            <div>
+              <div class="drawer__eyebrow">From your note</div>
+              <h3 class="drawer__title">Building quiz · <em>NoteAttachment</em></h3>
+            </div>
+            <button class="drawer__close">×</button>
+          </header>
+          <div class="drawer__body" style="padding: 0;">
+            <div class="drawer-loading">
+              <div class="drawer-loading__sparkle">
+                <span class="spk spk--lg"></span>
+              </div>
+              <h4 class="drawer-loading__title">Generating <em>your quiz</em>…</h4>
+              <p class="drawer-loading__sub">
+                Reading the note, picking key concepts, and writing 8 questions.
+                You can close this — I'll notify when ready.
+              </p>
+              <div class="drawer-loading__steps">
+                <div class="drawer-loading__step" data-done>
+                  <span class="drawer-loading__step-dot"></span>
+                  Loading note · 847 words
+                </div>
+                <div class="drawer-loading__step" data-done>
+                  <span class="drawer-loading__step-dot"></span>
+                  Extracting key concepts
+                </div>
+                <div class="drawer-loading__step" data-current>
+                  <span class="drawer-loading__step-dot"></span>
+                  Writing questions
+                </div>
+                <div class="drawer-loading__step">
+                  <span class="drawer-loading__step-dot"></span>
+                  Polishing wording
+                </div>
+              </div>
+              <div class="drawer-loading__eta">~22s remaining</div>
+            </div>
+          </div>
+          <div class="drawer__foot">
+            <span class="label-mono" style="font-style: italic; font-family: var(--font-body);">Run in background</span>
+            <button class="btn btn--secondary btn--sm">Close · notify me</button>
+          </div>
+        </aside>
+      </div>
+
+      <p class="scene__caption">
+        <b>Latency-aware UX.</b> Шаги — настоящие (не fake). Кнопка
+        «Run in background» закрывает drawer и переводит генерацию в toast
+        внизу справа (см. сцену 08).
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 4: Goal + plan-day nudge ═══════════════════ -->
+    <section class="scene" id="scene-4">
+      <div class="scene__num">04 · Goals</div>
+      <h1 class="scene__title">Goal открыт · <em>plan-day banner</em></h1>
+      <p class="scene__lede">
+        Открыт goal с steps. Утром (8:00–11:00) или в понедельник — над
+        timeline появляется moss-coloured banner «plan your day». Не выпрыгивает
+        каждый день, не блокирует.
+      </p>
+
+      <div class="app">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn">N</button>
+            <button class="rail__btn" data-active>G</button>
+            <button class="rail__btn">R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn">A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Goals</h2>
+              <button class="btn btn--icon">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search goals..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Active <span class="pane__group-count">3</span></div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--moss);"></span>Jarvnote 3.0 <span class="lib-row__count">8</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>Полумарафон в сентябре <span class="lib-row__count">12</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>Прочитать 12 книг <span class="lib-row__count">4</span></div>
+            </div>
+            <div class="pane__group">
+              <div class="pane__group-label">Backlog <span class="pane__group-count">5</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ink-5);"></span>Освоить vim</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ink-5);"></span>Завести блог</div>
+            </div>
+            <div class="pane__group">
+              <div class="pane__group-label">Paused <span class="pane__group-count">1</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>Учить норвежский</div>
+            </div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs">
+              <b>Goals</b>
+              <span class="topbar__crumbs-sep">›</span>
+              <b>Jarvnote 3.0</b>
+            </div>
+            <div class="topbar__actions">
+              <div class="goal-h-toggle">
+                <button aria-pressed="true">Single goal</button>
+                <button aria-pressed="false">Cross-goal</button>
+              </div>
+              <button class="btn btn--icon">⋯</button>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__wide">
+              <header class="goal-head">
+                <div>
+                  <h1 class="goal-h-title">Jarvnote <em>3.0</em></h1>
+                  <div class="goal-h-meta">
+                    <span><b>3</b> steps · <b>11</b> gos</span>
+                    <span>deadline <b>31 may</b></span>
+                    <span><b>67%</b> done</span>
+                  </div>
+                </div>
+              </header>
+
+              <!-- Plan-day nudge: morning context -->
+              <div class="ai-nudge ai-nudge--moss">
+                <div class="ai-nudge__icon"><span class="spk"></span></div>
+                <div class="ai-nudge__text">
+                  <b>Good morning. Plan your day?</b> You have <em>4 targets</em>
+                  across this goal + 2 others, plus 12 routines. I can sort them
+                  into time blocks in ~30 seconds.
+                </div>
+                <button class="btn btn--ai btn--sm">
+                  <span class="spk spk--sm"></span>
+                  Plan day
+                </button>
+                <button class="ai-nudge__dismiss">×</button>
+              </div>
+
+              <div class="steps-tl">
+                <div class="step-card">
+                  <div class="step-card__head">
+                    <span class="step-card__num">Step 01</span>
+                    <h3 class="step-card__title">Foundation · models &amp; migrations</h3>
+                    <span class="step-card__progress">3/3 · done</span>
+                  </div>
+                  <p class="step-card__desc">Step entity, migrations 019, route registration. <em>Closed 12 may.</em></p>
+                </div>
+
+                <div class="step-card" data-status="active">
+                  <div class="step-card__head">
+                    <span class="step-card__num">Step 02</span>
+                    <h3 class="step-card__title">Build backend · endpoints + tests</h3>
+                    <span class="step-card__progress">1/4 · in progress</span>
+                  </div>
+                  <p class="step-card__desc">CRUD endpoints, schema validation, tests. <em>Deadline 19 may.</em></p>
+                  <div class="go-grid">
+                    <div class="go-card" data-done>
+                      <h4 class="go-card__title">POST /steps endpoint</h4>
+                      <div class="go-card__sub">
+                        <span class="go-card__check"></span>
+                        Closed yesterday
+                      </div>
+                    </div>
+                    <div class="go-card">
+                      <h4 class="go-card__title">PATCH /steps/&#123;id&#125;</h4>
+                      <div class="go-card__sub">
+                        <span class="go-card__check"></span>
+                        <span class="pill pill--ochre">Today</span>
+                      </div>
+                    </div>
+                    <div class="go-card">
+                      <h4 class="go-card__title">Reorder endpoint</h4>
+                      <div class="go-card__sub">
+                        <span class="go-card__check"></span>
+                        Tomorrow
+                      </div>
+                    </div>
+                    <div class="go-card">
+                      <h4 class="go-card__title">Test coverage</h4>
+                      <div class="go-card__sub">
+                        <span class="go-card__check"></span>
+                        18 may
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="step-card" data-status="todo">
+                  <div class="step-card__head">
+                    <span class="step-card__num">Step 03</span>
+                    <h3 class="step-card__title">Wire up frontend</h3>
+                    <span class="step-card__progress">0/4</span>
+                  </div>
+                  <p class="step-card__desc">StepCreate/Edit dialogs, board rendering, drag-reorder.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="scene__caption">
+        <b>Контекстная появляемость.</b> Этот banner показывается только если:
+        (а) рабочее окно (08–11 утра), (б) есть ≥3 targets на сегодня. После
+        Plan day / Dismiss — скрыт до завтра.
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 5: Schedule drawer ═══════════════════ -->
+    <section class="scene" id="scene-5">
+      <div class="scene__num">05 · Goals</div>
+      <h1 class="scene__title">Schedule drawer · <em>сгенерированный план</em></h1>
+      <p class="scene__lede">
+        Нажал «Plan day» — справа выехал drawer с готовым timeline. Goal-view
+        остался на экране — можно видеть откуда взялись слоты. Save plan
+        фиксирует план как Sprint на день.
+      </p>
+
+      <div class="app app--two-pane">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn">N</button>
+            <button class="rail__btn" data-active>G</button>
+            <button class="rail__btn">R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn">A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Goals</h2>
+              <button class="btn btn--icon">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Active</div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--moss);"></span>Jarvnote 3.0</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>Полумарафон в сентябре</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--moss);"></span>Прочитать 12 книг</div>
+            </div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs"><b>Goals</b><span class="topbar__crumbs-sep">›</span><b>Jarvnote 3.0</b></div>
+            <div class="topbar__actions">
+              <span class="pill pill--indigo"><span class="spk spk--sm"></span>Schedule ready</span>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__wide">
+              <header class="goal-head" style="opacity: 0.5;">
+                <div>
+                  <h1 class="goal-h-title">Jarvnote <em>3.0</em></h1>
+                  <div class="goal-h-meta">
+                    <span><b>3</b> steps · <b>11</b> gos</span>
+                    <span>deadline <b>31 may</b></span>
+                  </div>
+                </div>
+              </header>
+              <div class="steps-tl" style="opacity: 0.5;">
+                <div class="step-card" data-status="active">
+                  <div class="step-card__head">
+                    <span class="step-card__num">Step 02</span>
+                    <h3 class="step-card__title">Build backend · endpoints + tests</h3>
+                    <span class="step-card__progress">1/4 · in progress</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DRAWER: schedule -->
+        <aside class="drawer">
+          <header class="drawer__head">
+            <div>
+              <div class="drawer__eyebrow">AI-generated · saves as sprint</div>
+              <h3 class="drawer__title">Your day · <em>15 May · Thu</em></h3>
+            </div>
+            <button class="drawer__close">×</button>
+          </header>
+          <div class="drawer__body">
+            <div style="display: flex; gap: 10px; padding: 10px 12px; background: var(--cream); border-radius: var(--r-card); margin-bottom: 16px; font-family: var(--font-body); font-size: 12px; font-style: italic; color: var(--ink-3);">
+              <span>09–18 · 4 deep blocks · 8h 45m active</span>
+            </div>
+
+            <div class="timeline-mini">
+              <div class="slot-mini" data-kind="goal">
+                <div class="slot-mini__time">09:00<br>09:45</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">CI pipeline setup</h5>
+                  <div class="slot-mini__sub"><span class="pill pill--moss">Jarvnote 3.0</span></div>
+                </div>
+              </div>
+              <div class="slot-mini" data-kind="break">
+                <div class="slot-mini__time">09:45<br>10:00</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">Coffee · stretch</h5>
+                </div>
+              </div>
+              <div class="slot-mini" data-kind="routine">
+                <div class="slot-mini__time">10:00<br>11:30</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">Routine block</h5>
+                  <div class="slot-mini__sub">Reading · flashcards · standup</div>
+                </div>
+              </div>
+              <div class="slot-mini" data-kind="admin">
+                <div class="slot-mini__time">11:30<br>12:00</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">Email · inbox triage</h5>
+                </div>
+              </div>
+              <div class="slot-mini" data-kind="lunch">
+                <div class="slot-mini__time">12:00<br>13:00</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">Lunch</h5>
+                </div>
+              </div>
+              <div class="slot-mini" data-kind="goal">
+                <div class="slot-mini__time">13:00<br>14:30</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">NoteAttachment QA</h5>
+                  <div class="slot-mini__sub"><span class="pill pill--moss">Jarvnote 3.0</span></div>
+                </div>
+              </div>
+              <div class="slot-mini" data-kind="break">
+                <div class="slot-mini__time">14:30<br>14:45</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">Coffee</h5>
+                </div>
+              </div>
+              <div class="slot-mini" data-kind="goal">
+                <div class="slot-mini__time">14:45<br>16:00</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">Step 02 · polish</h5>
+                  <div class="slot-mini__sub"><span class="pill pill--moss">Jarvnote 3.0</span></div>
+                </div>
+              </div>
+              <div class="slot-mini" data-kind="admin">
+                <div class="slot-mini__time">16:00<br>17:00</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">Review PR #42</h5>
+                </div>
+              </div>
+              <div class="slot-mini" data-kind="admin">
+                <div class="slot-mini__time">17:00<br>18:00</div>
+                <span class="slot-mini__dot"></span>
+                <div class="slot-mini__content">
+                  <h5 class="slot-mini__title">Plan tomorrow</h5>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="drawer__foot">
+            <button class="btn btn--ghost btn--sm">
+              <span class="spk spk--sm"></span> Regenerate
+            </button>
+            <div style="display: inline-flex; gap: 6px;">
+              <button class="btn btn--secondary btn--sm">Edit</button>
+              <button class="btn btn--primary btn--sm">Save plan</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <p class="scene__caption">
+        <b>Save plan</b> создаёт one-day Sprint c этими слотами как
+        Go-items с привязкой ко времени. Дальше — ты живёшь по этому плану,
+        отмечаешь чекбоксы. План — это <em>Sprint в Goals</em>, не отдельная
+        сущность.
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 6: Dashboard + AI insights ═══════════════════ -->
+    <section class="scene" id="scene-6">
+      <div class="scene__num">06 · Dashboard</div>
+      <h1 class="scene__title">Dashboard · <em>AI Insights блок</em></h1>
+      <p class="scene__lede">
+        Главный экран Analysis-таба. Сверху обычные метрики (heatmap, KPI),
+        но самый <em>верхний блок</em> — это AI Insights с 3 колонками
+        narrative-текста. Это то, что graph не покажет.
+      </p>
+
+      <div class="app app--no-pane">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn">N</button>
+            <button class="rail__btn">G</button>
+            <button class="rail__btn">R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn" data-active>A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs"><b>Analysis</b><span class="topbar__crumbs-sep">›</span><b>Dashboard</b></div>
+            <div class="topbar__actions">
+              <div class="goal-h-toggle">
+                <button aria-pressed="true">This week</button>
+                <button aria-pressed="false">This month</button>
+                <button aria-pressed="false">All time</button>
+              </div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__wide" style="max-width: 1000px; margin: 0 auto;">
+              <header class="dash-h">
+                <div>
+                  <h1 class="dash-h__title">This <em>week</em></h1>
+                </div>
+                <span class="dash-h__date">12 — 18 May · Thu</span>
+              </header>
+
+              <!-- AI INSIGHTS BLOCK — top of dashboard -->
+              <div class="ai-block">
+                <header class="ai-block__head">
+                  <div class="ai-block__title-row">
+                    <div class="ai-block__icon"><span class="spk"></span></div>
+                    <div>
+                      <h3 class="ai-block__title">Weekly review · <em>your week in 3 paragraphs</em></h3>
+                      <div class="ai-block__sub">generated 2 hours ago · refreshes Fridays</div>
+                    </div>
+                  </div>
+                  <button class="btn btn--ghost btn--sm">
+                    <span class="spk spk--sm"></span>
+                    Refresh now
+                  </button>
+                </header>
+
+                <div class="ai-block__cols">
+                  <div class="ai-block__col" data-tone="success">
+                    <div class="ai-block__col-head">
+                      <span class="ai-block__col-icon">★</span>
+                      <h4 class="ai-block__col-title">Doing well</h4>
+                    </div>
+                    <p class="ai-block__col-body">
+                      <b>23-day streak</b> on morning routines. Goal
+                      «Полумарафон» at <b>67%</b> — ahead of schedule. Tag
+                      <em>learning</em> +18 notes this week.
+                    </p>
+                  </div>
+                  <div class="ai-block__col" data-tone="warning">
+                    <div class="ai-block__col-head">
+                      <span class="ai-block__col-icon">⚠</span>
+                      <h4 class="ai-block__col-title">Needs attention</h4>
+                    </div>
+                    <p class="ai-block__col-body">
+                      <b>5 stale tasks</b> in «Jarvnote 3.0» (12+ days no move).
+                      Routine <em>stretching</em> — 7-day gap.
+                    </p>
+                    <a class="ai-block__col-action">Review stale</a>
+                  </div>
+                  <div class="ai-block__col" data-tone="focus">
+                    <div class="ai-block__col-head">
+                      <span class="ai-block__col-icon">✦</span>
+                      <h4 class="ai-block__col-title">Focus this week</h4>
+                    </div>
+                    <p class="ai-block__col-body">
+                      Ship <b>Step 02 · Build backend</b> — 1 of 3 done,
+                      deadline in <em>4 days</em>. 3 remaining gos ≈ 4h each.
+                    </p>
+                    <a class="ai-block__col-action">Open Step 02</a>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Regular metrics below -->
+              <div class="dash-grid">
+                <div class="dash-card">
+                  <p class="dash-card__lab">Routine streak</p>
+                  <p class="dash-card__num">23<em>days</em></p>
+                  <p class="dash-card__delta dash-card__delta--up">↑ 5 vs last week</p>
+                </div>
+                <div class="dash-card">
+                  <p class="dash-card__lab">Gos closed</p>
+                  <p class="dash-card__num">14<em>this week</em></p>
+                  <p class="dash-card__delta dash-card__delta--up">↑ 2 vs avg</p>
+                </div>
+                <div class="dash-card">
+                  <p class="dash-card__lab">Notes created</p>
+                  <p class="dash-card__num">9<em>+18 tagged</em></p>
+                  <p class="dash-card__delta dash-card__delta--down">↓ 3 vs last week</p>
+                </div>
+              </div>
+
+              <div class="dash-card" style="margin-bottom: 22px;">
+                <p class="dash-card__lab">Activity · last 14 weeks</p>
+                <div class="heatmap" style="margin-top: 10px;">
+                  <span class="heatmap__cell" data-l="2"></span>
+                  <span class="heatmap__cell" data-l="3"></span>
+                  <span class="heatmap__cell" data-l="1"></span>
+                  <span class="heatmap__cell" data-l="4"></span>
+                  <span class="heatmap__cell" data-l="3"></span>
+                  <span class="heatmap__cell" data-l="2"></span>
+                  <span class="heatmap__cell" data-l="0"></span>
+                  <span class="heatmap__cell" data-l="3"></span>
+                  <span class="heatmap__cell" data-l="4"></span>
+                  <span class="heatmap__cell" data-l="2"></span>
+                  <span class="heatmap__cell" data-l="3"></span>
+                  <span class="heatmap__cell" data-l="4"></span>
+                  <span class="heatmap__cell" data-l="3"></span>
+                  <span class="heatmap__cell" data-l="2"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="scene__caption">
+        <b>Графики говорят что произошло, AI говорит почему.</b> Heatmap
+        показывает 23-day streak. AI добавляет: «routine «stretching» —
+        7-day gap — может быть пора убрать?». Это разные слои анализа.
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 7: Friday — fresh review ═══════════════════ -->
+    <section class="scene" id="scene-7">
+      <div class="scene__num">07 · Dashboard</div>
+      <h1 class="scene__title">Friday · <em>«fresh weekly review»</em></h1>
+      <p class="scene__lede">
+        В пятницу к полудню AI триггерится cron'ом и обновляет inisights.
+        На dashboard появляется ochre banner «новый review готов».
+        Кликнул — заменяет блок свежей версией.
+      </p>
+
+      <div class="app app--no-pane">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn">N</button>
+            <button class="rail__btn">G</button>
+            <button class="rail__btn">R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn" data-active>A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs"><b>Analysis</b><span class="topbar__crumbs-sep">›</span><b>Dashboard</b></div>
+            <div class="topbar__actions">
+              <span class="pill pill--ochre">New review</span>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__wide" style="max-width: 1000px; margin: 0 auto;">
+              <header class="dash-h">
+                <div>
+                  <h1 class="dash-h__title">This <em>week</em></h1>
+                </div>
+                <span class="dash-h__date">12 — 18 May · Fri 12:04</span>
+              </header>
+
+              <div class="ai-nudge ai-nudge--ochre">
+                <div class="ai-nudge__icon"><span class="spk"></span></div>
+                <div class="ai-nudge__text">
+                  <b>Fresh weekly review ready.</b> Generated a new analysis
+                  based on this week's data. Replace the existing one?
+                </div>
+                <button class="btn btn--ai btn--sm">
+                  <span class="spk spk--sm"></span>
+                  Show new
+                </button>
+                <button class="ai-nudge__dismiss">×</button>
+              </div>
+
+              <div class="ai-block">
+                <header class="ai-block__head">
+                  <div class="ai-block__title-row">
+                    <div class="ai-block__icon"><span class="spk"></span></div>
+                    <div>
+                      <h3 class="ai-block__title">Weekly review · <em>previous</em></h3>
+                      <div class="ai-block__sub">generated 5 days ago · stale</div>
+                    </div>
+                  </div>
+                </header>
+
+                <div class="ai-block__cols" style="opacity: 0.6;">
+                  <div class="ai-block__col" data-tone="success">
+                    <div class="ai-block__col-head">
+                      <span class="ai-block__col-icon">★</span>
+                      <h4 class="ai-block__col-title">Doing well</h4>
+                    </div>
+                    <p class="ai-block__col-body">
+                      18-day streak. Goal at 56%. Tag <em>learning</em> +14 notes.
+                    </p>
+                  </div>
+                  <div class="ai-block__col" data-tone="warning">
+                    <div class="ai-block__col-head">
+                      <span class="ai-block__col-icon">⚠</span>
+                      <h4 class="ai-block__col-title">Needs attention</h4>
+                    </div>
+                    <p class="ai-block__col-body">
+                      3 stale tasks. Routine stretching — 2-day gap.
+                    </p>
+                  </div>
+                  <div class="ai-block__col" data-tone="focus">
+                    <div class="ai-block__col-head">
+                      <span class="ai-block__col-icon">✦</span>
+                      <h4 class="ai-block__col-title">Focus</h4>
+                    </div>
+                    <p class="ai-block__col-body">
+                      Step 01 wrap-up. Plan Step 02 breakdown.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="scene__caption">
+        <b>Lifecycle.</b> Старый review остаётся видим (затемнён) до подтверждения.
+        Это даёт сравнить — что изменилось за неделю. После «Show new» — новый
+        блок становится primary, старый уходит в историю.
+      </p>
+    </section>
+
+    <!-- ═══════════════════ SCENE 8: Generation toast ═══════════════════ -->
+    <section class="scene" id="scene-8">
+      <div class="scene__num">08 · Background</div>
+      <h1 class="scene__title">Toast · <em>генерация в фоне</em></h1>
+      <p class="scene__lede">
+        Закрыл drawer с loading'ом — генерация продолжается. Внизу-справа
+        появляется компактный toast с реальной progress-bar. Можно работать
+        с любым другим разделом. По завершению — toast превращается в
+        «Quiz ready · open».
+      </p>
+
+      <div class="app">
+        <div class="rail">
+          <div class="rail__brand">J</div>
+          <div class="rail__group">
+            <button class="rail__btn">⇤</button>
+            <button class="rail__btn">⌕</button>
+          </div>
+          <div class="rail__divider"></div>
+          <div class="rail__group">
+            <button class="rail__btn">N</button>
+            <button class="rail__btn">G</button>
+            <button class="rail__btn" data-active>R</button>
+            <button class="rail__btn">S</button>
+            <button class="rail__btn">A</button>
+            <button class="rail__btn rail__btn--ai"><span class="spk"></span></button>
+          </div>
+          <div class="rail__foot">
+            <button class="rail__btn">☼</button>
+            <button class="rail__btn">U</button>
+          </div>
+        </div>
+        <aside class="pane">
+          <div class="pane__head">
+            <div class="pane__title-row">
+              <h2 class="pane__title">Routines</h2>
+              <button class="btn btn--icon">+</button>
+            </div>
+            <input class="pane__search" placeholder="Search..." />
+          </div>
+          <div class="pane__body">
+            <div class="pane__group">
+              <div class="pane__group-label">Today <span class="pane__group-count">4</span></div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>Morning run</div>
+              <div class="lib-row" data-active><span class="lib-row__dot" style="background: var(--ochre);"></span>Reading · 30 pages</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>Russian flashcards</div>
+              <div class="lib-row"><span class="lib-row__dot" style="background: var(--ochre);"></span>Standup notes</div>
+            </div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="topbar">
+            <div class="topbar__crumbs"><b>Routines</b><span class="topbar__crumbs-sep">›</span><b>Reading · 30 pages</b></div>
+            <div class="topbar__actions">
+              <button class="btn btn--icon">⋯</button>
+            </div>
+          </div>
+          <div class="content">
+            <div class="content__inner">
+              <header style="margin-bottom: 24px;">
+                <p style="font-family: var(--font-ui); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ochre); margin: 0 0 6px;">Routine · daily · streak 23</p>
+                <h1 style="font-family: var(--font-display); font-size: 30px; font-weight: 500; letter-spacing: var(--tracking-tight); color: var(--ink); margin: 0;">Reading · <em style="font-style: italic; color: var(--indigo);">30 pages</em></h1>
+              </header>
+              <p style="font-family: var(--font-body); font-size: 14px; color: var(--ink-4); font-style: italic; margin-bottom: 22px;">User продолжает работать с Routines, AI генерирует quiz в фоне.</p>
+              <div class="heatmap" style="grid-template-columns: repeat(28, 1fr);">
+                <span class="heatmap__cell" data-l="3"></span><span class="heatmap__cell" data-l="4"></span>
+                <span class="heatmap__cell" data-l="2"></span><span class="heatmap__cell" data-l="3"></span>
+                <span class="heatmap__cell" data-l="4"></span><span class="heatmap__cell" data-l="2"></span>
+                <span class="heatmap__cell" data-l="3"></span><span class="heatmap__cell" data-l="4"></span>
+                <span class="heatmap__cell" data-l="3"></span><span class="heatmap__cell" data-l="4"></span>
+                <span class="heatmap__cell" data-l="0"></span><span class="heatmap__cell" data-l="3"></span>
+                <span class="heatmap__cell" data-l="4"></span><span class="heatmap__cell" data-l="2"></span>
+                <span class="heatmap__cell" data-l="3"></span><span class="heatmap__cell" data-l="4"></span>
+                <span class="heatmap__cell" data-l="3"></span><span class="heatmap__cell" data-l="2"></span>
+                <span class="heatmap__cell" data-l="3"></span><span class="heatmap__cell" data-l="4"></span>
+                <span class="heatmap__cell" data-l="4"></span><span class="heatmap__cell" data-l="3"></span>
+                <span class="heatmap__cell" data-l="4"></span><span class="heatmap__cell" data-l="2"></span>
+                <span class="heatmap__cell" data-l="3"></span><span class="heatmap__cell" data-l="4"></span>
+                <span class="heatmap__cell" data-l="3"></span><span class="heatmap__cell" data-l="4"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TOAST in bottom-right -->
+          <div class="gen-toast">
+            <div class="gen-toast__sparkle"><span class="spk"></span></div>
+            <div class="gen-toast__body">
+              <p class="gen-toast__title">Generating quiz</p>
+              <p class="gen-toast__sub">«NoteAttachment API» · ~22s remaining</p>
+              <div class="gen-toast__bar"><div class="gen-toast__bar-fill"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="scene__caption">
+        <b>Не блокирующий.</b> Toast только информирует. По завершению
+        sparkle перестаёт пульсировать, title меняется на «Quiz ready»,
+        bar заменяется на CTA «Open quiz →».
+      </p>
+    </section>
+
+    <div style="margin-top: 80px; padding-top: 32px; border-top: 1px solid var(--hairline);">
+      <p style="text-align: center; font-family: var(--font-body); font-style: italic; font-size: 13px; color: var(--ink-4);">
+        AI in context · v1.0 · 15 May 2026
+      </p>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const root = document.documentElement;
+document.querySelectorAll('[data-tt]').forEach(b => b.addEventListener('click', () => {
+  const t = b.dataset.tt;
+  if (t === 'dark') root.setAttribute('data-theme', 'dark');
+  else root.removeAttribute('data-theme');
+  document.querySelectorAll('[data-tt]').forEach(x =>
+    x.setAttribute('aria-pressed', String(x.dataset.tt === t))
+  );
+}));
+</script>
+</body>
+</html>

@@ -85,9 +85,9 @@
   --walnut: #4A3A2D;   --walnut-2:   #6B4F3D;
 
   /* ── Hairlines ───────────────────────────────────────────────────────── */
-  --hairline:        rgba(15, 24, 32, 0.09);
-  --hairline-strong: rgba(15, 24, 32, 0.16);
-  --hairline-faint:  rgba(15, 24, 32, 0.04);
+  --hairline:        rgba(15, 24, 32, 0.13);
+  --hairline-strong: rgba(15, 24, 32, 0.22);
+  --hairline-faint:  rgba(15, 24, 32, 0.06);
 
   /* ── Shadows (hairline-first) ────────────────────────────────────────── */
   --sh-card:       0 0 0 1px var(--hairline);
@@ -136,9 +136,9 @@
   --bg-active:  rgba(239, 241, 240, 0.10);
   --bg-overlay: rgba(0, 0, 0, 0.60);
 
-  --hairline:        rgba(239, 241, 240, 0.16);
-  --hairline-strong: rgba(239, 241, 240, 0.28);
-  --hairline-faint:  rgba(239, 241, 240, 0.08);
+  --hairline:        rgba(239, 241, 240, 0.22);
+  --hairline-strong: rgba(239, 241, 240, 0.36);
+  --hairline-faint:  rgba(239, 241, 240, 0.10);
 
   --ink:    #EFF1F0;
   --ink-2:  #C8CDD0;
