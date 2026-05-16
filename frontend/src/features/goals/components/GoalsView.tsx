@@ -468,6 +468,12 @@ export default function GoalsView() {
               setScheduleDrawerOpen(false);
               setTimeout(handlePlanDay, 0);
             }}
+            shifted={editingGo !== null}
+            onSlotClick={(kind, id) => {
+              if (kind !== 'go') return;
+              const found = gos.gos.find((g) => g.id === id);
+              if (found) setEditingGo(found);
+            }}
           />
         </Suspense>
       )}

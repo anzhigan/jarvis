@@ -611,10 +611,12 @@ function DraggableCard({
 }
 
 function DroppableColumn({
-  col, tasks, onSelect, onAdd, expandedIds, onToggleExpand, callbacks,
+  col, tasks, cardsPerRow, onSelect, onAdd, expandedIds, onToggleExpand, callbacks,
 }: {
   col: Column;
   tasks: Task[];
+  /** How many cards to lay out per row inside this column's body. */
+  cardsPerRow: number;
   onSelect: (id: string) => void;
   onAdd: (status: TaskStatus) => void;
   expandedIds: Set<string>;
@@ -622,13 +624,25 @@ function DroppableColumn({
   callbacks: CardCallbacks;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
+  const bodyStyle = cardsPerRow > 1
+    ? {
+        display: 'grid',
+        gridTemplateColumns: `repeat(${cardsPerRow}, minmax(0, 1fr))`,
+        gap: 10,
+      } as React.CSSProperties
+    : undefined;
+  // When the body is a grid, the Add button needs to span all card columns
+  // so it sits as a full-width affordance under the row.
+  const addStyle = cardsPerRow > 1
+    ? { gridColumn: `1 / -1` } as React.CSSProperties
+    : undefined;
   return (
     <section className="kanban-col" data-c={col.c} data-over={isOver || undefined}>
       <header className="kanban-col-head">
         <div className="kanban-col-label">{STATUS_LABEL[col.key]}</div>
         <div className="kanban-col-count">{tasks.length}</div>
       </header>
-      <div ref={setNodeRef} className="kanban-col-body">
+      <div ref={setNodeRef} className="kanban-col-body" style={bodyStyle}>
         {tasks.map((t) => (
           <DraggableCard
             key={t.id}
@@ -639,7 +653,7 @@ function DroppableColumn({
             callbacks={callbacks}
           />
         ))}
-        <button className="kanban-add" onClick={() => onAdd(col.key)}>
+        <button className="kanban-add" onClick={() => onAdd(col.key)} style={addStyle}>
           <Plus size={12} /> Add a goal
         </button>
       </div>
@@ -660,6 +674,9 @@ export function GoalsBoard({
       : COLUMNS),
     [visibleStatuses],
   );
+  // The board is allotted 4 horizontal "card slots". Spread them across the
+  // visible columns: 1 col → 4-wide grid of cards, 2 cols → 2 each, etc.
+  const cardsPerRow = Math.max(1, Math.floor(4 / visibleColumns.length));
   const byStatus = useMemo(() => {
     const out: Record<TaskStatus, Task[]> = { backlog: [], active: [], paused: [], done: [] };
     for (const t of tasks) out[t.status].push(t);
@@ -721,6 +738,7 @@ export function GoalsBoard({
             key={col.key}
             col={col}
             tasks={byStatus[col.key]}
+            cardsPerRow={cardsPerRow}
             onSelect={onSelect}
             onAdd={onAdd}
             expandedIds={expandedIds}

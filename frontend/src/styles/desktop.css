@@ -406,8 +406,12 @@
   animation: ui-drawer-in var(--dur-med) var(--ease);
   border-left: 1px solid var(--hairline);
   font-family: var(--font-ui);
+  transition: right var(--dur-med) var(--ease);
 }
 .ui-drawer[data-state="closed"] { animation: ui-drawer-out var(--dur-fast) var(--ease); }
+/* Shifted: a second drawer is stacked to the right, so slide left by one
+   drawer-width to sit side-by-side without overlapping. */
+.ui-drawer[data-shifted] { right: min(440px, calc(100vw - 48px)); }
 @keyframes ui-drawer-in  { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes ui-drawer-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
 

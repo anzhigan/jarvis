@@ -574,6 +574,26 @@
   gap: 12px;
   padding: 8px 0;
 }
+/* Slot rendered as a <button> when it links to a real Go — reset button
+   chrome and add a subtle hover so it reads as interactive. */
+button.ai-tl__slot {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 8px 6px;
+  margin: 0 -6px;
+  transition: background var(--dur-fast) var(--ease);
+}
+button.ai-tl__slot:hover { background: var(--cream); }
+button.ai-tl__slot:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: -2px;
+}
 .ai-tl__time {
   font-family: var(--font-mono);
   font-size: 10.5px;

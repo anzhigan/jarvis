@@ -12,6 +12,10 @@ interface Props {
   dateLabel: string;
   onClose: () => void;
   onRegenerate?: () => void;
+  /** Fires when a slot's underlying source (currently only Gos) is clicked. */
+  onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
+  /** When true, the drawer slides left to make room for a stacked drawer. */
+  shifted?: boolean;
 }
 
 type ViewState =
@@ -26,7 +30,9 @@ const LOADING_STEPS = [
   'Polishing output',
 ];
 
-export function ScheduleDrawer({ jobId, dateLabel, onClose, onRegenerate }: Props) {
+export function ScheduleDrawer({
+  jobId, dateLabel, onClose, onRegenerate, onSlotClick, shifted,
+}: Props) {
   const open = jobId !== null;
   const { job, error: pollError } = useAIJob(jobId);
 
@@ -47,6 +53,7 @@ export function ScheduleDrawer({ jobId, dateLabel, onClose, onRegenerate }: Prop
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
       accent="goals"
+      shifted={shifted}
       title={view.kind === 'result' ? `Your day · ${dateLabel}` : 'Planning your day'}
       description={view.kind === 'result' && view.data.total_active_minutes
         ? `${Math.floor(view.data.total_active_minutes / 60)}h ${view.data.total_active_minutes % 60}m active`
@@ -75,7 +82,7 @@ export function ScheduleDrawer({ jobId, dateLabel, onClose, onRegenerate }: Prop
       {view.kind === 'result'  && (
         <>
           <SummaryCard summary={view.data.summary} />
-          <ResultView slots={view.data.slots} />
+          <ResultView slots={view.data.slots} onSlotClick={onSlotClick} />
         </>
       )}
     </Drawer>
@@ -168,7 +175,12 @@ const KIND_LABELS: Record<ScheduleSlotKind, string> = {
   other: 'Other',
 };
 
-function ResultView({ slots }: { slots: ScheduleSlot[] }) {
+function ResultView({
+  slots, onSlotClick,
+}: {
+  slots: ScheduleSlot[];
+  onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
+}) {
   if (slots.length === 0) {
     return (
       <div className="ai-empty">
@@ -184,25 +196,44 @@ function ResultView({ slots }: { slots: ScheduleSlot[] }) {
   const freeOrder = !slots[0].start_time;
   return (
     <div className="ai-tl" data-mode={freeOrder ? 'free' : 'time'}>
-      {slots.map((s, i) => (
-        <div className="ai-tl__slot" key={i} data-kind={s.kind}>
-          <div className="ai-tl__time">
-            {freeOrder ? (
-              <span className="ai-tl__rank">{i + 1}</span>
-            ) : (
-              <>{s.start_time}<br />{s.end_time}</>
-            )}
-          </div>
-          <span className="ai-tl__dot" />
-          <div className="ai-tl__body">
-            <div className="ai-tl__title-row">
-              <h4 className="ai-tl__title">{s.title}</h4>
-              <span className="ai-tl__kind">{KIND_LABELS[s.kind] || s.kind}</span>
+      {slots.map((s, i) => {
+        const clickable = !!(onSlotClick && s.source_kind === 'go' && s.source_id);
+        const body = (
+          <>
+            <div className="ai-tl__time">
+              {freeOrder ? (
+                <span className="ai-tl__rank">{i + 1}</span>
+              ) : (
+                <>{s.start_time}<br />{s.end_time}</>
+              )}
             </div>
-            {s.note && <p className="ai-tl__note">{s.note}</p>}
+            <span className="ai-tl__dot" />
+            <div className="ai-tl__body">
+              <div className="ai-tl__title-row">
+                <h4 className="ai-tl__title">{s.title}</h4>
+                <span className="ai-tl__kind">{KIND_LABELS[s.kind] || s.kind}</span>
+              </div>
+              {s.note && <p className="ai-tl__note">{s.note}</p>}
+            </div>
+          </>
+        );
+        return clickable ? (
+          <button
+            type="button"
+            className="ai-tl__slot ai-tl__slot--clickable"
+            key={i}
+            data-kind={s.kind}
+            onClick={() => onSlotClick!('go', s.source_id!)}
+            title="Open Go"
+          >
+            {body}
+          </button>
+        ) : (
+          <div className="ai-tl__slot" key={i} data-kind={s.kind}>
+            {body}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

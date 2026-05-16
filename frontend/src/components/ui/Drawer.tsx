@@ -17,6 +17,9 @@ interface DrawerProps {
   accent?: 'notes' | 'goals' | 'routines' | 'sprints' | 'analysis';
   hideTitle?: boolean;
   className?: string;
+  /** Slide this drawer left by one drawer-width so a second drawer can sit
+   *  flush against the viewport edge. Use when stacking two drawers. */
+  shifted?: boolean;
 }
 
 /**
@@ -27,15 +30,20 @@ interface DrawerProps {
  * right edge. Use cases: goal detail, routine detail, sprint detail.
  */
 export function Drawer({
-  open, onOpenChange, title, description, children, footer, accent, hideTitle, className,
+  open, onOpenChange, title, description, children, footer, accent, hideTitle, className, shifted,
 }: DrawerProps) {
   return (
-    <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
+    <RadixDialog.Root open={open} onOpenChange={onOpenChange} modal={!shifted}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="ui-overlay" />
+        {!shifted && <RadixDialog.Overlay className="ui-overlay" />}
         <RadixDialog.Content
           className={cn('ui-drawer', className)}
           data-accent={accent}
+          data-shifted={shifted || undefined}
+          // Allow background interaction when shifted — the second drawer is
+          // the modal one; this drawer should stay visible but non-blocking.
+          onPointerDownOutside={shifted ? (e) => e.preventDefault() : undefined}
+          onInteractOutside={shifted ? (e) => e.preventDefault() : undefined}
         >
           <header className="ui-drawer-head">
             {hideTitle ? (
