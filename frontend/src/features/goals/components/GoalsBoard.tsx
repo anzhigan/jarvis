@@ -253,6 +253,7 @@ function GoalChildren({
               key={s.id}
               step={s}
               gos={gosByStep.get(s.id) ?? []}
+              goalTitle={task.title}
               onEdit={callbacks?.onEditStep}
               onAddGoInStep={callbacks?.onAddGo ? () => callbacks.onAddGo?.(task.id, s.id) : undefined}
               onToggleGo={callbacks?.onToggleGoDone}
@@ -277,7 +278,12 @@ function GoalChildren({
             {sortedSteps.length > 0 ? 'Gos · no step' : 'Gos'}
           </div>
           {orphanGos.map((g) => (
-            <GoSubcard key={g.id} go={g} onToggle={callbacks?.onToggleGoDone} />
+            <GoSubcard
+              key={g.id}
+              go={g}
+              goalTitle={task.title}
+              onToggle={callbacks?.onToggleGoDone}
+            />
           ))}
           {callbacks?.onAddGo && (
             <button
@@ -329,10 +335,11 @@ const ymdDate = (d: Date) =>
  *  expandable to reveal its attached Gos. Row click toggles expand; pencil
  *  icon opens edit; "+ Go" creates a Go pre-attached to this step. */
 const StepSubcard = memo(function StepSubcard({
-  step, gos, onEdit, onAddGoInStep, onToggleGo,
+  step, gos, goalTitle, onEdit, onAddGoInStep, onToggleGo,
 }: {
   step: import('../../../api/types').Step;
   gos: import('../../../api/types').Go[];
+  goalTitle?: string | null;
   onEdit?: (step: import('../../../api/types').Step) => void | Promise<void>;
   onAddGoInStep?: () => void;
   onToggleGo?: (go: import('../../../api/types').Go) => void | Promise<void>;
@@ -385,7 +392,13 @@ const StepSubcard = memo(function StepSubcard({
             <div className="kc-step-empty">No gos in this step yet.</div>
           ) : (
             gos.map((g) => (
-              <GoSubcard key={g.id} go={g} onToggle={onToggleGo} />
+              <GoSubcard
+                key={g.id}
+                go={g}
+                goalTitle={goalTitle}
+                stepTitle={step.title}
+                onToggle={onToggleGo}
+              />
             ))
           )}
         </div>
@@ -526,9 +539,13 @@ const RoutineSubcard = memo(function RoutineSubcard({
 
 /** Go sub-card — rendered inside an expanded goal. */
 const GoSubcard = memo(function GoSubcard({
-  go, onToggle,
+  go, goalTitle, stepTitle, onToggle,
 }: {
   go: import('../../../api/types').Go;
+  /** Parent goal title — shown as a tag on the row. */
+  goalTitle?: string | null;
+  /** Step title, when the Go is attached to a Step. */
+  stepTitle?: string | null;
   onToggle?: (go: import('../../../api/types').Go) => void | Promise<void>;
 }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -553,7 +570,12 @@ const GoSubcard = memo(function GoSubcard({
         >
           {go.is_done_today && <Check />}
         </button>
-        <span className="kc-child-pill">{go.kind === 'numeric' ? 'Numeric' : 'Go'}</span>
+        {goalTitle && (
+          <span className="kc-tag" data-tag="goal" title={`Goal · ${goalTitle}`}>{goalTitle}</span>
+        )}
+        {stepTitle && (
+          <span className="kc-tag" data-tag="step" title={`Step · ${stepTitle}`}>{stepTitle}</span>
+        )}
         <span className="kc-child-name">{go.title}</span>
       </div>
       {(valueLabel || due) && (

@@ -455,6 +455,19 @@ export default function GoalsView() {
         )}
       </main>
 
+      {/* Shared backdrop for the plan+edit-go stack — single click dismisses
+          both, mirroring the standalone-drawer modal behaviour. Rendered only
+          when BOTH drawers are open; otherwise each drawer handles its own. */}
+      {scheduleJobId !== null && scheduleDrawerOpen && editingGo !== null && (
+        <div
+          className="ui-overlay"
+          onClick={() => {
+            setEditingGo(null);
+            handleScheduleClose();
+          }}
+        />
+      )}
+
       {scheduleJobId !== null && scheduleDrawerOpen && (
         <Suspense fallback={null}>
           <ScheduleDrawer
@@ -471,6 +484,7 @@ export default function GoalsView() {
             shifted={editingGo !== null}
             nonModal={editingGo !== null}
             gos={gos.gos}
+            goals={goals.tasks}
             onSlotClick={(kind, id) => {
               if (kind !== 'go') return;
               const found = gos.gos.find((g) => g.id === id);

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Drawer } from '../../components/ui';
 import type {
-  AIJob, Go, ScheduleOutput, ScheduleSlot, ScheduleSlotKind, ScheduleSummary,
+  AIJob, Go, ScheduleOutput, ScheduleSlot, ScheduleSlotKind, ScheduleSummary, Task,
 } from '../../api/types';
 import { useAIJob } from './useAIJob';
 import './ai.css';
@@ -17,6 +17,8 @@ interface Props {
   /** Catalogue used to enrich Go-source slots — render them as Go subcards
    *  (same visual language as the Kanban Go pills). */
   gos?: Go[];
+  /** Goals catalogue — supplies priority + step titles for the Go subcard. */
+  goals?: Task[];
   /** When true, the drawer slides left to make room for a stacked drawer. */
   shifted?: boolean;
   /** When true, the drawer is non-modal — no overlay, click-through to peers. */
@@ -36,7 +38,7 @@ const LOADING_STEPS = [
 ];
 
 export function ScheduleDrawer({
-  jobId, dateLabel, onClose, onRegenerate, onSlotClick, shifted, nonModal, gos,
+  jobId, dateLabel, onClose, onRegenerate, onSlotClick, shifted, nonModal, gos, goals,
 }: Props) {
   const open = jobId !== null;
   const { job, error: pollError } = useAIJob(jobId);
@@ -45,6 +47,17 @@ export function ScheduleDrawer({
     for (const g of gos ?? []) m.set(g.id, g);
     return m;
   }, [gos]);
+  // Pre-build (goalId → goal) and (stepId → step) lookups so each rendered
+  // slot can fetch parent goal priority + step title in O(1).
+  const { goalsById, stepById } = useMemo(() => {
+    const goalsById = new Map<string, Task>();
+    const stepById = new Map<string, { title: string }>();
+    for (const t of goals ?? []) {
+      goalsById.set(t.id, t);
+      for (const s of t.steps ?? []) stepById.set(s.id, { title: s.title });
+    }
+    return { goalsById, stepById };
+  }, [goals]);
 
   const view: ViewState = useMemo(() => {
     if (pollError) return { kind: 'failed', error: pollError };
@@ -93,7 +106,13 @@ export function ScheduleDrawer({
       {view.kind === 'result'  && (
         <>
           <SummaryCard summary={view.data.summary} />
-          <ResultView slots={view.data.slots} onSlotClick={onSlotClick} gosById={gosById} />
+          <ResultView
+            slots={view.data.slots}
+            onSlotClick={onSlotClick}
+            gosById={gosById}
+            goalsById={goalsById}
+            stepById={stepById}
+          />
         </>
       )}
     </Drawer>
@@ -187,11 +206,13 @@ const KIND_LABELS: Record<ScheduleSlotKind, string> = {
 };
 
 function ResultView({
-  slots, onSlotClick, gosById,
+  slots, onSlotClick, gosById, goalsById, stepById,
 }: {
   slots: ScheduleSlot[];
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
   gosById: Map<string, Go>;
+  goalsById: Map<string, Task>;
+  stepById: Map<string, { title: string }>;
 }) {
   if (slots.length === 0) {
     return (
@@ -212,6 +233,8 @@ function ResultView({
         const linkedGo = s.source_kind === 'go' && s.source_id
           ? gosById.get(s.source_id) ?? null
           : null;
+        const goal = linkedGo?.task_id ? goalsById.get(linkedGo.task_id) ?? null : null;
+        const stepTitle = linkedGo?.step_id ? stepById.get(linkedGo.step_id)?.title ?? null : null;
         const clickable = !!(onSlotClick && linkedGo);
         const body = (
           <>
@@ -225,7 +248,13 @@ function ResultView({
             <span className="ai-tl__dot" />
             <div className="ai-tl__body">
               {linkedGo ? (
-                <GoSubcardInline go={linkedGo} note={s.note} />
+                <GoSubcardInline
+                  go={linkedGo}
+                  note={s.note}
+                  goalTitle={goal?.title ?? linkedGo.task_title}
+                  stepTitle={stepTitle}
+                  priority={goal?.priority ?? null}
+                />
               ) : (
                 <>
                   <div className="ai-tl__title-row">
@@ -260,9 +289,17 @@ function ResultView({
 }
 
 /** Renders a Go inside a plan-day slot using the same visual language as the
- *  Kanban Go subcard (`.kc-child[data-kind="go"]`). The plan's note becomes
- *  the meta line under the title/kind row. */
-function GoSubcardInline({ go, note }: { go: Go; note: string }) {
+ *  Kanban Go subcard (`.kc-child[data-kind="go"]`). Shows Goal/Step/Priority
+ *  context capsules instead of the redundant "Go" kind pill. */
+function GoSubcardInline({
+  go, note, goalTitle, stepTitle, priority,
+}: {
+  go: Go;
+  note: string;
+  goalTitle: string | null;
+  stepTitle: string | null;
+  priority: 'high' | 'medium' | 'low' | null;
+}) {
   const due = go.due_date ? new Date(go.due_date) : null;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const overdue = !!(due && !go.is_done_today && due < today);
@@ -275,7 +312,17 @@ function GoSubcardInline({ go, note }: { go: Go; note: string }) {
   return (
     <div className="kc-child" data-kind="go" data-done={go.is_done_today || undefined}>
       <div className="kc-child-row">
-        <span className="kc-child-pill">{go.kind === 'numeric' ? 'Numeric' : 'Go'}</span>
+        {priority && (
+          <span className="kc-tag" data-tag={`prio-${priority}`} title={`Priority · ${priority}`}>
+            {priority}
+          </span>
+        )}
+        {goalTitle && (
+          <span className="kc-tag" data-tag="goal" title={`Goal · ${goalTitle}`}>{goalTitle}</span>
+        )}
+        {stepTitle && (
+          <span className="kc-tag" data-tag="step" title={`Step · ${stepTitle}`}>{stepTitle}</span>
+        )}
         <span className="kc-child-name">{go.title}</span>
       </div>
       {(valueLabel || dueLabel || note) && (

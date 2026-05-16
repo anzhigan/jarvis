@@ -439,6 +439,28 @@
   box-shadow: none;
 }
 
+/* Inline context tags on a Go subcard / plan slot — Goal, Step, Priority.
+   Distinct class so they don't inherit kind-based pill colours. */
+.kc-tag {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--r-pill);
+  flex-shrink: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kc-tag[data-tag="goal"]          { background: var(--indigo-soft); color: var(--indigo); }
+.kc-tag[data-tag="step"]          { background: var(--moss-soft);   color: var(--moss); }
+.kc-tag[data-tag="prio-high"]     { background: var(--rust-soft);   color: var(--rust); }
+.kc-tag[data-tag="prio-medium"]   { background: var(--ochre-soft);  color: var(--ochre); }
+.kc-tag[data-tag="prio-low"]      { background: var(--slate-soft);  color: var(--slate); }
+
 /* Detach (unlink) routine button — small icon at the top-right of the
    routine subcard. Visible on hover so it doesn't clutter the row. */
 .kc-child-unlink {
