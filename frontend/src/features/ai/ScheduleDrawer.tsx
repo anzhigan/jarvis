@@ -69,6 +69,16 @@ export function ScheduleDrawer({
     }
     return { goalsById, stepById };
   }, [goals]);
+  // Title-keyed lookups — used as a fallback when the model emits a slot
+  // without source_kind/source_id but its title matches a real Go or Goal.
+  // This keeps slots clickable instead of falling through to a dead `<div>`.
+  const { goByTitle, goalByTitle } = useMemo(() => {
+    const goByTitle = new Map<string, Go>();
+    for (const g of gos ?? []) goByTitle.set(normalizeTitle(g.title), g);
+    const goalByTitle = new Map<string, Task>();
+    for (const t of goals ?? []) goalByTitle.set(normalizeTitle(t.title), t);
+    return { goByTitle, goalByTitle };
+  }, [gos, goals]);
 
   const view: ViewState = useMemo(() => {
     if (pollError) return { kind: 'failed', error: pollError };
@@ -125,6 +135,8 @@ export function ScheduleDrawer({
             gosById={gosById}
             goalsById={goalsById}
             stepById={stepById}
+            goByTitle={goByTitle}
+            goalByTitle={goalByTitle}
           />
         </>
       )}
@@ -212,8 +224,17 @@ function FailedView({ error }: { error: string }) {
  *  the slots first arrive — index alone is unstable across reorders. */
 interface PlanSlot extends ScheduleSlot { _id: string }
 
+/** Normalise titles for the fallback "title → entity" lookup. Lowercase,
+ *  collapse internal whitespace, strip a leading emoji / decoration so
+ *  "💻 Foo" matches "Foo". Best-effort — exact-match only after that. */
+function normalizeTitle(s: string): string {
+  return s.toLowerCase().trim()
+    .replace(/^[^a-zа-яё0-9]+/iu, '')
+    .replace(/\s+/g, ' ');
+}
+
 function ResultView({
-  slots, onSlotClick, onGoalClick, gosById, goalsById, stepById,
+  slots, onSlotClick, onGoalClick, gosById, goalsById, stepById, goByTitle, goalByTitle,
 }: {
   slots: ScheduleSlot[];
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
@@ -221,6 +242,8 @@ function ResultView({
   gosById: Map<string, Go>;
   goalsById: Map<string, Task>;
   stepById: Map<string, { title: string }>;
+  goByTitle: Map<string, Go>;
+  goalByTitle: Map<string, Task>;
 }) {
   // Local reordered copy of slots. Reset whenever the backend hands us a new
   // schedule (different length or different ids); pure UX rearrangement, not
@@ -269,6 +292,8 @@ function ResultView({
               gosById={gosById}
               goalsById={goalsById}
               stepById={stepById}
+              goByTitle={goByTitle}
+              goalByTitle={goalByTitle}
               onSlotClick={onSlotClick}
               onGoalClick={onGoalClick}
             />
@@ -280,7 +305,8 @@ function ResultView({
 }
 
 function SortableSlot({
-  slot: s, index: i, freeOrder, gosById, goalsById, stepById, onSlotClick, onGoalClick,
+  slot: s, index: i, freeOrder, gosById, goalsById, stepById,
+  goByTitle, goalByTitle, onSlotClick, onGoalClick,
 }: {
   slot: PlanSlot;
   index: number;
@@ -288,6 +314,8 @@ function SortableSlot({
   gosById: Map<string, Go>;
   goalsById: Map<string, Task>;
   stepById: Map<string, { title: string }>;
+  goByTitle: Map<string, Go>;
+  goalByTitle: Map<string, Task>;
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
   onGoalClick?: (goalId: string) => void;
 }) {
@@ -295,12 +323,19 @@ function SortableSlot({
     attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id: s._id });
 
-  const linkedGo = s.source_kind === 'go' && s.source_id
-    ? gosById.get(s.source_id) ?? null
-    : null;
+  // Primary: source_kind + source_id from the model. Fallback: title-match
+  // against the user's open Gos / active Goals — catches slots where the
+  // model emitted a title but forgot to attribute it.
+  const titleKey = normalizeTitle(s.title);
+  const linkedGo =
+    (s.source_kind === 'go' && s.source_id ? gosById.get(s.source_id) : null)
+    ?? (titleKey ? goByTitle.get(titleKey) : null)
+    ?? null;
   const goalFromGo = linkedGo?.task_id ? goalsById.get(linkedGo.task_id) ?? null : null;
-  const linkedGoal = !linkedGo && s.source_kind === 'goal' && s.source_id
-    ? goalsById.get(s.source_id) ?? null
+  const linkedGoal = !linkedGo
+    ? ((s.source_kind === 'goal' && s.source_id ? goalsById.get(s.source_id) : null)
+        ?? (titleKey ? goalByTitle.get(titleKey) : null)
+        ?? null)
     : null;
   const stepTitle = linkedGo?.step_id ? stepById.get(linkedGo.step_id)?.title ?? null : null;
 

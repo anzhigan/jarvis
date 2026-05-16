@@ -455,17 +455,22 @@ export default function GoalsView() {
         )}
       </main>
 
-      {/* Shared backdrop for the plan + (edit-go OR goal-detail) stack —
-          single click dismisses both, mirroring the standalone-drawer modal
-          behaviour. Rendered only when the stack is active. */}
-      {scheduleJobId !== null && scheduleDrawerOpen
-        && (editingGo !== null || detailGoalId !== null) && (
+      {/* Plan-day backdrop. Rendered for the whole life of the plan drawer
+          (not just stacked) so the drawer can be kept permanently non-modal —
+          flipping Radix's modal prop mid-flight re-runs overlay + focus-trap
+          and visually "reopens" the panel when a stacked drawer closes. */}
+      {scheduleJobId !== null && scheduleDrawerOpen && (
         <div
           className="ui-overlay"
           onClick={() => {
-            setEditingGo(null);
-            setDetailGoalId(null);
-            handleScheduleClose();
+            // Close whatever is currently topmost: a stacked drawer first,
+            // otherwise the plan itself.
+            if (editingGo !== null || detailGoalId !== null) {
+              setEditingGo(null);
+              setDetailGoalId(null);
+            } else {
+              handleScheduleClose();
+            }
           }}
         />
       )}
@@ -484,7 +489,10 @@ export default function GoalsView() {
               setTimeout(handlePlanDay, 0);
             }}
             shifted={editingGo !== null || detailGoalId !== null}
-            nonModal={editingGo !== null || detailGoalId !== null}
+            // Always non-modal — overlay above is rendered by GoalsView. This
+            // means the modal prop never flips while open, so closing a
+            // stacked drawer doesn't re-mount Radix internals (= no reopen).
+            nonModal
             gos={gos.gos}
             goals={goals.tasks}
             onSlotClick={(kind, id) => {
