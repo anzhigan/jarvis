@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2, Calendar, Flag, Tag as TagIcon, Box } from 'lucide-react';
+import { Trash2, Calendar, Flag, Tag as TagIcon, Box, Check } from 'lucide-react';
 import { Button, Drawer, Input } from '../../../components/ui';
 import type { Task, TaskPriority, TaskStatus } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
@@ -57,6 +57,15 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
     onOpenChange(false);
   };
 
+  const onSave = async () => {
+    // Title + description save on blur, but users still expect an explicit
+    // Save button. Flush both, then close — handles the "I changed text and
+    // immediately clicked Save without blurring first" case.
+    await flushTitle();
+    await flushDescription();
+    onOpenChange(false);
+  };
+
   const gosDone   = goal.gos.filter((g) => g.is_done_today).length;
 
   return (
@@ -81,6 +90,9 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
           </Button>
           <span style={{ flex: 1 }} />
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
+          <Button variant="primary" onClick={onSave}>
+            <Check size={13} /> Save
+          </Button>
         </>
       }
     >

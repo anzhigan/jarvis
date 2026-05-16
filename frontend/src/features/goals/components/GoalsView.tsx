@@ -42,12 +42,10 @@ const readGoMode = (): GoMode => {
   return v === 'cross-goal' ? 'cross-goal' : 'single-goal';
 };
 
-type StatusFilter = 'all' | TaskStatus;
-const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
-  { key: 'all',     label: 'All'      },
+const STATUS_FILTERS: { key: TaskStatus; label: string }[] = [
   { key: 'backlog', label: 'Backlog'  },
-  { key: 'active',  label: 'Active'   },
   { key: 'paused',  label: 'On hold'  },
+  { key: 'active',  label: 'Active'   },
   { key: 'done',    label: 'Done'     },
 ];
 
@@ -105,8 +103,8 @@ export default function GoalsView() {
     return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
   }, []);
 
-  // Kanban filters — status (single-select) + tags (multi-select) + priority (multi-select).
-  const [statusFilter, setStatusFilter]   = useState<StatusFilter>('all');
+  // Kanban filters — all multi-select. Empty set means "no filter on this axis".
+  const [statusFilter, setStatusFilter]   = useState<Set<TaskStatus>>(new Set());
   const [tagFilter, setTagFilter]         = useState<Set<string>>(new Set());
   const [priorityFilter, setPriorityFilter] = useState<Set<TaskPriority>>(new Set());
 
@@ -229,7 +227,7 @@ export default function GoalsView() {
 
   const filteredKanbanTasks = useMemo<Task[]>(() => {
     return goals.tasks.filter((t) => {
-      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+      if (statusFilter.size > 0 && !statusFilter.has(t.status)) return false;
       if (tagFilter.size > 0) {
         const taskTagIds = new Set(t.tags.map((tag) => tag.id));
         let any = false;
@@ -240,6 +238,12 @@ export default function GoalsView() {
       return true;
     });
   }, [goals.tasks, statusFilter, tagFilter, priorityFilter]);
+
+  const toggleStatus = (s: TaskStatus) => setStatusFilter((p) => {
+    const n = new Set(p);
+    if (n.has(s)) n.delete(s); else n.add(s);
+    return n;
+  });
 
   const toggleTag = (id: string) => setTagFilter((p) => {
     const n = new Set(p);
@@ -349,11 +353,19 @@ export default function GoalsView() {
                   <button
                     key={s.key}
                     className="ui-chip"
-                    data-active={statusFilter === s.key || undefined}
-                    onClick={() => setStatusFilter(s.key)}
+                    data-active={statusFilter.has(s.key) || undefined}
+                    onClick={() => toggleStatus(s.key)}
                     type="button"
                   >{s.label}</button>
                 ))}
+                {statusFilter.size > 0 && (
+                  <button
+                    className="ui-chip"
+                    data-tone="muted"
+                    onClick={() => setStatusFilter(new Set())}
+                    type="button"
+                  >Clear</button>
+                )}
               </div>
               <div className="kanban-filters-group">
                 <span className="kanban-filters-label">Priority</span>
@@ -426,6 +438,7 @@ export default function GoalsView() {
 
             <GoalsBoard
               tasks={filteredKanbanTasks}
+              visibleStatuses={statusFilter}
               onSelect={onSelectGoal}
               onAdd={onAddGoal}
               onMove={goals.moveStatus}

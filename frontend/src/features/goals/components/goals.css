@@ -768,7 +768,7 @@
 /* Search input in the goal sidebar — filters the activeGoals list by title. */
 .go-leftpane-search {
   position: relative;
-  margin: 0 14px 8px;
+  margin: 12px 14px 8px;
 }
 .go-leftpane-search svg {
   position: absolute;
@@ -933,9 +933,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Status-specific accents for the section head + count chip. */
-.go-leftpane-group[data-status="active"] .go-leftpane-group__label { color: var(--moss); }
-.go-leftpane-group[data-status="paused"] .go-leftpane-group__label { color: var(--ochre); }
+/* Status-specific accents for the section head + count chip.
+   Matches the kanban: Active is the eye-catch (ochre), On hold stays neutral. */
+.go-leftpane-group[data-status="active"] .go-leftpane-group__label { color: var(--ochre); }
+.go-leftpane-group[data-status="paused"] .go-leftpane-group__label { color: var(--ink-3); }
 .go-leftpane-group[data-status="done"]   .go-leftpane-group__label { color: var(--indigo); }
 .gl-card {
   width: 100%;
@@ -1059,8 +1060,8 @@
   white-space: nowrap;
 }
 .goal-ctx-status[data-status="backlog"] { background: var(--slate-soft); color: var(--slate); }
-.goal-ctx-status[data-status="active"]  { background: var(--moss-soft);  color: var(--moss); }
-.goal-ctx-status[data-status="paused"]  { background: var(--ochre-soft); color: var(--ochre); }
+.goal-ctx-status[data-status="active"]  { background: var(--ochre-soft); color: var(--ochre); }
+.goal-ctx-status[data-status="paused"]  { background: var(--cream);      color: var(--ink-3); }
 .goal-ctx-status[data-status="done"]    { background: var(--indigo-soft); color: var(--indigo); }
 
 /* Priority pill with a colored dot. */

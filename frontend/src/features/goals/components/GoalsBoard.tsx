@@ -8,6 +8,9 @@ import type { Task, TaskPriority, TaskStatus } from '../../../api/types';
 
 interface Props {
   tasks: Task[];
+  /** When non-empty, only render these status columns (and stretch them across
+   *  the row). Empty = render all four. */
+  visibleStatuses?: Set<TaskStatus>;
   onSelect: (id: string) => void;
   onAdd: (status: TaskStatus) => void;
   onMove: (id: string, status: TaskStatus) => void | Promise<void>;
@@ -37,8 +40,8 @@ interface Column {
 
 const COLUMNS: Column[] = [
   { key: 'backlog' },
-  { key: 'active',  c: 'moss'  },
-  { key: 'paused',  c: 'ochre' },
+  { key: 'paused'  },             // On hold — neutral ink
+  { key: 'active',  c: 'ochre' }, // Active — golden, deliberately the eye-catch
   { key: 'done',    c: 'slate' },
 ];
 
@@ -645,10 +648,18 @@ function DroppableColumn({
 }
 
 export function GoalsBoard({
-  tasks, onSelect, onAdd, onMove,
+  tasks, visibleStatuses, onSelect, onAdd, onMove,
   onToggleGoDone, onAddGo, onAddStep, onEditStep,
   onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
 }: Props) {
+  // When the user picks specific statuses in the filter bar, render only
+  // those columns and stretch them across the row (1-up, 2-up, 3-up, …).
+  const visibleColumns = useMemo(
+    () => (visibleStatuses && visibleStatuses.size > 0
+      ? COLUMNS.filter((c) => visibleStatuses.has(c.key))
+      : COLUMNS),
+    [visibleStatuses],
+  );
   const byStatus = useMemo(() => {
     const out: Record<TaskStatus, Task[]> = { backlog: [], active: [], paused: [], done: [] };
     for (const t of tasks) out[t.status].push(t);
@@ -701,8 +712,11 @@ export function GoalsBoard({
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div className="kanban">
-        {COLUMNS.map((col) => (
+      <div
+        className="kanban"
+        style={{ gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))` }}
+      >
+        {visibleColumns.map((col) => (
           <DroppableColumn
             key={col.key}
             col={col}
