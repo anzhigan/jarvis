@@ -487,6 +487,7 @@
 }
 .kc-child--roomy .kc-child-name {
   font-size: var(--text-sm);
+  font-weight: 700;
 }
 
 /* Detach (unlink) routine button — small icon at the top-right of the

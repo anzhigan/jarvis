@@ -69,16 +69,20 @@ export function ScheduleDrawer({
     }
     return { goalsById, stepById };
   }, [goals]);
-  // Title-keyed lookups — used as a fallback when the model emits a slot
-  // without source_kind/source_id but its title matches a real Go or Goal.
-  // This keeps slots clickable instead of falling through to a dead `<div>`.
-  const { goByTitle, goalByTitle } = useMemo(() => {
-    const goByTitle = new Map<string, Go>();
-    for (const g of gos ?? []) goByTitle.set(normalizeTitle(g.title), g);
-    const goalByTitle = new Map<string, Task>();
-    for (const t of goals ?? []) goalByTitle.set(normalizeTitle(t.title), t);
-    return { goByTitle, goalByTitle };
-  }, [gos, goals]);
+  // Title-keyed Go lookup — fallback when the model emits a slot without
+  // source_kind/source_id but its title matches a real Go.
+  const goByTitle = useMemo(() => {
+    const m = new Map<string, Go>();
+    for (const g of gos ?? []) m.set(normalizeTitle(g.title), g);
+    return m;
+  }, [gos]);
+  // Active goals that have NO concrete Gos — surfaced as a follow-up so the
+  // user can open them and add tasks. Steps with zero Gos don't count as Gos
+  // (a goal with only empty steps still has no actionable work).
+  const emptyGoals = useMemo<Task[]>(
+    () => (goals ?? []).filter((g) => g.status === 'active' && g.gos.length === 0),
+    [goals],
+  );
 
   const view: ViewState = useMemo(() => {
     if (pollError) return { kind: 'failed', error: pollError };
@@ -136,8 +140,8 @@ export function ScheduleDrawer({
             goalsById={goalsById}
             stepById={stepById}
             goByTitle={goByTitle}
-            goalByTitle={goalByTitle}
           />
+          <EmptyGoalsCard goals={emptyGoals} onPick={(id) => onGoalClick?.(id)} />
         </>
       )}
     </Drawer>
@@ -234,7 +238,7 @@ function normalizeTitle(s: string): string {
 }
 
 function ResultView({
-  slots, onSlotClick, onGoalClick, gosById, goalsById, stepById, goByTitle, goalByTitle,
+  slots, onSlotClick, onGoalClick, gosById, goalsById, stepById, goByTitle,
 }: {
   slots: ScheduleSlot[];
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
@@ -243,7 +247,6 @@ function ResultView({
   goalsById: Map<string, Task>;
   stepById: Map<string, { title: string }>;
   goByTitle: Map<string, Go>;
-  goalByTitle: Map<string, Task>;
 }) {
   // Local reordered copy of slots. Reset whenever the backend hands us a new
   // schedule (different length or different ids); pure UX rearrangement, not
@@ -293,7 +296,6 @@ function ResultView({
               goalsById={goalsById}
               stepById={stepById}
               goByTitle={goByTitle}
-              goalByTitle={goalByTitle}
               onSlotClick={onSlotClick}
               onGoalClick={onGoalClick}
             />
@@ -306,7 +308,7 @@ function ResultView({
 
 function SortableSlot({
   slot: s, index: i, freeOrder, gosById, goalsById, stepById,
-  goByTitle, goalByTitle, onSlotClick, onGoalClick,
+  goByTitle, onSlotClick, onGoalClick,
 }: {
   slot: PlanSlot;
   index: number;
@@ -315,7 +317,6 @@ function SortableSlot({
   goalsById: Map<string, Task>;
   stepById: Map<string, { title: string }>;
   goByTitle: Map<string, Go>;
-  goalByTitle: Map<string, Task>;
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
   onGoalClick?: (goalId: string) => void;
 }) {
@@ -323,20 +324,15 @@ function SortableSlot({
     attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id: s._id });
 
-  // Primary: source_kind + source_id from the model. Fallback: title-match
-  // against the user's open Gos / active Goals — catches slots where the
-  // model emitted a title but forgot to attribute it.
+  // Primary: source_kind="go" + source_id from the model. Fallback: title
+  // match against open Gos. Goal-only slots no longer surface in the
+  // timeline (see EmptyGoalsCard below the timeline).
   const titleKey = normalizeTitle(s.title);
   const linkedGo =
     (s.source_kind === 'go' && s.source_id ? gosById.get(s.source_id) : null)
     ?? (titleKey ? goByTitle.get(titleKey) : null)
     ?? null;
   const goalFromGo = linkedGo?.task_id ? goalsById.get(linkedGo.task_id) ?? null : null;
-  const linkedGoal = !linkedGo
-    ? ((s.source_kind === 'goal' && s.source_id ? goalsById.get(s.source_id) : null)
-        ?? (titleKey ? goalByTitle.get(titleKey) : null)
-        ?? null)
-    : null;
   const stepTitle = linkedGo?.step_id ? stepById.get(linkedGo.step_id)?.title ?? null : null;
 
   let bodyContent: React.ReactNode;
@@ -354,16 +350,8 @@ function SortableSlot({
         onGoalClick={onGoalClick}
       />
     );
-  } else if (linkedGoal) {
-    clickHandler = onGoalClick ? () => onGoalClick(linkedGoal.id) : null;
-    bodyContent = (
-      <GoalSubcardInline
-        goal={linkedGoal}
-        fallbackTitle={s.title}
-        note={s.note}
-      />
-    );
   } else {
+    // Break / lunch / orphan: plain title row.
     bodyContent = (
       <>
         <div className="ai-tl__title-row">
@@ -405,7 +393,7 @@ function SortableSlot({
           className="ai-tl__slot ai-tl__slot--clickable"
           data-kind={s.kind}
           onClick={clickHandler}
-          title={linkedGoal ? 'Open goal' : 'Open Go'}
+          title="Open Go"
         >
           <SlotBody
             slot={s}
@@ -530,40 +518,63 @@ function GoSubcardInline({
   );
 }
 
-/** Plan slot that points at a Goal (not a specific Go yet). Visually paired
- *  with GoSubcardInline so the eye reads them as part of the same list. */
-function GoalSubcardInline({
-  goal, fallbackTitle, note,
-}: {
-  goal: Task;
-  fallbackTitle: string;
-  note: string;
-}) {
+/** Goal card used in the "empty goals" follow-up — visually distinct from a
+ *  Go subcard. The card itself represents the Goal, so no redundant "Goal"
+ *  pill, and a Goal has no Step parent. Priority shows as a left bar + small
+ *  text. Title is bold. */
+function GoalCard({ goal, onPick }: { goal: Task; onPick: (id: string) => void }) {
   const dueLabel = goal.due_date
     ? new Date(goal.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     : null;
   return (
-    <div className="kc-child kc-child--roomy" data-kind="goal">
-      <div className="kc-child-tags">
-        <span
-          className="kc-tag"
-          data-tag="goal"
-          data-prio={goal.priority ?? undefined}
-          title={`Goal · ${goal.title}`}
-        >
-          {goal.title}
-        </span>
-      </div>
-      <div className="kc-child-row">
-        <span className="kc-child-name">{fallbackTitle || goal.title}</span>
-      </div>
-      {(dueLabel || note) && (
-        <div className="kc-child-meta">
+    <button
+      type="button"
+      className="ai-goal-card"
+      data-prio={goal.priority ?? undefined}
+      onClick={() => onPick(goal.id)}
+    >
+      <span className="ai-goal-card__bar" />
+      <span className="ai-goal-card__body">
+        <span className="ai-goal-card__title">{goal.title}</span>
+        <span className="ai-goal-card__meta">
+          <span className="ai-goal-card__prio">{goal.priority}</span>
+          {dueLabel && <span className="ai-goal-card__sep">·</span>}
           {dueLabel && <span>due {dueLabel}</span>}
-          {note && dueLabel && <span className="sep">·</span>}
-          {note && <span style={{ color: 'var(--ink-4)' }}>{note}</span>}
+          <span className="ai-goal-card__sep">·</span>
+          <span className="ai-goal-card__empty">no tasks yet</span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/** Collapsible follow-up surfacing active goals that have NO concrete Gos —
+ *  the plan-day list excludes them, but the user still needs a path to add
+ *  Gos under those goals. Clicking a row opens the goal detail drawer. */
+function EmptyGoalsCard({
+  goals, onPick,
+}: {
+  goals: Task[];
+  onPick: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (goals.length === 0) return null;
+  return (
+    <section className="ai-goals-empty">
+      <button
+        type="button"
+        className="ai-goals-empty__head"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span>Заполнить активные Цели · {goals.length}</span>
+        <span className="ai-goals-empty__chev">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="ai-goals-empty__list">
+          {goals.map((g) => <GoalCard key={g.id} goal={g} onPick={onPick} />)}
         </div>
       )}
-    </div>
+    </section>
   );
 }

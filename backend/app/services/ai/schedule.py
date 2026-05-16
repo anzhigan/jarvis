@@ -222,16 +222,15 @@ Build:
    Every slot MUST include a non-empty `title` (even for break/lunch — e.g.
    "Lunch break", "Coffee").
    Work slots (kind="goal" | "deep_work" | "admin") MUST be tied to a
-   real entity — either a specific Go OR an active Goal — by setting:
-     • source_kind="go"  + source_id=<Go id>   (preferred when a concrete Go covers the work)
-     • source_kind="goal" + source_id=<Goal id> (only when no Go exists yet for that goal —
-       use this to nudge the user that the goal needs concrete Gos)
-   Copy ids VERBATIM from the lists above. Never invent ids. Do NOT
-   emit a work slot without source_kind + source_id.
+   specific Go from the OPEN BACKLOG above: set source_kind="go" and
+   source_id=<that Go's id> (copy VERBATIM, never invent ids).
+   Do NOT emit a work slot without a real Go — if an active goal has no
+   concrete Go yet, OMIT it from this plan; the user sees those goals in
+   a separate follow-up list outside the plan.
    For breaks/lunch (time-blocked mode only), set source_kind=null and
    source_id=null.
    In `note` (1 line) explain WHY this item now — overdue / unblocks step X /
-   continues yesterday's chain / "goal lacks concrete Gos" / etc.
+   continues yesterday's chain / etc.
 
 JSON schema:
 {{
@@ -252,11 +251,7 @@ JSON schema:
 }}"""
 
 
-def _parse_output(
-    raw: str,
-    valid_go_ids: set[str] | None = None,
-    valid_goal_ids: set[str] | None = None,
-) -> dict:
+def _parse_output(raw: str, valid_go_ids: set[str] | None = None) -> dict:
     if not raw or not raw.strip():
         raise ValueError("empty response from model")
     text = raw.strip()
@@ -292,21 +287,15 @@ def _parse_output(
         # Normalise any unexpected kind into "other" so the regex doesn't bite.
         if s.get("kind") not in {"goal", "routine", "admin", "break", "lunch", "deep_work", "other"}:
             s["kind"] = "other"
-        # Drop hallucinated work slots: the model sometimes invents a "goal"
-        # slot that isn't tied to any real entity. Require source_id for work
-        # kinds and verify the id is either a real Go OR a real Goal.
+        # Work slots MUST be tied to a real Go. Goal-only slots are surfaced
+        # separately in the UI (the "empty goals" follow-up), so drop them
+        # from the timeline regardless of source_kind.
         if s.get("kind") in work_kinds:
             sid = s.get("source_id")
             sk = s.get("source_kind")
-            if not sid:
+            if sk != "go" or not sid:
                 continue
-            if sk == "go":
-                if valid_go_ids is not None and sid not in valid_go_ids:
-                    continue
-            elif sk == "goal":
-                if valid_goal_ids is not None and sid not in valid_goal_ids:
-                    continue
-            else:
+            if valid_go_ids is not None and sid not in valid_go_ids:
                 continue
         try:
             slots.append(ScheduleSlot.model_validate(s))
@@ -373,20 +362,19 @@ async def run_schedule_job(
     )
 
     valid_go_ids = {g["id"] for g in context["open_gos"]}
-    valid_goal_ids = {g["id"] for g in context["active_goals"]}
 
     raw = await ollama.generate(
         prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.4, think=False,
     )
     try:
-        output = _parse_output(raw, valid_go_ids, valid_goal_ids)
+        output = _parse_output(raw, valid_go_ids)
     except ValueError as e:
         logger.warning("schedule parse failed (first try): %s — retrying", e)
         retry_prompt = prompt + "\n\nREMINDER: respond with ONLY a JSON object."
         raw = await ollama.generate(
             retry_prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.2, think=False,
         )
-        output = _parse_output(raw, valid_go_ids, valid_goal_ids)
+        output = _parse_output(raw, valid_go_ids)
 
     logger.info(
         "schedule generated: date=%s mode=%s slots=%d open=%d overdue=%d goals=%d",

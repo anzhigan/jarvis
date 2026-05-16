@@ -596,6 +596,86 @@
 .ai-tl__handle:active { cursor: grabbing; }
 .ai-tl__handle svg { width: 14px; height: 14px; stroke-width: 2.5; }
 
+/* ─── Plan day · empty-goals follow-up ─────────────────────────────────── */
+
+.ai-goals-empty {
+  margin-top: 20px;
+  border-top: 1px solid var(--hairline-faint);
+  padding-top: 14px;
+}
+.ai-goals-empty__head {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.ai-goals-empty__head:hover { background: var(--soft); color: var(--ink); }
+.ai-goals-empty__chev { color: var(--ink-4); font-size: 10px; }
+.ai-goals-empty__list {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Goal card — distinct from Go subcard: no inner pill (the card IS the Goal),
+   priority shown as left bar + small text. Title is bold. */
+.ai-goal-card {
+  display: grid;
+  grid-template-columns: 4px 1fr;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--paper);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  color: var(--ink);
+  overflow: hidden;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.ai-goal-card:hover { background: var(--cream); border-color: var(--hairline-strong); }
+.ai-goal-card__bar { background: var(--indigo); }
+.ai-goal-card[data-prio="high"]   .ai-goal-card__bar { background: var(--rust); }
+.ai-goal-card[data-prio="medium"] .ai-goal-card__bar { background: var(--ochre); }
+.ai-goal-card[data-prio="low"]    .ai-goal-card__bar { background: var(--slate); }
+.ai-goal-card__body {
+  padding: 10px 12px;
+  display: flex; flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ai-goal-card__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--ink);
+  word-break: break-word;
+}
+.ai-goal-card__meta {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  font-size: var(--text-xs);
+  color: var(--ink-4);
+}
+.ai-goal-card__prio {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-size: 10px;
+}
+.ai-goal-card[data-prio="high"]   .ai-goal-card__prio { color: var(--rust); }
+.ai-goal-card[data-prio="medium"] .ai-goal-card__prio { color: var(--ochre); }
+.ai-goal-card[data-prio="low"]    .ai-goal-card__prio { color: var(--slate); }
+.ai-goal-card__sep { color: var(--ink-5); }
+.ai-goal-card__empty { font-style: italic; color: var(--ink-5); }
+
 .ai-tl__slot {
   display: grid;
   grid-template-columns: 50px 14px 1fr;
