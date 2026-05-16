@@ -21,10 +21,10 @@ interface Props {
   onEditStep: (step: import('../../../api/types').Step) => void | Promise<void>;
   /** Quick-create a routine and attach to the goal — title prompted. */
   onAddRoutine: (taskId: string) => void | Promise<void>;
-  /** Toggle today's value for a Routine (1 if not done, 0 otherwise). */
-  onToggleRoutineDone: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
-  /** Mark today as skipped for a Routine (entry value = 0). */
-  onSkipRoutine: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
+  /** Toggle a routine entry on the given date (defaults to today when omitted). */
+  onToggleRoutineDone: (link: import('../../../api/types').GoalRoutineLink, date?: string) => void | Promise<void>;
+  /** Mark the given date as skipped (entry value = 0). Defaults to today. */
+  onSkipRoutine: (link: import('../../../api/types').GoalRoutineLink, date?: string) => void | Promise<void>;
   /** Detach the Routine from this Goal (deletes the GoalRoutineLink, keeps the Routine). */
   onUnlinkRoutine: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
 }
@@ -399,13 +399,15 @@ const RoutineSubcard = memo(function RoutineSubcard({
   link, onToggle, onSkip, onUnlink,
 }: {
   link: import('../../../api/types').GoalRoutineLink;
-  onToggle?: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
-  onSkip?:   (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
+  onToggle?: (link: import('../../../api/types').GoalRoutineLink, date?: string) => void | Promise<void>;
+  onSkip?:   (link: import('../../../api/types').GoalRoutineLink, date?: string) => void | Promise<void>;
   onUnlink?: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
 }) {
   const r = link.routine;
-  // Entries change rarely; precompute lookups + 7-day strip once per render.
-  const { todayKey, todayState, days, scheduleLabel } = useMemo(() => {
+  // Local selection — which past day is currently highlighted. Defaults to
+  // today, so the check / skip buttons act on today out of the box.
+  const [selectedDate, setSelectedDate] = useState<string>(() => ymdDate(new Date()));
+  const { todayKey, days, scheduleLabel, cellStateByDate } = useMemo(() => {
     const todayKey = ymdDate(new Date());
     const entryByDate = new Map<string, number>();
     for (const e of r.entries) entryByDate.set(e.date, e.value);
@@ -428,14 +430,15 @@ const RoutineSubcard = memo(function RoutineSubcard({
         : r.schedule_type === 'every_n_days'
           ? `Every ${r.schedule_n_days}d`
           : `${r.schedule_count_per_period}× / ${r.schedule_period}`;
-    return {
-      todayKey,
-      todayState: cellState(entryByDate.get(todayKey)),
-      days,
-      scheduleLabel,
-    };
+    const cellStateByDate = new Map<string, RoutineCellState>();
+    for (const d of days) cellStateByDate.set(d.key, d.state);
+    return { todayKey, days, scheduleLabel, cellStateByDate };
   }, [r.entries, r.kind, r.target_value, r.schedule_type, r.schedule_days,
       r.schedule_n_days, r.schedule_count_per_period, r.schedule_period]);
+
+  const activeState = cellStateByDate.get(selectedDate) ?? 'empty';
+  const todayState = cellStateByDate.get(todayKey) ?? 'empty';
+  const isToday = selectedDate === todayKey;
 
   return (
     <div className="kc-child" data-kind="routine" data-done={todayState === 'done' || undefined}>
@@ -458,13 +461,16 @@ const RoutineSubcard = memo(function RoutineSubcard({
         )}
       </div>
 
-      <div className="kc-routine-grid" aria-hidden="true">
+      <div className="kc-routine-grid">
         {days.map((d) => (
-          <span
+          <button
             key={d.key}
+            type="button"
             className={`hg-cell hg-cell-${d.state}`}
             data-today={d.key === todayKey || undefined}
-            title={`${d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.state}`}
+            data-active={d.key === selectedDate || undefined}
+            title={`${d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.state} · click to edit`}
+            onClick={(e) => { e.stopPropagation(); setSelectedDate(d.key); }}
           />
         ))}
       </div>
@@ -486,11 +492,14 @@ const RoutineSubcard = memo(function RoutineSubcard({
           )}
         </div>
         <div className="rt-actions">
+          <div className="rt-action-date" title="Editing this date">
+            {isToday ? 'Today' : selectedDate.slice(5)}
+          </div>
           <button
             type="button"
             className="rt-action rt-action-check"
-            data-active={todayState === 'done' || undefined}
-            onClick={(e) => { e.stopPropagation(); onToggle?.(link); }}
+            data-active={activeState === 'done' || undefined}
+            onClick={(e) => { e.stopPropagation(); onToggle?.(link, selectedDate); }}
             title="Mark done"
             aria-label="Mark done"
           >
@@ -499,10 +508,10 @@ const RoutineSubcard = memo(function RoutineSubcard({
           <button
             type="button"
             className="rt-action rt-action-skip"
-            data-active={todayState === 'skipped' || undefined}
-            onClick={(e) => { e.stopPropagation(); onSkip?.(link); }}
-            title="Skip today"
-            aria-label="Skip today"
+            data-active={activeState === 'skipped' || undefined}
+            onClick={(e) => { e.stopPropagation(); onSkip?.(link, selectedDate); }}
+            title="Skip"
+            aria-label="Skip"
           >
             <X />
           </button>

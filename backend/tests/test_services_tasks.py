@@ -63,14 +63,24 @@ def test_normalize_status_maps_legacy_names():
 # ─── is_go_done_today ────────────────────────────────────────────────────────
 
 
-def test_boolean_go_done_today_when_positive_entry_exists():
-    g = _Go(entries=[_Entry(TODAY, 1)])
+def test_boolean_oneoff_done_when_positive_entry_exists_any_date():
+    # One-off Gos are completion-style work items: a positive entry on the
+    # Go's due_date (not today) still counts as done.
+    g = _Go(entries=[_Entry(TODAY - timedelta(days=1), 1)])
     assert is_go_done_today(g) is True
 
 
-def test_boolean_go_not_done_today_when_only_old_entries():
-    g = _Go(entries=[_Entry(TODAY - timedelta(days=1), 1)])
+def test_boolean_oneoff_not_done_when_no_positive_entries():
+    g = _Go(entries=[_Entry(TODAY, 0)])
     assert is_go_done_today(g) is False
+
+
+def test_boolean_recurring_only_counts_today():
+    # Recurring habit: yesterday's tick doesn't satisfy today.
+    g = _Go(recurrence="daily", entries=[_Entry(TODAY - timedelta(days=1), 1)])
+    assert is_go_done_today(g) is False
+    g.entries.append(_Entry(TODAY, 1))
+    assert is_go_done_today(g) is True
 
 
 def test_numeric_oneoff_done_when_total_meets_target():

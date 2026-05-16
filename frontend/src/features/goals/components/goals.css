@@ -463,14 +463,16 @@
    skipped / empty). The subcard variant is just a tighter 7-day window. */
 .kc-routine-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(7, minmax(0, 16px));
+  gap: 3px;
   margin-top: 6px;
 }
 .kc-routine-grid .hg-cell {
-  /* Override aspect-ratio so cells stay readable inside the narrow card. */
   aspect-ratio: 1;
-  min-height: 14px;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  border-radius: 3px;
 }
 
 /* Footer line under the heatmap: schedule meta on the left, action circles on the right. */

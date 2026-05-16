@@ -77,9 +77,10 @@ export default function RoutinesView() {
   );
   const [createOpen, setCreateOpen] = useState(false);
 
-  // Per-row selected date for past-day editing. Map of routine.id → 'YYYY-MM-DD'.
-  // Default for a row is today (when nothing's selected yet).
-  const [selectedDate, setSelectedDate] = useState<Record<string, string>>({});
+  // Single highlighted cell across the whole table — selecting a square in
+  // one row clears any previous selection elsewhere. `null` means "no past
+  // square picked"; action buttons fall back to today's column for that row.
+  const [selectedCell, setSelectedCell] = useState<{ id: string; date: string } | null>(null);
 
   const onCheckDate = useCallback((r: Routine, date: string) => {
     void library.toggleDoneOn(r, date);
@@ -297,7 +298,8 @@ export default function RoutinesView() {
                             <div className="rt-history-grid">
                               {historyDays.map((d) => {
                                 const s = cellState(r, entryByDate.get(d.ymd));
-                                const active = (selectedDate[r.id] ?? historyDays[historyDays.length - 1].ymd) === d.ymd;
+                                const active =
+                                  selectedCell?.id === r.id && selectedCell.date === d.ymd;
                                 return (
                                   <button
                                     key={d.ymd}
@@ -307,7 +309,11 @@ export default function RoutinesView() {
                                     data-active={active || undefined}
                                     title={`${d.ymd} · ${s} · click to edit`}
                                     onClick={() =>
-                                      setSelectedDate((m) => ({ ...m, [r.id]: d.ymd }))
+                                      setSelectedCell((cur) =>
+                                        cur?.id === r.id && cur.date === d.ymd
+                                          ? null
+                                          : { id: r.id, date: d.ymd },
+                                      )
                                     }
                                   />
                                 );
@@ -330,9 +336,11 @@ export default function RoutinesView() {
                           <td className="rt-cell-action" onClick={(e) => e.stopPropagation()}>
                             {(() => {
                               // The day the action buttons apply to: clicked
-                              // heatmap cell, or today by default.
-                              const activeDate = selectedDate[r.id]
-                                ?? historyDays[historyDays.length - 1].ymd;
+                              // heatmap cell (only if it belongs to THIS row),
+                              // otherwise default to today.
+                              const activeDate = selectedCell?.id === r.id
+                                ? selectedCell.date
+                                : historyDays[historyDays.length - 1].ymd;
                               const activeEntry = entryByDate.get(activeDate);
                               const activeState: CellState = cellState(r, activeEntry);
                               const isToday = activeDate === historyDays[historyDays.length - 1].ymd;

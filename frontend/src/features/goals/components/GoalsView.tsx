@@ -65,14 +65,6 @@ export default function GoalsView() {
   // toast picks it up.
   const [scheduleJobId, setScheduleJobId] = useState<string | null>(null);
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
-  // User-facing toggle: time-blocked vs free-order. Persisted across reloads.
-  const [timeBlocked, setTimeBlocked] = useState<boolean>(() =>
-    localStorage.getItem('jarvnote:schedule:timeBlocked') !== '0',
-  );
-  useEffect(() => {
-    localStorage.setItem('jarvnote:schedule:timeBlocked', timeBlocked ? '1' : '0');
-  }, [timeBlocked]);
-
   const addBgJob = useAIJobsStore((s) => s.add);
 
   const handlePlanDay = useCallback(async () => {
@@ -80,14 +72,14 @@ export default function GoalsView() {
       const job = await aiApi.createSchedule({
         date: '',
         hours: { start_h: 9, end_h: 18 },
-        time_blocked: timeBlocked,
+        time_blocked: true,
       });
       setScheduleJobId(job.id);
       setScheduleDrawerOpen(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start planning');
     }
-  }, [timeBlocked]);
+  }, []);
 
   const handleScheduleClose = useCallback(() => {
     setScheduleDrawerOpen(false);
@@ -155,7 +147,9 @@ export default function GoalsView() {
     const next = go.is_done_today
       ? 0
       : (go.kind === 'numeric' ? (go.target_value ?? 1) : 1);
-    void gos.logToday(go.id, next);
+    // Use logFor so the entry lands on the Go's due_date (mirrors GoView) —
+    // keeps Kanban + Single/Cross-goal in sync for past/future Gos.
+    void gos.logFor(go, next);
   }, [gos]);
 
   const onAddGo      = useCallback((taskId: string, stepId?: string | null) => {
@@ -164,14 +158,17 @@ export default function GoalsView() {
   }, []);
   const onAddRoutine = useCallback((taskId: string) => setRoutineDialogTaskId(taskId), []);
 
-  const onToggleRoutineDone = useCallback(async (link: import('../../../api/types').GoalRoutineLink) => {
-    const today = ymdStr(new Date());
-    const entry = link.routine.entries.find((x) => x.date === today);
+  const onToggleRoutineDone = useCallback(async (
+    link: import('../../../api/types').GoalRoutineLink,
+    date?: string,
+  ) => {
+    const target = date ?? ymdStr(new Date());
+    const entry = link.routine.entries.find((x) => x.date === target);
     try {
       if ((entry?.value ?? 0) > 0) {
-        await routinesApi.deleteEntry(link.routine.id, today);
+        await routinesApi.deleteEntry(link.routine.id, target);
       } else {
-        await routinesApi.upsertEntry(link.routine.id, today, 1);
+        await routinesApi.upsertEntry(link.routine.id, target, 1);
       }
       await goals.refresh();
     } catch (e: any) {
@@ -179,10 +176,13 @@ export default function GoalsView() {
     }
   }, [goals]);
 
-  const onSkipRoutine = useCallback(async (link: import('../../../api/types').GoalRoutineLink) => {
-    const today = ymdStr(new Date());
+  const onSkipRoutine = useCallback(async (
+    link: import('../../../api/types').GoalRoutineLink,
+    date?: string,
+  ) => {
+    const target = date ?? ymdStr(new Date());
     try {
-      await routinesApi.upsertEntry(link.routine.id, today, 0);
+      await routinesApi.upsertEntry(link.routine.id, target, 0);
       await goals.refresh();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to skip routine');
@@ -307,20 +307,6 @@ export default function GoalsView() {
                 >Cross-goal</button>
               </div>
             )}
-            <div className="pill-seg pill-seg-secondary" role="tablist" aria-label="Schedule mode">
-              <button
-                className={timeBlocked ? 'on' : ''}
-                role="tab" aria-selected={timeBlocked}
-                onClick={() => setTimeBlocked(true)}
-                title="Schedule with hour ranges"
-              >By hour</button>
-              <button
-                className={!timeBlocked ? 'on' : ''}
-                role="tab" aria-selected={!timeBlocked}
-                onClick={() => setTimeBlocked(false)}
-                title="Priority-ordered list without times"
-              >Priority</button>
-            </div>
             <button
               className="ai-plan-trigger"
               onClick={handlePlanDay}

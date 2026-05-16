@@ -98,17 +98,18 @@ VALID_STEP_STATUSES = {"not_started", "in_progress", "done"}
 # ─── Pure progress helpers (no DB, no HTTP — unit-testable) ──────────────────
 
 def is_go_done_today(go: Go, today: date_cls | None = None) -> bool:
-    """For boolean: has an entry with value>0 for today.
-    For numeric one-off: cumulative total_value >= target_value.
-    For numeric recurring: today's value >= target_value.
-    """
+    """Treat one-off Gos as a finished work item (any positive entry counts —
+    completion is logged on the Go's due_date, not on the day the user clicked).
+    Recurring Gos check today's entry against the target."""
     today = today or date_cls.today()
-    if go.kind == "boolean":
-        return any(e.value > 0 and e.date == today for e in go.entries)
     target = go.target_value or 0
     if go.recurrence == "none":
+        if go.kind == "boolean":
+            return any(e.value > 0 for e in go.entries)
         total = sum(e.value for e in go.entries)
         return target > 0 and total >= target
+    if go.kind == "boolean":
+        return any(e.value > 0 and e.date == today for e in go.entries)
     today_val = next((e.value for e in go.entries if e.date == today), 0)
     return target > 0 and today_val >= target
 
