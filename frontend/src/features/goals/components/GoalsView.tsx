@@ -455,14 +455,16 @@ export default function GoalsView() {
         )}
       </main>
 
-      {/* Shared backdrop for the plan+edit-go stack — single click dismisses
-          both, mirroring the standalone-drawer modal behaviour. Rendered only
-          when BOTH drawers are open; otherwise each drawer handles its own. */}
-      {scheduleJobId !== null && scheduleDrawerOpen && editingGo !== null && (
+      {/* Shared backdrop for the plan + (edit-go OR goal-detail) stack —
+          single click dismisses both, mirroring the standalone-drawer modal
+          behaviour. Rendered only when the stack is active. */}
+      {scheduleJobId !== null && scheduleDrawerOpen
+        && (editingGo !== null || detailGoalId !== null) && (
         <div
           className="ui-overlay"
           onClick={() => {
             setEditingGo(null);
+            setDetailGoalId(null);
             handleScheduleClose();
           }}
         />
@@ -481,8 +483,8 @@ export default function GoalsView() {
               setScheduleDrawerOpen(false);
               setTimeout(handlePlanDay, 0);
             }}
-            shifted={editingGo !== null}
-            nonModal={editingGo !== null}
+            shifted={editingGo !== null || detailGoalId !== null}
+            nonModal={editingGo !== null || detailGoalId !== null}
             gos={gos.gos}
             goals={goals.tasks}
             onSlotClick={(kind, id) => {
@@ -490,6 +492,7 @@ export default function GoalsView() {
               const found = gos.gos.find((g) => g.id === id);
               if (found) setEditingGo(found);
             }}
+            onGoalClick={(id) => setDetailGoalId(id)}
           />
         </Suspense>
       )}
@@ -499,6 +502,9 @@ export default function GoalsView() {
         library={goals}
         open={detailGoalId !== null}
         onOpenChange={closeDetail}
+        // When opened from a Plan-day Goal pill the plan stays visible — drop
+        // its overlay so it isn't dimmed twice and clicks can hop between.
+        nonModal={scheduleJobId !== null && scheduleDrawerOpen}
       />
 
       <GoalCreateDialog

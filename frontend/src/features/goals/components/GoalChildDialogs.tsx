@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, Dialog, Drawer, Input } from '../../../components/ui';
+import { Button, DateInput, Dialog, Drawer, Input } from '../../../components/ui';
 import { gosApi, routinesApi, stepsApi } from '../../../api/client';
 import type { Go, GoKind, GoRecurrence, Step, StepStatus, Task } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
@@ -217,11 +217,11 @@ export function GoCreateDialog({
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <DateInput value={start} onChange={setStart} />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">Due (optional)</span>
-            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+            <DateInput value={due} onChange={setDue} />
           </div>
         </div>
       </div>
@@ -444,11 +444,11 @@ export function RoutineCreateForGoalDialog({ open, onOpenChange, taskId, goals }
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start</span>
-            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <DateInput value={start} onChange={setStart} />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">End (optional)</span>
-            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+            <DateInput value={end} onChange={setEnd} />
           </div>
         </div>
       </div>
@@ -602,11 +602,11 @@ export function StepCreateDialog({ open, onOpenChange, taskId, goals, onCreated 
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <DateInput value={start} onChange={setStart} />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">End (optional)</span>
-            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+            <DateInput value={end} onChange={setEnd} />
           </div>
         </div>
 
@@ -822,11 +822,11 @@ export function StepEditDialog({ step, goals, onOpenChange, onSaved }: StepEditP
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <DateInput value={start} onChange={setStart} />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">End (optional)</span>
-            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+            <DateInput value={end} onChange={setEnd} />
           </div>
         </div>
 
@@ -1093,11 +1093,11 @@ export function GoEditDialog({ go, goals, onOpenChange, onSaved, nonModal }: GoE
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <DateInput value={start} onChange={setStart} />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">Due (optional)</span>
-            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+            <DateInput value={due} onChange={setDue} />
           </div>
         </div>
       </div>

@@ -457,9 +457,37 @@
 }
 .kc-tag[data-tag="goal"]          { background: var(--indigo-soft); color: var(--indigo); }
 .kc-tag[data-tag="step"]          { background: var(--moss-soft);   color: var(--moss); }
-.kc-tag[data-tag="prio-high"]     { background: var(--rust-soft);   color: var(--rust); }
-.kc-tag[data-tag="prio-medium"]   { background: var(--ochre-soft);  color: var(--ochre); }
-.kc-tag[data-tag="prio-low"]      { background: var(--slate-soft);  color: var(--slate); }
+/* Goal pill carries the parent goal's priority colour when shown in the
+   plan-day view — saves a separate priority chip. */
+.kc-tag[data-tag="goal"][data-prio="high"]   { background: var(--rust-soft);  color: var(--rust); }
+.kc-tag[data-tag="goal"][data-prio="medium"] { background: var(--ochre-soft); color: var(--ochre); }
+.kc-tag[data-tag="goal"][data-prio="low"]    { background: var(--slate-soft); color: var(--slate); }
+.kc-tag[role="button"] {
+  cursor: pointer;
+  transition: filter var(--dur-fast) var(--ease);
+}
+.kc-tag[role="button"]:hover  { filter: brightness(0.94); }
+.kc-tag[role="button"]:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 1px;
+}
+
+/* Two-row layout: tags above, title/check row below. Used by Go subcards in
+   the plan and (optionally) the kanban once the Goal/Step pills exist. */
+.kc-child-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.kc-child--roomy {
+  padding: 10px 12px;
+  gap: 6px;
+}
+.kc-child--roomy .kc-child-name {
+  font-size: var(--text-sm);
+}
 
 /* Detach (unlink) routine button — small icon at the top-right of the
    routine subcard. Visible on hover so it doesn't clutter the row. */

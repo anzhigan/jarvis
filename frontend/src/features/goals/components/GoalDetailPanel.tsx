@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2, Calendar, Flag, Tag as TagIcon, Box, Check } from 'lucide-react';
+import { Trash2, Calendar, Flag, Tag as TagIcon, Box, Check, X } from 'lucide-react';
 import { Button, Drawer, Input } from '../../../components/ui';
 import type { Task, TaskPriority, TaskStatus } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
@@ -9,6 +9,8 @@ interface Props {
   library: GoalsLibrary;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Skip overlay/focus-trap when stacked alongside another drawer (Plan-day). */
+  nonModal?: boolean;
 }
 
 const STATUSES: { value: TaskStatus; label: string }[] = [
@@ -29,7 +31,7 @@ function fmtDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
+export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }: Props) {
   const [title, setTitle] = useState(goal?.title ?? '');
   const [description, setDescription] = useState(goal?.description ?? '');
   useEffect(() => {
@@ -73,6 +75,7 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
       open={open}
       onOpenChange={onOpenChange}
       accent="goals"
+      nonModal={nonModal}
       title={
         <Input
           value={title}
@@ -143,13 +146,28 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange }: Props) {
 
       <div className="ui-field-row">
         <span className="label"><Calendar size={11} /> Due</span>
-        <input
-          type="date"
-          className="value"
-          value={goal.due_date ?? ''}
-          onChange={onDue}
-          style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--ink)' }}
-        />
+        <span className="value" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <input
+            type="date"
+            value={goal.due_date ?? ''}
+            onChange={onDue}
+            style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--ink)' }}
+          />
+          {goal.due_date && (
+            <button
+              type="button"
+              onClick={() => library.updateGoal(goal.id, { due_date: null })}
+              aria-label="Clear due date"
+              title="Clear due date"
+              style={{
+                background: 'transparent', border: 0, padding: 2, cursor: 'pointer',
+                color: 'var(--ink-4)', display: 'inline-flex', alignItems: 'center',
+              }}
+            >
+              <X size={11} />
+            </button>
+          )}
+        </span>
       </div>
       <div className="ui-field-row">
         <span className="label"><Calendar size={11} /> Start</span>

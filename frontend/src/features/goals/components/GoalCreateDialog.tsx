@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, Dialog, Input } from '../../../components/ui';
+import { Button, DateInput, Dialog, Input } from '../../../components/ui';
 import { gosApi, tagsApi } from '../../../api/client';
 import type { Tag, TaskPriority, TaskStatus } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
@@ -237,12 +237,7 @@ export function GoalCreateDialog({
 
         <div className="ui-field">
           <span className="ui-field-label">Due date</span>
-          <input
-            type="date"
-            className="ui-input"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-          />
+          <DateInput value={dueDate} onChange={setDueDate} />
         </div>
 
         <div className="ui-field">

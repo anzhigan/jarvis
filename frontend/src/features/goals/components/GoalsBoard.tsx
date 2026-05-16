@@ -556,10 +556,20 @@ const GoSubcard = memo(function GoSubcard({
     : null;
   return (
     <div
-      className="kc-child"
+      className="kc-child kc-child--roomy"
       data-kind="go"
       data-done={go.is_done_today || undefined}
     >
+      {(goalTitle || stepTitle) && (
+        <div className="kc-child-tags">
+          {goalTitle && (
+            <span className="kc-tag" data-tag="goal" title={`Goal · ${goalTitle}`}>{goalTitle}</span>
+          )}
+          {stepTitle && (
+            <span className="kc-tag" data-tag="step" title={`Step · ${stepTitle}`}>{stepTitle}</span>
+          )}
+        </div>
+      )}
       <div className="kc-child-row">
         <button
           type="button"
@@ -570,12 +580,6 @@ const GoSubcard = memo(function GoSubcard({
         >
           {go.is_done_today && <Check />}
         </button>
-        {goalTitle && (
-          <span className="kc-tag" data-tag="goal" title={`Goal · ${goalTitle}`}>{goalTitle}</span>
-        )}
-        {stepTitle && (
-          <span className="kc-tag" data-tag="step" title={`Step · ${stepTitle}`}>{stepTitle}</span>
-        )}
         <span className="kc-child-name">{go.title}</span>
       </div>
       {(valueLabel || due) && (

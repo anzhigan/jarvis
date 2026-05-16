@@ -14,6 +14,8 @@ interface Props {
   onRegenerate?: () => void;
   /** Fires when a slot's underlying source (currently only Gos) is clicked. */
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
+  /** Fires when the Goal pill inside a slot is clicked. */
+  onGoalClick?: (goalId: string) => void;
   /** Catalogue used to enrich Go-source slots — render them as Go subcards
    *  (same visual language as the Kanban Go pills). */
   gos?: Go[];
@@ -38,7 +40,8 @@ const LOADING_STEPS = [
 ];
 
 export function ScheduleDrawer({
-  jobId, dateLabel, onClose, onRegenerate, onSlotClick, shifted, nonModal, gos, goals,
+  jobId, dateLabel, onClose, onRegenerate, onSlotClick, onGoalClick,
+  shifted, nonModal, gos, goals,
 }: Props) {
   const open = jobId !== null;
   const { job, error: pollError } = useAIJob(jobId);
@@ -109,6 +112,7 @@ export function ScheduleDrawer({
           <ResultView
             slots={view.data.slots}
             onSlotClick={onSlotClick}
+            onGoalClick={onGoalClick}
             gosById={gosById}
             goalsById={goalsById}
             stepById={stepById}
@@ -206,10 +210,11 @@ const KIND_LABELS: Record<ScheduleSlotKind, string> = {
 };
 
 function ResultView({
-  slots, onSlotClick, gosById, goalsById, stepById,
+  slots, onSlotClick, onGoalClick, gosById, goalsById, stepById,
 }: {
   slots: ScheduleSlot[];
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
+  onGoalClick?: (goalId: string) => void;
   gosById: Map<string, Go>;
   goalsById: Map<string, Task>;
   stepById: Map<string, { title: string }>;
@@ -251,9 +256,11 @@ function ResultView({
                 <GoSubcardInline
                   go={linkedGo}
                   note={s.note}
+                  goalId={goal?.id ?? linkedGo.task_id}
                   goalTitle={goal?.title ?? linkedGo.task_title}
                   stepTitle={stepTitle}
                   priority={goal?.priority ?? null}
+                  onGoalClick={onGoalClick}
                 />
               ) : (
                 <>
@@ -288,17 +295,21 @@ function ResultView({
   );
 }
 
-/** Renders a Go inside a plan-day slot using the same visual language as the
- *  Kanban Go subcard (`.kc-child[data-kind="go"]`). Shows Goal/Step/Priority
- *  context capsules instead of the redundant "Go" kind pill. */
+/** Renders a Go inside a plan-day slot. Visual language matches the Kanban
+ *  Go subcard (`.kc-child[data-kind="go"]`). Two-row layout: a context row of
+ *  Goal/Step capsules above the title, so the eye doesn't have to compete
+ *  with the title for space. The Goal capsule carries the priority colour
+ *  and is itself a button that opens the Goal detail panel. */
 function GoSubcardInline({
-  go, note, goalTitle, stepTitle, priority,
+  go, note, goalId, goalTitle, stepTitle, priority, onGoalClick,
 }: {
   go: Go;
   note: string;
+  goalId: string | null;
   goalTitle: string | null;
   stepTitle: string | null;
   priority: 'high' | 'medium' | 'low' | null;
+  onGoalClick?: (goalId: string) => void;
 }) {
   const due = go.due_date ? new Date(go.due_date) : null;
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -309,20 +320,41 @@ function GoSubcardInline({
   const dueLabel = due
     ? due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     : null;
+  const goalClickable = !!(onGoalClick && goalId);
   return (
-    <div className="kc-child" data-kind="go" data-done={go.is_done_today || undefined}>
+    <div className="kc-child kc-child--roomy" data-kind="go" data-done={go.is_done_today || undefined}>
+      {(goalTitle || stepTitle) && (
+        <div className="kc-child-tags">
+          {goalTitle && (
+            <span
+              className="kc-tag"
+              data-tag="goal"
+              data-prio={priority ?? undefined}
+              role={goalClickable ? 'button' : undefined}
+              tabIndex={goalClickable ? 0 : undefined}
+              title={priority ? `Goal · ${goalTitle} · priority ${priority}` : `Goal · ${goalTitle}`}
+              onClick={goalClickable
+                ? (e) => { e.stopPropagation(); onGoalClick!(goalId!); }
+                : undefined}
+              onKeyDown={goalClickable
+                ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onGoalClick!(goalId!);
+                    }
+                  }
+                : undefined}
+            >
+              {goalTitle}
+            </span>
+          )}
+          {stepTitle && (
+            <span className="kc-tag" data-tag="step" title={`Step · ${stepTitle}`}>{stepTitle}</span>
+          )}
+        </div>
+      )}
       <div className="kc-child-row">
-        {priority && (
-          <span className="kc-tag" data-tag={`prio-${priority}`} title={`Priority · ${priority}`}>
-            {priority}
-          </span>
-        )}
-        {goalTitle && (
-          <span className="kc-tag" data-tag="goal" title={`Goal · ${goalTitle}`}>{goalTitle}</span>
-        )}
-        {stepTitle && (
-          <span className="kc-tag" data-tag="step" title={`Step · ${stepTitle}`}>{stepTitle}</span>
-        )}
         <span className="kc-child-name">{go.title}</span>
       </div>
       {(valueLabel || dueLabel || note) && (
