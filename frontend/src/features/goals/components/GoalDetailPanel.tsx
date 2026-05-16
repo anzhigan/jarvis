@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Trash2, Calendar, Flag, Tag as TagIcon, Box, Check, X } from 'lucide-react';
-import { Button, Drawer, Input } from '../../../components/ui';
+import { Trash2, Calendar, Flag, Tag as TagIcon, Box, Check } from 'lucide-react';
+import { Button, DateInput, Drawer, Input } from '../../../components/ui';
 import type { Task, TaskPriority, TaskStatus } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
 
@@ -50,8 +50,8 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }:
   };
   const onStatus   = (s: TaskStatus)   => library.updateGoal(goal.id, { status: s });
   const onPriority = (p: TaskPriority) => library.updateGoal(goal.id, { priority: p });
-  const onDue = (e: React.ChangeEvent<HTMLInputElement>) =>
-    library.updateGoal(goal.id, { due_date: e.target.value || null });
+  const onDue = (next: string) =>
+    library.updateGoal(goal.id, { due_date: next || null });
 
   const onDelete = async () => {
     if (!window.confirm(`Delete "${goal.title}"? This cannot be undone.`)) return;
@@ -146,27 +146,8 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }:
 
       <div className="ui-field-row">
         <span className="label"><Calendar size={11} /> Due</span>
-        <span className="value" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <input
-            type="date"
-            value={goal.due_date ?? ''}
-            onChange={onDue}
-            style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--ink)' }}
-          />
-          {goal.due_date && (
-            <button
-              type="button"
-              onClick={() => library.updateGoal(goal.id, { due_date: null })}
-              aria-label="Clear due date"
-              title="Clear due date"
-              style={{
-                background: 'transparent', border: 0, padding: 2, cursor: 'pointer',
-                color: 'var(--ink-4)', display: 'inline-flex', alignItems: 'center',
-              }}
-            >
-              <X size={11} />
-            </button>
-          )}
+        <span className="value" style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          <DateInput value={goal.due_date ?? ''} onChange={onDue} ariaLabel="Due date" />
         </span>
       </div>
       <div className="ui-field-row">

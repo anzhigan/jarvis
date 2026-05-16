@@ -1,5 +1,6 @@
-import { forwardRef } from 'react';
-import { X } from 'lucide-react';
+import { forwardRef, useMemo, useState } from 'react';
+import * as Popover from '@radix-ui/react-popover';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 type InputSize = 'sm' | 'md' | 'lg';
@@ -27,9 +28,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   );
 });
 
-/** Date input with an inline "clear" affordance. The `<input type=date>` UA
- *  chrome already varies between browsers; this wrapper gives one canonical
- *  way to reset start/due/etc. back to `null` without removing the field. */
+/** Custom date input with a popover calendar styled to the design system —
+ *  replaces the browser's native `<input type=date>` UA chrome (which differs
+ *  across platforms and is hard to mask). Empty state shows an italic "нет
+ *  даты" trigger; filled state shows the formatted date. X clears to null. */
 interface DateInputProps {
   value: string;
   onChange: (next: string) => void;
@@ -40,65 +42,167 @@ interface DateInputProps {
   disabled?: boolean;
 }
 
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const WEEKDAY_NAMES = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+function ymdStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function parseYmd(s: string): Date | null {
+  if (!s) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function fmtDateDisplay(s: string): string {
+  const d = parseYmd(s);
+  if (!d) return '';
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export function DateInput({ value, onChange, ariaLabel, min, max, disabled }: DateInputProps) {
   const empty = !value;
+  const [open, setOpen] = useState(false);
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-      <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
-        <Input
-          type="date"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-label={ariaLabel}
-          min={min}
-          max={max}
-          disabled={disabled}
-          containerClassName="flex-1"
-          data-empty={empty || undefined}
-        />
-        {empty && (
-          // Mask the browser's "dd.mm.yyyy" chrome with an explicit "no date"
-          // label so users see the field is intentionally null, not stuck on
-          // today. Pointer-events:none so the input still receives clicks.
-          <span
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: 10, top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--ink-5)',
-              fontStyle: 'italic',
-              fontSize: 'var(--text-sm)',
-              pointerEvents: 'none',
-              background: 'var(--bg-input)',
-              paddingRight: 6,
-            }}
+      <Popover.Root open={open} onOpenChange={setOpen}>
+        <Popover.Trigger asChild>
+          <button
+            type="button"
+            className="ui-date-trigger"
+            data-empty={empty || undefined}
+            disabled={disabled}
+            aria-label={ariaLabel ?? (empty ? 'Pick date' : 'Change date')}
           >
-            нет даты
-          </span>
-        )}
-      </div>
+            {empty ? 'нет даты' : fmtDateDisplay(value)}
+          </button>
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content
+            className="ui-cal-pop"
+            sideOffset={6}
+            align="start"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <CalendarMonth
+              value={value}
+              min={min}
+              max={max}
+              onPick={(s) => { onChange(s); setOpen(false); }}
+            />
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
       <button
         type="button"
         onClick={() => onChange('')}
         aria-label="Clear date"
         title="Clear date"
         disabled={disabled || empty}
-        style={{
-          flexShrink: 0,
-          width: 24, height: 24,
-          padding: 0,
-          background: 'transparent',
-          border: '1px solid var(--hairline)',
-          borderRadius: 'var(--r-control)',
-          color: 'var(--ink-4)',
-          cursor: empty ? 'default' : 'pointer',
-          opacity: empty ? 0.35 : 1,
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        }}
+        className="ui-date-clear"
       >
         <X size={11} />
       </button>
+    </div>
+  );
+}
+
+/** Single-month calendar grid. Weeks Mon-first; today gets a dot, selected
+ *  date gets the indigo fill. Out-of-month days are dimmed for orientation. */
+function CalendarMonth({
+  value, min, max, onPick,
+}: {
+  value: string;
+  min?: string;
+  max?: string;
+  onPick: (ymdString: string) => void;
+}) {
+  const selected = parseYmd(value);
+  const today = useMemo(() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0); return d;
+  }, []);
+  const minD = parseYmd(min ?? '');
+  const maxD = parseYmd(max ?? '');
+
+  const [view, setView] = useState(() => {
+    const anchor = selected ?? today;
+    return new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  });
+
+  // Build the 6-row grid starting from the Monday on/before the 1st of the month.
+  const cells = useMemo(() => {
+    const first = new Date(view.getFullYear(), view.getMonth(), 1);
+    // JS getDay: 0=Sun..6=Sat → shift so Mon=0..Sun=6
+    const offset = (first.getDay() + 6) % 7;
+    const start = new Date(first);
+    start.setDate(first.getDate() - offset);
+    const out: Date[] = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      out.push(d);
+    }
+    return out;
+  }, [view]);
+
+  const prevMonth = () => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1));
+  const nextMonth = () => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1));
+  const goToday = () => {
+    setView(new Date(today.getFullYear(), today.getMonth(), 1));
+    onPick(ymdStr(today));
+  };
+
+  return (
+    <div className="ui-cal">
+      <header className="ui-cal-head">
+        <button type="button" className="ui-cal-nav" onClick={prevMonth} aria-label="Previous month">
+          <ChevronLeft size={14} />
+        </button>
+        <div className="ui-cal-title">
+          {MONTH_NAMES[view.getMonth()]} {view.getFullYear()}
+        </div>
+        <button type="button" className="ui-cal-nav" onClick={nextMonth} aria-label="Next month">
+          <ChevronRight size={14} />
+        </button>
+      </header>
+      <div className="ui-cal-weekdays">
+        {WEEKDAY_NAMES.map((w) => <span key={w}>{w}</span>)}
+      </div>
+      <div className="ui-cal-grid">
+        {cells.map((d) => {
+          const outside = d.getMonth() !== view.getMonth();
+          const isToday = d.getTime() === today.getTime();
+          const isSelected = selected != null
+            && d.getFullYear() === selected.getFullYear()
+            && d.getMonth() === selected.getMonth()
+            && d.getDate() === selected.getDate();
+          const disabled = (minD && d < minD) || (maxD && d > maxD);
+          return (
+            <button
+              key={ymdStr(d)}
+              type="button"
+              className="ui-cal-cell"
+              data-outside={outside || undefined}
+              data-today={isToday || undefined}
+              data-selected={isSelected || undefined}
+              disabled={!!disabled}
+              onClick={() => onPick(ymdStr(d))}
+            >
+              {d.getDate()}
+            </button>
+          );
+        })}
+      </div>
+      <footer className="ui-cal-foot">
+        <button type="button" className="ui-cal-link" onClick={goToday}>Today</button>
+      </footer>
     </div>
   );
 }
