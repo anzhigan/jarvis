@@ -469,6 +469,8 @@ export default function GoalsView() {
               setTimeout(handlePlanDay, 0);
             }}
             shifted={editingGo !== null}
+            nonModal={editingGo !== null}
+            gos={gos.gos}
             onSlotClick={(kind, id) => {
               if (kind !== 'go') return;
               const found = gos.gos.find((g) => g.id === id);
@@ -531,6 +533,10 @@ export default function GoalsView() {
         go={editingGo}
         goals={goals.tasks}
         onOpenChange={(o) => { if (!o) setEditingGo(null); }}
+        // When opened from a Plan-day slot the plan drawer stays visible to
+        // the left — drop overlay/focus-trap so the user can still scroll it
+        // or click another slot.
+        nonModal={scheduleJobId !== null && scheduleDrawerOpen}
         // Refresh both: goals (per-goal go counts hydrated server-side) AND
         // gos (the dialog's `go` prop comes from this list — without refresh
         // the next-time-open shows stale data).

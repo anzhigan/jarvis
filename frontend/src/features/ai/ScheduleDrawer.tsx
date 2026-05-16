@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Drawer } from '../../components/ui';
 import type {
-  AIJob, ScheduleOutput, ScheduleSlot, ScheduleSlotKind, ScheduleSummary,
+  AIJob, Go, ScheduleOutput, ScheduleSlot, ScheduleSlotKind, ScheduleSummary,
 } from '../../api/types';
 import { useAIJob } from './useAIJob';
 import './ai.css';
@@ -14,8 +14,13 @@ interface Props {
   onRegenerate?: () => void;
   /** Fires when a slot's underlying source (currently only Gos) is clicked. */
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
+  /** Catalogue used to enrich Go-source slots — render them as Go subcards
+   *  (same visual language as the Kanban Go pills). */
+  gos?: Go[];
   /** When true, the drawer slides left to make room for a stacked drawer. */
   shifted?: boolean;
+  /** When true, the drawer is non-modal — no overlay, click-through to peers. */
+  nonModal?: boolean;
 }
 
 type ViewState =
@@ -31,10 +36,15 @@ const LOADING_STEPS = [
 ];
 
 export function ScheduleDrawer({
-  jobId, dateLabel, onClose, onRegenerate, onSlotClick, shifted,
+  jobId, dateLabel, onClose, onRegenerate, onSlotClick, shifted, nonModal, gos,
 }: Props) {
   const open = jobId !== null;
   const { job, error: pollError } = useAIJob(jobId);
+  const gosById = useMemo(() => {
+    const m = new Map<string, Go>();
+    for (const g of gos ?? []) m.set(g.id, g);
+    return m;
+  }, [gos]);
 
   const view: ViewState = useMemo(() => {
     if (pollError) return { kind: 'failed', error: pollError };
@@ -54,6 +64,7 @@ export function ScheduleDrawer({
       onOpenChange={(o) => { if (!o) onClose(); }}
       accent="goals"
       shifted={shifted}
+      nonModal={nonModal}
       title={view.kind === 'result' ? `Your day · ${dateLabel}` : 'Planning your day'}
       description={view.kind === 'result' && view.data.total_active_minutes
         ? `${Math.floor(view.data.total_active_minutes / 60)}h ${view.data.total_active_minutes % 60}m active`
@@ -82,7 +93,7 @@ export function ScheduleDrawer({
       {view.kind === 'result'  && (
         <>
           <SummaryCard summary={view.data.summary} />
-          <ResultView slots={view.data.slots} onSlotClick={onSlotClick} />
+          <ResultView slots={view.data.slots} onSlotClick={onSlotClick} gosById={gosById} />
         </>
       )}
     </Drawer>
@@ -176,10 +187,11 @@ const KIND_LABELS: Record<ScheduleSlotKind, string> = {
 };
 
 function ResultView({
-  slots, onSlotClick,
+  slots, onSlotClick, gosById,
 }: {
   slots: ScheduleSlot[];
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
+  gosById: Map<string, Go>;
 }) {
   if (slots.length === 0) {
     return (
@@ -197,7 +209,10 @@ function ResultView({
   return (
     <div className="ai-tl" data-mode={freeOrder ? 'free' : 'time'}>
       {slots.map((s, i) => {
-        const clickable = !!(onSlotClick && s.source_kind === 'go' && s.source_id);
+        const linkedGo = s.source_kind === 'go' && s.source_id
+          ? gosById.get(s.source_id) ?? null
+          : null;
+        const clickable = !!(onSlotClick && linkedGo);
         const body = (
           <>
             <div className="ai-tl__time">
@@ -209,11 +224,17 @@ function ResultView({
             </div>
             <span className="ai-tl__dot" />
             <div className="ai-tl__body">
-              <div className="ai-tl__title-row">
-                <h4 className="ai-tl__title">{s.title}</h4>
-                <span className="ai-tl__kind">{KIND_LABELS[s.kind] || s.kind}</span>
-              </div>
-              {s.note && <p className="ai-tl__note">{s.note}</p>}
+              {linkedGo ? (
+                <GoSubcardInline go={linkedGo} note={s.note} />
+              ) : (
+                <>
+                  <div className="ai-tl__title-row">
+                    <h4 className="ai-tl__title">{s.title}</h4>
+                    <span className="ai-tl__kind">{KIND_LABELS[s.kind] || s.kind}</span>
+                  </div>
+                  {s.note && <p className="ai-tl__note">{s.note}</p>}
+                </>
+              )}
             </div>
           </>
         );
@@ -223,7 +244,7 @@ function ResultView({
             className="ai-tl__slot ai-tl__slot--clickable"
             key={i}
             data-kind={s.kind}
-            onClick={() => onSlotClick!('go', s.source_id!)}
+            onClick={() => onSlotClick!('go', linkedGo!.id)}
             title="Open Go"
           >
             {body}
@@ -234,6 +255,42 @@ function ResultView({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Renders a Go inside a plan-day slot using the same visual language as the
+ *  Kanban Go subcard (`.kc-child[data-kind="go"]`). The plan's note becomes
+ *  the meta line under the title/kind row. */
+function GoSubcardInline({ go, note }: { go: Go; note: string }) {
+  const due = go.due_date ? new Date(go.due_date) : null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const overdue = !!(due && !go.is_done_today && due < today);
+  const valueLabel = go.kind === 'numeric' && go.target_value
+    ? `${go.target_value}${go.unit ? ' ' + go.unit : ''}`
+    : null;
+  const dueLabel = due
+    ? due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : null;
+  return (
+    <div className="kc-child" data-kind="go" data-done={go.is_done_today || undefined}>
+      <div className="kc-child-row">
+        <span className="kc-child-pill">{go.kind === 'numeric' ? 'Numeric' : 'Go'}</span>
+        <span className="kc-child-name">{go.title}</span>
+      </div>
+      {(valueLabel || dueLabel || note) && (
+        <div className="kc-child-meta">
+          {valueLabel && <span>target {valueLabel}</span>}
+          {valueLabel && dueLabel && <span className="sep">·</span>}
+          {dueLabel && (
+            <span className={overdue ? 'overdue' : undefined}>
+              due {dueLabel}{overdue ? ' · overdue' : ''}
+            </span>
+          )}
+          {note && (valueLabel || dueLabel) && <span className="sep">·</span>}
+          {note && <span style={{ color: 'var(--ink-4)' }}>{note}</span>}
+        </div>
+      )}
     </div>
   );
 }

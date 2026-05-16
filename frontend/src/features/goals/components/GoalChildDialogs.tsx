@@ -887,9 +887,12 @@ interface GoEditProps {
   goals: Task[];
   onOpenChange: (open: boolean) => void;
   onSaved: () => Promise<void> | void;
+  /** When opened alongside another drawer (e.g. Plan-day), skip the overlay
+   *  so the peer drawer remains visible and clickable. */
+  nonModal?: boolean;
 }
 
-export function GoEditDialog({ go, goals, onOpenChange, onSaved }: GoEditProps) {
+export function GoEditDialog({ go, goals, onOpenChange, onSaved, nonModal }: GoEditProps) {
   const [title, setTitle]             = useState('');
   const [description, setDescription] = useState('');
   const [kind, setKind]               = useState<GoKind>('boolean');
@@ -973,6 +976,7 @@ export function GoEditDialog({ go, goals, onOpenChange, onSaved }: GoEditProps) 
       open={go !== null}
       onOpenChange={onOpenChange}
       accent="goals"
+      nonModal={nonModal}
       title="Edit go"
       description="Update fields — or delete the go."
       footer={
