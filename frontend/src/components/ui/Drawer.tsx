@@ -23,6 +23,9 @@ interface DrawerProps {
   /** Skip the overlay, drop the focus trap and ignore outside clicks. Use for
    *  every drawer in a stack so they don't shadow each other or the page. */
   nonModal?: boolean;
+  /** Render a wider drawer (560px instead of 440px). For content-heavy
+   *  panels like the Plan-day list where slots benefit from breathing room. */
+  wide?: boolean;
 }
 
 /**
@@ -34,7 +37,7 @@ interface DrawerProps {
  */
 export function Drawer({
   open, onOpenChange, title, description, children, footer, accent, hideTitle, className,
-  shifted, nonModal,
+  shifted, nonModal, wide,
 }: DrawerProps) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange} modal={!nonModal}>
@@ -44,6 +47,7 @@ export function Drawer({
           className={cn('ui-drawer', className)}
           data-accent={accent}
           data-shifted={shifted || undefined}
+          data-wide={wide || undefined}
           // Non-modal drawers must not auto-dismiss on outside clicks —
           // those clicks belong to another panel in the stack.
           onPointerDownOutside={nonModal ? (e) => e.preventDefault() : undefined}

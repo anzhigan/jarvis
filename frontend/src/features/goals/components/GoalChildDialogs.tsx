@@ -292,7 +292,7 @@ export function RoutineCreateForGoalDialog({ open, onOpenChange, taskId, goals }
       await routinesApi.createLink({
         goal_id: taskId,
         routine_id: routine.id,
-        start_date: start,
+        start_date: start || ymd(new Date()),
         end_date: end || null,
       });
       await goals.refresh();

@@ -334,7 +334,7 @@ export interface ScheduleSlot {
   end_time: string;
   kind: ScheduleSlotKind;
   title: string;
-  source_kind: 'go' | 'task' | 'routine' | null;
+  source_kind: 'go' | 'goal' | 'task' | 'routine' | null;
   source_id: string | null;
   note: string;
 }

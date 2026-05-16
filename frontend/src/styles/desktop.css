@@ -410,8 +410,11 @@
 }
 .ui-drawer[data-state="closed"] { animation: ui-drawer-out var(--dur-fast) var(--ease); }
 /* Shifted: a second drawer is stacked to the right, so slide left by one
-   drawer-width to sit side-by-side without overlapping. */
+   drawer-width (the secondary drawer's width is always the 440px default). */
 .ui-drawer[data-shifted] { right: min(440px, calc(100vw - 48px)); }
+/* Wide variant — content-heavy drawers (e.g. Plan day) need more horizontal
+   room than the standard 440px detail panel. */
+.ui-drawer[data-wide] { width: min(560px, calc(100vw - 48px)); }
 @keyframes ui-drawer-in  { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes ui-drawer-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
 

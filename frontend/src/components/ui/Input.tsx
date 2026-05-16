@@ -41,24 +41,49 @@ interface DateInputProps {
 }
 
 export function DateInput({ value, onChange, ariaLabel, min, max, disabled }: DateInputProps) {
+  const empty = !value;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <Input
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={ariaLabel}
-        min={min}
-        max={max}
-        disabled={disabled}
-        containerClassName="flex-1"
-      />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+      <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
+        <Input
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label={ariaLabel}
+          min={min}
+          max={max}
+          disabled={disabled}
+          containerClassName="flex-1"
+          data-empty={empty || undefined}
+        />
+        {empty && (
+          // Mask the browser's "dd.mm.yyyy" chrome with an explicit "no date"
+          // label so users see the field is intentionally null, not stuck on
+          // today. Pointer-events:none so the input still receives clicks.
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: 10, top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--ink-5)',
+              fontStyle: 'italic',
+              fontSize: 'var(--text-sm)',
+              pointerEvents: 'none',
+              background: 'var(--bg-input)',
+              paddingRight: 6,
+            }}
+          >
+            нет даты
+          </span>
+        )}
+      </div>
       <button
         type="button"
         onClick={() => onChange('')}
         aria-label="Clear date"
         title="Clear date"
-        disabled={disabled || !value}
+        disabled={disabled || empty}
         style={{
           flexShrink: 0,
           width: 24, height: 24,
@@ -67,8 +92,8 @@ export function DateInput({ value, onChange, ariaLabel, min, max, disabled }: Da
           border: '1px solid var(--hairline)',
           borderRadius: 'var(--r-control)',
           color: 'var(--ink-4)',
-          cursor: value ? 'pointer' : 'default',
-          opacity: value ? 1 : 0.35,
+          cursor: empty ? 'default' : 'pointer',
+          opacity: empty ? 0.35 : 1,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         }}
       >

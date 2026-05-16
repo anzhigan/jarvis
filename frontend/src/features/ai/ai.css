@@ -567,6 +567,34 @@
   width: 1px;
   background: var(--hairline);
 }
+/* Each slot row in the plan is wrapped with a tiny drag handle on the left.
+   Handle is hidden until hover so it doesn't compete with the slot's title. */
+.ai-tl__slot-wrap {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: stretch;
+  gap: 4px;
+}
+.ai-tl__slot-wrap[data-dragging] { z-index: 10; }
+.ai-tl__handle {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--ink-5);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+  align-self: center;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px;
+  border-radius: var(--r-control);
+  touch-action: none;
+}
+.ai-tl__slot-wrap:hover .ai-tl__handle,
+.ai-tl__slot-wrap:focus-within .ai-tl__handle { opacity: 0.7; }
+.ai-tl__handle:hover { opacity: 1 !important; color: var(--ink-3); }
+.ai-tl__handle:active { cursor: grabbing; }
+
 .ai-tl__slot {
   display: grid;
   grid-template-columns: 50px 14px 1fr;
