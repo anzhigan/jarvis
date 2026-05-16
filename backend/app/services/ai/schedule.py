@@ -218,8 +218,11 @@ Build:
 
 2. `slots` — what to do today.
    {mode_intro}
+   Every slot MUST include a non-empty `title` (even for break/lunch — e.g.
+   "Lunch break", "Coffee").
    For each work slot, set source_kind="go" + source_id to the Go's id.
-   For breaks/lunch (time-blocked mode only), omit both.
+   For breaks/lunch (time-blocked mode only), set source_kind=null and
+   source_id=null.
    In `note` (1 line) explain WHY this item now — overdue / unblocks step X /
    continues yesterday's chain / etc.
 
@@ -263,11 +266,24 @@ def _parse_output(raw: str) -> dict:
         raise ValueError("'slots' must be an array")
 
     slots: list[ScheduleSlot] = []
-    for i, s in enumerate(slots_raw):
+    for s in slots_raw:
+        if not isinstance(s, dict):
+            continue
+        # Backfill self-describing kinds when the model forgets a title — we'd
+        # rather show a generic-labelled lunch/break than discard a whole day.
+        if not s.get("title"):
+            kind = (s.get("kind") or "").lower()
+            if kind == "lunch":
+                s["title"] = "Lunch"
+            elif kind == "break":
+                s["title"] = "Break"
+        # Normalise any unexpected kind into "other" so the regex doesn't bite.
+        if s.get("kind") not in {"goal", "routine", "admin", "break", "lunch", "deep_work", "other"}:
+            s["kind"] = "other"
         try:
             slots.append(ScheduleSlot.model_validate(s))
-        except ValidationError as e:
-            raise ValueError(f"slot {i} fails schema: {e.errors()[:2]}") from e
+        except ValidationError:
+            continue
 
     # Sort by start_time; light post-processing.
     slots.sort(key=lambda s: s.start_time)
