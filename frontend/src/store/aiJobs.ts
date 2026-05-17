@@ -30,6 +30,10 @@ export interface BgAIJob {
   /** Bumped (ms timestamp) when the user re-triggers the same kind while it
    *  is still in flight — the toast watches this to play a shake animation. */
   bumpedAt?: number;
+  /** User X'd the bottom toast for this job. Soft dismissal — the job stays
+   *  in the AI tasks panel; only the toast slot is hidden. Re-triggering via
+   *  `bump` (or a fresh `add`) clears the flag so the toast can reappear. */
+  hideFromToast?: boolean;
 }
 
 interface State {
@@ -51,22 +55,26 @@ interface State {
   /** Replace the entire queue. Used to rehydrate from the backend on boot so
    *  refreshing the page doesn't drop the user's in-flight / recent jobs. */
   hydrate: (jobs: BgAIJob[]) => void;
+  /** Soft dismiss for the bottom toast — keeps the job in the panel. Cleared
+   *  on the next `bump` so re-triggering revives the toast. */
+  dismissToast: (jobId: string) => void;
 }
 
 export const useAIJobsStore = create<State>((set, get) => ({
   jobs: [],
   add: (job) => set((s) => {
     // De-dupe: a single job id may be re-added if the user toggles drawer
-    // open/closed several times. Latest source info wins.
+    // open/closed several times. Latest source info wins. A fresh add also
+    // un-dismisses the toast — re-triggering should bring it back.
     const idx = s.jobs.findIndex((j) => j.jobId === job.jobId);
     if (idx >= 0) {
       const next = s.jobs.slice();
-      next[idx] = { ...next[idx], ...job };
+      next[idx] = { ...next[idx], ...job, hideFromToast: false };
       return { jobs: next };
     }
     // Append to the tail — the head is the "currently visible" toast and
     // shouldn't be replaced just because a new background job spun up.
-    return { jobs: [...s.jobs, job] };
+    return { jobs: [...s.jobs, { ...job, hideFromToast: false }] };
   }),
   remove: (jobId) => set((s) => ({ jobs: s.jobs.filter((j) => j.jobId !== jobId) })),
   has: (jobId) => get().jobs.some((j) => j.jobId === jobId),
@@ -78,7 +86,16 @@ export const useAIJobsStore = create<State>((set, get) => ({
     const idx = s.jobs.findIndex((j) => j.jobId === jobId);
     if (idx < 0) return s;
     const next = s.jobs.slice();
-    next[idx] = { ...next[idx], bumpedAt: Date.now() };
+    // Re-trigger revives the toast (in case it was previously X'd) and
+    // animates with the fresh timestamp.
+    next[idx] = { ...next[idx], bumpedAt: Date.now(), hideFromToast: false };
+    return { jobs: next };
+  }),
+  dismissToast: (jobId) => set((s) => {
+    const idx = s.jobs.findIndex((j) => j.jobId === jobId);
+    if (idx < 0) return s;
+    const next = s.jobs.slice();
+    next[idx] = { ...next[idx], hideFromToast: true };
     return { jobs: next };
   }),
   hydrate: (jobs) => set((s) => {
@@ -110,4 +127,15 @@ export interface AIJobOpenDetail {
 
 export function dispatchOpenAIJob(detail: AIJobOpenDetail): void {
   window.dispatchEvent(new CustomEvent<AIJobOpenDetail>(AI_JOB_OPEN_EVENT, { detail }));
+}
+
+/**
+ * Fired by a view when it closes an AI-job drawer (quiz / schedule / etc.).
+ * AIToastStack listens so that "panel → pick job → close" returns the user
+ * to the panel they came from instead of stranding them in an empty section.
+ */
+export const AI_JOB_DRAWER_CLOSED_EVENT = 'jarvnote:closedAIJob';
+
+export function dispatchAIJobDrawerClosed(jobId: string): void {
+  window.dispatchEvent(new CustomEvent<string>(AI_JOB_DRAWER_CLOSED_EVENT, { detail: jobId }));
 }

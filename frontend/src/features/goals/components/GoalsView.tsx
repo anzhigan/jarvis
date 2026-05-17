@@ -9,7 +9,12 @@ const ScheduleDrawer = lazy(() => import('../../ai/ScheduleDrawer').then((m) => 
 import { useGoals } from '../hooks/useGoals';
 import { useGos } from '../hooks/useGos';
 import { useGoalsView, type GoalsViewMode } from '../hooks/useGoalsView';
-import { useAIJobsStore, AI_JOB_OPEN_EVENT, type AIJobOpenDetail } from '../../../store/aiJobs';
+import {
+  AI_JOB_OPEN_EVENT,
+  dispatchAIJobDrawerClosed,
+  useAIJobsStore,
+  type AIJobOpenDetail,
+} from '../../../store/aiJobs';
 import { GoalsBoard } from './GoalsBoard';
 import { GoView } from './GoView';
 import { GoalDetailPanel } from './GoalDetailPanel';
@@ -112,6 +117,9 @@ export default function GoalsView() {
         kind: 'schedule',
         source: { section: 'goals' },
       });
+      // Lets AIToastStack reopen its panel if the user originally launched
+      // this drawer from there.
+      dispatchAIJobDrawerClosed(scheduleJobId);
     }
   }, [scheduleJobId, addBgJob]);
 

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { aiApi } from '../../api/client';
 import type { AIJobBrief, AIJobKind, AIJobStatus } from '../../api/types';
 import {
+  AI_JOB_DRAWER_CLOSED_EVENT,
   dispatchOpenAIJob,
   useAIJobsStore,
   type AIJobSource,
@@ -69,11 +70,17 @@ export function AIToastStack() {
   const jobs = useAIJobsStore((s) => s.jobs);
   const remove = useAIJobsStore((s) => s.remove);
   const hydrate = useAIJobsStore((s) => s.hydrate);
+  const dismissToast = useAIJobsStore((s) => s.dismissToast);
   const [panelOpen, setPanelOpen] = useState(false);
   // Per-job status snapshot, refreshed at the stack level. Used only to
   // split jobs into "working" vs "completed" sub-toasts — each toast still
   // polls its own live status via useAIJob for the elapsed/progress UI.
   const [statusMap, setStatusMap] = useState<Map<string, AIJobStatus>>(new Map());
+  // When the user opens a job from the panel, we close the panel so the
+  // drawer can take over the right side. This ref remembers that the panel
+  // *should* reappear once the drawer closes (otherwise navigation feels
+  // like a one-way trip).
+  const reopenPanelAfterCloseRef = useRef<string | null>(null);
 
   // Rehydrate from the backend on boot so refreshing the page doesn't lose
   // in-flight / recent jobs (the store is in-memory). Failures are silent
@@ -133,6 +140,20 @@ export function AIToastStack() {
     return { workingJobs: working, completedJobs: completed };
   }, [jobs, statusMap]);
 
+  // Reopen the panel once the user closes the drawer they had picked from it.
+  // Listens for the `AI_JOB_DRAWER_CLOSED_EVENT` fired by view components.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const jobId = (e as CustomEvent<string>).detail;
+      if (reopenPanelAfterCloseRef.current && reopenPanelAfterCloseRef.current === jobId) {
+        reopenPanelAfterCloseRef.current = null;
+        setPanelOpen(true);
+      }
+    };
+    window.addEventListener(AI_JOB_DRAWER_CLOSED_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_DRAWER_CLOSED_EVENT, handler);
+  }, []);
+
   const openSourceDrawer = useCallback((job: BgAIJob) => {
     // 1. Switch to the source section if we're not there.
     window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: job.source.section }));
@@ -157,15 +178,23 @@ export function AIToastStack() {
   }, [jobs.length]);
 
   const handlePickFromPanel = useCallback((job: BgAIJob) => {
+    // Remember the source so closing the drawer reopens the panel.
+    reopenPanelAfterCloseRef.current = job.jobId;
     setPanelOpen(false);
     openSourceDrawer(job);
   }, [openSourceDrawer]);
 
-  /** Dismiss a job from the UI only — never cancels the backend job.
-   *  In-flight work continues; the result lands in cache and the next
-   *  re-trigger picks it up. Dismissals are persisted to localStorage so
-   *  the rehydrate-on-reload doesn't bring them back. */
-  const handleDismiss = useCallback((jobId: string) => {
+  /** Toast X — soft dismissal. The job stays in the AI tasks panel; only
+   *  the bottom toast slot is hidden. Re-triggering via `bump` brings the
+   *  toast back. Backend work is never cancelled. */
+  const handleDismissToast = useCallback((jobId: string) => {
+    dismissToast(jobId);
+  }, [dismissToast]);
+
+  /** Panel X — full dismissal. Removes the job from the store entirely and
+   *  persists the id to localStorage so rehydrate-on-reload doesn't bring
+   *  it back. Backend work is never cancelled. */
+  const handleDismissFully = useCallback((jobId: string) => {
     remove(jobId);
     const dismissed = loadDismissed();
     dismissed.add(jobId);
@@ -173,10 +202,10 @@ export function AIToastStack() {
   }, [remove]);
 
   if (jobs.length === 0) return null;
-  // Each sub-toast surfaces the head of its category. The capsule (queueCount)
-  // shows the total count of that category — "+N" means N more behind the head.
-  const workingHead = workingJobs[0];
-  const completedHead = completedJobs[0];
+  // Toast slots show the head of their category, skipping jobs the user
+  // soft-dismissed from the toast. The panel still lists those jobs.
+  const workingHead = workingJobs.find((j) => !j.hideFromToast);
+  const completedHead = completedJobs.find((j) => !j.hideFromToast);
 
   return (
     <>
@@ -189,7 +218,7 @@ export function AIToastStack() {
               bumpedAt={workingHead.bumpedAt}
               queueCount={workingJobs.length - 1}
               onOpen={handleToastClick}
-              onDismiss={() => handleDismiss(workingHead.jobId)}
+              onDismiss={() => handleDismissToast(workingHead.jobId)}
             />
           )}
           {completedHead && (
@@ -199,7 +228,7 @@ export function AIToastStack() {
               bumpedAt={completedHead.bumpedAt}
               queueCount={completedJobs.length - 1}
               onOpen={handleToastClick}
-              onDismiss={() => handleDismiss(completedHead.jobId)}
+              onDismiss={() => handleDismissToast(completedHead.jobId)}
             />
           )}
         </div>
@@ -209,7 +238,7 @@ export function AIToastStack() {
         onOpenChange={setPanelOpen}
         jobs={jobs}
         onPickJob={handlePickFromPanel}
-        onDismissJob={handleDismiss}
+        onDismissJob={handleDismissFully}
       />
     </>
   );

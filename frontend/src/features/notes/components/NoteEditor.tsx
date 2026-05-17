@@ -10,7 +10,12 @@ import type { Note } from '../../../api/types';
 import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
 import { AIMenuTrigger } from '../../ai/AIMenuTrigger';
 import { aiApi } from '../../../api/client';
-import { useAIJobsStore, AI_JOB_OPEN_EVENT, type AIJobOpenDetail } from '../../../store/aiJobs';
+import {
+  AI_JOB_OPEN_EVENT,
+  dispatchAIJobDrawerClosed,
+  useAIJobsStore,
+  type AIJobOpenDetail,
+} from '../../../store/aiJobs';
 
 // Tiptap is heavy (~280 KB gzip). Lazy-load only when a note is opened.
 const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
@@ -660,6 +665,9 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
           noteTitle: note.name || 'untitled',
         },
       });
+      // Lets AIToastStack reopen its panel if the user originally launched
+      // this drawer from there.
+      dispatchAIJobDrawerClosed(quizJobId);
     }
   }, [quizJobId, note, addBgJob]);
 

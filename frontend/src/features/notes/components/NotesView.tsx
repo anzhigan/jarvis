@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { aiApi } from '../../../api/client';
 import {
   AI_JOB_OPEN_EVENT,
+  dispatchAIJobDrawerClosed,
   useAIJobsStore,
   type AIJobOpenDetail,
 } from '../../../store/aiJobs';
@@ -127,6 +128,9 @@ export default function NotesView() {
         kind: 'quiz',
         source: { section: 'notes', noteTitle: 'all notes' },
       });
+      // Lets AIToastStack reopen its panel if the user originally launched
+      // this drawer from there.
+      dispatchAIJobDrawerClosed(multiQuizJobId);
     }
   }, [multiQuizJobId, addBgJob]);
 
