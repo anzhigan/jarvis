@@ -683,14 +683,14 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     setLocalTitle(note?.name ?? '');
   }, [note?.id, note?.name]);
 
-  // Switching notes — background the currently-open quiz drawer (if any)
-  // BEFORE clearing local state, so the job survives in the global toast
-  // stack.
+  // Switching notes — just clear local drawer state. The job itself is
+  // already in the global bg-store with the CORRECT noteId (added in
+  // handleAIAction at start time); pushing it again here would overwrite
+  // that with `note.id`, which by this point points at the NEW note and
+  // would make `findSame` falsely match every future quiz on that target.
   useEffect(() => {
-    if (quizJobId && note) {
-      addBgJob({ jobId: quizJobId, kind: 'quiz', source: { section: 'notes', noteId: note.id } });
-    }
     setQuizJobId(null);
+    setQuizJobNoteId(null);
     setDrawerOpen(false);
     setQuizError(null);
     // Only run on note id change.
