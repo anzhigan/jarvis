@@ -456,6 +456,7 @@ export const sprintsApi = {
 // ═══════════════════════════════════════════════════════════════════════════
 import type {
   AIJob,
+  AIJobBrief,
   AIQuiz,
   InsightsCreate,
   QuizAttempt,
@@ -471,6 +472,11 @@ export const aiApi = {
     request<AIJob>('/ai/quiz', { method: 'POST', body: JSON.stringify(body) }),
 
   getJob: (jobId: string) => request<AIJob>(`/ai/jobs/${jobId}`),
+
+  /** Recent jobs for the current user — used to rehydrate the AI-jobs
+   *  sidebar after a page reload. */
+  listJobs: (limit = 30) =>
+    request<AIJobBrief[]>(`/ai/jobs?limit=${limit}`),
 
   cancelJob: (jobId: string) =>
     request<AIJob>(`/ai/jobs/${jobId}/cancel`, { method: 'POST' }),

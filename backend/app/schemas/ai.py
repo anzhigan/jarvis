@@ -34,14 +34,19 @@ class AIJobOut(BaseModel):
 
 
 class AIJobBrief(BaseModel):
-    """Lightweight projection for history list — strips input/output to save bytes."""
+    """Projection for the AI jobs sidebar — drops the model's heavy
+    `output_json` but keeps `input_json` so the UI can derive the source
+    (note id/title etc.) for rehydration after a page reload."""
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     kind: str
     status: str
     error: str | None = None
+    eta_seconds: int | None = None
+    input_json: dict[str, Any] | None = None
     created_at: datetime
+    started_at: datetime | None = None
     finished_at: datetime | None = None
 
 

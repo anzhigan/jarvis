@@ -48,6 +48,9 @@ interface State {
   /** Re-trigger of the same kind: punch the existing toast (shake) instead of
    *  enqueueing another. Idempotent — the toast keys off the latest timestamp. */
   bump: (jobId: string) => void;
+  /** Replace the entire queue. Used to rehydrate from the backend on boot so
+   *  refreshing the page doesn't drop the user's in-flight / recent jobs. */
+  hydrate: (jobs: BgAIJob[]) => void;
 }
 
 export const useAIJobsStore = create<State>((set, get) => ({
@@ -77,6 +80,14 @@ export const useAIJobsStore = create<State>((set, get) => ({
     const next = s.jobs.slice();
     next[idx] = { ...next[idx], bumpedAt: Date.now() };
     return { jobs: next };
+  }),
+  hydrate: (jobs) => set((s) => {
+    // Keep any in-memory entries the user added during this session that
+    // the server hasn't returned yet (race during boot). Server is the
+    // source of truth for everything else.
+    const serverIds = new Set(jobs.map((j) => j.jobId));
+    const localOnly = s.jobs.filter((j) => !serverIds.has(j.jobId));
+    return { jobs: [...jobs, ...localOnly] };
   }),
 }));
 
