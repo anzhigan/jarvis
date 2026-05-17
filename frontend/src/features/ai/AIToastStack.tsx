@@ -1,21 +1,20 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { dispatchOpenAIJob, useAIJobsStore, type BgAIJob } from '../../store/aiJobs';
 import { AIGenerationToast } from './AIGenerationToast';
+import { AIJobsPanel } from './AIJobsPanel';
 
 /**
  * Mounted at the app shell level (outside DesktopApp's section routing) so it
- * survives navigation between Notes/Goals/Analysis. Reads all backgrounded AI
- * jobs from the global store and renders just the HEAD of the queue as a
- * single toast; pending jobs surface as a "+N" badge on the same toast.
- *
- * Click anywhere on the toast → navigates to the source section + dispatches a
- * custom event the target view listens for to reopen the right drawer.
+ * survives navigation between Notes/Goals/Analysis. Renders the head of the
+ * queue as a single toast with a "+N" badge; tapping the toast opens a panel
+ * listing every backgrounded job, from which the user can pick one to reopen.
  */
 export function AIToastStack() {
   const jobs = useAIJobsStore((s) => s.jobs);
   const remove = useAIJobsStore((s) => s.remove);
+  const [panelOpen, setPanelOpen] = useState(false);
 
-  const handleOpen = useCallback((job: BgAIJob) => {
+  const openSourceDrawer = useCallback((job: BgAIJob) => {
     // 1. Switch to the source section if we're not there.
     window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: job.source.section }));
     // 2. If this job belongs to a specific note, also select that note in the
@@ -32,21 +31,39 @@ export function AIToastStack() {
     }, 80);
   }, [remove]);
 
+  const handleToastClick = useCallback(() => {
+    // Always open the queue panel — even with one job the user sees full
+    // status (elapsed, error message) before deciding to open it.
+    if (jobs.length > 0) setPanelOpen(true);
+  }, [jobs.length]);
+
+  const handlePickFromPanel = useCallback((job: BgAIJob) => {
+    setPanelOpen(false);
+    openSourceDrawer(job);
+  }, [openSourceDrawer]);
+
   if (jobs.length === 0) return null;
-  // Head of the queue is the only toast actually rendered — keeps the bottom
-  // corner uncluttered. Pending jobs are surfaced via the queueCount badge.
   const head = jobs[0];
 
   return (
-    <div className="ai-toast-stack">
-      <AIGenerationToast
-        key={head.jobId}
-        jobId={head.jobId}
-        bumpedAt={head.bumpedAt}
-        queueCount={jobs.length - 1}
-        onOpen={() => handleOpen(head)}
-        onDismiss={() => remove(head.jobId)}
+    <>
+      <div className="ai-toast-stack">
+        <AIGenerationToast
+          key={head.jobId}
+          jobId={head.jobId}
+          bumpedAt={head.bumpedAt}
+          queueCount={jobs.length - 1}
+          onOpen={handleToastClick}
+          onDismiss={() => remove(head.jobId)}
+        />
+      </div>
+      <AIJobsPanel
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        jobs={jobs}
+        onPickJob={handlePickFromPanel}
+        onDismissJob={remove}
       />
-    </div>
+    </>
   );
 }

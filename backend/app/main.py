@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.core.database import engine
+from app.core.database import AsyncSessionLocal, engine
 from app.core.logging import request_id_var, setup_logging
 from app.core.middleware import request_context_middleware
 from app.core.rate_limit import limiter
@@ -33,6 +33,24 @@ async def lifespan(app: FastAPI):
         ensure_bucket_exists()
     except Exception as e:
         logger.warning("S3 bucket check failed: %s", e)
+
+    # Reap orphaned AI jobs. Any row left in queued/running at boot is a
+    # ghost: the BackgroundTask that owned it died with the previous process
+    # (restart, OOM, crash). Mark them failed so the UI doesn't show
+    # zombie "running" forever and the cache key won't accidentally hit
+    # a never-finishing job.
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(text(
+                "UPDATE ai_jobs SET status='failed', "
+                "error='abandoned (api restart)', finished_at=NOW() "
+                "WHERE status IN ('queued','running')",
+            ))
+            await db.commit()
+            if result.rowcount:
+                logger.warning("startup: reaped %d orphaned ai_jobs", result.rowcount)
+    except Exception:  # noqa: BLE001 — boot-time cleanup mustn't block startup
+        logger.exception("startup: ai_jobs reap failed (continuing anyway)")
 
     # Background AI pre-compute (Phase 8). Long-running asyncio task that
     # wakes once a day to generate tomorrow's predictable artefacts (today's

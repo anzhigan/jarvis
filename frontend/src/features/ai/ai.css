@@ -1215,6 +1215,101 @@ button.ai-tl__slot:focus-visible {
   align-items: center;
   gap: 6px;
 }
+/* ─── AI jobs panel (opened by tapping the toast) ─────────────────────── */
+
+.ai-jobs-list {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.ai-jobs-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+}
+.ai-jobs-row:hover { background: var(--cream); border-color: var(--hairline-strong); }
+.ai-jobs-row[data-state="done"]   { border-color: var(--moss); }
+.ai-jobs-row[data-state="failed"] { border-color: var(--rust); }
+.ai-jobs-row__main {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+.ai-jobs-row__icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.ai-jobs-row[data-state="done"]   .ai-jobs-row__icon { background: var(--moss-soft); color: var(--moss); }
+.ai-jobs-row[data-state="failed"] .ai-jobs-row__icon { background: var(--rust-soft); color: var(--rust); }
+.ai-jobs-row__icon[data-pulsing] { animation: ai-pulse 2.4s ease-in-out infinite; }
+.ai-jobs-row__body {
+  display: flex; flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ai-jobs-row__title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--ink);
+}
+.ai-jobs-row__sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  display: inline-flex; align-items: center; gap: 4px;
+  flex-wrap: wrap;
+}
+.ai-jobs-row__status {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.ai-jobs-row__status[data-tone="done"]    { color: var(--moss); }
+.ai-jobs-row__status[data-tone="failed"]  { color: var(--rust); }
+.ai-jobs-row__status[data-tone="pending"] { color: var(--indigo); }
+.ai-jobs-row__sep { color: var(--ink-5); }
+.ai-jobs-row__elapsed { font-variant-numeric: tabular-nums; }
+.ai-jobs-row__err {
+  color: var(--rust);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.ai-jobs-row__dismiss {
+  width: 32px;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--hairline-faint);
+  color: var(--ink-4);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.ai-jobs-row__dismiss:hover { background: var(--cream); color: var(--ink-2); }
+
 /* "+N" pill for jobs queued behind the head one. */
 .ai-toast__queue {
   font-family: var(--font-mono);
