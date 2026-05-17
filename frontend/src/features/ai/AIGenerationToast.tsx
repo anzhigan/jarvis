@@ -8,6 +8,11 @@ interface Props {
   jobId: string;
   /** Re-trigger timestamp from the store. Triggers a shake when it increments. */
   bumpedAt?: number;
+  /** Specific subject of the job (e.g. note name for a per-note quiz, or
+   *  "all notes" / "3 notes" for multi-quiz). Appended to the toast title
+   *  with a `·` separator so the user can tell which quiz/schedule a toast
+   *  belongs to — same format as the AI tasks panel. */
+  sourceTitle?: string;
   /** Called when user clicks the toast (works in any state). */
   onOpen: () => void;
   /** Called when user X's the toast OR success auto-dismiss timer fires. */
@@ -27,7 +32,7 @@ interface Props {
  *
  * Auto-dismisses 8s after success if user doesn't click open.
  */
-export function AIGenerationToast({ jobId, bumpedAt, onOpen, onDismiss }: Props) {
+export function AIGenerationToast({ jobId, bumpedAt, sourceTitle, onOpen, onDismiss }: Props) {
   const { job } = useAIJob(jobId);
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const [shake, setShake] = useState(false);
@@ -68,7 +73,10 @@ export function AIGenerationToast({ jobId, bumpedAt, onOpen, onDismiss }: Props)
   const isDone = job.status === 'done';
   const isFailed = job.status === 'failed';
 
-  const label = LABELS[job.kind] ?? 'AI task';
+  const kindLabel = LABELS[job.kind] ?? 'AI task';
+  // Compose "quiz · <noteTitle>" when we know the subject, else fall back to
+  // the generic kind label. Matches the AI tasks panel formatting.
+  const label = sourceTitle ? `${kindLabel} · ${sourceTitle}` : kindLabel;
   const eta = job.eta_seconds ?? 60;
 
   // Progress bar — queued sits at 0 (worker hasn't started). Running uses

@@ -250,6 +250,7 @@ export function AIToastStack() {
               key={j.jobId}
               jobId={j.jobId}
               bumpedAt={j.bumpedAt}
+              sourceTitle={j.source.noteTitle}
               onOpen={handleToastClick}
               onDismiss={() => handleDismissToast(j.jobId)}
             />
