@@ -227,17 +227,19 @@ export function AIToastStack() {
   }, [remove]);
 
   if (jobs.length === 0) return null;
-  // Toast slots show the head of their category, skipping jobs the user
-  // soft-dismissed from the toast OR that are currently shown in an open
-  // drawer (toast would otherwise sit on top of the result the user just
-  // opened). The panel itself still lists every job.
-  const isHidden = (j: BgAIJob) => j.hideFromToast || openDrawerIds.has(j.jobId);
-  const workingHead = workingJobs.find((j) => !isHidden(j));
-  const completedHead = completedJobs.find((j) => !isHidden(j));
+  // While any AI-job drawer is on screen, suppress the bottom toasts entirely
+  // — including "Queued"/"Generating" toasts for unrelated jobs. They'd
+  // otherwise sit on top of the result the user just opened. The panel still
+  // surfaces those jobs when reopened.
+  const anyDrawerOpen = openDrawerIds.size > 0;
+  // Per-job filter — user-soft-dismissed jobs are hidden from the toast slot
+  // but still kept in the panel.
+  const workingHead = workingJobs.find((j) => !j.hideFromToast);
+  const completedHead = completedJobs.find((j) => !j.hideFromToast);
 
   return (
     <>
-      {!panelOpen && (workingHead || completedHead) && (
+      {!panelOpen && !anyDrawerOpen && (workingHead || completedHead) && (
         <div className="ai-toast-stack">
           {workingHead && (
             <AIGenerationToast
