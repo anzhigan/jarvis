@@ -22,10 +22,19 @@ interface Props {
 }
 
 const KIND_LABELS: Record<AIJobKind, string> = {
-  quiz:     'Smart test',
+  quiz:     'Quiz',
   schedule: 'Plan day',
   insights: 'Weekly review',
 };
+
+/** "75" → "1m 15s"; "5" → "5s". Compact but readable for elapsed/ETA. */
+function fmtSec(n: number): string {
+  const s = Math.max(0, Math.floor(n));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r === 0 ? `${m}m` : `${m}m ${r}s`;
+}
 
 const STATUS_LABEL: Record<string, string> = {
   queued:    'queued',
@@ -81,33 +90,33 @@ function JobRow({
   const { job: live } = useAIJob(job.jobId);
   const [elapsed, setElapsed] = useState(0);
 
-  // Live tick for the elapsed counter while in flight.
+  // Live tick: only when the worker actually picked the job up (running).
+  // Queued jobs haven't started yet — elapsed stays at 0.
   useEffect(() => {
-    if (!live || (live.status !== 'queued' && live.status !== 'running')) {
+    if (!live || live.status !== 'running' || !live.started_at) {
       setElapsed(0);
       return;
     }
-    const anchor = live.started_at ?? live.created_at;
-    if (!anchor) return;
-    const anchorMs = new Date(anchor).getTime();
+    const anchorMs = new Date(live.started_at).getTime();
     const tick = () => setElapsed(Math.floor((Date.now() - anchorMs) / 1000));
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [live?.status, live?.started_at, live?.created_at]);
+  }, [live?.status, live?.started_at]);
 
   const status = live?.status ?? 'queued';
-  const isWorking = status === 'queued' || status === 'running';
+  const isRunning = status === 'running';
+  const isQueued = status === 'queued';
   const isDone = status === 'done';
   const isFailed = status === 'failed';
   const eta = live?.eta_seconds ?? 60;
   const title = jobLabel(job);
   const statusLabel = STATUS_LABEL[status] ?? status;
-  // Same progress math as the toast — capped at 95% so it doesn't show full
-  // before the worker actually returns.
+  // Queued → 0 (worker hasn't started). Running → elapsed/eta cap 95%.
+  // Done → 100%.
   let progressPct = 0;
   if (isDone) progressPct = 100;
-  else if (isWorking && eta > 0) progressPct = Math.min(95, (elapsed / eta) * 100);
+  else if (isRunning && eta > 0) progressPct = Math.min(95, (elapsed / eta) * 100);
 
   // Only done (and failed, for error inspection) jobs are openable — there's
   // no per-drawer loading screen anymore; progress lives in THIS row.
@@ -122,7 +131,7 @@ function JobRow({
         disabled={!openable}
         title={openable ? 'Open' : 'Still generating — watch progress here'}
       >
-        <span className="ai-jobs-row__icon" data-pulsing={isWorking || undefined}>
+        <span className="ai-jobs-row__icon" data-pulsing={isRunning || undefined}>
           <Sparkles size={13} />
         </span>
         <span className="ai-jobs-row__body">
@@ -131,10 +140,16 @@ function JobRow({
             <span className="ai-jobs-row__status" data-tone={isDone ? 'done' : isFailed ? 'failed' : 'pending'}>
               {statusLabel}
             </span>
-            {isWorking && (
+            {isRunning && (
               <>
                 <span className="ai-jobs-row__sep">·</span>
-                <span className="ai-jobs-row__elapsed">{elapsed}s / ~{eta}s</span>
+                <span className="ai-jobs-row__elapsed">{fmtSec(elapsed)} / ~{fmtSec(eta)}</span>
+              </>
+            )}
+            {isQueued && (
+              <>
+                <span className="ai-jobs-row__sep">·</span>
+                <span className="ai-jobs-row__elapsed">~{fmtSec(eta)}</span>
               </>
             )}
             {isFailed && live?.error && (
@@ -144,7 +159,7 @@ function JobRow({
               </>
             )}
           </span>
-          {(isWorking || isDone) && (
+          {(isRunning || isQueued || isDone) && (
             <span className="ai-jobs-row__bar">
               <span className="ai-jobs-row__bar-fill" style={{ width: `${progressPct}%` }} />
             </span>

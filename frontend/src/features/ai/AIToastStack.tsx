@@ -120,15 +120,11 @@ export function AIToastStack() {
     openSourceDrawer(job);
   }, [openSourceDrawer]);
 
-  /** Dismiss a job from the UI. For in-flight jobs this also cancels on
-   *  the backend (idempotent for done jobs). Dismissals are persisted to
-   *  localStorage so the rehydrate-on-reload doesn't bring them back. */
-  const handleCancel = useCallback(async (jobId: string) => {
-    try {
-      await aiApi.cancelJob(jobId);
-    } catch {
-      // ignored — user already wanted it gone
-    }
+  /** Dismiss a job from the UI only — never cancels the backend job.
+   *  In-flight work continues; the result lands in cache and the next
+   *  re-trigger picks it up. Dismissals are persisted to localStorage so
+   *  the rehydrate-on-reload doesn't bring them back. */
+  const handleDismiss = useCallback((jobId: string) => {
     remove(jobId);
     const dismissed = loadDismissed();
     dismissed.add(jobId);
@@ -148,7 +144,7 @@ export function AIToastStack() {
             bumpedAt={head.bumpedAt}
             queueCount={jobs.length - 1}
             onOpen={handleToastClick}
-            onDismiss={() => void handleCancel(head.jobId)}
+            onDismiss={() => handleDismiss(head.jobId)}
           />
         </div>
       )}
@@ -157,7 +153,7 @@ export function AIToastStack() {
         onOpenChange={setPanelOpen}
         jobs={jobs}
         onPickJob={handlePickFromPanel}
-        onDismissJob={handleCancel}
+        onDismissJob={handleDismiss}
       />
     </>
   );

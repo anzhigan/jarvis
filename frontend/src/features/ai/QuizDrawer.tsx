@@ -109,7 +109,7 @@ export function QuizDrawer({ jobId, noteTitle, onClose }: Props) {
           ? 'Test result'
           : view.kind === 'loading'
             ? 'Building your test'
-            : 'Smart test'
+            : 'Quiz'
       }
       description={`«${noteTitle}»`}
     >

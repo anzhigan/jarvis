@@ -34,21 +34,20 @@ export function AIGenerationToast({ jobId, bumpedAt, queueCount = 0, onOpen, onD
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const [shake, setShake] = useState(false);
 
-  // Live elapsed counter — ticks every second while job is in non-terminal state.
+  // Live elapsed counter — only ticks once the worker actually picks the job
+  // up. Queued jobs sit at 0 until that happens.
   useEffect(() => {
     if (!job) return;
-    if (job.status !== 'queued' && job.status !== 'running') {
+    if (job.status !== 'running' || !job.started_at) {
       setElapsedSec(0);
       return;
     }
-    const anchor = job.started_at ?? job.created_at;
-    if (!anchor) return;
-    const anchorMs = new Date(anchor).getTime();
+    const anchorMs = new Date(job.started_at).getTime();
     const tick = () => setElapsedSec(Math.floor((Date.now() - anchorMs) / 1000));
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [job?.status, job?.started_at, job?.created_at]);
+  }, [job?.status, job?.started_at]);
 
   // No auto-dismiss for done jobs: the AI-jobs panel keeps completed
   // generations around (with a moss "done" tint) until the user explicitly
@@ -65,19 +64,21 @@ export function AIGenerationToast({ jobId, bumpedAt, queueCount = 0, onOpen, onD
 
   if (!job) return null;
 
-  const isWorking = job.status === 'queued' || job.status === 'running';
+  const isQueued = job.status === 'queued';
+  const isRunning = job.status === 'running';
+  const isWorking = isQueued || isRunning;
   const isDone = job.status === 'done';
   const isFailed = job.status === 'failed';
 
   const label = LABELS[job.kind] ?? 'AI task';
   const eta = job.eta_seconds ?? 60;
 
-  // Progress bar — based on elapsed vs ETA. Capped at 95% so it doesn't
-  // claim "done" before the job actually finishes.
+  // Progress bar — queued sits at 0 (worker hasn't started). Running uses
+  // elapsed/eta capped at 95% so it doesn't claim "done" prematurely.
   let progressPct = 0;
   if (isDone) {
     progressPct = 100;
-  } else if (isWorking && eta > 0) {
+  } else if (isRunning && eta > 0) {
     progressPct = Math.min(95, (elapsedSec / eta) * 100);
   }
 
@@ -103,11 +104,13 @@ export function AIGenerationToast({ jobId, bumpedAt, queueCount = 0, onOpen, onD
         {isWorking && (
           <>
             <p className="ai-toast__title">
-              Generating {label}
+              {isQueued ? `Queued ${label}` : `Generating ${label}`}
               {queueCount > 0 && <span className="ai-toast__queue">+{queueCount}</span>}
             </p>
             <p className="ai-toast__sub">
-              {elapsedSec}s elapsed · ~{eta}s estimated
+              {isQueued
+                ? `Waiting for worker · ~${fmtSec(eta)} estimated`
+                : `${fmtSec(elapsedSec)} elapsed · ~${fmtSec(eta)} estimated`}
             </p>
             <div className="ai-toast__bar">
               <div className="ai-toast__bar-fill" style={{ width: `${progressPct}%` }} />
@@ -150,4 +153,12 @@ const LABELS: Record<AIJobKind, string> = {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function fmtSec(n: number): string {
+  const s = Math.max(0, Math.floor(n));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r === 0 ? `${m}m` : `${m}m ${r}s`;
 }

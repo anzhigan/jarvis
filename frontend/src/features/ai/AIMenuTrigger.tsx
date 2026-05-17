@@ -27,7 +27,7 @@ interface Props {
 const ALL_ITEMS: MenuItem[] = [
   {
     key: 'quiz',
-    title: 'Smart test',
+    title: 'Quiz',
     sub: 'проверь знания по этой заметке',
     Icon: Sparkles,
     available: true,
