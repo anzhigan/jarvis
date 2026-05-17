@@ -803,7 +803,7 @@ function FocusedGoal({
         </div>
       </header>
 
-      <StepsTimeline
+      <StepsGantt
         steps={steps}
         selectedStepId={selectedStepId}
         onSelect={onSelectStep}
@@ -811,6 +811,20 @@ function FocusedGoal({
         onAddGo={() => onAddGo(goal.id, selectedStepId)}
         onEditStep={onEditStep}
       />
+
+      {selectedStepId && stepById.get(selectedStepId) && (
+        <StepDetail
+          step={stepById.get(selectedStepId)!}
+          gos={allGoalGos.filter((g) => g.step_id === selectedStepId)}
+          goalTitle={goal.title}
+          goalAccent={accent}
+          onLog={onLog}
+          onSkip={onSkip}
+          onEditGo={onEditGo}
+          onEditStep={onEditStep}
+          onAddGo={() => onAddGo(goal.id, selectedStepId)}
+        />
+      )}
 
       {pageTabs}
 
@@ -1253,9 +1267,9 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
   );
 }
 
-/* ── StepsTimeline: editorial horizontal subway map of milestones ────────── */
+/* ── StepsGantt: horizontal bar layout of milestones (Gantt-style) ───── */
 
-interface StepsTimelineProps {
+interface StepsGanttProps {
   steps: Step[];
   selectedStepId: string | null;
   onSelect: (stepId: string | null) => void;
@@ -1264,21 +1278,20 @@ interface StepsTimelineProps {
   onEditStep: (step: Step) => void;
 }
 
-function StepsTimeline({
+function StepsGantt({
   steps,
   selectedStepId,
   onSelect,
   onAddStep,
   onAddGo,
   onEditStep,
-}: StepsTimelineProps) {
+}: StepsGanttProps) {
   const sorted = useMemo(
     () => [...steps].sort((a, b) => a.position - b.position),
     [steps],
   );
   const N = sorted.length;
 
-  // Empty state — invite the user to create the first step.
   if (N === 0) {
     return (
       <section className="steps">
@@ -1307,14 +1320,6 @@ function StepsTimeline({
   const doneCount = sorted.filter((s) => s.status === 'done').length;
   const activeIdx = sorted.findIndex((s) => s.status === 'in_progress');
 
-  // Stations are evenly spaced. Station i is centered at ((i + 0.5) / N) %.
-  let lastDoneIdx = -1;
-  for (let i = 0; i < N; i++) if (sorted[i].status === 'done') lastDoneIdx = i;
-  const stationCenterPct = (i: number) => ((i + 0.5) / N) * 100;
-  const railDonePct = lastDoneIdx >= 0 ? stationCenterPct(lastDoneIdx) : 0;
-  const railActiveIdx = activeIdx >= 0 ? activeIdx : lastDoneIdx;
-  const railActivePct = railActiveIdx >= 0 ? stationCenterPct(railActiveIdx) : railDonePct;
-
   return (
     <section className="steps">
       <div className="steps-head">
@@ -1333,50 +1338,186 @@ function StepsTimeline({
           </button>
         </div>
       </div>
-      <div className="steps-track">
-        <div
-          className="steps-rail"
-          style={{
-            ['--rail-done' as any]: `${railDonePct}%`,
-            ['--rail-active' as any]: `${railActivePct}%`,
-          }}
-        />
-        <div className="steps-stations" style={{ gridTemplateColumns: `repeat(${N}, 1fr)` }}>
+
+      <div className="gantt">
+        <div className="gantt__rows-side">
+          {sorted.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              className="gantt-row-side"
+              data-selected={s.id === selectedStepId || undefined}
+              title={`Open Gos of "${s.title}" — ⌘/Ctrl+click to edit step`}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey) onEditStep(s);
+                else onSelect(s.id === selectedStepId ? null : s.id);
+              }}
+            >
+              <span className="gantt-row-side__num">{String(i + 1).padStart(2, '0')}</span>
+              <span className="gantt-row-side__title">{s.title}</span>
+              <span className="gantt-row-side__count">{s.gos_done} / {s.gos_count}</span>
+            </button>
+          ))}
+        </div>
+        <div className="gantt__rows-bars">
           {sorted.map((s, i) => {
             const state = s.status === 'done'
               ? 'done'
               : s.status === 'in_progress' ? 'active' : 'upcoming';
-            const isHighlighted = s.id === selectedStepId;
-            const statusLabel = state === 'done'
-              ? 'done'
-              : state === 'active'
-                ? 'in progress'
-                : 'upcoming';
+            // Evenly-spaced bars: 1/N width each, no gap between them so the
+            // sequence reads as a continuous roadmap.
+            const left = (i / N) * 100;
+            const width = (1 / N) * 100;
+            const pct = s.gos_count > 0
+              ? Math.round((s.gos_done / s.gos_count) * 100)
+              : (state === 'done' ? 100 : 0);
+            // Mini Go dots — up to 8 to keep the row tidy.
+            const dotStates: string[] = [];
+            for (let d = 0; d < Math.min(s.gos_count, 8); d++) {
+              if (d < s.gos_done) dotStates.push('done');
+              else if (state === 'active' && d === s.gos_done) dotStates.push('active');
+              else dotStates.push('upcoming');
+            }
             return (
               <button
                 key={s.id}
                 type="button"
-                className="station"
-                title={`Edit "${s.title}" — ⌘/Ctrl+click to filter`}
-                data-state={state}
-                data-highlight={isHighlighted || undefined}
+                className="gantt-row-bar"
+                data-selected={s.id === selectedStepId || undefined}
+                title={`Open Gos of "${s.title}"`}
                 onClick={(e) => {
-                  // Cmd/Ctrl-click toggles the step filter (power-user shortcut).
-                  // Plain click opens the edit dialog.
-                  if (e.metaKey || e.ctrlKey) onSelect(isHighlighted ? null : s.id);
-                  else onEditStep(s);
+                  if (e.metaKey || e.ctrlKey) onEditStep(s);
+                  else onSelect(s.id === selectedStepId ? null : s.id);
                 }}
-                aria-pressed={isHighlighted}
               >
-                <span className="station__num">{String(i + 1).padStart(2, '0')}</span>
-                <span className="station__dot" />
-                <span className="station__title">{s.title}</span>
-                <span className="station__count">{s.gos_done} / {s.gos_count}</span>
-                <span className="station__status">{statusLabel}</span>
+                <span
+                  className="gantt-bar"
+                  data-state={state}
+                  style={{ left: `${left}%`, width: `${width}%` }}
+                >
+                  {state !== 'upcoming' && (
+                    <span className="gantt-bar__fill" style={{ width: `${pct}%` }} />
+                  )}
+                  <span className="gantt-bar__label">{s.title}</span>
+                  <span className="gantt-bar__pct">{pct}%</span>
+                </span>
+                {dotStates.length > 0 && (
+                  <span className="gantt-row-bar__gos">
+                    {dotStates.map((ds, di) => (
+                      <span key={di} className={`gantt-go-dot ${ds}`} />
+                    ))}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
+      </div>
+
+      <p className="gantt__hint">
+        Click a row to open its Gos below — ⌘/Ctrl+click to edit the step.
+      </p>
+    </section>
+  );
+}
+
+/* ── StepDetail: focused-step panel with 2-col Go cards ──────────────── */
+
+interface StepDetailProps {
+  step: Step;
+  gos: Go[];
+  goalTitle: string;
+  goalAccent: string;
+  onLog: (go: Go, value: number) => void;
+  onSkip: (go: Go) => void;
+  onEditGo: (go: Go) => void;
+  onEditStep: (step: Step) => void;
+  onAddGo: () => void;
+}
+
+function StepDetail({
+  step, gos, goalTitle, goalAccent,
+  onLog, onSkip, onEditGo, onEditStep, onAddGo,
+}: StepDetailProps) {
+  const state = step.status === 'done'
+    ? 'done'
+    : step.status === 'in_progress' ? 'active' : 'upcoming';
+  const statusLabel = state === 'done'
+    ? 'done'
+    : state === 'active' ? 'in progress' : 'upcoming';
+  const pct = step.gos_count > 0
+    ? Math.round((step.gos_done / step.gos_count) * 100)
+    : (state === 'done' ? 100 : 0);
+  const fmt = (iso: string | null) => iso
+    ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+    : '—';
+
+  return (
+    <section className="step-detail" data-state={state}>
+      <header className="step-detail__head">
+        <div className="step-detail__crumb"><span>Step detail</span></div>
+        <div className="step-detail__title-row">
+          <span className="step-detail__num">{String(step.position + 1).padStart(2, '0')}</span>
+          <h2 className="step-detail__title">{step.title}</h2>
+          <span className={`step-detail__status ${state}`}>{statusLabel}</span>
+          <button
+            type="button"
+            className="steps-head__btn"
+            onClick={() => onEditStep(step)}
+            title="Edit step"
+            style={{ marginLeft: 'auto' }}
+          >
+            Edit step
+          </button>
+        </div>
+        {step.description?.trim() && (
+          <p className="step-detail__sub">{step.description}</p>
+        )}
+        <div className="step-detail__meta">
+          <span><span>Start </span><b className="mono">{fmt(step.start_date)}</b></span>
+          <span><span>Due </span><b className="mono">{fmt(step.end_date)}</b></span>
+          {step.completed_at && (
+            <span><span>Completed </span><b className="mono">{fmt(step.completed_at)}</b></span>
+          )}
+        </div>
+        <div className="step-detail__progress">
+          <span className="step-detail__progress-text">{step.gos_done} / {step.gos_count}</span>
+          <div className="step-detail__progress-bar">
+            <div className="step-detail__progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="step-detail__progress-text">{pct}%</span>
+        </div>
+      </header>
+
+      <div className="step-detail__body">
+        <div className="step-detail__body-head">
+          <span className="step-detail__body-label">Gos in this step</span>
+          <span className="step-detail__body-rule" />
+          <span className="step-detail__body-count">
+            {gos.length} {gos.length === 1 ? 'item' : 'items'} · {step.gos_done} done
+          </span>
+          <button type="button" className="step-detail__body-add" onClick={onAddGo}>
+            + Add Go
+          </button>
+        </div>
+        {gos.length === 0 ? (
+          <div className="step-detail__empty">No Gos in this step yet.</div>
+        ) : (
+          <div className="step-detail__grid">
+            {gos.map((go) => (
+              <TgCard
+                key={go.id}
+                go={go}
+                parentTitle={goalTitle}
+                goalAccent={goalAccent}
+                step={null}
+                onLog={onLog}
+                onSkip={onSkip}
+                onEdit={onEditGo}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
