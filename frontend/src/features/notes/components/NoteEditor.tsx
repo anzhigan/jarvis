@@ -577,10 +577,6 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   /** Note id this drawer's job is FOR — used so a quiz on a different note
    *  doesn't get false-blocked by the in-flight one. */
   const [quizJobNoteId, setQuizJobNoteId] = useState<string | null>(null);
-  /** Title captured at start time. We need it later to push to the bg store
-   *  when the user navigates away or starts another quiz before this one
-   *  finishes — by then `note` already points elsewhere. */
-  const [quizJobNoteTitle, setQuizJobNoteTitle] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
@@ -605,36 +601,41 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       return;
     }
     try {
-      // count=3 by default — on CPU-only inference, 5 questions push the wall-
-      // clock to ~90s while 3 stays under a minute. Future phase will surface
-      // a picker so the user can opt into longer tests.
+      // Pick question count from note length: short notes get 5, long ones
+      // get up to 10. Crude but matches user intuition that "more content =
+      // more to test on" without exposing the slider explicitly.
+      const contentLen = (note.content || '').length;
+      const count = contentLen >= 4000 ? 10
+                  : contentLen >= 2500 ? 8
+                  : contentLen >= 1200 ? 7
+                  : contentLen >= 600  ? 6
+                  : 5;
       const job = await aiApi.createQuiz({
         scope: { kind: 'note', id: note.id },
         difficulty: 'medium',
-        count: 3,
+        count,
       });
-      // Pushing a prior in-flight quiz to the bg store before replacing local
-      // state — otherwise it disappears from the UI (toast/panel never see
-      // it) while still consuming a queue slot on the backend.
-      if (quizJobId && quizJobNoteId && quizJobNoteId !== note.id) {
-        addBgJob({
-          jobId: quizJobId,
-          kind: 'quiz',
-          source: {
-            section: 'notes',
-            noteId: quizJobNoteId,
-            noteTitle: quizJobNoteTitle ?? 'untitled',
-          },
-        });
-      }
+      // Push to bg store IMMEDIATELY — the toast + AI-jobs panel are the
+      // single source of truth for "what's running". Adding only on
+      // drawer-close used to hide running jobs from the queue UI until the
+      // user dismissed the drawer manually. add() de-duplicates by jobId so
+      // subsequent close-time pushes are no-ops.
+      addBgJob({
+        jobId: job.id,
+        kind: 'quiz',
+        source: {
+          section: 'notes',
+          noteId: note.id,
+          noteTitle: note.name || 'untitled',
+        },
+      });
       setQuizJobId(job.id);
       setQuizJobNoteId(note.id);
-      setQuizJobNoteTitle(note.name || 'untitled');
       setDrawerOpen(true);
     } catch (e) {
       setQuizError(e instanceof Error ? e.message : 'failed to start AI action');
     }
-  }, [note, quizJobId, quizJobNoteId, quizJobNoteTitle, drawerOpen, addBgJob]);
+  }, [note, quizJobId, quizJobNoteId, drawerOpen, addBgJob]);
 
   // Close drawer keeps the job alive — backgrounded toast (mounted at app
   // shell) takes over via the global store. Dismissing the toast is what

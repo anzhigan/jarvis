@@ -219,10 +219,10 @@ async def create_quiz(
 
     Phase 3: scope.kind must be 'note'. Phase 4 expands to topic/way/tag/multi.
     """
-    if body.scope.kind not in ("note", "all"):
+    if body.scope.kind not in ("note", "all", "multi"):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail="Only scope.kind in ('note','all') is supported right now.",
+            detail="Only scope.kind in ('note','all','multi') is supported.",
         )
 
     if body.scope.kind == "note":
@@ -234,6 +234,17 @@ async def create_quiz(
         await _check_note_owned(body.scope.id, user.id, db)
         cache_key = await quiz_cache_key(
             body.scope.id, body.difficulty, body.count, db,
+        )
+    elif body.scope.kind == "multi":
+        if not body.scope.ids:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="scope.ids is required for scope.kind='multi'",
+            )
+        from app.services.ai.cache import quiz_all_cache_key
+        cache_key = await quiz_all_cache_key(
+            user.id, body.difficulty, body.count, db,
+            only_ids=list(body.scope.ids),
         )
     else:  # 'all'
         from app.services.ai.cache import quiz_all_cache_key

@@ -183,9 +183,12 @@ Respond with JSON of this exact shape:
 async def _gather_all_notes(
     user_id: uuid.UUID,
     db: AsyncSession,
+    only_ids: list[uuid.UUID] | None = None,
 ) -> list[tuple[str, str, uuid.UUID]]:
     """Pull the user's most-recently-edited substantive notes. Returns
-    (title, plaintext-body, note_id) tuples in order of inclusion."""
+    (title, plaintext-body, note_id) tuples in order of inclusion. When
+    `only_ids` is set, filter further to that subset (multi-select picker
+    in the UI)."""
     way_ids = list((await db.execute(
         select(Way.id).where(Way.user_id == user_id),
     )).scalars().all())
@@ -196,18 +199,18 @@ async def _gather_all_notes(
     if not way_ids and not topic_ids:
         return []
 
-    notes_q = await db.execute(
-        select(Note).where(
-            or_(
-                Note.way_id.in_(way_ids),
-                Note.topic_id.in_(topic_ids),
-                Note.topic_inline_id.in_(topic_ids),
-            ),
-            func.length(Note.content) >= QUIZ_ALL_MIN_NOTE_CHARS,
-        )
-        .order_by(Note.updated_at.desc())
-        .limit(QUIZ_ALL_MAX_NOTES * 2),
+    stmt = select(Note).where(
+        or_(
+            Note.way_id.in_(way_ids),
+            Note.topic_id.in_(topic_ids),
+            Note.topic_inline_id.in_(topic_ids),
+        ),
+        func.length(Note.content) >= QUIZ_ALL_MIN_NOTE_CHARS,
     )
+    if only_ids is not None:
+        stmt = stmt.where(Note.id.in_(only_ids))
+    stmt = stmt.order_by(Note.updated_at.desc()).limit(QUIZ_ALL_MAX_NOTES * 2)
+    notes_q = await db.execute(stmt)
     out: list[tuple[str, str, uuid.UUID]] = []
     total = 0
     for n in notes_q.scalars().all():
@@ -285,12 +288,15 @@ async def run_quiz_job(
         prompt = _build_prompt(title, body, params.count, params.difficulty)
         scope_ref: dict[str, Any] = {"note_id": str(params.scope.id)}
         quiz_title = f"Quiz on «{title}»"
-    elif params.scope.kind == "all":
-        sections = await _gather_all_notes(job.user_id, db)
+    elif params.scope.kind in ("all", "multi"):
+        only_ids = params.scope.ids if params.scope.kind == "multi" else None
+        if params.scope.kind == "multi" and not only_ids:
+            raise ValueError("scope.ids is required for scope.kind='multi'")
+        sections = await _gather_all_notes(job.user_id, db, only_ids=only_ids)
         if not sections:
             raise ValueError(
-                "no substantive notes to quiz on — add a note with at least "
-                f"{QUIZ_ALL_MIN_NOTE_CHARS} characters first",
+                "no substantive notes to quiz on — pick notes with at least "
+                f"{QUIZ_ALL_MIN_NOTE_CHARS} characters of content",
             )
         prompt = _build_all_notes_prompt(
             [(t, b) for (t, b, _) in sections],
@@ -300,7 +306,7 @@ async def run_quiz_job(
         quiz_title = f"Quiz on {len(sections)} notes"
     else:
         raise ValueError(
-            f"quiz handler supports scope.kind in ('note','all') "
+            f"quiz handler supports scope.kind in ('note','all','multi') "
             f"(got {params.scope.kind!r})",
         )
 

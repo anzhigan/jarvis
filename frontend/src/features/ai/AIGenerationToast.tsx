@@ -50,12 +50,9 @@ export function AIGenerationToast({ jobId, bumpedAt, queueCount = 0, onOpen, onD
     return () => clearInterval(t);
   }, [job?.status, job?.started_at, job?.created_at]);
 
-  // Auto-dismiss done toasts after 8s so they don't linger.
-  useEffect(() => {
-    if (job?.status !== 'done') return;
-    const t = setTimeout(onDismiss, 8000);
-    return () => clearTimeout(t);
-  }, [job?.status, onDismiss]);
+  // No auto-dismiss for done jobs: the AI-jobs panel keeps completed
+  // generations around (with a moss "done" tint) until the user explicitly
+  // opens or dismisses them. The toast simply re-tints to match.
 
   // Shake on bump — store sets a fresh `bumpedAt` when the user re-triggers
   // the same kind while it's still in flight. CSS-only animation, ~500ms.

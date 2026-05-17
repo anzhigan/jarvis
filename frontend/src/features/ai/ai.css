@@ -1298,6 +1298,102 @@ button.ai-tl__slot:focus-visible {
   white-space: nowrap;
   max-width: 180px;
 }
+.ai-jobs-row__bar {
+  display: block;
+  height: 2px;
+  background: var(--cream);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.ai-jobs-row__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--indigo);
+  transition: width 1s linear;
+}
+.ai-jobs-row[data-state="done"] .ai-jobs-row__bar-fill { background: var(--moss); }
+
+/* ─── AI test picker (modal) ───────────────────────────────────────────── */
+
+.ai-test-picker {
+  display: flex; flex-direction: column;
+  gap: 10px;
+  max-height: 60vh;
+}
+.ai-test-picker__search {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  padding: 0 10px;
+  height: var(--h-md);
+}
+.ai-test-picker__search svg { color: var(--ink-4); flex-shrink: 0; }
+.ai-test-picker__search input {
+  flex: 1; min-width: 0;
+  background: transparent; border: 0; outline: 0;
+  font: inherit; color: var(--ink);
+}
+.ai-test-picker__all {
+  flex-shrink: 0;
+  background: transparent; border: 0;
+  color: var(--indigo);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.ai-test-picker__all:hover { text-decoration: underline; }
+.ai-test-picker__list {
+  list-style: none;
+  margin: 0; padding: 0;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+}
+.ai-test-picker__row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: background var(--dur-fast);
+}
+.ai-test-picker__row:hover { background: var(--cream); }
+.ai-test-picker__row[data-checked] { background: var(--indigo-soft); }
+.ai-test-picker__row input { width: 14px; height: 14px; accent-color: var(--indigo); }
+.ai-test-picker__row-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ai-test-picker__row-title {
+  font-size: var(--text-sm);
+  color: var(--ink);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-test-picker__row-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-4);
+}
+.ai-test-picker__empty {
+  padding: 14px;
+  text-align: center;
+  color: var(--ink-4);
+  font-style: italic;
+}
+.ai-test-picker__no-notes {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--ink-4);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
 .ai-jobs-row__dismiss {
   width: 32px;
   background: transparent;

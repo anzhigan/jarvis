@@ -103,6 +103,11 @@ function JobRow({
   const eta = live?.eta_seconds ?? 60;
   const title = jobLabel(job);
   const statusLabel = STATUS_LABEL[status] ?? status;
+  // Same progress math as the toast — capped at 95% so it doesn't show full
+  // before the worker actually returns.
+  let progressPct = 0;
+  if (isDone) progressPct = 100;
+  else if (isWorking && eta > 0) progressPct = Math.min(95, (elapsed / eta) * 100);
 
   return (
     <li className="ai-jobs-row" data-state={status}>
@@ -129,6 +134,11 @@ function JobRow({
               </>
             )}
           </span>
+          {(isWorking || isDone) && (
+            <span className="ai-jobs-row__bar">
+              <span className="ai-jobs-row__bar-fill" style={{ width: `${progressPct}%` }} />
+            </span>
+          )}
         </span>
       </button>
       <button

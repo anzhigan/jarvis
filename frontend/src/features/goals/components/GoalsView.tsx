@@ -85,12 +85,17 @@ export default function GoalsView() {
         hours: { start_h: 9, end_h: 18 },
         time_blocked: true,
       });
+      addBgJob({
+        jobId: job.id,
+        kind: 'schedule',
+        source: { section: 'goals' },
+      });
       setScheduleJobId(job.id);
       setScheduleDrawerOpen(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start planning');
     }
-  }, [scheduleJobId, scheduleDrawerOpen]);
+  }, [scheduleJobId, scheduleDrawerOpen, addBgJob]);
 
   const handleScheduleClose = useCallback(() => {
     setScheduleDrawerOpen(false);

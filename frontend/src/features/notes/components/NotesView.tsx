@@ -18,6 +18,7 @@ import './notes.css';
 // the per-note one is loaded by NoteEditor under the same name; both end
 // up sharing the chunk after Vite dedup.
 const QuizDrawer = lazy(() => import('../../ai/QuizDrawer').then((m) => ({ default: m.QuizDrawer })));
+const AITestPicker = lazy(() => import('../../ai/AITestPicker').then((m) => ({ default: m.AITestPicker })));
 
 const PANE_COLLAPSED_KEY = 'jarvnote:notes:libCollapsed';
 
@@ -65,9 +66,17 @@ export default function NotesView() {
   const [multiQuizDrawerOpen, setMultiQuizDrawerOpen] = useState(false);
   const addBgJob = useAIJobsStore((s) => s.add);
 
-  const handleSmartTestAll = useCallback(async () => {
-    // "Same task" for the all-notes quiz = no noteId; per-note quizzes go
-    // through their own queue slot.
+  // Picker dialog state for the "ai test" entry point.
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const handleSmartTestAll = useCallback(() => {
+    setPickerOpen(true);
+  }, []);
+
+  const handlePickerConfirm = useCallback(async (ids: string[]) => {
+    setPickerOpen(false);
+    if (ids.length === 0) return;
+    // Same-task guard: a quiz with no noteId is the multi-quiz slot.
     const inBg = useAIJobsStore.getState().findSame('quiz', undefined);
     if (inBg) {
       useAIJobsStore.getState().bump(inBg.jobId);
@@ -75,17 +84,28 @@ export default function NotesView() {
     }
     if (multiQuizJobId && multiQuizDrawerOpen) return;
     try {
+      const count = ids.length === 1 ? 5
+                  : ids.length <= 3  ? 7
+                                     : 10;
       const job = await aiApi.createQuiz({
-        scope: { kind: 'all' },
+        scope: { kind: 'multi', ids },
         difficulty: 'medium',
-        count: 5,
+        count,
+      });
+      const noteTitle = ids.length === 1
+        ? (library.findNote(ids[0])?.note.name || 'note')
+        : `${ids.length} notes`;
+      addBgJob({
+        jobId: job.id,
+        kind: 'quiz',
+        source: { section: 'notes', noteTitle },
       });
       setMultiQuizJobId(job.id);
       setMultiQuizDrawerOpen(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start quiz');
     }
-  }, [multiQuizJobId, multiQuizDrawerOpen]);
+  }, [multiQuizJobId, multiQuizDrawerOpen, addBgJob, library]);
 
   const handleMultiQuizClose = useCallback(() => {
     setMultiQuizDrawerOpen(false);
@@ -151,6 +171,17 @@ export default function NotesView() {
             jobId={multiQuizJobId}
             noteTitle="all notes"
             onClose={handleMultiQuizClose}
+          />
+        </Suspense>
+      )}
+
+      {pickerOpen && (
+        <Suspense fallback={null}>
+          <AITestPicker
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            notes={library.allNotes.map((n) => n.note)}
+            onConfirm={handlePickerConfirm}
           />
         </Suspense>
       )}

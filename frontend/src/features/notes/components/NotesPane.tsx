@@ -156,10 +156,10 @@ export function NotesPane({
             type="button"
             className="pane-ai-cta"
             onClick={onSmartTestAll}
-            title="Generate a smart test drawing from all your substantive notes"
+            title="Pick notes and generate an AI quiz across them"
           >
             <Sparkles size={12} />
-            <span>Smart test · all notes</span>
+            <span>ai test</span>
           </button>
         )}
       </div>

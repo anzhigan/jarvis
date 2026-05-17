@@ -63,10 +63,12 @@ async def quiz_all_cache_key(
     difficulty: str,
     count: int,
     db: AsyncSession,
+    only_ids: list[uuid.UUID] | None = None,
 ) -> str | None:
-    """Cache key for an "all notes" quiz. Depends on the user's substantive
-    notes (id + length + short content hash). Adding / editing / removing
-    any substantive note invalidates the cache; a noop day reuses it."""
+    """Cache key for an "all notes" / "multi notes" quiz. Depends on the
+    user's substantive notes (id + length + short content hash). When
+    `only_ids` is set, the fingerprint covers just that subset — picking the
+    exact same set with the same params hits the cache."""
     from sqlalchemy import func
     from app.models.notes import Note, Topic, Way
 
@@ -80,24 +82,26 @@ async def quiz_all_cache_key(
     if not way_ids and not topic_ids:
         return None
 
-    notes_q = await db.execute(
-        select(Note.id, Note.name, Note.content).where(
-            or_(
-                Note.way_id.in_(way_ids),
-                Note.topic_id.in_(topic_ids),
-                Note.topic_inline_id.in_(topic_ids),
-            ),
-            func.length(Note.content) >= QUIZ_ALL_MIN_NOTE_CHARS,
-        ).order_by(Note.id),
+    stmt = select(Note.id, Note.name, Note.content).where(
+        or_(
+            Note.way_id.in_(way_ids),
+            Note.topic_id.in_(topic_ids),
+            Note.topic_inline_id.in_(topic_ids),
+        ),
+        func.length(Note.content) >= QUIZ_ALL_MIN_NOTE_CHARS,
     )
-    rows = list(notes_q.all())
+    if only_ids is not None:
+        stmt = stmt.where(Note.id.in_(only_ids))
+    stmt = stmt.order_by(Note.id)
+    rows = list((await db.execute(stmt)).all())
     if not rows:
         return None
     sig = "|".join(
         f"{nid}:{len(content or '')}:{_short_hash((name or '') + (content or ''))}"
         for (nid, name, content) in rows
     )
-    return f"quiz:all:{user_id}:{difficulty}:{count}:{_short_hash(sig)}"
+    scope_prefix = "multi" if only_ids is not None else "all"
+    return f"quiz:{scope_prefix}:{user_id}:{difficulty}:{count}:{_short_hash(sig)}"
 
 
 async def schedule_cache_key(

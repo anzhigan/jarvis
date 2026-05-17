@@ -61,16 +61,18 @@ export function AIToastStack() {
 
   return (
     <>
-      <div className="ai-toast-stack">
-        <AIGenerationToast
-          key={head.jobId}
-          jobId={head.jobId}
-          bumpedAt={head.bumpedAt}
-          queueCount={jobs.length - 1}
-          onOpen={handleToastClick}
-          onDismiss={() => void handleCancel(head.jobId)}
-        />
-      </div>
+      {!panelOpen && (
+        <div className="ai-toast-stack">
+          <AIGenerationToast
+            key={head.jobId}
+            jobId={head.jobId}
+            bumpedAt={head.bumpedAt}
+            queueCount={jobs.length - 1}
+            onOpen={handleToastClick}
+            onDismiss={() => void handleCancel(head.jobId)}
+          />
+        </div>
+      )}
       <AIJobsPanel
         open={panelOpen}
         onOpenChange={setPanelOpen}
