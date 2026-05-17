@@ -232,35 +232,28 @@ export function AIToastStack() {
   // otherwise sit on top of the result the user just opened. The panel still
   // surfaces those jobs when reopened.
   const anyDrawerOpen = openDrawerIds.size > 0;
-  // Per-job filter — user-soft-dismissed jobs are hidden from the toast slot
-  // but still kept in the panel.
-  const workingHead = workingJobs.find((j) => !j.hideFromToast);
-  const completedHead = completedJobs.find((j) => !j.hideFromToast);
+  // Each visible job gets its own toast. `hideFromToast` is the user's
+  // soft-dismiss; the job stays in the panel either way. Order: working
+  // first, then completed — with `column-reverse` on the stack this puts
+  // newer completed/working toasts visually higher.
+  const visibleJobs = [
+    ...workingJobs.filter((j) => !j.hideFromToast),
+    ...completedJobs.filter((j) => !j.hideFromToast),
+  ];
 
   return (
     <>
-      {!panelOpen && !anyDrawerOpen && (workingHead || completedHead) && (
+      {!panelOpen && !anyDrawerOpen && visibleJobs.length > 0 && (
         <div className="ai-toast-stack">
-          {workingHead && (
+          {visibleJobs.map((j) => (
             <AIGenerationToast
-              key={workingHead.jobId}
-              jobId={workingHead.jobId}
-              bumpedAt={workingHead.bumpedAt}
-              queueCount={workingJobs.length - 1}
+              key={j.jobId}
+              jobId={j.jobId}
+              bumpedAt={j.bumpedAt}
               onOpen={handleToastClick}
-              onDismiss={() => handleDismissToast(workingHead.jobId)}
+              onDismiss={() => handleDismissToast(j.jobId)}
             />
-          )}
-          {completedHead && (
-            <AIGenerationToast
-              key={completedHead.jobId}
-              jobId={completedHead.jobId}
-              bumpedAt={completedHead.bumpedAt}
-              queueCount={completedJobs.length - 1}
-              onOpen={handleToastClick}
-              onDismiss={() => handleDismissToast(completedHead.jobId)}
-            />
-          )}
+          ))}
         </div>
       )}
       <AIJobsPanel

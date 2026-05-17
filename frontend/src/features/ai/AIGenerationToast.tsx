@@ -8,8 +8,6 @@ interface Props {
   jobId: string;
   /** Re-trigger timestamp from the store. Triggers a shake when it increments. */
   bumpedAt?: number;
-  /** Number of OTHER jobs queued behind this one — surfaced as a "+N" badge. */
-  queueCount?: number;
   /** Called when user clicks the toast (works in any state). */
   onOpen: () => void;
   /** Called when user X's the toast OR success auto-dismiss timer fires. */
@@ -29,7 +27,7 @@ interface Props {
  *
  * Auto-dismisses 8s after success if user doesn't click open.
  */
-export function AIGenerationToast({ jobId, bumpedAt, queueCount = 0, onOpen, onDismiss }: Props) {
+export function AIGenerationToast({ jobId, bumpedAt, onOpen, onDismiss }: Props) {
   const { job } = useAIJob(jobId);
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const [shake, setShake] = useState(false);
@@ -105,7 +103,6 @@ export function AIGenerationToast({ jobId, bumpedAt, queueCount = 0, onOpen, onD
           <>
             <p className="ai-toast__title">
               {isQueued ? `Queued ${label}` : `Generating ${label}`}
-              {queueCount > 0 && <span className="ai-toast__queue">+{queueCount}</span>}
             </p>
             <p className="ai-toast__sub">
               {isQueued
@@ -119,10 +116,7 @@ export function AIGenerationToast({ jobId, bumpedAt, queueCount = 0, onOpen, onD
         )}
         {isDone && (
           <>
-            <p className="ai-toast__title">
-              {capitalize(label)} ready
-              {queueCount > 0 && <span className="ai-toast__queue">+{queueCount}</span>}
-            </p>
+            <p className="ai-toast__title">{capitalize(label)} ready</p>
             <p className="ai-toast__sub">Click to open</p>
           </>
         )}
