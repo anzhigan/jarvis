@@ -109,9 +109,19 @@ function JobRow({
   if (isDone) progressPct = 100;
   else if (isWorking && eta > 0) progressPct = Math.min(95, (elapsed / eta) * 100);
 
+  // Only done (and failed, for error inspection) jobs are openable — there's
+  // no per-drawer loading screen anymore; progress lives in THIS row.
+  const openable = isDone || isFailed;
+
   return (
     <li className="ai-jobs-row" data-state={status}>
-      <button type="button" className="ai-jobs-row__main" onClick={onClick} title="Open">
+      <button
+        type="button"
+        className="ai-jobs-row__main"
+        onClick={openable ? onClick : undefined}
+        disabled={!openable}
+        title={openable ? 'Open' : 'Still generating — watch progress here'}
+      >
         <span className="ai-jobs-row__icon" data-pulsing={isWorking || undefined}>
           <Sparkles size={13} />
         </span>

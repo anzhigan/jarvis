@@ -76,10 +76,18 @@ export default function NotesView() {
   const handlePickerConfirm = useCallback(async (ids: string[]) => {
     setPickerOpen(false);
     if (ids.length === 0) return;
-    // Same-task guard: a quiz with no noteId is the multi-quiz slot.
+    // Same-task guard: a quiz with no noteId is the multi-quiz slot. If it
+    // already exists and is done, open it; otherwise let the AI tasks
+    // sidebar show progress.
     const inBg = useAIJobsStore.getState().findSame('quiz', undefined);
     if (inBg) {
-      useAIJobsStore.getState().bump(inBg.jobId);
+      try {
+        const live = await aiApi.getJob(inBg.jobId);
+        if (live.status === 'done') {
+          setMultiQuizJobId(inBg.jobId);
+          setMultiQuizDrawerOpen(true);
+        }
+      } catch { /* ignore */ }
       return;
     }
     if (multiQuizJobId && multiQuizDrawerOpen) return;
@@ -100,8 +108,12 @@ export default function NotesView() {
         kind: 'quiz',
         source: { section: 'notes', noteTitle },
       });
-      setMultiQuizJobId(job.id);
-      setMultiQuizDrawerOpen(true);
+      // Cached-done jobs pop the drawer immediately. Otherwise the user
+      // watches progress in the AI tasks sidebar.
+      if (job.status === 'done') {
+        setMultiQuizJobId(job.id);
+        setMultiQuizDrawerOpen(true);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start quiz');
     }

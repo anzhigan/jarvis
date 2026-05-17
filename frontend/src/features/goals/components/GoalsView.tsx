@@ -66,14 +66,19 @@ export default function GoalsView() {
   const addBgJob = useAIJobsStore((s) => s.add);
 
   const handlePlanDay = useCallback(async () => {
-    // Re-clicking Plan day while one is already in flight:
-    //  - if the drawer is closed, the toast represents it → shake it instead
-    //    of spinning up another job.
-    //  - if the drawer is already open, just no-op (user can see progress).
-    // Either way: don't enqueue a duplicate schedule job.
+    // Re-clicking Plan day while one is already known:
+    //  - if it's already done, open the drawer with the result.
+    //  - if it's still running, do nothing — progress is in the AI tasks
+    //    sidebar; no "Planning your day" loading sidebar.
     const inBg = useAIJobsStore.getState().findSame('schedule', undefined);
     if (inBg) {
-      useAIJobsStore.getState().bump(inBg.jobId);
+      try {
+        const live = await aiApi.getJob(inBg.jobId);
+        if (live.status === 'done') {
+          setScheduleJobId(inBg.jobId);
+          setScheduleDrawerOpen(true);
+        }
+      } catch { /* ignore */ }
       return;
     }
     if (scheduleJobId && scheduleDrawerOpen) {
@@ -90,8 +95,10 @@ export default function GoalsView() {
         kind: 'schedule',
         source: { section: 'goals' },
       });
-      setScheduleJobId(job.id);
-      setScheduleDrawerOpen(true);
+      if (job.status === 'done') {
+        setScheduleJobId(job.id);
+        setScheduleDrawerOpen(true);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start planning');
     }

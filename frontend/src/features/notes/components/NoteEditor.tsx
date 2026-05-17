@@ -586,16 +586,23 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     if (!note) return;
     setQuizError(null);
     if (action !== 'quiz') return;  // only quiz wired up here
-    // If there's already a quiz for this exact note (in-flight OR done),
-    // just open its drawer. The drawer's poller handles both states:
-    //  - done → questions render immediately
-    //  - running/queued → loading screen until the worker finishes
-    // No "shake" / panel-opening intermediate steps.
+    // Progress for an in-flight quiz lives in the AI tasks sidebar — we
+    // intentionally don't open the QuizDrawer until the job is `done`.
+    // The drawer only renders questions, never a "Building your test"
+    // loading screen.
     const existing = useAIJobsStore.getState().findSame('quiz', note.id);
     if (existing) {
-      setQuizJobId(existing.jobId);
-      setQuizJobNoteId(note.id);
-      setDrawerOpen(true);
+      try {
+        const live = await aiApi.getJob(existing.jobId);
+        if (live.status === 'done') {
+          setQuizJobId(existing.jobId);
+          setQuizJobNoteId(note.id);
+          setDrawerOpen(true);
+        }
+        // else: nothing to open — user watches the row in the AI tasks panel.
+      } catch {
+        // ignore — at worst the user re-clicks and we retry
+      }
       return;
     }
     if (quizJobId && drawerOpen && quizJobNoteId === note.id) {
@@ -616,11 +623,6 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
         difficulty: 'medium',
         count,
       });
-      // Push to bg store IMMEDIATELY — the toast + AI-jobs panel are the
-      // single source of truth for "what's running". Adding only on
-      // drawer-close used to hide running jobs from the queue UI until the
-      // user dismissed the drawer manually. add() de-duplicates by jobId so
-      // subsequent close-time pushes are no-ops.
       addBgJob({
         jobId: job.id,
         kind: 'quiz',
@@ -630,9 +632,14 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
           noteTitle: note.name || 'untitled',
         },
       });
-      setQuizJobId(job.id);
-      setQuizJobNoteId(note.id);
-      setDrawerOpen(true);
+      // Backend returned a cached done job? Pop the drawer immediately
+      // since there's nothing to wait for. Otherwise the user watches
+      // progress in the AI tasks sidebar (no per-drawer loading screen).
+      if (job.status === 'done') {
+        setQuizJobId(job.id);
+        setQuizJobNoteId(note.id);
+        setDrawerOpen(true);
+      }
     } catch (e) {
       setQuizError(e instanceof Error ? e.message : 'failed to start AI action');
     }
