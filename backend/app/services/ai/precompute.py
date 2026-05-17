@@ -33,8 +33,9 @@ from app.services.ai.cache import (
     quiz_cache_key,
     schedule_cache_key,
 )
-from app.services.ai.jobs import create_job, run_job
+from app.services.ai.jobs import create_job
 from app.services.ai.ollama_client import OllamaClient
+from app.services.ai.queue import job_queue
 
 logger = logging.getLogger(__name__)
 
@@ -139,8 +140,9 @@ async def run_daily_precompute() -> None:
 async def precompute_schedule_for_user(user_id: uuid.UUID, target_date) -> None:
     """Generate today's schedule for one user, if not already cached.
 
-    Synchronous from the loop's perspective — we await run_job rather than
-    scheduling a BackgroundTask. The loop runs at night, so blocking is fine.
+    Hands the job to the serial queue so it competes for Ollama capacity on
+    equal footing with on-demand user requests instead of running in parallel
+    with them. The loop continues to the next user without waiting.
     """
     async with AsyncSessionLocal() as db:
         # Default to time-blocked schedule for the morning precompute — most
@@ -169,9 +171,8 @@ async def precompute_schedule_for_user(user_id: uuid.UUID, target_date) -> None:
         await db.commit()
         job_id = job.id
 
-    # Run the job synchronously — opens its own DB session inside.
-    await run_job(job_id)
-    logger.info("precompute: schedule done for user=%s", user_id)
+    await job_queue.enqueue(job_id)
+    logger.info("precompute: schedule queued for user=%s", user_id)
 
 
 async def precompute_quizzes_for_user(user_id: uuid.UUID, today: date_cls) -> None:
@@ -253,10 +254,10 @@ async def precompute_quizzes_for_user(user_id: uuid.UUID, today: date_cls) -> No
             await db.commit()
             job_id = job.id
 
-        await run_job(job_id)
+        await job_queue.enqueue(job_id)
         generated += 1
         logger.info(
-            "precompute: quiz done for user=%s note=%s (%d/%d)",
+            "precompute: quiz queued for user=%s note=%s (%d/%d)",
             user_id, note.id, generated, PRECOMPUTE_QUIZ_PER_USER,
         )
 

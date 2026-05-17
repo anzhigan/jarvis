@@ -11,8 +11,11 @@ own jobs.
 Ollama health: enqueue is gated by `OllamaClient.health()` so we fail fast
 with 503 instead of queuing jobs that will all fail downstream.
 """
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -48,6 +51,7 @@ from app.services.ai.jobs import (
     run_job,
     supported_kinds,
 )
+from app.services.ai.queue import job_queue
 from app.services.ai.ollama_client import OllamaClient
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -100,7 +104,7 @@ async def enqueue_job(
     # not found'. The dependency's post-yield commit becomes a harmless no-op
     # after this point.
     await db.commit()
-    background_tasks.add_task(run_job, job.id)
+    await job_queue.enqueue(job.id)
     return job
 
 
@@ -134,10 +138,28 @@ async def cancel(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Best-effort cancel. Queued jobs become 'cancelled' immediately.
-    Running jobs aren't preempted but their output will be discarded by
-    the UI based on the status flag."""
-    job = await cancel_job(job_id, user.id, db)
+    """Cancel a job. Pending → removed from queue + status=cancelled.
+    Running → asyncio.Task cancelled (httpx connection closes, Ollama
+    notices client-disconnect and aborts the generation). The next pending
+    job starts immediately."""
+    # Verify ownership + grab a snapshot for the response.
+    job = await db.get(AIJob, job_id)
+    if job is None or job.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="job not found")
+    if job.status in {"done", "failed", "cancelled"}:
+        return job
+
+    # First: tell the queue. This either preempts the running asyncio.Task
+    # (which causes the worker to write status=cancelled) or simply removes
+    # the id from the pending deque.
+    location = await job_queue.cancel(job_id)
+
+    # For pending jobs the worker never sees them, so flip the DB row here.
+    # For running jobs the worker's CancelledError handler will write it,
+    # but we also write it eagerly so the API response reflects the new
+    # state without waiting for that task to be torn down.
+    job = await cancel_job(job_id, user.id, db)  # type: ignore[assignment]
+    logger.info("cancel: job=%s location=%s", job_id, location)
     if job is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="job not found")
     return job
@@ -197,24 +219,27 @@ async def create_quiz(
 
     Phase 3: scope.kind must be 'note'. Phase 4 expands to topic/way/tag/multi.
     """
-    if body.scope.kind != "note":
+    if body.scope.kind not in ("note", "all"):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail="Only scope.kind='note' is supported right now. "
-                   "Cross-notes quizzes are coming in the next release.",
-        )
-    if body.scope.id is None:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="scope.id is required for scope.kind='note'",
+            detail="Only scope.kind in ('note','all') is supported right now.",
         )
 
-    # Ownership check up-front (catches "wrong UUID" or "someone else's note").
-    await _check_note_owned(body.scope.id, user.id, db)
-
-    # Cache lookup: if note content + params unchanged since last run, return
-    # the prior done-job. Frontend's polling will see status=done immediately.
-    cache_key = await quiz_cache_key(body.scope.id, body.difficulty, body.count, db)
+    if body.scope.kind == "note":
+        if body.scope.id is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="scope.id is required for scope.kind='note'",
+            )
+        await _check_note_owned(body.scope.id, user.id, db)
+        cache_key = await quiz_cache_key(
+            body.scope.id, body.difficulty, body.count, db,
+        )
+    else:  # 'all'
+        from app.services.ai.cache import quiz_all_cache_key
+        cache_key = await quiz_all_cache_key(
+            user.id, body.difficulty, body.count, db,
+        )
     if cache_key is not None:
         cached = await find_cached(cache_key, user.id, "quiz", db)
         if cached is not None:
@@ -237,7 +262,7 @@ async def create_quiz(
     )
     # Commit BEFORE scheduling: see comment in enqueue_job above.
     await db.commit()
-    background_tasks.add_task(run_job, job.id)
+    await job_queue.enqueue(job.id)
     return job
 
 
@@ -391,7 +416,7 @@ async def create_schedule(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     await db.commit()
-    background_tasks.add_task(run_job, job.id)
+    await job_queue.enqueue(job.id)
     return job
 
 
@@ -447,5 +472,5 @@ async def create_insights(
         db=db,
     )
     await db.commit()
-    background_tasks.add_task(run_job, job.id)
+    await job_queue.enqueue(job.id)
     return job

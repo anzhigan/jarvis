@@ -618,7 +618,11 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       addBgJob({
         jobId: quizJobId,
         kind: 'quiz',
-        source: { section: 'notes', noteId: note.id },
+        source: {
+          section: 'notes',
+          noteId: note.id,
+          noteTitle: note.name || 'untitled',
+        },
       });
     }
   }, [quizJobId, note, addBgJob]);

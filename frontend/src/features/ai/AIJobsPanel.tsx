@@ -6,6 +6,13 @@ import { type BgAIJob } from '../../store/aiJobs';
 import { useAIJob } from './useAIJob';
 import './ai.css';
 
+function jobLabel(job: BgAIJob): string {
+  if (job.kind === 'quiz' && job.source.noteTitle) {
+    return `Quiz · ${job.source.noteTitle}`;
+  }
+  return KIND_LABELS[job.kind] ?? 'AI task';
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -94,7 +101,7 @@ function JobRow({
   const isDone = status === 'done';
   const isFailed = status === 'failed';
   const eta = live?.eta_seconds ?? 60;
-  const kindLabel = KIND_LABELS[job.kind] ?? 'AI task';
+  const title = jobLabel(job);
   const statusLabel = STATUS_LABEL[status] ?? status;
 
   return (
@@ -104,7 +111,7 @@ function JobRow({
           <Sparkles size={13} />
         </span>
         <span className="ai-jobs-row__body">
-          <span className="ai-jobs-row__title">{kindLabel}</span>
+          <span className="ai-jobs-row__title">{title}</span>
           <span className="ai-jobs-row__sub">
             <span className="ai-jobs-row__status" data-tone={isDone ? 'done' : isFailed ? 'failed' : 'pending'}>
               {statusLabel}

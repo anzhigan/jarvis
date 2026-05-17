@@ -19,6 +19,7 @@ from app.core.sentry import init_sentry
 from app.models import *  # noqa: F401, F403
 from app.routers import ai, auth, focus_sprints, notes, routines, steps, tags, tasks
 from app.services.ai.precompute import precompute_loop
+from app.services.ai.queue import job_queue
 from app.services.s3 import _get_client, ensure_bucket_exists
 
 setup_logging(level="DEBUG" if settings.APP_ENV != "production" else "INFO")
@@ -52,6 +53,11 @@ async def lifespan(app: FastAPI):
     except Exception:  # noqa: BLE001 — boot-time cleanup mustn't block startup
         logger.exception("startup: ai_jobs reap failed (continuing anyway)")
 
+    # Serial AI job queue. One process, one Ollama → one worker. Routers
+    # enqueue here instead of FastAPI BackgroundTasks so we get visibility +
+    # real preemption (see app/services/ai/queue.py).
+    job_queue.start()
+
     # Background AI pre-compute (Phase 8). Long-running asyncio task that
     # wakes once a day to generate tomorrow's predictable artefacts (today's
     # schedule, future: weekly insights, recently-edited-note quizzes).
@@ -65,6 +71,7 @@ async def lifespan(app: FastAPI):
         await precompute_task
     except asyncio.CancelledError:
         pass
+    await job_queue.stop()
     await engine.dispose()
 
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, FilePlus2, FileText, FolderPlus, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ChevronRight, FilePlus2, FileText, FolderPlus, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
 import type { NotesLibrary } from '../hooks/useNotesLibrary';
 import type { Way } from '../../../api/types';
 
@@ -21,10 +21,12 @@ interface Props {
   selectedNoteId: string | null;
   collapsed: boolean;
   onSelectNote: (id: string) => void;
+  /** Triggers an "all-notes" smart-test job; parent owns the resulting drawer. */
+  onSmartTestAll?: () => void;
 }
 
 export function NotesPane({
-  library, selectedNoteId, collapsed, onSelectNote,
+  library, selectedNoteId, collapsed, onSelectNote, onSmartTestAll,
 }: Props) {
   const {
     ways, createWay, createTopic, createNote,
@@ -149,6 +151,17 @@ export function NotesPane({
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
+        {onSmartTestAll && (
+          <button
+            type="button"
+            className="pane-ai-cta"
+            onClick={onSmartTestAll}
+            title="Generate a smart test drawing from all your substantive notes"
+          >
+            <Sparkles size={12} />
+            <span>Smart test · all notes</span>
+          </button>
+        )}
       </div>
 
       <div className="pane-body">

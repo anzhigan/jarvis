@@ -269,7 +269,7 @@ export interface QuizQuestion {
 export interface AIQuiz {
   id: string;
   title: string;
-  scope_kind: 'note' | 'topic' | 'way' | 'tag' | 'multi' | 'recent';
+  scope_kind: 'note' | 'topic' | 'way' | 'tag' | 'multi' | 'recent' | 'all';
   scope_ref: Record<string, unknown>;
   difficulty: 'easy' | 'medium' | 'hard';
   questions: QuizQuestion[];
@@ -300,7 +300,7 @@ export interface QuizAttempt {
 }
 
 export interface QuizScope {
-  kind: 'note' | 'topic' | 'way' | 'tag' | 'multi' | 'recent';
+  kind: 'note' | 'topic' | 'way' | 'tag' | 'multi' | 'recent' | 'all';
   id?: string;
   ids?: string[];
   days?: number;

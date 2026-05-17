@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { aiApi } from '../../api/client';
 import { dispatchOpenAIJob, useAIJobsStore, type BgAIJob } from '../../store/aiJobs';
 import { AIGenerationToast } from './AIGenerationToast';
 import { AIJobsPanel } from './AIJobsPanel';
@@ -42,6 +43,19 @@ export function AIToastStack() {
     openSourceDrawer(job);
   }, [openSourceDrawer]);
 
+  /** Real cancellation: hits the backend so a running task is preempted and
+   *  pending ones are dropped from the queue. We then remove from the store
+   *  regardless of API outcome — the toast/panel shouldn't get stuck if the
+   *  request failed for a network blip. */
+  const handleCancel = useCallback(async (jobId: string) => {
+    try {
+      await aiApi.cancelJob(jobId);
+    } catch {
+      // ignored — user already wanted it gone
+    }
+    remove(jobId);
+  }, [remove]);
+
   if (jobs.length === 0) return null;
   const head = jobs[0];
 
@@ -54,7 +68,7 @@ export function AIToastStack() {
           bumpedAt={head.bumpedAt}
           queueCount={jobs.length - 1}
           onOpen={handleToastClick}
-          onDismiss={() => remove(head.jobId)}
+          onDismiss={() => void handleCancel(head.jobId)}
         />
       </div>
       <AIJobsPanel
@@ -62,7 +76,7 @@ export function AIToastStack() {
         onOpenChange={setPanelOpen}
         jobs={jobs}
         onPickJob={handlePickFromPanel}
-        onDismissJob={remove}
+        onDismissJob={handleCancel}
       />
     </>
   );

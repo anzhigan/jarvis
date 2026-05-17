@@ -52,6 +52,54 @@ async def quiz_cache_key(
     return f"quiz:{note_id}:{difficulty}:{count}:{_short_hash(body)}"
 
 
+# Minimum char length for an "all-notes" quiz fingerprint — match the picker
+# threshold inside the quiz handler so the cache key reflects exactly the
+# notes that would actually feed the prompt.
+QUIZ_ALL_MIN_NOTE_CHARS = 200
+
+
+async def quiz_all_cache_key(
+    user_id: uuid.UUID,
+    difficulty: str,
+    count: int,
+    db: AsyncSession,
+) -> str | None:
+    """Cache key for an "all notes" quiz. Depends on the user's substantive
+    notes (id + length + short content hash). Adding / editing / removing
+    any substantive note invalidates the cache; a noop day reuses it."""
+    from sqlalchemy import func
+    from app.models.notes import Note, Topic, Way
+
+    way_ids = list((await db.execute(
+        select(Way.id).where(Way.user_id == user_id),
+    )).scalars().all())
+    topic_ids = list((await db.execute(
+        select(Topic.id).join(Way, Topic.way_id == Way.id)
+        .where(Way.user_id == user_id),
+    )).scalars().all())
+    if not way_ids and not topic_ids:
+        return None
+
+    notes_q = await db.execute(
+        select(Note.id, Note.name, Note.content).where(
+            or_(
+                Note.way_id.in_(way_ids),
+                Note.topic_id.in_(topic_ids),
+                Note.topic_inline_id.in_(topic_ids),
+            ),
+            func.length(Note.content) >= QUIZ_ALL_MIN_NOTE_CHARS,
+        ).order_by(Note.id),
+    )
+    rows = list(notes_q.all())
+    if not rows:
+        return None
+    sig = "|".join(
+        f"{nid}:{len(content or '')}:{_short_hash((name or '') + (content or ''))}"
+        for (nid, name, content) in rows
+    )
+    return f"quiz:all:{user_id}:{difficulty}:{count}:{_short_hash(sig)}"
+
+
 async def schedule_cache_key(
     user_id: uuid.UUID,
     target_date: date_cls,

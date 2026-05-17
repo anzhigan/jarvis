@@ -1,11 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { aiApi } from '../../../api/client';
+import {
+  AI_JOB_OPEN_EVENT,
+  useAIJobsStore,
+  type AIJobOpenDetail,
+} from '../../../store/aiJobs';
 import { useNotesLibrary } from '../hooks/useNotesLibrary';
 import { useNoteEditor } from '../hooks/useNoteEditor';
 import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
 import { NotesPane } from './NotesPane';
 import { NoteEditor } from './NoteEditor';
 import './notes.css';
+
+// Lazy-load the QuizDrawer used for the multi-note ("all notes") variant —
+// the per-note one is loaded by NoteEditor under the same name; both end
+// up sharing the chunk after Vite dedup.
+const QuizDrawer = lazy(() => import('../../ai/QuizDrawer').then((m) => ({ default: m.QuizDrawer })));
 
 const PANE_COLLAPSED_KEY = 'jarvnote:notes:libCollapsed';
 
@@ -46,6 +58,58 @@ export default function NotesView() {
     return () => window.removeEventListener('jarvnote:openNote', handler);
   }, [editor]);
 
+  // ── "Smart test on all notes" — multi-note quiz state lives at the view
+  // level (no specific NoteEditor is required, so we can't put the drawer
+  // there). Same backgrounding pattern as the per-note quiz.
+  const [multiQuizJobId, setMultiQuizJobId] = useState<string | null>(null);
+  const [multiQuizDrawerOpen, setMultiQuizDrawerOpen] = useState(false);
+  const addBgJob = useAIJobsStore((s) => s.add);
+
+  const handleSmartTestAll = useCallback(async () => {
+    // Re-trigger guard: same kind already in flight → shake the toast.
+    const inBg = useAIJobsStore.getState().findByKind('quiz');
+    if (inBg) {
+      useAIJobsStore.getState().bump(inBg.jobId);
+      return;
+    }
+    if (multiQuizJobId && multiQuizDrawerOpen) return;
+    try {
+      const job = await aiApi.createQuiz({
+        scope: { kind: 'all' },
+        difficulty: 'medium',
+        count: 5,
+      });
+      setMultiQuizJobId(job.id);
+      setMultiQuizDrawerOpen(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to start quiz');
+    }
+  }, [multiQuizJobId, multiQuizDrawerOpen]);
+
+  const handleMultiQuizClose = useCallback(() => {
+    setMultiQuizDrawerOpen(false);
+    if (multiQuizJobId) {
+      addBgJob({
+        jobId: multiQuizJobId,
+        kind: 'quiz',
+        source: { section: 'notes', noteTitle: 'all notes' },
+      });
+    }
+  }, [multiQuizJobId, addBgJob]);
+
+  // Cross-section reopen of an all-notes quiz from the toast / AI Jobs panel.
+  // We only react when there is NO noteId on the detail — per-note quizzes
+  // are routed to NoteEditor instead.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
+      if (detail.kind !== 'quiz' || detail.source.noteId) return;
+      setMultiQuizJobId(detail.jobId);
+      setMultiQuizDrawerOpen(true);
+    };
+    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
+  }, []);
   const handleSelectNote = useCallback(async (id: string) => {
     await save.flush();
     editor.setSelectedNoteId(id);
@@ -68,6 +132,7 @@ export default function NotesView() {
         selectedNoteId={editor.selectedNoteId}
         collapsed={paneCollapsed}
         onSelectNote={handleSelectNote}
+        onSmartTestAll={handleSmartTestAll}
       />
 
       <NoteEditor
@@ -78,6 +143,16 @@ export default function NotesView() {
         onTitleChange={(id, name) => save.queueSave(id, { name })}
         onContentChange={(id, html) => save.queueSave(id, { content: html })}
       />
+
+      {multiQuizJobId !== null && multiQuizDrawerOpen && (
+        <Suspense fallback={null}>
+          <QuizDrawer
+            jobId={multiQuizJobId}
+            noteTitle="all notes"
+            onClose={handleMultiQuizClose}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

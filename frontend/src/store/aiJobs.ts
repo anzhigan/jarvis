@@ -18,6 +18,9 @@ export interface AIJobSource {
   section: 'notes' | 'goals' | 'analysis';
   /** For quiz/tasks_extract — the note this job belongs to. */
   noteId?: string;
+  /** Pretty title for the AI jobs panel ("Quiz · note name"). Optional;
+   *  panel falls back to the generic kind label when missing. */
+  noteTitle?: string;
 }
 
 export interface BgAIJob {

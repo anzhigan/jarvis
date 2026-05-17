@@ -49,8 +49,9 @@ class AIJobBrief(BaseModel):
 
 
 class QuizScope(BaseModel):
-    """Phase 3 only supports kind='note'. Phase 4 expands to topic/way/tag/multi."""
-    kind: str = Field(pattern=r"^(note|topic|way|tag|multi|recent)$")
+    """`note` = single note (id required). `all` = quiz drawn from every
+    substantive note the user owns (no ids needed)."""
+    kind: str = Field(pattern=r"^(note|topic|way|tag|multi|recent|all)$")
     id: uuid.UUID | None = None
     ids: list[uuid.UUID] | None = None
     days: int | None = None  # for kind='recent'
