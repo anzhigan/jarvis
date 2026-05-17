@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Steps · Variant B — Vertical chronological</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Source+Serif+4:opsz,wght@8..60,400..600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body:    "Source Serif 4", Georgia, serif;
+  --font-ui:      "Inter", -apple-system, system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --paper:    #FCFCF9;
+  --cream:    #ECEEEF;
+  --soft:     #DEE1E2;
+  --ink:      #15202A;
+  --ink-2:    #2C353D;
+  --ink-3:    #455058;
+  --ink-4:    #6E7780;
+  --ink-5:    #9EA5AB;
+
+  --indigo:      #2C4A60;
+  --indigo-soft: rgba(44, 74, 96, 0.10);
+  --indigo-tint: rgba(44, 74, 96, 0.18);
+  --moss:        #6B7A4F;
+  --moss-soft:   rgba(107, 122, 79, 0.16);
+  --ochre:       #A18030;
+  --ochre-soft:  rgba(161, 128, 48, 0.14);
+  --rust:        #A04A39;
+
+  --hairline:        rgba(15, 24, 32, 0.09);
+  --hairline-strong: rgba(15, 24, 32, 0.16);
+
+  --r-card: 6px; --r-pill: 999px;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.page { max-width: 900px; margin: 48px auto; padding: 0 32px; }
+.goal-title {
+  font-family: var(--font-display);
+  font-size: 30px; font-weight: 500;
+  letter-spacing: -0.028em;
+  color: var(--ink); margin: 0 0 8px;
+}
+.goal-desc {
+  font-family: var(--font-body);
+  font-size: 15px; color: var(--ink-3); margin: 0 0 28px;
+  max-width: 640px; line-height: 1.5;
+}
+.variant-label {
+  font-family: var(--font-ui); font-size: 11px;
+  color: var(--ink-5); text-transform: uppercase; letter-spacing: 0.1em;
+  margin: 0 0 8px;
+}
+
+/* ── Steps section ─────────────────────────────────────────────────── */
+.steps {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  padding: 22px 24px 28px;
+}
+.steps-head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 22px;
+}
+.steps-head__label {
+  font-family: var(--font-ui); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--ink-4); font-weight: 600;
+}
+.steps-head__rule {
+  flex: 1; height: 1px; background: var(--hairline); align-self: center;
+}
+.steps-head__meta {
+  font-family: var(--font-ui); font-size: 12px;
+  color: var(--ink-4);
+}
+.steps-head__meta b { color: var(--ink-2); font-weight: 600; }
+.steps-head__btn {
+  font-family: var(--font-ui); font-size: 11px; font-weight: 500;
+  background: transparent; color: var(--ink-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 4px 10px; cursor: pointer;
+}
+.steps-head__btn:hover { background: var(--cream); color: var(--ink); }
+
+/* ── Vertical timeline ─────────────────────────────────────────────── */
+.tl {
+  position: relative;
+  padding: 8px 0;
+}
+.tl-rail {
+  position: absolute;
+  left: 110px;
+  top: 18px; bottom: 18px;
+  width: 2px;
+  background: var(--soft);
+}
+.tl-rail__fill {
+  position: absolute; left: 0; top: 0;
+  width: 2px; height: 58%;
+  background: var(--moss);
+}
+
+.tl-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 92px 36px 1fr;
+  gap: 16px;
+  padding: 14px 0;
+}
+.tl-row__date {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--ink-4); text-align: right;
+  padding-top: 14px;
+  letter-spacing: 0.02em;
+}
+.tl-row__date small {
+  display: block;
+  font-size: 9.5px;
+  color: var(--ink-5);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+.tl-row__dot {
+  position: relative;
+  padding-top: 16px;
+  display: flex; justify-content: center;
+}
+.tl-row__dot::before {
+  content: '';
+  width: 14px; height: 14px; border-radius: 999px;
+  background: var(--paper);
+  border: 2px solid var(--ink-5);
+  box-shadow: 0 0 0 4px var(--paper);
+  position: relative; z-index: 2;
+}
+.tl-row[data-state="done"] .tl-row__dot::before {
+  background: var(--moss); border-color: var(--moss);
+}
+.tl-row[data-state="active"] .tl-row__dot::before {
+  border-color: var(--ochre);
+  box-shadow: 0 0 0 4px var(--paper), 0 0 0 7px var(--ochre-soft);
+}
+
+.tl-card {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  padding: 12px 14px;
+}
+.tl-row[data-state="active"] .tl-card {
+  border-color: var(--ochre);
+  box-shadow: 0 0 0 1px var(--ochre);
+}
+.tl-card__head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+}
+.tl-card__num {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ink-5); letter-spacing: 0.06em;
+}
+.tl-card__title {
+  font-family: var(--font-display); font-size: 16px; font-weight: 500;
+  color: var(--ink); letter-spacing: -0.015em;
+  flex: 1;
+}
+.tl-row[data-state="done"] .tl-card__title { color: var(--ink-3); }
+.tl-status {
+  font-family: var(--font-ui); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 2px 8px; border-radius: var(--r-pill);
+  background: var(--cream); color: var(--ink-4);
+}
+.tl-status.done   { background: var(--moss-soft); color: var(--moss); }
+.tl-status.active { background: var(--ochre-soft); color: var(--ochre); }
+
+.tl-card__sub {
+  font-family: var(--font-body); font-size: 13px;
+  color: var(--ink-3); margin: 0 0 10px; line-height: 1.4;
+}
+.tl-progress {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ink-4); margin-bottom: 10px;
+}
+.tl-progress__bar {
+  flex: 1; height: 3px; background: var(--soft); border-radius: 2px;
+  overflow: hidden;
+}
+.tl-progress__fill {
+  height: 100%; background: var(--moss);
+}
+.tl-row[data-state="active"] .tl-progress__fill { background: var(--ochre); }
+
+.tl-gos {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--hairline);
+}
+.tl-go {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--cream);
+  border-radius: var(--r-pill);
+  padding: 3px 10px;
+  font-family: var(--font-ui); font-size: 11px;
+  color: var(--ink-2);
+}
+.tl-go__dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--ink-5); flex: none;
+}
+.tl-go[data-state="done"] .tl-go__dot   { background: var(--moss); }
+.tl-go[data-state="active"] .tl-go__dot { background: var(--ochre); }
+.tl-go[data-state="done"]               { text-decoration: line-through; text-decoration-color: var(--ink-5); color: var(--ink-4); }
+
+/* Today marker — special row */
+.tl-today {
+  position: relative;
+  display: grid;
+  grid-template-columns: 92px 36px 1fr;
+  gap: 16px;
+  padding: 2px 0;
+}
+.tl-today__caret {
+  grid-column: 2;
+  display: flex; justify-content: center;
+}
+.tl-today__caret::before {
+  content: '';
+  width: 0; height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--indigo);
+  margin-top: 5px;
+  margin-left: -10px;
+}
+.tl-today__line {
+  grid-column: 3;
+  display: flex; align-items: center; gap: 10px;
+}
+.tl-today__line::before {
+  content: ''; flex: 1; height: 1px;
+  background: var(--indigo); opacity: 0.5;
+}
+.tl-today__label {
+  font-family: var(--font-ui); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--indigo);
+}
+.tl-today__date {
+  grid-column: 1;
+  text-align: right;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--indigo); font-weight: 600;
+  padding-top: 2px;
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="variant-label">Variant B · Vertical chronological feed</p>
+  <h1 class="goal-title">Launch v2 of Jarvnote</h1>
+  <p class="goal-desc">Ship the public release of v2 with the new editor, AI panel and onboarding flow. Five-step roadmap spanning Q2.</p>
+
+  <section class="steps">
+    <div class="steps-head">
+      <span class="steps-head__label">Steps</span>
+      <span class="steps-head__rule"></span>
+      <span class="steps-head__meta"><b>5</b> steps · <b>2</b> done · current is <b>03</b></span>
+      <button type="button" class="steps-head__btn">+ Step</button>
+      <button type="button" class="steps-head__btn">+ Go</button>
+    </div>
+
+    <div class="tl">
+      <div class="tl-rail"><div class="tl-rail__fill"></div></div>
+
+      <div class="tl-row" data-state="done">
+        <div class="tl-row__date">Mar 18 <small>3 weeks</small></div>
+        <div class="tl-row__dot"></div>
+        <div class="tl-card">
+          <div class="tl-card__head">
+            <span class="tl-card__num">01</span>
+            <h3 class="tl-card__title">Foundations</h3>
+            <span class="tl-status done">done</span>
+          </div>
+          <p class="tl-card__sub">Schema, migrations, and CI gating for the new editor format.</p>
+          <div class="tl-progress">
+            <span>5 / 5</span>
+            <div class="tl-progress__bar"><div class="tl-progress__fill" style="width:100%"></div></div>
+            <span>100%</span>
+          </div>
+          <div class="tl-gos">
+            <span class="tl-go" data-state="done"><span class="tl-go__dot"></span> DB schema</span>
+            <span class="tl-go" data-state="done"><span class="tl-go__dot"></span> Migrations</span>
+            <span class="tl-go" data-state="done"><span class="tl-go__dot"></span> CI gate</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-row" data-state="done">
+        <div class="tl-row__date">Apr 02 <small>2 weeks</small></div>
+        <div class="tl-row__dot"></div>
+        <div class="tl-card">
+          <div class="tl-card__head">
+            <span class="tl-card__num">02</span>
+            <h3 class="tl-card__title">Editor rewrite</h3>
+            <span class="tl-status done">done</span>
+          </div>
+          <p class="tl-card__sub">Move from CodeMirror to Tiptap with our custom toggle list and slash menu.</p>
+          <div class="tl-progress">
+            <span>8 / 8</span>
+            <div class="tl-progress__bar"><div class="tl-progress__fill" style="width:100%"></div></div>
+            <span>100%</span>
+          </div>
+          <div class="tl-gos">
+            <span class="tl-go" data-state="done"><span class="tl-go__dot"></span> Tiptap core</span>
+            <span class="tl-go" data-state="done"><span class="tl-go__dot"></span> Slash menu</span>
+            <span class="tl-go" data-state="done"><span class="tl-go__dot"></span> Toggle list</span>
+            <span class="tl-go" data-state="done"><span class="tl-go__dot"></span> Color picker</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-row" data-state="active">
+        <div class="tl-row__date">Apr 18 <small>active</small></div>
+        <div class="tl-row__dot"></div>
+        <div class="tl-card">
+          <div class="tl-card__head">
+            <span class="tl-card__num">03</span>
+            <h3 class="tl-card__title">AI panel</h3>
+            <span class="tl-status active">in progress</span>
+          </div>
+          <p class="tl-card__sub">Quiz, Plan day, and Weekly review surfaces. Background job queue + result drawers.</p>
+          <div class="tl-progress">
+            <span>4 / 7</span>
+            <div class="tl-progress__bar"><div class="tl-progress__fill" style="width:57%"></div></div>
+            <span>57%</span>
+          </div>
+          <div class="tl-gos">
+            <span class="tl-go" data-state="done"><span class="tl-go__dot"></span> Quiz job</span>
+            <span class="tl-go" data-state="done"><span class="tl-go__dot"></span> Toast UX</span>
+            <span class="tl-go" data-state="active"><span class="tl-go__dot"></span> Plan day</span>
+            <span class="tl-go" data-state="upcoming"><span class="tl-go__dot"></span> Insights</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-today">
+        <div class="tl-today__date">Today</div>
+        <div class="tl-today__caret"></div>
+        <div class="tl-today__line"><span class="tl-today__label">May 17</span></div>
+      </div>
+
+      <div class="tl-row" data-state="upcoming">
+        <div class="tl-row__date">May 06 <small>planned</small></div>
+        <div class="tl-row__dot"></div>
+        <div class="tl-card">
+          <div class="tl-card__head">
+            <span class="tl-card__num">04</span>
+            <h3 class="tl-card__title">Onboarding</h3>
+            <span class="tl-status">upcoming</span>
+          </div>
+          <p class="tl-card__sub">First-run sheet, sample notes, biometric prompt for iOS.</p>
+          <div class="tl-progress">
+            <span>0 / 6</span>
+            <div class="tl-progress__bar"><div class="tl-progress__fill" style="width:0%"></div></div>
+            <span>0%</span>
+          </div>
+          <div class="tl-gos">
+            <span class="tl-go" data-state="upcoming"><span class="tl-go__dot"></span> First-run sheet</span>
+            <span class="tl-go" data-state="upcoming"><span class="tl-go__dot"></span> Sample notes</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-row" data-state="upcoming">
+        <div class="tl-row__date">May 27 <small>planned</small></div>
+        <div class="tl-row__dot"></div>
+        <div class="tl-card">
+          <div class="tl-card__head">
+            <span class="tl-card__num">05</span>
+            <h3 class="tl-card__title">Public launch</h3>
+            <span class="tl-status">upcoming</span>
+          </div>
+          <p class="tl-card__sub">Marketing site copy, Product Hunt listing, Twitter thread.</p>
+          <div class="tl-progress">
+            <span>0 / 4</span>
+            <div class="tl-progress__bar"><div class="tl-progress__fill" style="width:0%"></div></div>
+            <span>0%</span>
+          </div>
+          <div class="tl-gos">
+            <span class="tl-go" data-state="upcoming"><span class="tl-go__dot"></span> Landing copy</span>
+            <span class="tl-go" data-state="upcoming"><span class="tl-go__dot"></span> PH listing</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

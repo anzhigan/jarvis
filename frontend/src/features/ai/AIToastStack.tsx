@@ -129,20 +129,25 @@ export function AIToastStack() {
     return () => { cancelled = true; clearInterval(id); };
   }, [jobs.length]);
 
-  // Split into the two sub-toast slots. Unknown-status (just-added, not yet
-  // in statusMap) defaults to "working" — the natural state of a fresh job.
-  const { workingJobs, completedJobs } = useMemo(() => {
-    const working: BgAIJob[] = [];
+  // Split into the two sub-toast slots and also produce a fully-ordered
+  // list for the panel. Order: running first, then queued, then done/failed
+  // /cancelled. Unknown-status (just-added, not yet in statusMap) is
+  // treated as queued — the natural state of a fresh job.
+  const { workingJobs, completedJobs, orderedJobs } = useMemo(() => {
+    const running: BgAIJob[] = [];
+    const queued: BgAIJob[] = [];
     const completed: BgAIJob[] = [];
     for (const j of jobs) {
       const s = statusMap.get(j.jobId);
-      if (s === 'done' || s === 'failed' || s === 'cancelled') {
-        completed.push(j);
-      } else {
-        working.push(j);
-      }
+      if (s === 'running') running.push(j);
+      else if (s === 'done' || s === 'failed' || s === 'cancelled') completed.push(j);
+      else queued.push(j);  // queued or unknown
     }
-    return { workingJobs: working, completedJobs: completed };
+    return {
+      workingJobs: [...running, ...queued],
+      completedJobs: completed,
+      orderedJobs: [...running, ...queued, ...completed],
+    };
   }, [jobs, statusMap]);
 
   // Track which AI-job drawers are currently mounted. The drawers fire
@@ -260,7 +265,7 @@ export function AIToastStack() {
       <AIJobsPanel
         open={panelOpen}
         onOpenChange={setPanelOpen}
-        jobs={jobs}
+        jobs={orderedJobs}
         onPickJob={handlePickFromPanel}
         onDismissJob={handleDismissFully}
       />
