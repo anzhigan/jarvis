@@ -229,8 +229,15 @@ async def _gather_all_notes(
     return out
 
 
-def _parse_questions(raw: str) -> list[QuizQuestionOut]:
-    """Parse model output → validated list. Raises ValueError on malformed."""
+def _parse_questions(raw: str, min_required: int = 1) -> list[QuizQuestionOut]:
+    """Parse model output → validated list.
+
+    Skips individual malformed questions rather than failing the whole batch
+    — small models occasionally emit a stray header-like dict (e.g. literally
+    `{" ": "question"}` from copying the schema example) mixed in with real
+    questions. We only raise if the *total* count of valid questions falls
+    below `min_required`.
+    """
     if not raw or not raw.strip():
         raise ValueError("empty response from model")
 
@@ -253,11 +260,25 @@ def _parse_questions(raw: str) -> list[QuizQuestionOut]:
         raise ValueError("missing or empty 'questions' array in model response")
 
     questions: list[QuizQuestionOut] = []
+    skipped: list[str] = []
     for i, q in enumerate(questions_raw):
         try:
             questions.append(QuizQuestionOut.model_validate(q))
         except ValidationError as e:
-            raise ValueError(f"question {i} fails schema: {e.errors()[:2]}") from e
+            skipped.append(f"q{i}: {e.errors()[:1]}")
+            continue
+
+    if skipped:
+        logger.warning(
+            "dropped %d/%d malformed questions: %s",
+            len(skipped), len(questions_raw), skipped[:3],
+        )
+
+    if len(questions) < min_required:
+        raise ValueError(
+            f"only {len(questions)} valid question(s) out of {len(questions_raw)} "
+            f"(needed {min_required}); first errors: {skipped[:2]}",
+        )
     return questions
 
 
@@ -310,6 +331,11 @@ async def run_quiz_job(
             f"(got {params.scope.kind!r})",
         )
 
+    # Need at least half of the requested questions to consider the run useful
+    # (and always at least one). Below that we retry — a quiz of 1/10 isn't worth
+    # showing the user.
+    min_required = max(1, params.count // 2)
+
     # think=False — quiz generation is structured extraction, not reasoning.
     # Without this, Qwen 3 burns its token budget on a <think> block and
     # returns an empty `response` field, causing "empty response from model".
@@ -317,19 +343,24 @@ async def run_quiz_job(
         prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.5, think=False,
     )
     try:
-        questions = _parse_questions(raw)
+        questions = _parse_questions(raw, min_required=min_required)
     except ValueError as e:
         # One retry with an even more explicit prompt — sometimes the model
         # forgets format=json on edge inputs.
         logger.warning("quiz parse failed (first try): %s — retrying", e)
         retry_prompt = (
             prompt
-            + "\n\nREMINDER: respond with ONLY a JSON object. No prose, no markdown."
+            + "\n\nREMINDER: respond with ONLY a JSON object. No prose, no markdown. "
+            + "Every question MUST have all of: question (string), "
+            + "options (object with A/B/C/D keys), correct (one of A/B/C/D), "
+            + "explanation (string), source_quote (string)."
         )
         raw = await ollama.generate(
             retry_prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.3, think=False,
         )
-        questions = _parse_questions(raw)  # second failure propagates → job failed
+        # On retry accept even one valid question — better than failing the
+        # job outright; user can always regenerate for a fuller batch.
+        questions = _parse_questions(raw, min_required=1)
 
     # Persist the quiz row. We dump back via model_dump() to normalize the
     # JSON shape (e.g. UUIDs become strings).
