@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { aiApi } from '../../api/client';
-import type { AIJobBrief, AIJobKind } from '../../api/types';
+import type { AIJobBrief, AIJobKind, AIJobStatus } from '../../api/types';
 import {
   dispatchOpenAIJob,
   useAIJobsStore,
@@ -70,6 +70,10 @@ export function AIToastStack() {
   const remove = useAIJobsStore((s) => s.remove);
   const hydrate = useAIJobsStore((s) => s.hydrate);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Per-job status snapshot, refreshed at the stack level. Used only to
+  // split jobs into "working" vs "completed" sub-toasts — each toast still
+  // polls its own live status via useAIJob for the elapsed/progress UI.
+  const [statusMap, setStatusMap] = useState<Map<string, AIJobStatus>>(new Map());
 
   // Rehydrate from the backend on boot so refreshing the page doesn't lose
   // in-flight / recent jobs (the store is in-memory). Failures are silent
@@ -85,12 +89,49 @@ export function AIToastStack() {
         hydrate(recent
           .filter((j) => !dismissed.has(j.id))
           .map(deriveBgJob));
+        const m = new Map<string, AIJobStatus>();
+        for (const j of recent) m.set(j.id, j.status);
+        setStatusMap(m);
       } catch {
         // ignore
       }
     })();
     return () => { cancelled = true; };
   }, [hydrate]);
+
+  // Refresh the status map every 3s while any job exists. Matches useAIJob's
+  // cadence; results feed the working-vs-completed split below.
+  useEffect(() => {
+    if (jobs.length === 0) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const recent = await aiApi.listJobs(50);
+        if (cancelled) return;
+        const m = new Map<string, AIJobStatus>();
+        for (const j of recent) m.set(j.id, j.status);
+        setStatusMap(m);
+      } catch { /* ignore */ }
+    };
+    const id = setInterval(tick, 3000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [jobs.length]);
+
+  // Split into the two sub-toast slots. Unknown-status (just-added, not yet
+  // in statusMap) defaults to "working" — the natural state of a fresh job.
+  const { workingJobs, completedJobs } = useMemo(() => {
+    const working: BgAIJob[] = [];
+    const completed: BgAIJob[] = [];
+    for (const j of jobs) {
+      const s = statusMap.get(j.jobId);
+      if (s === 'done' || s === 'failed' || s === 'cancelled') {
+        completed.push(j);
+      } else {
+        working.push(j);
+      }
+    }
+    return { workingJobs: working, completedJobs: completed };
+  }, [jobs, statusMap]);
 
   const openSourceDrawer = useCallback((job: BgAIJob) => {
     // 1. Switch to the source section if we're not there.
@@ -132,20 +173,35 @@ export function AIToastStack() {
   }, [remove]);
 
   if (jobs.length === 0) return null;
-  const head = jobs[0];
+  // Each sub-toast surfaces the head of its category. The capsule (queueCount)
+  // shows the total count of that category — "+N" means N more behind the head.
+  const workingHead = workingJobs[0];
+  const completedHead = completedJobs[0];
 
   return (
     <>
-      {!panelOpen && (
+      {!panelOpen && (workingHead || completedHead) && (
         <div className="ai-toast-stack">
-          <AIGenerationToast
-            key={head.jobId}
-            jobId={head.jobId}
-            bumpedAt={head.bumpedAt}
-            queueCount={jobs.length - 1}
-            onOpen={handleToastClick}
-            onDismiss={() => handleDismiss(head.jobId)}
-          />
+          {workingHead && (
+            <AIGenerationToast
+              key={workingHead.jobId}
+              jobId={workingHead.jobId}
+              bumpedAt={workingHead.bumpedAt}
+              queueCount={workingJobs.length - 1}
+              onOpen={handleToastClick}
+              onDismiss={() => handleDismiss(workingHead.jobId)}
+            />
+          )}
+          {completedHead && (
+            <AIGenerationToast
+              key={completedHead.jobId}
+              jobId={completedHead.jobId}
+              bumpedAt={completedHead.bumpedAt}
+              queueCount={completedJobs.length - 1}
+              onOpen={handleToastClick}
+              onDismiss={() => handleDismiss(completedHead.jobId)}
+            />
+          )}
         </div>
       )}
       <AIJobsPanel
