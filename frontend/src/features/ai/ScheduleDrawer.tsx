@@ -11,6 +11,10 @@ import { Drawer } from '../../components/ui';
 import type {
   AIJob, Go, ScheduleOutput, ScheduleSlot, ScheduleSummary, Task,
 } from '../../api/types';
+import {
+  dispatchAIJobDrawerClosed,
+  dispatchAIJobDrawerOpened,
+} from '../../store/aiJobs';
 import { useAIJob } from './useAIJob';
 import './ai.css';
 
@@ -53,6 +57,15 @@ export function ScheduleDrawer({
 }: Props) {
   const open = jobId !== null;
   const { job, error: pollError } = useAIJob(jobId);
+
+  // Announce open/close to AIToastStack so it can suppress the bottom toasts
+  // while the drawer is on screen and return the user to the panel after.
+  useEffect(() => {
+    if (!jobId) return;
+    dispatchAIJobDrawerOpened(jobId);
+    return () => { dispatchAIJobDrawerClosed(jobId); };
+  }, [jobId]);
+
   const gosById = useMemo(() => {
     const m = new Map<string, Go>();
     for (const g of gos ?? []) m.set(g.id, g);

@@ -130,11 +130,20 @@ export function dispatchOpenAIJob(detail: AIJobOpenDetail): void {
 }
 
 /**
- * Fired by a view when it closes an AI-job drawer (quiz / schedule / etc.).
- * AIToastStack listens so that "panel → pick job → close" returns the user
- * to the panel they came from instead of stranding them in an empty section.
+ * Fired by a drawer component on mount / unmount. AIToastStack uses the pair
+ * to (a) reopen its panel after "panel → pick → close" round-trips and
+ * (b) hide the bottom toasts while any AI-job drawer is on screen so they
+ * don't sit on top of the result the user just opened.
+ *
+ * The drawer is the source of truth (mounts when the parent flips its
+ * open-state); parents don't need to dispatch anything.
  */
+export const AI_JOB_DRAWER_OPENED_EVENT = 'jarvnote:openedAIJob';
 export const AI_JOB_DRAWER_CLOSED_EVENT = 'jarvnote:closedAIJob';
+
+export function dispatchAIJobDrawerOpened(jobId: string): void {
+  window.dispatchEvent(new CustomEvent<string>(AI_JOB_DRAWER_OPENED_EVENT, { detail: jobId }));
+}
 
 export function dispatchAIJobDrawerClosed(jobId: string): void {
   window.dispatchEvent(new CustomEvent<string>(AI_JOB_DRAWER_CLOSED_EVENT, { detail: jobId }));

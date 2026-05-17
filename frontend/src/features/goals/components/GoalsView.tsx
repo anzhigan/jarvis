@@ -11,7 +11,6 @@ import { useGos } from '../hooks/useGos';
 import { useGoalsView, type GoalsViewMode } from '../hooks/useGoalsView';
 import {
   AI_JOB_OPEN_EVENT,
-  dispatchAIJobDrawerClosed,
   useAIJobsStore,
   type AIJobOpenDetail,
 } from '../../../store/aiJobs';
@@ -117,9 +116,6 @@ export default function GoalsView() {
         kind: 'schedule',
         source: { section: 'goals' },
       });
-      // Lets AIToastStack reopen its panel if the user originally launched
-      // this drawer from there.
-      dispatchAIJobDrawerClosed(scheduleJobId);
     }
   }, [scheduleJobId, addBgJob]);
 

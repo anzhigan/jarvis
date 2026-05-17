@@ -7,6 +7,10 @@ import type {
   QuizAttempt,
   QuizLetter,
 } from '../../api/types';
+import {
+  dispatchAIJobDrawerClosed,
+  dispatchAIJobDrawerOpened,
+} from '../../store/aiJobs';
 import { useAIJob } from './useAIJob';
 import './ai.css';
 
@@ -54,6 +58,14 @@ export function QuizDrawer({ jobId, noteTitle, onClose }: Props) {
     setAnswers({});
     setRevealed(false);
     setAttempt(null);
+  }, [jobId]);
+
+  // Announce open/close to AIToastStack so it can suppress the bottom toasts
+  // while the drawer is on screen and return the user to the panel after.
+  useEffect(() => {
+    if (!jobId) return;
+    dispatchAIJobDrawerOpened(jobId);
+    return () => { dispatchAIJobDrawerClosed(jobId); };
   }, [jobId]);
 
   // When the job finishes, fetch the quiz.

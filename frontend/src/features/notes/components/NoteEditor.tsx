@@ -12,7 +12,6 @@ import { AIMenuTrigger } from '../../ai/AIMenuTrigger';
 import { aiApi } from '../../../api/client';
 import {
   AI_JOB_OPEN_EVENT,
-  dispatchAIJobDrawerClosed,
   useAIJobsStore,
   type AIJobOpenDetail,
 } from '../../../store/aiJobs';
@@ -665,9 +664,6 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
           noteTitle: note.name || 'untitled',
         },
       });
-      // Lets AIToastStack reopen its panel if the user originally launched
-      // this drawer from there.
-      dispatchAIJobDrawerClosed(quizJobId);
     }
   }, [quizJobId, note, addBgJob]);
 

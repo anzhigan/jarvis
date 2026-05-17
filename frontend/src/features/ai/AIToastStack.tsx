@@ -3,6 +3,7 @@ import { aiApi } from '../../api/client';
 import type { AIJobBrief, AIJobKind, AIJobStatus } from '../../api/types';
 import {
   AI_JOB_DRAWER_CLOSED_EVENT,
+  AI_JOB_DRAWER_OPENED_EVENT,
   dispatchOpenAIJob,
   useAIJobsStore,
   type AIJobSource,
@@ -81,6 +82,10 @@ export function AIToastStack() {
   // *should* reappear once the drawer closes (otherwise navigation feels
   // like a one-way trip).
   const reopenPanelAfterCloseRef = useRef<string | null>(null);
+  // jobIds of drawers currently mounted somewhere in the tree. Used to hide
+  // the bottom toasts so they don't sit on top of the result the user just
+  // opened (e.g. "Quiz ready" toast over an open QuizDrawer).
+  const [openDrawerIds, setOpenDrawerIds] = useState<ReadonlySet<string>>(new Set());
 
   // Rehydrate from the backend on boot so refreshing the page doesn't lose
   // in-flight / recent jobs (the store is in-memory). Failures are silent
@@ -140,18 +145,38 @@ export function AIToastStack() {
     return { workingJobs: working, completedJobs: completed };
   }, [jobs, statusMap]);
 
-  // Reopen the panel once the user closes the drawer they had picked from it.
-  // Listens for the `AI_JOB_DRAWER_CLOSED_EVENT` fired by view components.
+  // Track which AI-job drawers are currently mounted. The drawers fire
+  // OPENED on mount and CLOSED on unmount; we accumulate the live set and
+  // also use the CLOSED event to honour `reopenPanelAfterCloseRef`.
   useEffect(() => {
-    const handler = (e: Event) => {
+    const onOpened = (e: Event) => {
       const jobId = (e as CustomEvent<string>).detail;
+      setOpenDrawerIds((prev) => {
+        if (prev.has(jobId)) return prev;
+        const next = new Set(prev);
+        next.add(jobId);
+        return next;
+      });
+    };
+    const onClosed = (e: Event) => {
+      const jobId = (e as CustomEvent<string>).detail;
+      setOpenDrawerIds((prev) => {
+        if (!prev.has(jobId)) return prev;
+        const next = new Set(prev);
+        next.delete(jobId);
+        return next;
+      });
       if (reopenPanelAfterCloseRef.current && reopenPanelAfterCloseRef.current === jobId) {
         reopenPanelAfterCloseRef.current = null;
         setPanelOpen(true);
       }
     };
-    window.addEventListener(AI_JOB_DRAWER_CLOSED_EVENT, handler);
-    return () => window.removeEventListener(AI_JOB_DRAWER_CLOSED_EVENT, handler);
+    window.addEventListener(AI_JOB_DRAWER_OPENED_EVENT, onOpened);
+    window.addEventListener(AI_JOB_DRAWER_CLOSED_EVENT, onClosed);
+    return () => {
+      window.removeEventListener(AI_JOB_DRAWER_OPENED_EVENT, onOpened);
+      window.removeEventListener(AI_JOB_DRAWER_CLOSED_EVENT, onClosed);
+    };
   }, []);
 
   const openSourceDrawer = useCallback((job: BgAIJob) => {
@@ -203,9 +228,12 @@ export function AIToastStack() {
 
   if (jobs.length === 0) return null;
   // Toast slots show the head of their category, skipping jobs the user
-  // soft-dismissed from the toast. The panel still lists those jobs.
-  const workingHead = workingJobs.find((j) => !j.hideFromToast);
-  const completedHead = completedJobs.find((j) => !j.hideFromToast);
+  // soft-dismissed from the toast OR that are currently shown in an open
+  // drawer (toast would otherwise sit on top of the result the user just
+  // opened). The panel itself still lists every job.
+  const isHidden = (j: BgAIJob) => j.hideFromToast || openDrawerIds.has(j.jobId);
+  const workingHead = workingJobs.find((j) => !isHidden(j));
+  const completedHead = completedJobs.find((j) => !isHidden(j));
 
   return (
     <>
