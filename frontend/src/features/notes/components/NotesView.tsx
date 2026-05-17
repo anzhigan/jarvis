@@ -76,12 +76,10 @@ export default function NotesView() {
   const handlePickerConfirm = useCallback(async (ids: string[]) => {
     setPickerOpen(false);
     if (ids.length === 0) return;
-    // If a multi-quiz already exists (in-flight OR done), just open its
-    // drawer directly — the drawer's poller renders loading vs result.
+    // Same-task guard: a quiz with no noteId is the multi-quiz slot.
     const inBg = useAIJobsStore.getState().findSame('quiz', undefined);
     if (inBg) {
-      setMultiQuizJobId(inBg.jobId);
-      setMultiQuizDrawerOpen(true);
+      useAIJobsStore.getState().bump(inBg.jobId);
       return;
     }
     if (multiQuizJobId && multiQuizDrawerOpen) return;

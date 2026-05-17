@@ -73,8 +73,7 @@ export default function GoalsView() {
     // Either way: don't enqueue a duplicate schedule job.
     const inBg = useAIJobsStore.getState().findSame('schedule', undefined);
     if (inBg) {
-      setScheduleJobId(inBg.jobId);
-      setScheduleDrawerOpen(true);
+      useAIJobsStore.getState().bump(inBg.jobId);
       return;
     }
     if (scheduleJobId && scheduleDrawerOpen) {
