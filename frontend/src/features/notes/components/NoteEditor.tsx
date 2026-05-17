@@ -586,17 +586,18 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     if (!note) return;
     setQuizError(null);
     if (action !== 'quiz') return;  // only quiz wired up here
-    // "Same task" is per-note: re-clicking on the same note while its quiz
-    // is in flight → bump the existing toast. A quiz on a different note is
-    // a NEW task and goes into the queue.
-    const inBg = useAIJobsStore.getState().findSame('quiz', note.id);
-    if (inBg) {
-      useAIJobsStore.getState().bump(inBg.jobId);
+    // If there's already a quiz for this exact note (in-flight OR done),
+    // just open its drawer. The drawer's poller handles both states:
+    //  - done → questions render immediately
+    //  - running/queued → loading screen until the worker finishes
+    // No "shake" / panel-opening intermediate steps.
+    const existing = useAIJobsStore.getState().findSame('quiz', note.id);
+    if (existing) {
+      setQuizJobId(existing.jobId);
+      setQuizJobNoteId(note.id);
+      setDrawerOpen(true);
       return;
     }
-    // Local-state version of the same guard: drawer is open for THIS note's
-    // quiz right now. (After close, the job moves to the bg store and the
-    // findSame branch handles it.)
     if (quizJobId && drawerOpen && quizJobNoteId === note.id) {
       return;
     }

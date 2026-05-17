@@ -22,23 +22,41 @@ function deriveBgJob(j: AIJobBrief): BgAIJob {
 }
 
 function deriveSource(j: AIJobBrief): AIJobSource {
-  const input = (j.input_json ?? {}) as Record<string, unknown>;
   if (j.kind === 'schedule') return { section: 'goals' };
   if (j.kind === 'insights') return { section: 'analysis' };
-  // quiz: section=notes, noteId only when scope.kind='note', noteTitle is
-  // best-effort (we have only the id here; the actual title shows up if the
-  // editor for that note is mounted).
+  // quiz: noteId only when scope.kind='note'; noteTitle comes from
+  // server-resolved display_title (real note name for single-note quizzes,
+  // "all notes" / "N notes" for cross-notes ones).
+  const input = (j.input_json ?? {}) as Record<string, unknown>;
   const scope = (input.scope ?? {}) as Record<string, unknown>;
-  const scopeKind = scope.kind as string | undefined;
-  const noteId = scopeKind === 'note' ? (scope.id as string | undefined) : undefined;
-  let noteTitle: string | undefined;
-  if (scopeKind === 'note') noteTitle = 'note';
-  else if (scopeKind === 'all') noteTitle = 'all notes';
-  else if (scopeKind === 'multi') {
-    const ids = scope.ids as unknown[] | undefined;
-    noteTitle = ids && ids.length ? `${ids.length} notes` : 'notes';
-  }
+  const noteId = scope.kind === 'note' ? (scope.id as string | undefined) : undefined;
+  const noteTitle = j.display_title ?? undefined;
   return { section: 'notes', noteId, noteTitle };
+}
+
+// ─── Dismissed-job memory (localStorage) ─────────────────────────────────
+// User-X'd job ids are persisted so a page refresh doesn't bring them back
+// from the server's history list. We cap the set so it can't grow forever.
+const DISMISSED_KEY = 'jarvnote:ai-jobs:dismissed';
+const DISMISSED_MAX = 200;
+
+function loadDismissed(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DISMISSED_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissed(set: Set<string>) {
+  try {
+    const arr = Array.from(set);
+    const trimmed = arr.length > DISMISSED_MAX ? arr.slice(arr.length - DISMISSED_MAX) : arr;
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify(trimmed));
+  } catch {
+    // storage full / disabled — best-effort, dismissals just won't persist
+  }
 }
 
 /**
@@ -63,7 +81,10 @@ export function AIToastStack() {
       try {
         const recent = await aiApi.listJobs(20);
         if (cancelled) return;
-        hydrate(recent.map(deriveBgJob));
+        const dismissed = loadDismissed();
+        hydrate(recent
+          .filter((j) => !dismissed.has(j.id))
+          .map(deriveBgJob));
       } catch {
         // ignore
       }
@@ -99,10 +120,9 @@ export function AIToastStack() {
     openSourceDrawer(job);
   }, [openSourceDrawer]);
 
-  /** Real cancellation: hits the backend so a running task is preempted and
-   *  pending ones are dropped from the queue. We then remove from the store
-   *  regardless of API outcome — the toast/panel shouldn't get stuck if the
-   *  request failed for a network blip. */
+  /** Dismiss a job from the UI. For in-flight jobs this also cancels on
+   *  the backend (idempotent for done jobs). Dismissals are persisted to
+   *  localStorage so the rehydrate-on-reload doesn't bring them back. */
   const handleCancel = useCallback(async (jobId: string) => {
     try {
       await aiApi.cancelJob(jobId);
@@ -110,6 +130,9 @@ export function AIToastStack() {
       // ignored — user already wanted it gone
     }
     remove(jobId);
+    const dismissed = loadDismissed();
+    dismissed.add(jobId);
+    saveDismissed(dismissed);
   }, [remove]);
 
   if (jobs.length === 0) return null;

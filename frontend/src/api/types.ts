@@ -247,7 +247,8 @@ export interface AIJob {
 }
 
 /** Lightweight projection returned by GET /ai/jobs — used to rehydrate the
- *  AI-jobs sidebar after a page reload. Drops the heavy `output_json`. */
+ *  AI-jobs sidebar after a page reload. Drops the heavy `output_json`.
+ *  `display_title` is server-resolved (e.g., note name for a quiz). */
 export interface AIJobBrief {
   id: string;
   kind: AIJobKind;
@@ -255,6 +256,7 @@ export interface AIJobBrief {
   error: string | null;
   eta_seconds: number | null;
   input_json: Record<string, unknown> | null;
+  display_title: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;

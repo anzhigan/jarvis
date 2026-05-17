@@ -45,6 +45,11 @@ class AIJobBrief(BaseModel):
     error: str | None = None
     eta_seconds: int | None = None
     input_json: dict[str, Any] | None = None
+    # Pretty title resolved on the server so the UI doesn't have to fetch
+    # individual notes to render the sidebar list — "<note name>" for a
+    # single-note quiz, "all notes" / "N notes" for the cross-notes ones,
+    # `None` for schedule/insights (the kind label suffices).
+    display_title: str | None = None
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None

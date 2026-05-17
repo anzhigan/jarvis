@@ -128,8 +128,55 @@ async def list_jobs(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Recent jobs for the current user. Used for sidebar history."""
-    return await list_recent_jobs(user_id=user.id, db=db, kind=kind, limit=limit)
+    """Recent jobs for the current user — used to rehydrate the AI-jobs
+    sidebar. Quiz titles are resolved here (batch SELECT on notes) so the
+    frontend doesn't have to fetch each note individually."""
+    jobs = await list_recent_jobs(user_id=user.id, db=db, kind=kind, limit=limit)
+
+    # Collect the note ids referenced by single-note quizzes — we'll
+    # resolve their titles in one round-trip.
+    note_ids: set[uuid.UUID] = set()
+    for j in jobs:
+        if j.kind != "quiz":
+            continue
+        scope = (j.input_json or {}).get("scope") or {}
+        if scope.get("kind") == "note" and scope.get("id"):
+            try:
+                note_ids.add(uuid.UUID(str(scope["id"])))
+            except (ValueError, TypeError):
+                continue
+
+    note_titles: dict[uuid.UUID, str] = {}
+    if note_ids:
+        rows = await db.execute(
+            select(Note.id, Note.name).where(Note.id.in_(note_ids)),
+        )
+        note_titles = {nid: name for (nid, name) in rows.all()}
+
+    def _title_for(j: AIJob) -> str | None:
+        if j.kind != "quiz":
+            return None
+        scope = (j.input_json or {}).get("scope") or {}
+        skind = scope.get("kind")
+        if skind == "note":
+            try:
+                nid = uuid.UUID(str(scope.get("id")))
+            except (ValueError, TypeError):
+                return None
+            return note_titles.get(nid)
+        if skind == "all":
+            return "all notes"
+        if skind == "multi":
+            ids = scope.get("ids") or []
+            return f"{len(ids)} notes" if ids else "notes"
+        return None
+
+    out: list[AIJobBrief] = []
+    for j in jobs:
+        brief = AIJobBrief.model_validate(j)
+        brief.display_title = _title_for(j)
+        out.append(brief)
+    return out
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=AIJobOut)
