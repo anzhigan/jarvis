@@ -575,15 +575,9 @@ export function GoView({
               {selectedId && goalById.has(selectedId) ? (
                 <FocusedGoal
                   goal={goalById.get(selectedId)!}
-                  gos={grouped.get(selectedId) ?? []}
-                  pageTabs={pageTabs}
-                  dayFilter={dayFilter}
-                  periodFilter={periodFilter}
-                  onPeriodFilter={setPeriodFilter}
+                  gos={groupedAll.get(selectedId) ?? []}
                   selectedStepId={selectedStepId}
                   onSelectStep={setSelectedStepId}
-                  shownLimit={shownLimit}
-                  onLoadMore={() => setShownLimit((n) => n + PAGE_SIZE)}
                   onLog={onLog}
                   onSkip={onSkip}
                   onEditGoal={() => onSelectGoal(selectedId)}
@@ -631,14 +625,8 @@ export function GoView({
 interface FocusedProps {
   goal: Task;
   gos: Go[];
-  pageTabs: ReactNode;
-  dayFilter: DayFilter;
-  periodFilter: PeriodFilter;
-  onPeriodFilter: (p: PeriodFilter) => void;
   selectedStepId: string | null;
   onSelectStep: (id: string | null) => void;
-  shownLimit: number;
-  onLoadMore: () => void;
   onLog: (go: Go, value: number) => void;
   onSkip: (go: Go) => void;
   onEditGoal: () => void;
@@ -651,14 +639,8 @@ interface FocusedProps {
 function FocusedGoal({
   goal,
   gos: allGoalGos,
-  pageTabs,
-  dayFilter,
-  periodFilter,
-  onPeriodFilter,
   selectedStepId,
   onSelectStep,
-  shownLimit,
-  onLoadMore,
   onLog,
   onSkip,
   onEditGoal,
@@ -689,34 +671,36 @@ function FocusedGoal({
     return m;
   }, [steps]);
 
-  // Filter by selected step (if any) — applied AFTER the goal's gos were
-  // already filtered by day-bucket at the GoView level.
-  const gos = useMemo(() => {
-    if (!selectedStepId) return allGoalGos;
-    return allGoalGos.filter((g) => g.step_id === selectedStepId);
-  }, [allGoalGos, selectedStepId]);
+  // Gos without a step — direct children of the Goal. Step-attached Gos
+  // live in the Step detail panel above; this section is just for the
+  // leftovers (one-off tasks, ad-hoc daily checks).
+  const looseGos = useMemo(
+    () => allGoalGos.filter((g) => !g.step_id),
+    [allGoalGos],
+  );
 
-  const todayDone = gos.filter((g) => g.is_done_today).length;
-  const maxStreak = gos.reduce((m, g) => Math.max(m, goCurrentStreak(g)), 0);
+  const todayDone = allGoalGos.filter((g) => g.is_done_today).length;
+  const maxStreak = allGoalGos.reduce((m, g) => Math.max(m, goCurrentStreak(g)), 0);
 
-  // Recent days: aggregate completion fraction per day across gos.
+  // Recent days: aggregate completion fraction per day across ALL the goal's
+  // gos (with-step + loose) — this is the goal's overall daily rhythm.
   const recentDays = useMemo(() => {
     const out: { date: Date; done: number; total: number }[] = [];
     for (let i = 1; i <= 6; i++) {
       const d = new Date(); d.setDate(d.getDate() - i);
       const k = ymd(d);
       let done = 0;
-      for (const g of gos) {
+      for (const g of allGoalGos) {
         const e = g.entries.find((x) => x.date === k);
         const targetMet = g.kind === 'numeric'
           ? (g.target_value && (e?.value ?? 0) >= g.target_value) || (e?.value ?? 0) > 0
           : (e?.value ?? 0) > 0;
         if (targetMet) done++;
       }
-      out.push({ date: d, done, total: gos.length });
+      out.push({ date: d, done, total: allGoalGos.length });
     }
     return out;
-  }, [gos]);
+  }, [allGoalGos]);
 
   return (
     <>
@@ -781,7 +765,7 @@ function FocusedGoal({
 
         <div className="goal-ctx-meta">
           <div className="gcm-cell">
-            <span className="gcm-num">{todayDone}<em>/{gos.length}</em></span>
+            <span className="gcm-num">{todayDone}<em>/{allGoalGos.length}</em></span>
             <span className="gcm-lab">Today's targets</span>
           </div>
           <div className="gcm-cell">
@@ -804,6 +788,7 @@ function FocusedGoal({
       </header>
 
       <StepsGantt
+        goal={goal}
         steps={steps}
         selectedStepId={selectedStepId}
         onSelect={onSelectStep}
@@ -826,86 +811,58 @@ function FocusedGoal({
         />
       )}
 
-      {pageTabs}
+      <div className="goal-section-head" style={{ marginTop: 28 }}>
+        <h2 className="goal-section-title">Gos without step</h2>
+        <span className="goal-section-rule" />
+        <span className="goal-section-meta">
+          {looseGos.length === 0
+            ? 'none — all Gos are attached to a step'
+            : <><b>{looseGos.length}</b> {looseGos.length === 1 ? 'item' : 'items'} · direct children of this goal</>}
+        </span>
+      </div>
 
-      {dayFilter !== 'today' && (
-        <FilterBar
-          dayFilter={dayFilter}
-          periodFilter={periodFilter}
-          onPeriodFilter={onPeriodFilter}
-          totalCount={allGoalGos.length}
-        />
-      )}
-
-      {gos.length === 0 ? (
+      {looseGos.length === 0 ? (
         <div className="tg-cards-empty">
-          {dayFilter === 'past'
-            ? 'No past gos to show in this period.'
-            : dayFilter === 'future'
-              ? 'No upcoming gos scheduled.'
-              : 'Nothing scheduled today.'}
+          Nothing here — every Go is attached to a step. Add one from a step row above.
         </div>
-      ) : dayFilter === 'today' ? (
+      ) : (
         <div className="tg-cards">
-          {gos.map((go) => (
+          {looseGos.map((go) => (
             <TgCard
               key={go.id}
               go={go}
               parentTitle={goal.title}
               goalAccent={accent}
-              step={go.step_id ? stepById.get(go.step_id) ?? null : null}
+              step={null}
               onLog={onLog}
               onSkip={onSkip}
               onEdit={onEditGo}
             />
           ))}
         </div>
-      ) : (
-        <DayGroupedCards
-          gos={gos}
-          direction={dayFilter}
-          shownLimit={shownLimit}
-          onLoadMore={onLoadMore}
-          renderCard={(go) => (
-            <TgCard
-              key={go.id}
-              go={go}
-              parentTitle={goal.title}
-              goalAccent={accent}
-              step={go.step_id ? stepById.get(go.step_id) ?? null : null}
-              onLog={onLog}
-              onSkip={onSkip}
-              onEdit={onEditGo}
-            />
-          )}
-        />
       )}
 
-      {dayFilter === 'today' && (
-        <>
-          <div className="goal-section-head" style={{ marginTop: 36 }}>
-            <h2 className="goal-section-title">Recent days</h2>
-            <span className="goal-section-rule" />
-            <span className="goal-section-meta">last 6 days · daily completion summary</span>
-          </div>
+      <div className="goal-section-head" style={{ marginTop: 36 }}>
+        <h2 className="goal-section-title">Recent days</h2>
+        <span className="goal-section-rule" />
+        <span className="goal-section-meta">last 6 days · daily completion summary</span>
+      </div>
 
-          <div className="rl-list">
-            {recentDays.map(({ date, done, total }) => {
-              const dateLbl = date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-              const cls = total === 0 || done === 0 ? '' : done === total ? 'rl-rate-full' : 'rl-rate-partial';
-              return (
-                <div className="rl-row" key={dateLbl}>
-                  <span className="rl-date">{dateLbl}</span>
-                  <span className={`rl-rate ${cls}`}>{done}/{total}</span>
-                  <span className="rl-note">
-                    {total === 0 ? '—' : done === total ? 'all targets hit' : done === 0 ? 'no progress logged' : `${done} of ${total} hit`}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+      <div className="rl-list">
+        {recentDays.map(({ date, done, total }) => {
+          const dateLbl = date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+          const cls = total === 0 || done === 0 ? '' : done === total ? 'rl-rate-full' : 'rl-rate-partial';
+          return (
+            <div className="rl-row" key={dateLbl}>
+              <span className="rl-date">{dateLbl}</span>
+              <span className={`rl-rate ${cls}`}>{done}/{total}</span>
+              <span className="rl-note">
+                {total === 0 ? '—' : done === total ? 'all targets hit' : done === 0 ? 'no progress logged' : `${done} of ${total} hit`}
+              </span>
+            </div>
+          );
+        })}
+      </div>
 
       <div style={{ height: 60 }} />
     </>
@@ -1270,6 +1227,7 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
 /* ── StepsGantt: horizontal bar layout of milestones (Gantt-style) ───── */
 
 interface StepsGanttProps {
+  goal: Task;
   steps: Step[];
   selectedStepId: string | null;
   onSelect: (stepId: string | null) => void;
@@ -1278,7 +1236,38 @@ interface StepsGanttProps {
   onEditStep: (step: Step) => void;
 }
 
+/** Pick a sensible date range for the Gantt axis from goal + step dates.
+ *  Falls back to "today ± 6 weeks" when nothing is set so the axis is never
+ *  empty. Returns a `[start, end]` pair plus a flag whether we have real
+ *  data (controls today-line rendering). */
+function ganttRange(goal: Task, steps: Step[]): { start: Date; end: Date; hasDates: boolean } {
+  const ms: number[] = [];
+  const push = (s: string | null) => { if (s) { const t = Date.parse(s); if (!isNaN(t)) ms.push(t); } };
+  push(goal.start_date);
+  push(goal.due_date);
+  for (const st of steps) { push(st.start_date); push(st.end_date); }
+  if (ms.length < 2) {
+    const today = new Date();
+    const start = new Date(today); start.setDate(start.getDate() - 14);
+    const end = new Date(today); end.setDate(end.getDate() + 70);
+    return { start, end, hasDates: false };
+  }
+  let start = new Date(Math.min(...ms));
+  let end = new Date(Math.max(...ms));
+  // 4% padding on each side so first/last bars don't touch the edges
+  const span = end.getTime() - start.getTime();
+  const pad = Math.max(span * 0.04, 24 * 60 * 60 * 1000);
+  start = new Date(start.getTime() - pad);
+  end = new Date(end.getTime() + pad);
+  return { start, end, hasDates: true };
+}
+
+function fmtTick(d: Date): string {
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
 function StepsGantt({
+  goal,
   steps,
   selectedStepId,
   onSelect,
@@ -1320,6 +1309,38 @@ function StepsGantt({
   const doneCount = sorted.filter((s) => s.status === 'done').length;
   const activeIdx = sorted.findIndex((s) => s.status === 'in_progress');
 
+  // ── Calendar axis ───────────────────────────────────────────────────
+  const range = useMemo(() => ganttRange(goal, sorted), [goal, sorted]);
+  const rangeMs = range.end.getTime() - range.start.getTime();
+  // 6 evenly-spaced date ticks across the header.
+  const ticks = useMemo(() => {
+    const COUNT = 6;
+    const out: { pct: number; date: Date }[] = [];
+    for (let i = 0; i < COUNT; i++) {
+      const pct = (i / (COUNT - 1)) * 100;
+      out.push({ pct, date: new Date(range.start.getTime() + rangeMs * (pct / 100)) });
+    }
+    return out;
+  }, [range.start, rangeMs]);
+  // Today line position — only show if today falls inside the visible window.
+  const todayPct = ((Date.now() - range.start.getTime()) / rangeMs) * 100;
+  const showToday = range.hasDates && todayPct >= 0 && todayPct <= 100;
+
+  // Bar coords for a step: use real dates when available, else fall back to
+  // even spacing (i/N to (i+1)/N) so partial-date data still renders sanely.
+  const barCoords = (s: Step, i: number): { left: number; width: number } => {
+    if (s.start_date && s.end_date) {
+      const st = Date.parse(s.start_date);
+      const en = Date.parse(s.end_date);
+      if (!isNaN(st) && !isNaN(en) && en >= st) {
+        const left = ((st - range.start.getTime()) / rangeMs) * 100;
+        const width = Math.max(((en - st) / rangeMs) * 100, 1.5);
+        return { left, width };
+      }
+    }
+    return { left: (i / N) * 100, width: (1 / N) * 100 };
+  };
+
   return (
     <section className="steps">
       <div className="steps-head">
@@ -1340,6 +1361,20 @@ function StepsGantt({
       </div>
 
       <div className="gantt">
+        <div className="gantt__corner" />
+        <div className="gantt__axis">
+          {ticks.map((t, i) => (
+            <span key={i} className="gantt__tick" style={{ left: `${t.pct}%` }}>
+              {fmtTick(t.date)}
+            </span>
+          ))}
+          {showToday && (
+            <>
+              <span className="gantt__today-pill" style={{ left: `${todayPct}%` }}>Today</span>
+              <span className="gantt__today-line" style={{ left: `${todayPct}%` }} />
+            </>
+          )}
+        </div>
         <div className="gantt__rows-side">
           {sorted.map((s, i) => (
             <button
@@ -1364,10 +1399,7 @@ function StepsGantt({
             const state = s.status === 'done'
               ? 'done'
               : s.status === 'in_progress' ? 'active' : 'upcoming';
-            // Evenly-spaced bars: 1/N width each, no gap between them so the
-            // sequence reads as a continuous roadmap.
-            const left = (i / N) * 100;
-            const width = (1 / N) * 100;
+            const { left, width } = barCoords(s, i);
             const pct = s.gos_count > 0
               ? Math.round((s.gos_done / s.gos_count) * 100)
               : (state === 'done' ? 100 : 0);
@@ -1407,6 +1439,9 @@ function StepsGantt({
                       <span key={di} className={`gantt-go-dot ${ds}`} />
                     ))}
                   </span>
+                )}
+                {showToday && (
+                  <span className="gantt__today-line" style={{ left: `${todayPct}%` }} />
                 )}
               </button>
             );
