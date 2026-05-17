@@ -583,6 +583,16 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     if (!note) return;
     setQuizError(null);
     if (action !== 'quiz') return;  // only quiz wired up here
+    // Re-clicking Smart test while a quiz is in flight: bump the existing
+    // toast (visual "already running") instead of stacking another job.
+    const inBg = useAIJobsStore.getState().findByKind('quiz');
+    if (inBg) {
+      useAIJobsStore.getState().bump(inBg.jobId);
+      return;
+    }
+    if (quizJobId && drawerOpen) {
+      return;
+    }
     try {
       // count=3 by default — on CPU-only inference, 5 questions push the wall-
       // clock to ~90s while 3 stays under a minute. Future phase will surface
@@ -597,7 +607,7 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     } catch (e) {
       setQuizError(e instanceof Error ? e.message : 'failed to start AI action');
     }
-  }, [note]);
+  }, [note, quizJobId, drawerOpen]);
 
   // Close drawer keeps the job alive — backgrounded toast (mounted at app
   // shell) takes over via the global store. Dismissing the toast is what

@@ -66,6 +66,19 @@ export default function GoalsView() {
   const addBgJob = useAIJobsStore((s) => s.add);
 
   const handlePlanDay = useCallback(async () => {
+    // Re-clicking Plan day while one is already in flight:
+    //  - if the drawer is closed, the toast represents it → shake it instead
+    //    of spinning up another job.
+    //  - if the drawer is already open, just no-op (user can see progress).
+    // Either way: don't enqueue a duplicate schedule job.
+    const inBg = useAIJobsStore.getState().findByKind('schedule');
+    if (inBg) {
+      useAIJobsStore.getState().bump(inBg.jobId);
+      return;
+    }
+    if (scheduleJobId && scheduleDrawerOpen) {
+      return;
+    }
     try {
       const job = await aiApi.createSchedule({
         date: '',
@@ -77,7 +90,7 @@ export default function GoalsView() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start planning');
     }
-  }, []);
+  }, [scheduleJobId, scheduleDrawerOpen]);
 
   const handleScheduleClose = useCallback(() => {
     setScheduleDrawerOpen(false);

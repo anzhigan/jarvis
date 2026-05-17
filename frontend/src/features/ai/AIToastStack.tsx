@@ -5,10 +5,11 @@ import { AIGenerationToast } from './AIGenerationToast';
 /**
  * Mounted at the app shell level (outside DesktopApp's section routing) so it
  * survives navigation between Notes/Goals/Analysis. Reads all backgrounded AI
- * jobs from the global store and stacks one toast per job in the bottom-right.
+ * jobs from the global store and renders just the HEAD of the queue as a
+ * single toast; pending jobs surface as a "+N" badge on the same toast.
  *
- * Click "Open →" navigates to the source section + dispatches a custom event
- * the target view listens for to reopen the right drawer.
+ * Click anywhere on the toast → navigates to the source section + dispatches a
+ * custom event the target view listens for to reopen the right drawer.
  */
 export function AIToastStack() {
   const jobs = useAIJobsStore((s) => s.jobs);
@@ -32,17 +33,20 @@ export function AIToastStack() {
   }, [remove]);
 
   if (jobs.length === 0) return null;
+  // Head of the queue is the only toast actually rendered — keeps the bottom
+  // corner uncluttered. Pending jobs are surfaced via the queueCount badge.
+  const head = jobs[0];
 
   return (
     <div className="ai-toast-stack">
-      {jobs.map((job) => (
-        <AIGenerationToast
-          key={job.jobId}
-          jobId={job.jobId}
-          onOpen={() => handleOpen(job)}
-          onDismiss={() => remove(job.jobId)}
-        />
-      ))}
+      <AIGenerationToast
+        key={head.jobId}
+        jobId={head.jobId}
+        bumpedAt={head.bumpedAt}
+        queueCount={jobs.length - 1}
+        onOpen={() => handleOpen(head)}
+        onDismiss={() => remove(head.jobId)}
+      />
     </div>
   );
 }

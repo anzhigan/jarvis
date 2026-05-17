@@ -6,7 +6,11 @@ import './ai.css';
 
 interface Props {
   jobId: string;
-  /** Called when user clicks "Open →" on a done toast. */
+  /** Re-trigger timestamp from the store. Triggers a shake when it increments. */
+  bumpedAt?: number;
+  /** Number of OTHER jobs queued behind this one — surfaced as a "+N" badge. */
+  queueCount?: number;
+  /** Called when user clicks the toast (works in any state). */
   onOpen: () => void;
   /** Called when user X's the toast OR success auto-dismiss timer fires. */
   onDismiss: () => void;
@@ -15,17 +19,20 @@ interface Props {
 /**
  * Universal bottom-right toast for any backgrounded AI generation.
  *
- * Three states based on the polled job:
- *  - queued/running → "Generating <kind> · elapsed Xs"
- *  - done           → "<kind> ready · Open →"
+ * States based on the polled job:
+ *  - queued/running → "Generating <kind> · elapsed Xs", click reopens drawer
+ *  - done           → "<kind> ready", click reopens drawer
  *  - failed         → "Generation failed · <error>"
  *
- * Labels adapt to job.kind. Auto-dismisses 8s after success if user
- * doesn't click Open.
+ * The whole toast is one click target — opening the relevant sidebar back up.
+ * The dismiss × stays a separate inner click that doesn't trigger open.
+ *
+ * Auto-dismisses 8s after success if user doesn't click open.
  */
-export function AIGenerationToast({ jobId, onOpen, onDismiss }: Props) {
+export function AIGenerationToast({ jobId, bumpedAt, queueCount = 0, onOpen, onDismiss }: Props) {
   const { job } = useAIJob(jobId);
   const [elapsedSec, setElapsedSec] = useState<number>(0);
+  const [shake, setShake] = useState(false);
 
   // Live elapsed counter — ticks every second while job is in non-terminal state.
   useEffect(() => {
@@ -50,6 +57,15 @@ export function AIGenerationToast({ jobId, onOpen, onDismiss }: Props) {
     return () => clearTimeout(t);
   }, [job?.status, onDismiss]);
 
+  // Shake on bump — store sets a fresh `bumpedAt` when the user re-triggers
+  // the same kind while it's still in flight. CSS-only animation, ~500ms.
+  useEffect(() => {
+    if (!bumpedAt) return;
+    setShake(true);
+    const t = setTimeout(() => setShake(false), 500);
+    return () => clearTimeout(t);
+  }, [bumpedAt]);
+
   if (!job) return null;
 
   const isWorking = job.status === 'queued' || job.status === 'running';
@@ -69,14 +85,30 @@ export function AIGenerationToast({ jobId, onOpen, onDismiss }: Props) {
   }
 
   return (
-    <div className="ai-toast" data-state={job.status} role="status">
+    <div
+      className={`ai-toast ${shake ? 'ai-toast--shake' : ''}`}
+      data-state={job.status}
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      title="Open"
+    >
       <div className="ai-toast__sparkle" data-pulsing={isWorking || undefined}>
         <div className="ai-spk" />
       </div>
       <div className="ai-toast__body">
         {isWorking && (
           <>
-            <p className="ai-toast__title">Generating {label}</p>
+            <p className="ai-toast__title">
+              Generating {label}
+              {queueCount > 0 && <span className="ai-toast__queue">+{queueCount}</span>}
+            </p>
             <p className="ai-toast__sub">
               {elapsedSec}s elapsed · ~{eta}s estimated
             </p>
@@ -87,14 +119,11 @@ export function AIGenerationToast({ jobId, onOpen, onDismiss }: Props) {
         )}
         {isDone && (
           <>
-            <p className="ai-toast__title">{capitalize(label)} ready</p>
-            <button
-              type="button"
-              className="ai-toast__cta"
-              onClick={onOpen}
-            >
-              Open →
-            </button>
+            <p className="ai-toast__title">
+              {capitalize(label)} ready
+              {queueCount > 0 && <span className="ai-toast__queue">+{queueCount}</span>}
+            </p>
+            <p className="ai-toast__sub">Click to open</p>
           </>
         )}
         {isFailed && (
@@ -107,7 +136,7 @@ export function AIGenerationToast({ jobId, onOpen, onDismiss }: Props) {
       <button
         type="button"
         className="ai-toast__close"
-        onClick={onDismiss}
+        onClick={(e) => { e.stopPropagation(); onDismiss(); }}
         aria-label="Dismiss"
       >
         <X size={14} />

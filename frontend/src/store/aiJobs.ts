@@ -24,14 +24,24 @@ export interface BgAIJob {
   jobId: string;
   kind: AIJobKind;
   source: AIJobSource;
+  /** Bumped (ms timestamp) when the user re-triggers the same kind while it
+   *  is still in flight — the toast watches this to play a shake animation. */
+  bumpedAt?: number;
 }
 
 interface State {
-  /** Order matters — newest job on top of the stack. */
+  /** Order matters — oldest visible first; new jobs go to the end of the
+   *  queue. Only the head is rendered as a toast; subsequent ones surface as
+   *  a "+N" badge until the head dismisses. */
   jobs: BgAIJob[];
   add: (job: BgAIJob) => void;
   remove: (jobId: string) => void;
   has: (jobId: string) => boolean;
+  /** Find a queued / running job by kind. Used to detect same-kind re-triggers. */
+  findByKind: (kind: AIJobKind) => BgAIJob | undefined;
+  /** Re-trigger of the same kind: punch the existing toast (shake) instead of
+   *  enqueueing another. Idempotent — the toast keys off the latest timestamp. */
+  bump: (jobId: string) => void;
 }
 
 export const useAIJobsStore = create<State>((set, get) => ({
@@ -42,14 +52,23 @@ export const useAIJobsStore = create<State>((set, get) => ({
     const idx = s.jobs.findIndex((j) => j.jobId === job.jobId);
     if (idx >= 0) {
       const next = s.jobs.slice();
-      next[idx] = job;
+      next[idx] = { ...next[idx], ...job };
       return { jobs: next };
     }
-    // Newest on top.
-    return { jobs: [job, ...s.jobs] };
+    // Append to the tail — the head is the "currently visible" toast and
+    // shouldn't be replaced just because a new background job spun up.
+    return { jobs: [...s.jobs, job] };
   }),
   remove: (jobId) => set((s) => ({ jobs: s.jobs.filter((j) => j.jobId !== jobId) })),
   has: (jobId) => get().jobs.some((j) => j.jobId === jobId),
+  findByKind: (kind) => get().jobs.find((j) => j.kind === kind),
+  bump: (jobId) => set((s) => {
+    const idx = s.jobs.findIndex((j) => j.jobId === jobId);
+    if (idx < 0) return s;
+    const next = s.jobs.slice();
+    next[idx] = { ...next[idx], bumpedAt: Date.now() };
+    return { jobs: next };
+  }),
 }));
 
 
