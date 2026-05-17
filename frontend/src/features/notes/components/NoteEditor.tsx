@@ -574,6 +574,13 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   // Splitting these lets the user "background" a long-running generation
   // without losing it.
   const [quizJobId, setQuizJobId] = useState<string | null>(null);
+  /** Note id this drawer's job is FOR — used so a quiz on a different note
+   *  doesn't get false-blocked by the in-flight one. */
+  const [quizJobNoteId, setQuizJobNoteId] = useState<string | null>(null);
+  /** Title captured at start time. We need it later to push to the bg store
+   *  when the user navigates away or starts another quiz before this one
+   *  finishes — by then `note` already points elsewhere. */
+  const [quizJobNoteTitle, setQuizJobNoteTitle] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
@@ -583,14 +590,18 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     if (!note) return;
     setQuizError(null);
     if (action !== 'quiz') return;  // only quiz wired up here
-    // Re-clicking Smart test while a quiz is in flight: bump the existing
-    // toast (visual "already running") instead of stacking another job.
-    const inBg = useAIJobsStore.getState().findByKind('quiz');
+    // "Same task" is per-note: re-clicking on the same note while its quiz
+    // is in flight → bump the existing toast. A quiz on a different note is
+    // a NEW task and goes into the queue.
+    const inBg = useAIJobsStore.getState().findSame('quiz', note.id);
     if (inBg) {
       useAIJobsStore.getState().bump(inBg.jobId);
       return;
     }
-    if (quizJobId && drawerOpen) {
+    // Local-state version of the same guard: drawer is open for THIS note's
+    // quiz right now. (After close, the job moves to the bg store and the
+    // findSame branch handles it.)
+    if (quizJobId && drawerOpen && quizJobNoteId === note.id) {
       return;
     }
     try {
@@ -602,12 +613,28 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
         difficulty: 'medium',
         count: 3,
       });
+      // Pushing a prior in-flight quiz to the bg store before replacing local
+      // state — otherwise it disappears from the UI (toast/panel never see
+      // it) while still consuming a queue slot on the backend.
+      if (quizJobId && quizJobNoteId && quizJobNoteId !== note.id) {
+        addBgJob({
+          jobId: quizJobId,
+          kind: 'quiz',
+          source: {
+            section: 'notes',
+            noteId: quizJobNoteId,
+            noteTitle: quizJobNoteTitle ?? 'untitled',
+          },
+        });
+      }
       setQuizJobId(job.id);
+      setQuizJobNoteId(note.id);
+      setQuizJobNoteTitle(note.name || 'untitled');
       setDrawerOpen(true);
     } catch (e) {
       setQuizError(e instanceof Error ? e.message : 'failed to start AI action');
     }
-  }, [note, quizJobId, drawerOpen]);
+  }, [note, quizJobId, quizJobNoteId, quizJobNoteTitle, drawerOpen, addBgJob]);
 
   // Close drawer keeps the job alive — backgrounded toast (mounted at app
   // shell) takes over via the global store. Dismissing the toast is what
@@ -636,6 +663,7 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       if (detail.source.section !== 'notes' || detail.source.noteId !== note.id) return;
       if (detail.kind === 'quiz') {
         setQuizJobId(detail.jobId);
+        setQuizJobNoteId(note.id);
         setDrawerOpen(true);
       }
     };

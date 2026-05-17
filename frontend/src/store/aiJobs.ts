@@ -42,6 +42,9 @@ interface State {
   has: (jobId: string) => boolean;
   /** Find a queued / running job by kind. Used to detect same-kind re-triggers. */
   findByKind: (kind: AIJobKind) => BgAIJob | undefined;
+  /** Same-task lookup: matches kind AND source (so two quizzes on different
+   *  notes are NOT considered the same task — each queues independently). */
+  findSame: (kind: AIJobKind, noteId: string | undefined) => BgAIJob | undefined;
   /** Re-trigger of the same kind: punch the existing toast (shake) instead of
    *  enqueueing another. Idempotent — the toast keys off the latest timestamp. */
   bump: (jobId: string) => void;
@@ -65,6 +68,9 @@ export const useAIJobsStore = create<State>((set, get) => ({
   remove: (jobId) => set((s) => ({ jobs: s.jobs.filter((j) => j.jobId !== jobId) })),
   has: (jobId) => get().jobs.some((j) => j.jobId === jobId),
   findByKind: (kind) => get().jobs.find((j) => j.kind === kind),
+  findSame: (kind, noteId) => get().jobs.find(
+    (j) => j.kind === kind && (j.source.noteId ?? null) === (noteId ?? null),
+  ),
   bump: (jobId) => set((s) => {
     const idx = s.jobs.findIndex((j) => j.jobId === jobId);
     if (idx < 0) return s;

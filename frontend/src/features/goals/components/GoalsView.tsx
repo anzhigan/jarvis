@@ -71,7 +71,7 @@ export default function GoalsView() {
     //    of spinning up another job.
     //  - if the drawer is already open, just no-op (user can see progress).
     // Either way: don't enqueue a duplicate schedule job.
-    const inBg = useAIJobsStore.getState().findByKind('schedule');
+    const inBg = useAIJobsStore.getState().findSame('schedule', undefined);
     if (inBg) {
       useAIJobsStore.getState().bump(inBg.jobId);
       return;

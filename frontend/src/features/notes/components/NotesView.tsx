@@ -66,8 +66,9 @@ export default function NotesView() {
   const addBgJob = useAIJobsStore((s) => s.add);
 
   const handleSmartTestAll = useCallback(async () => {
-    // Re-trigger guard: same kind already in flight → shake the toast.
-    const inBg = useAIJobsStore.getState().findByKind('quiz');
+    // "Same task" for the all-notes quiz = no noteId; per-note quizzes go
+    // through their own queue slot.
+    const inBg = useAIJobsStore.getState().findSame('quiz', undefined);
     if (inBg) {
       useAIJobsStore.getState().bump(inBg.jobId);
       return;
