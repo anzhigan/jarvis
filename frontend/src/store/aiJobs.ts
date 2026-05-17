@@ -27,9 +27,6 @@ export interface BgAIJob {
   jobId: string;
   kind: AIJobKind;
   source: AIJobSource;
-  /** Bumped (ms timestamp) when the user re-triggers the same kind while it
-   *  is still in flight — the toast watches this to play a shake animation. */
-  bumpedAt?: number;
 }
 
 interface State {
@@ -45,9 +42,6 @@ interface State {
   /** Same-task lookup: matches kind AND source (so two quizzes on different
    *  notes are NOT considered the same task — each queues independently). */
   findSame: (kind: AIJobKind, noteId: string | undefined) => BgAIJob | undefined;
-  /** Re-trigger of the same kind: punch the existing toast (shake) instead of
-   *  enqueueing another. Idempotent — the toast keys off the latest timestamp. */
-  bump: (jobId: string) => void;
   /** Replace the entire queue. Used to rehydrate from the backend on boot so
    *  refreshing the page doesn't drop the user's in-flight / recent jobs. */
   hydrate: (jobs: BgAIJob[]) => void;
@@ -74,13 +68,6 @@ export const useAIJobsStore = create<State>((set, get) => ({
   findSame: (kind, noteId) => get().jobs.find(
     (j) => j.kind === kind && (j.source.noteId ?? null) === (noteId ?? null),
   ),
-  bump: (jobId) => set((s) => {
-    const idx = s.jobs.findIndex((j) => j.jobId === jobId);
-    if (idx < 0) return s;
-    const next = s.jobs.slice();
-    next[idx] = { ...next[idx], bumpedAt: Date.now() };
-    return { jobs: next };
-  }),
   hydrate: (jobs) => set((s) => {
     // Keep any in-memory entries the user added during this session that
     // the server hasn't returned yet (race during boot). Server is the

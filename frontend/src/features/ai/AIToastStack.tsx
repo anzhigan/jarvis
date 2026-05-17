@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { aiApi } from '../../api/client';
 import type { AIJobBrief, AIJobKind } from '../../api/types';
@@ -7,8 +8,8 @@ import {
   type AIJobSource,
   type BgAIJob,
 } from '../../store/aiJobs';
-import { AIGenerationToast } from './AIGenerationToast';
 import { AIJobsPanel } from './AIJobsPanel';
+import './ai.css';
 
 /** Map a server-side job into the UI's lightweight "background job" shape.
  *  Source (section / noteId / noteTitle) is derived from input_json since
@@ -24,9 +25,6 @@ function deriveBgJob(j: AIJobBrief): BgAIJob {
 function deriveSource(j: AIJobBrief): AIJobSource {
   if (j.kind === 'schedule') return { section: 'goals' };
   if (j.kind === 'insights') return { section: 'analysis' };
-  // quiz: noteId only when scope.kind='note'; noteTitle comes from
-  // server-resolved display_title (real note name for single-note quizzes,
-  // "all notes" / "N notes" for cross-notes ones).
   const input = (j.input_json ?? {}) as Record<string, unknown>;
   const scope = (input.scope ?? {}) as Record<string, unknown>;
   const noteId = scope.kind === 'note' ? (scope.id as string | undefined) : undefined;
@@ -35,8 +33,6 @@ function deriveSource(j: AIJobBrief): AIJobSource {
 }
 
 // ─── Dismissed-job memory (localStorage) ─────────────────────────────────
-// User-X'd job ids are persisted so a page refresh doesn't bring them back
-// from the server's history list. We cap the set so it can't grow forever.
 const DISMISSED_KEY = 'jarvnote:ai-jobs:dismissed';
 const DISMISSED_MAX = 200;
 
@@ -55,15 +51,16 @@ function saveDismissed(set: Set<string>) {
     const trimmed = arr.length > DISMISSED_MAX ? arr.slice(arr.length - DISMISSED_MAX) : arr;
     localStorage.setItem(DISMISSED_KEY, JSON.stringify(trimmed));
   } catch {
-    // storage full / disabled — best-effort, dismissals just won't persist
+    // best-effort
   }
 }
 
 /**
- * Mounted at the app shell level (outside DesktopApp's section routing) so it
- * survives navigation between Notes/Goals/Analysis. Renders the head of the
- * queue as a single toast with a "+N" badge; tapping the toast opens a panel
- * listing every backgrounded job, from which the user can pick one to reopen.
+ * App-shell-level launcher for the AI jobs sidebar. Renders a tiny pill in
+ * the bottom-right corner that shows the active job count and opens the
+ * full panel on click. No per-job status preview, no shake — the panel
+ * itself is the single visualisation of "what's running" and "what
+ * finished" (toasts have been removed by design).
  */
 export function AIToastStack() {
   const jobs = useAIJobsStore((s) => s.jobs);
@@ -72,9 +69,8 @@ export function AIToastStack() {
   const [panelOpen, setPanelOpen] = useState(false);
 
   // Rehydrate from the backend on boot so refreshing the page doesn't lose
-  // in-flight / recent jobs (the store is in-memory). Failures are silent
-  // — worst case the user sees an empty queue and a fresh-started job
-  // populates it through the normal addBgJob path.
+  // in-flight / recent jobs. Filters out anything the user has explicitly
+  // dismissed (persisted in localStorage).
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -93,27 +89,20 @@ export function AIToastStack() {
   }, [hydrate]);
 
   const openSourceDrawer = useCallback((job: BgAIJob) => {
-    // 1. Switch to the source section if we're not there.
+    // 1. Switch to the source section.
     window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: job.source.section }));
-    // 2. If this job belongs to a specific note, also select that note in
-    //    the tree — otherwise NoteEditor renders the wrong (or no) note.
+    // 2. For per-note jobs, also select the note in the tree so the editor
+    //    that listens for the open event is showing the right note.
     if (job.source.noteId) {
       window.dispatchEvent(new CustomEvent('jarvnote:openNote', { detail: job.source.noteId }));
     }
     // 3. Tell the view to reopen the drawer for this jobId. Small delay so
-    //    the section actually mounts before the event fires. We do NOT
-    //    remove the job from the store — it stays in the AI-jobs panel as
-    //    history; the user can dismiss it explicitly via X.
+    //    the section mounts first. Job stays in the store as history; the
+    //    user dismisses it via X.
     setTimeout(() => {
       dispatchOpenAIJob({ jobId: job.jobId, kind: job.kind, source: job.source });
     }, 80);
   }, []);
-
-  const handleToastClick = useCallback(() => {
-    // Always open the queue panel — even with one job the user sees full
-    // status (elapsed, error message) before deciding to open it.
-    if (jobs.length > 0) setPanelOpen(true);
-  }, [jobs.length]);
 
   const handlePickFromPanel = useCallback((job: BgAIJob) => {
     setPanelOpen(false);
@@ -121,8 +110,8 @@ export function AIToastStack() {
   }, [openSourceDrawer]);
 
   /** Dismiss a job from the UI. For in-flight jobs this also cancels on
-   *  the backend (idempotent for done jobs). Dismissals are persisted to
-   *  localStorage so the rehydrate-on-reload doesn't bring them back. */
+   *  the backend (idempotent for done jobs). Persisted to localStorage so
+   *  the rehydrate-on-reload doesn't bring it back. */
   const handleCancel = useCallback(async (jobId: string) => {
     try {
       await aiApi.cancelJob(jobId);
@@ -135,22 +124,18 @@ export function AIToastStack() {
     saveDismissed(dismissed);
   }, [remove]);
 
-  if (jobs.length === 0) return null;
-  const head = jobs[0];
-
   return (
     <>
-      {!panelOpen && (
-        <div className="ai-toast-stack">
-          <AIGenerationToast
-            key={head.jobId}
-            jobId={head.jobId}
-            bumpedAt={head.bumpedAt}
-            queueCount={jobs.length - 1}
-            onOpen={handleToastClick}
-            onDismiss={() => void handleCancel(head.jobId)}
-          />
-        </div>
+      {jobs.length > 0 && !panelOpen && (
+        <button
+          type="button"
+          className="ai-jobs-launcher"
+          onClick={() => setPanelOpen(true)}
+          title="Open AI tasks"
+        >
+          <Sparkles size={13} />
+          <span>AI · {jobs.length}</span>
+        </button>
       )}
       <AIJobsPanel
         open={panelOpen}
