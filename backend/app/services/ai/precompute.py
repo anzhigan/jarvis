@@ -22,11 +22,11 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import distinct, or_, select
+from sqlalchemy import and_, distinct, or_, select
 
 from app.core.database import AsyncSessionLocal
-from app.models.tasks import Go
-from app.services.ai.cache import find_cached, schedule_cache_key
+from app.models.tasks import Go, GoEntry
+from app.services.ai.cache import SCHEDULE_OVERDUE_WINDOW_DAYS, find_cached, schedule_cache_key
 from app.services.ai.jobs import create_job, run_job
 from app.services.ai.ollama_client import OllamaClient
 
@@ -77,10 +77,24 @@ async def run_daily_precompute() -> None:
     today = datetime.now(UTC).date()
 
     async with AsyncSessionLocal() as db:
-        # Users with any schedulable Go: dated-today or dateless backlog.
+        # Users with anything the schedule handler would actually load —
+        # mirror its filter exactly: open one-off Gos in the overdue window /
+        # today / next 14 days / dateless. Narrow filters here would skip
+        # users whose backlog is only overdue or future, then their plan
+        # would miss the cache when they open it. (Matches schedule.py.)
+        overdue_cutoff = today - timedelta(days=SCHEDULE_OVERDUE_WINDOW_DAYS)
+        future_cutoff = today + timedelta(days=14)
+        done_subq = select(GoEntry.go_id).where(GoEntry.value > 0).scalar_subquery()
         users_q = await db.execute(
             select(distinct(Go.user_id)).where(
-                or_(Go.due_date == today, Go.due_date.is_(None)),
+                Go.item_kind == "one_off",
+                Go.id.notin_(done_subq),
+                or_(
+                    Go.due_date.is_(None),
+                    Go.due_date == today,
+                    and_(Go.due_date < today, Go.due_date >= overdue_cutoff),
+                    and_(Go.due_date > today, Go.due_date <= future_cutoff),
+                ),
             ),
         )
         user_ids = [row[0] for row in users_q.all()]
