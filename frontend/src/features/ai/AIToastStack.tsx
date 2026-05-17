@@ -1,5 +1,4 @@
-import { Sparkles } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { aiApi } from '../../api/client';
 import type { AIJobBrief, AIJobKind } from '../../api/types';
 import {
@@ -56,17 +55,29 @@ function saveDismissed(set: Set<string>) {
 }
 
 /**
- * App-shell-level launcher for the AI jobs sidebar. Renders a tiny pill in
- * the bottom-right corner that shows the active job count and opens the
- * full panel on click. No per-job status preview, no shake — the panel
- * itself is the single visualisation of "what's running" and "what
- * finished" (toasts have been removed by design).
+ * App-shell-level controller for the AI jobs sidebar. The panel auto-opens
+ * whenever a new background job appears (user-triggered or hydrated from
+ * the backend at boot). Closes via X or click-outside, stays closed until
+ * another job is added.
  */
 export function AIToastStack() {
   const jobs = useAIJobsStore((s) => s.jobs);
   const remove = useAIJobsStore((s) => s.remove);
   const hydrate = useAIJobsStore((s) => s.hydrate);
   const [panelOpen, setPanelOpen] = useState(false);
+  const prevLenRef = useRef(0);
+
+  // Auto-open the panel when the job list grows. Covers two cases:
+  //  1. Hydrate on boot bringing in unfinished jobs (length 0 → N).
+  //  2. User starts a new generation (length N → N+1).
+  // Doesn't re-open on dismiss-then-decrease, so closing stays sticky
+  // until the next genuine new job.
+  useEffect(() => {
+    if (jobs.length > prevLenRef.current) {
+      setPanelOpen(true);
+    }
+    prevLenRef.current = jobs.length;
+  }, [jobs.length]);
 
   // Rehydrate from the backend on boot so refreshing the page doesn't lose
   // in-flight / recent jobs. Filters out anything the user has explicitly
@@ -125,25 +136,12 @@ export function AIToastStack() {
   }, [remove]);
 
   return (
-    <>
-      {jobs.length > 0 && !panelOpen && (
-        <button
-          type="button"
-          className="ai-jobs-launcher"
-          onClick={() => setPanelOpen(true)}
-          title="Open AI tasks"
-        >
-          <Sparkles size={13} />
-          <span>AI · {jobs.length}</span>
-        </button>
-      )}
-      <AIJobsPanel
-        open={panelOpen}
-        onOpenChange={setPanelOpen}
-        jobs={jobs}
-        onPickJob={handlePickFromPanel}
-        onDismissJob={handleCancel}
-      />
-    </>
+    <AIJobsPanel
+      open={panelOpen}
+      onOpenChange={setPanelOpen}
+      jobs={jobs}
+      onPickJob={handlePickFromPanel}
+      onDismissJob={handleCancel}
+    />
   );
 }
