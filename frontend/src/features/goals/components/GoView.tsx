@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronRight, Edit3, Minus, Plus, Repeat, Search, X } from 'lucide-react';
 import type { Go, Step, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { goCurrentStreak, groupGosByGoal } from '../hooks/useGos';
+import { ErrorBoundary } from '../../../components/ErrorBoundary';
 import type { GoMode } from './GoalsView';
 
 type DayFilter = 'past' | 'today' | 'future';
@@ -69,7 +70,7 @@ const ymd = (d: Date) =>
 function relevantValue(go: Go): number {
   const today = ymd(new Date());
   const date = go.due_date && go.due_date !== today ? go.due_date : today;
-  return go.entries.find((e) => e.date === date)?.value ?? 0;
+  return (go.entries ?? []).find((e) => e.date === date)?.value ?? 0;
 }
 
 function fmtToday(): string {
@@ -617,19 +618,21 @@ export function GoView({
           {mode === 'single-goal' ? (
             <>
               {selectedId && goalById.has(selectedId) ? (
-                <FocusedGoal
-                  goal={goalById.get(selectedId)!}
-                  gos={groupedAll.get(selectedId) ?? []}
-                  selectedStepId={selectedStepId}
-                  onSelectStep={setSelectedStepId}
-                  onLog={onLog}
-                  onSkip={onSkip}
-                  onEditGoal={() => onSelectGoal(selectedId)}
-                  onAddStep={onAddStep}
-                  onAddGo={onAddGo}
-                  onEditStep={onEditStep}
-                  onEditGo={onEditGo}
-                />
+                <ErrorBoundary key={selectedId} label="Goal view">
+                  <FocusedGoal
+                    goal={goalById.get(selectedId)!}
+                    gos={groupedAll.get(selectedId) ?? []}
+                    selectedStepId={selectedStepId}
+                    onSelectStep={setSelectedStepId}
+                    onLog={onLog}
+                    onSkip={onSkip}
+                    onEditGoal={() => onSelectGoal(selectedId)}
+                    onAddStep={onAddStep}
+                    onAddGo={onAddGo}
+                    onEditStep={onEditStep}
+                    onEditGo={onEditGo}
+                  />
+                </ErrorBoundary>
               ) : (
                 <div className="content-empty" style={{ minHeight: 320 }}>
                   <div className="content-empty-eyebrow">No goal selected</div>
@@ -735,7 +738,7 @@ function FocusedGoal({
       const k = ymd(d);
       let done = 0;
       for (const g of allGoalGos) {
-        const e = g.entries.find((x) => x.date === k);
+        const e = (g.entries ?? []).find((x) => x.date === k);
         const targetMet = g.kind === 'numeric'
           ? (g.target_value && (e?.value ?? 0) >= g.target_value) || (e?.value ?? 0) > 0
           : (e?.value ?? 0) > 0;

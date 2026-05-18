@@ -159,7 +159,7 @@ export function AIGenerationToast({
 
 const LABELS: Record<AIJobKind, string> = {
   quiz:     'quiz',
-  schedule: 'schedule',
+  schedule: 'plan day',
   insights: 'review',
 };
 

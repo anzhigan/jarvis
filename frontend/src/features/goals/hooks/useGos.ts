@@ -41,7 +41,9 @@ export function groupGosByGoal(gos: Go[]): Map<string, Go[]> {
 export function goCurrentStreak(go: Go, today: Date = new Date()): number {
   const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const map = new Map<string, number>();
-  for (const e of go.entries) map.set(e.date, e.value);
+  // Defensive: very old DB rows can have a null entries array; iterating
+  // null with `for..of` throws and white-screens the whole goal view.
+  for (const e of (go.entries ?? [])) map.set(e.date, e.value);
   let count = 0;
   for (let i = 0; i < 365; i++) {
     const d = new Date(t0); d.setDate(d.getDate() - i);
