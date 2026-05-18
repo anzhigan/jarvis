@@ -37,6 +37,7 @@ from app.schemas.ai import (
     QuizAttemptOut,
     QuizCreate,
     ScheduleCreate,
+    SprintPlanCreate,
 )
 from app.services.ai.cache import (
     find_cached,
@@ -223,6 +224,7 @@ def _estimate_eta(kind: str, input_data: dict) -> int:
         "quiz": 90,            # 5-14 questions × ~80 tok each + JSON overhead
         "schedule": 60,
         "insights": 120,       # narrative reasoning is longest
+        "sprint_plan": 90,     # title + rationale + ~5-12 items with reasons
     }.get(kind, 90)
 
 
@@ -529,6 +531,49 @@ async def create_insights(
         cache_key=cache_key,
         db=db,
     )
+    await db.commit()
+    await job_queue.enqueue(job.id)
+    return job
+
+
+# ── Sprint planner feature ──────────────────────────────────────────────────
+
+
+@router.post("/sprint-plan", response_model=AIJobOut, status_code=status.HTTP_202_ACCEPTED)
+async def create_sprint_plan(
+    body: SprintPlanCreate,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Enqueue an AI sprint-plan generation job.
+
+    The handler reads the user's active goals + pending Gos + active
+    routines and emits a SprintPlanOutput proposal. The client then
+    materialises the proposal via the regular sprints endpoints once
+    the user accepts it — no DB writes happen here.
+
+    Cache: intentionally not used. The point of "regenerate" is to get a
+    fresh take; caching would surface the previous plan instead.
+    """
+    async with OllamaClient() as ollama:
+        if not await ollama.health():
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI runtime is offline. Try again in a moment.",
+            )
+
+    try:
+        job = await create_job(
+            user_id=user.id,
+            kind="sprint_plan",
+            input_data=body.model_dump(mode="json"),
+            eta_seconds=_estimate_eta("sprint_plan", body.model_dump()),
+            db=db,
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
     await db.commit()
     await job_queue.enqueue(job.id)
     return job

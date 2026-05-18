@@ -516,4 +516,7 @@ export const aiApi = {
 
   createInsights: (body: InsightsCreate) =>
     request<AIJob>('/ai/insights', { method: 'POST', body: JSON.stringify(body) }),
+
+  createSprintPlan: (body: { days: number }) =>
+    request<AIJob>('/ai/sprint-plan', { method: 'POST', body: JSON.stringify(body) }),
 };

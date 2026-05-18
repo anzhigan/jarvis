@@ -7,3 +7,4 @@ the backfill tool) ends up with an empty `_HANDLERS` registry.
 from app.services.ai import insights as _insights  # noqa: F401
 from app.services.ai import quiz as _quiz  # noqa: F401
 from app.services.ai import schedule as _schedule  # noqa: F401
+from app.services.ai import sprint_plan as _sprint_plan  # noqa: F401

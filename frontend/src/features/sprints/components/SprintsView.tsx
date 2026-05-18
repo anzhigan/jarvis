@@ -10,7 +10,9 @@
  * mounted at the shell level and triggered from the detail panel header.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Edit3, Loader2, Plus, Repeat, Target, Zap } from 'lucide-react';
+import { Edit3, Loader2, Plus, Repeat, Sparkles, Target, Zap } from 'lucide-react';
+import { toast } from 'sonner';
+import { aiApi } from '../../../api/client';
 import type { Go, Routine, Sprint, SprintItem, Step, Task } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../hooks/useSprints';
 import { useSprintsFilters, type ViewFilter } from '../hooks/useSprintsFilters';
@@ -21,6 +23,7 @@ import { todayState } from '../../routines/hooks/useRoutinesToday';
 import { SprintDetailPanel } from './SprintDetailPanel';
 import { SprintCreateDialog } from './SprintCreateDialog';
 import { AddSprintItemDialog } from './AddSprintItemDialog';
+import { SprintPlanDrawer } from './SprintPlanDrawer';
 import './sprints.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -655,6 +658,28 @@ export default function SprintsView() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [templateDays, setTemplateDays] = useState<number | null>(null);
+
+  // ── AI sprint plan ────────────────────────────────────────────────────
+  // Two-stage UI: click "AI sprint" opens a tiny popover with day presets,
+  // pick a length → POST creates an ai_jobs row → its id seeds the drawer
+  // which polls until done. Regenerate inside the drawer creates a new
+  // job and swaps the id without unmounting the drawer.
+  const [aiPickerOpen, setAiPickerOpen] = useState(false);
+  const [aiDays, setAiDays] = useState(14);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiJobId, setAiJobId] = useState<string | null>(null);
+  const startAiSprint = async () => {
+    setAiBusy(true);
+    try {
+      const job = await aiApi.createSprintPlan({ days: aiDays });
+      setAiJobId(job.id);
+      setAiPickerOpen(false);
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to start AI sprint plan');
+    } finally {
+      setAiBusy(false);
+    }
+  };
   useEffect(() => {
     const handler = (e: Event) => {
       const days = (e as CustomEvent<number>).detail;
@@ -721,6 +746,39 @@ export default function SprintsView() {
                 onClick={() => f.set('view', v)}
               >{VIEW_LABELS[v]}</button>
             ))}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="sp-ai-btn"
+              onClick={() => setAiPickerOpen((o) => !o)}
+              title="Generate a sprint from your current goals + tasks"
+            >
+              <Sparkles size={12} /> AI sprint
+            </button>
+            {aiPickerOpen && (
+              <div className="sp-ai-days" role="dialog" aria-label="Pick sprint length">
+                <div className="sp-ai-days__label">Sprint length</div>
+                <div className="sp-ai-days__pills">
+                  {[7, 14, 21, 30].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={`sp-ai-days__pill${aiDays === d ? ' is-on' : ''}`}
+                      onClick={() => setAiDays(d)}
+                    >{d}d</button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="sp-ai-days__go"
+                  onClick={startAiSprint}
+                  disabled={aiBusy}
+                >
+                  <Sparkles size={12} /> {aiBusy ? 'Starting…' : `Generate for ${aiDays} days`}
+                </button>
+              </div>
+            )}
           </div>
           <button className="new-btn" onClick={onNewSprint}>
             <Plus /> New sprint
@@ -795,6 +853,14 @@ export default function SprintsView() {
         onOpenChange={(o) => { if (!o) setAddItemSprintId(null); }}
         sprint={addItemSprint}
         library={library}
+      />
+
+      <SprintPlanDrawer
+        jobId={aiJobId}
+        onJobIdChange={setAiJobId}
+        onClose={() => setAiJobId(null)}
+        library={library}
+        days={aiDays}
       />
     </>
   );

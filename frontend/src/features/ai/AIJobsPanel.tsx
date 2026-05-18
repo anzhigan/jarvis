@@ -22,9 +22,10 @@ interface Props {
 }
 
 const KIND_LABELS: Record<AIJobKind, string> = {
-  quiz:     'Quiz',
-  schedule: 'Plan day',
-  insights: 'Weekly review',
+  quiz:        'Quiz',
+  schedule:    'Plan day',
+  insights:    'Weekly review',
+  sprint_plan: 'Sprint plan',
 };
 
 /** "75" → "1m 15s"; "5" → "5s". Compact but readable for elapsed/ETA. */

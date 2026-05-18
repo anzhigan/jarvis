@@ -15,7 +15,7 @@ import type { AIJobKind } from '../api/types';
 
 export interface AIJobSource {
   /** Which top-level section opens the result. */
-  section: 'notes' | 'goals' | 'analysis';
+  section: 'notes' | 'goals' | 'analysis' | 'sprints';
   /** For quiz/tasks_extract — the note this job belongs to. */
   noteId?: string;
   /** Pretty title for the AI jobs panel ("Quiz · note name"). Optional;

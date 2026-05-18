@@ -231,7 +231,7 @@ export interface Sprint {
 // Generic job lifecycle mirrors AIJobOut in backend.
 
 export type AIJobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
-export type AIJobKind = 'quiz' | 'schedule' | 'insights';
+export type AIJobKind = 'quiz' | 'schedule' | 'insights' | 'sprint_plan';
 
 export interface AIJob {
   id: string;
@@ -398,4 +398,20 @@ export interface InsightsOutput {
   week_end: string;
   summary: InsightsSummary;
   metrics: InsightsMetrics;
+}
+
+// Sprint planner — AI proposes a full sprint (title + dates + items).
+export interface SprintPlanItem {
+  kind: 'goal' | 'go' | 'routine';
+  id: string;
+  title: string;          // mirrored for UI fallback
+  reason: string;
+}
+export interface SprintPlanOutput {
+  title: string;
+  description: string;
+  start_date: string;     // YYYY-MM-DD
+  end_date: string;       // YYYY-MM-DD
+  rationale: string;
+  items: SprintPlanItem[];
 }

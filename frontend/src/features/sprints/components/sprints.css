@@ -503,3 +503,185 @@
   text-align: center;
   font-family: var(--font-ui); font-size: 12px; color: var(--ink-4);
 }
+
+/* ── "AI sprint" trigger button (next to "+ New sprint") ─────────────── */
+.sp-ai-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  background: var(--indigo); color: var(--paper);
+  border: 0; border-radius: var(--r-pill);
+  padding: 5px 12px; cursor: pointer;
+  transition: filter var(--dur-fast);
+}
+.sp-ai-btn:hover { filter: brightness(1.1); }
+.sp-ai-btn:disabled { opacity: 0.55; cursor: default; }
+.sp-ai-btn svg { flex-shrink: 0; }
+
+/* Days-picker popover anchored to the AI button. Small inline element so
+   the user doesn't have to leave the toolbar to pick a length. */
+.sp-ai-days {
+  position: absolute; top: 100%; right: 0; margin-top: 6px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-popover);
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 30; min-width: 220px;
+}
+.sp-ai-days__label {
+  font-family: var(--font-ui); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-4);
+}
+.sp-ai-days__pills {
+  display: flex; gap: 6px;
+}
+.sp-ai-days__pill {
+  flex: 1;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  background: var(--cream); color: var(--ink-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 5px 0; cursor: pointer;
+}
+.sp-ai-days__pill:hover { background: var(--paper); color: var(--ink); }
+.sp-ai-days__pill.is-on {
+  background: var(--indigo); color: var(--paper); border-color: var(--indigo);
+}
+.sp-ai-days__go {
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  background: var(--indigo); color: var(--paper);
+  border: 0; border-radius: var(--r-control);
+  padding: 7px 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.sp-ai-days__go:hover { filter: brightness(1.1); }
+.sp-ai-days__go:disabled { opacity: 0.6; cursor: default; }
+
+/* ── Sprint-plan drawer ──────────────────────────────────────────────── */
+.sp-plan { display: flex; flex-direction: column; gap: 16px; padding-bottom: 80px; }
+.sp-plan__loading {
+  padding: 60px 24px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  font-family: var(--font-ui); font-size: 13px; color: var(--ink-3);
+}
+.sp-plan__loading-sub {
+  font-size: 11.5px; color: var(--ink-5); max-width: 320px; line-height: 1.5;
+}
+.sp-plan__failed {
+  padding: 32px 20px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  border: 1px solid var(--rust-soft); border-radius: var(--r-card);
+  background: rgba(160, 74, 57, 0.04);
+}
+.sp-plan__failed-title { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--rust); margin: 0; }
+.sp-plan__failed-msg { font-family: var(--font-body); font-size: 13px; color: var(--ink-3); margin: 0; max-width: 380px; }
+
+.sp-plan__header {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+}
+.sp-plan__field { display: flex; flex-direction: column; gap: 4px; }
+.sp-plan__field-label {
+  font-family: var(--font-ui); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-4);
+}
+.sp-plan__dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sp-plan__textarea {
+  font-family: var(--font-body); font-size: 13px; color: var(--ink);
+  background: var(--cream); border: 1px solid var(--hairline);
+  border-radius: var(--r-control); padding: 8px 10px;
+  resize: vertical; line-height: 1.5;
+  outline: 0;
+}
+.sp-plan__textarea:focus { background: var(--paper); box-shadow: var(--sh-focus); border-color: var(--hairline-strong); }
+
+.sp-plan__rationale {
+  display: flex; gap: 6px; align-items: flex-start;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: var(--indigo-soft);
+  border-radius: var(--r-control);
+  font-family: var(--font-body); font-size: 12.5px; color: var(--ink-2);
+  line-height: 1.45;
+}
+.sp-plan__rationale svg { flex: none; color: var(--indigo); margin-top: 2px; }
+
+.sp-plan__section {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.sp-plan__section-head { display: flex; align-items: baseline; gap: 10px; }
+.sp-plan__section-label {
+  font-family: var(--font-ui); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--ink-4);
+}
+.sp-plan__section-rule { flex: 1; height: 1px; background: var(--hairline); }
+.sp-plan__section-count { font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); }
+.sp-plan__empty {
+  font-family: var(--font-body); font-size: 13px; color: var(--ink-4);
+  padding: 16px; text-align: center;
+  background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-card);
+}
+
+.sp-plan__items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sp-plan__item {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--indigo);
+  border-radius: var(--r-card);
+  padding: 10px 12px;
+  transition: opacity var(--dur-fast);
+}
+.sp-plan__item[data-kind="goal"]    { border-left-color: var(--moss); }
+.sp-plan__item[data-kind="go"]      { border-left-color: var(--indigo); }
+.sp-plan__item[data-kind="routine"] { border-left-color: var(--ochre); }
+.sp-plan__item[data-dropped] {
+  opacity: 0.4;
+  border-left-color: var(--ink-5);
+  border-style: dashed;
+}
+.sp-plan__item-row { display: flex; align-items: center; gap: 8px; }
+.sp-plan__item-kind {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-ui); font-size: 9.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 2px 7px; border-radius: var(--r-sharp);
+  flex: none;
+}
+.sp-plan__item[data-kind="goal"]    .sp-plan__item-kind { background: var(--moss-soft); color: var(--moss); }
+.sp-plan__item[data-kind="go"]      .sp-plan__item-kind { background: var(--indigo-soft); color: var(--indigo); }
+.sp-plan__item[data-kind="routine"] .sp-plan__item-kind { background: var(--ochre-soft); color: var(--ochre); }
+.sp-plan__item-title {
+  font-family: var(--font-display); font-size: 13px; font-weight: 600;
+  color: var(--ink); letter-spacing: -0.008em;
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sp-plan__item[data-dropped] .sp-plan__item-title { text-decoration: line-through; }
+.sp-plan__item-drop {
+  background: transparent; border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-4); cursor: pointer;
+  flex: none;
+}
+.sp-plan__item-drop:hover { background: var(--cream); color: var(--ink); }
+.sp-plan__item-reason {
+  margin: 6px 0 0 26px;
+  font-family: var(--font-body); font-size: 12px; color: var(--ink-3);
+  line-height: 1.45;
+}
+
+.sp-plan__footer {
+  position: sticky; bottom: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 0;
+  background: linear-gradient(180deg, transparent, var(--paper) 40%);
+  margin-top: 8px;
+}

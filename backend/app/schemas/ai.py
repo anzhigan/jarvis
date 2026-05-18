@@ -223,3 +223,36 @@ class InsightsOutput(BaseModel):
     week_end: str
     summary: InsightsSummary
     metrics: InsightsMetrics
+
+
+# ── Sprint planner feature ──────────────────────────────────────────────────
+
+
+class SprintPlanCreate(BaseModel):
+    """Body for POST /ai/sprint-plan. The only knob is window length —
+    the model figures out which goals/gos/routines belong in the sprint
+    by reading the user's current state."""
+    days: int = Field(default=14, ge=3, le=90,
+                       description="Sprint length in days — 7/14/21/30 are common.")
+
+
+class SprintPlanItem(BaseModel):
+    """One proposed item with the model's rationale. `kind` + `id` point at
+    an existing Goal/Go/Routine — the router validates ownership before
+    surfacing the result. `reason` is shown next to the chip in the UI so
+    the user understands why the model picked this item."""
+    kind: str = Field(pattern=r"^(goal|go|routine)$")
+    id: str
+    title: str = ""              # mirrored for UI fallback when the entity is missing
+    reason: str = ""
+
+
+class SprintPlanOutput(BaseModel):
+    title: str
+    description: str = ""
+    start_date: str                       # ISO YYYY-MM-DD
+    end_date: str                         # ISO YYYY-MM-DD
+    items: list[SprintPlanItem] = Field(default_factory=list)
+    # Short narrative — same role as ScheduleSummary.focus: what this
+    # sprint is fundamentally about, in one or two sentences.
+    rationale: str = ""
