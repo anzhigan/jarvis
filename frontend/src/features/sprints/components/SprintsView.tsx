@@ -11,10 +11,13 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Edit3, Loader2, Plus, Repeat, Target, Zap } from 'lucide-react';
-import type { Go, SprintItem, Step, Task } from '../../../api/types';
+import type { Go, Routine, Sprint, SprintItem, Step, Task } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../hooks/useSprints';
 import { useSprintsFilters, type ViewFilter } from '../hooks/useSprintsFilters';
 import { useGoals } from '../../goals/hooks/useGoals';
+import { useGos } from '../../goals/hooks/useGos';
+import { useRoutines } from '../../routines/hooks/useRoutines';
+import { todayState } from '../../routines/hooks/useRoutinesToday';
 import { SprintDetailPanel } from './SprintDetailPanel';
 import { SprintCreateDialog } from './SprintCreateDialog';
 import { AddSprintItemDialog } from './AddSprintItemDialog';
@@ -60,8 +63,45 @@ function ticksFor(range: Range, count = 6): { pct: number; date: Date }[] {
   return out;
 }
 
-function progressPct(row: SprintWithProgress): number {
+/** Time elapsed fraction (0..100) — the original `progress` field. */
+function timePct(row: SprintWithProgress): number {
   return Math.round(row.progress * 100);
+}
+
+/** Real item-completion stats for a sprint. "Done" semantics per kind:
+ *  - goal:    status === 'done', OR all gos done if no explicit done status.
+ *  - go:      has any entry value > 0 today (matches Kanban's `is_done_today`).
+ *  - routine: today is satisfied (boolean done or numeric target hit).
+ *  An item linked to an entity that no longer exists is skipped — counts
+ *  shrink rather than show a stale 100% from "ghost" denominators. */
+interface ItemStats { done: number; total: number; pct: number; }
+function itemStatsFor(
+  sprint: Sprint,
+  goalById: Map<string, Task>,
+  goById: Map<string, Go>,
+  routineById: Map<string, Routine>,
+): ItemStats {
+  let done = 0, total = 0;
+  for (const it of sprint.items) {
+    if (it.item_type === 'goal' && it.goal_id) {
+      const g = goalById.get(it.goal_id);
+      if (!g) continue;
+      total++;
+      if (g.status === 'done' || (g.progress ?? 0) >= 100) done++;
+    } else if (it.item_type === 'go' && it.go_id) {
+      const g = goById.get(it.go_id);
+      if (!g) continue;
+      total++;
+      if (g.is_done_today) done++;
+    } else if (it.item_type === 'routine' && it.routine_id) {
+      const r = routineById.get(it.routine_id);
+      if (!r) continue;
+      total++;
+      if (todayState(r) === 'done') done++;
+    }
+  }
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  return { done, total, pct };
 }
 
 const VIEW_LABELS: Record<ViewFilter, string> = {
@@ -83,8 +123,9 @@ interface RoadmapProps {
   rows: SprintWithProgress[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  itemStatsBy: Map<string, ItemStats>;
 }
-function SprintsRoadmap({ rows, selectedId, onSelect }: RoadmapProps) {
+function SprintsRoadmap({ rows, selectedId, onSelect, itemStatsBy }: RoadmapProps) {
   const range = useMemo(() => rangeFor(rows), [rows]);
   const ticks = useMemo(() => ticksFor(range), [range]);
   const todayPct = ((Date.now() - range.start.getTime()) / range.ms) * 100;
@@ -107,19 +148,25 @@ function SprintsRoadmap({ rows, selectedId, onSelect }: RoadmapProps) {
         )}
       </div>
       <div className="sp-gantt__rows-side">
-        {rows.map((row, i) => (
-          <button
-            key={row.sprint.id}
-            type="button"
-            className="sp-row-side"
-            data-selected={row.sprint.id === selectedId || undefined}
-            onClick={() => onSelect(row.sprint.id)}
-          >
-            <span className="sp-row-side__num">{String(i + 1).padStart(2, '0')}</span>
-            <span className="sp-row-side__title">{row.sprint.title}</span>
-            <span className="sp-row-side__count">{progressPct(row)}%</span>
-          </button>
-        ))}
+        {rows.map((row, i) => {
+          const stats = itemStatsBy.get(row.sprint.id);
+          const sideText = stats && stats.total > 0
+            ? `${stats.done}/${stats.total}`
+            : `${timePct(row)}%`;
+          return (
+            <button
+              key={row.sprint.id}
+              type="button"
+              className="sp-row-side"
+              data-selected={row.sprint.id === selectedId || undefined}
+              onClick={() => onSelect(row.sprint.id)}
+            >
+              <span className="sp-row-side__num">{String(i + 1).padStart(2, '0')}</span>
+              <span className="sp-row-side__title">{row.sprint.title}</span>
+              <span className="sp-row-side__count">{sideText}</span>
+            </button>
+          );
+        })}
       </div>
       <div className="sp-gantt__rows-bars">
         {rows.map((row) => {
@@ -128,7 +175,10 @@ function SprintsRoadmap({ rows, selectedId, onSelect }: RoadmapProps) {
           const left = ((st - range.start.getTime()) / range.ms) * 100;
           const width = Math.max(((en - st) / range.ms) * 100, 1.5);
           const state = row.bucket;
-          const fillPct = state === 'past' ? 100 : Math.round(row.progress * 100);
+          // Bar fill = item completion when there are items; falls back to
+          // time-elapsed for empty sprints so the bar isn't dead-flat.
+          const stats = itemStatsBy.get(row.sprint.id);
+          const fillPct = stats && stats.total > 0 ? stats.pct : timePct(row);
           return (
             <button
               key={row.sprint.id}
@@ -332,12 +382,13 @@ interface DetailProps {
   onSelectStep: (id: string | null) => void;
   onEdit: () => void;
   onAddItem: () => void;
+  stats: ItemStats;
 }
 function SprintDetail({
-  row, goals, expandedGoalId, onToggleGoal, selectedStepId, onSelectStep, onEdit, onAddItem,
+  row, goals, expandedGoalId, onToggleGoal, selectedStepId, onSelectStep, onEdit, onAddItem, stats,
 }: DetailProps) {
   const { sprint, daysRemaining, daysTotal, bucket } = row;
-  const pct = progressPct(row);
+  const timeP = timePct(row);
   const items = sprint.items;
   const counts = useMemo(() => {
     const out = { goal: 0, go: 0, routine: 0 };
@@ -376,13 +427,27 @@ function SprintDetail({
           {counts.go > 0 && <span><span>Gos </span><b>{counts.go}</b></span>}
           {counts.routine > 0 && <span><span>Routines </span><b>{counts.routine}</b></span>}
         </div>
+        {/* Two-line progress block:
+              1) Items done — the real "what shipped" signal.
+              2) Time elapsed — context for pace ("we're 60% into the window,
+                 are we 60% done?"). Hidden for past sprints (always 100% on
+                 time) — only the items line stays. */}
+        {stats.total > 0 && (
+          <div className="sp-detail__progress">
+            <span className="sp-detail__progress-text">{stats.done} / {stats.total} items</span>
+            <div className="sp-detail__progress-bar" data-kind="items">
+              <div className="sp-detail__progress-fill" style={{ width: `${stats.pct}%` }} />
+            </div>
+            <span className="sp-detail__progress-text">{stats.pct}%</span>
+          </div>
+        )}
         {bucket !== 'past' && (
           <div className="sp-detail__progress">
             <span className="sp-detail__progress-text">day {daysTotal - daysRemaining} / {daysTotal}</span>
-            <div className="sp-detail__progress-bar">
-              <div className="sp-detail__progress-fill" style={{ width: `${pct}%` }} />
+            <div className="sp-detail__progress-bar" data-kind="time">
+              <div className="sp-detail__progress-fill sp-detail__progress-fill--time" style={{ width: `${timeP}%` }} />
             </div>
-            <span className="sp-detail__progress-text">{pct}%</span>
+            <span className="sp-detail__progress-text">{timeP}%</span>
           </div>
         )}
       </header>
@@ -539,7 +604,36 @@ function ItemGoalCard({ item, goal, expanded, selectedStepId, onToggle, onSelect
 export default function SprintsView() {
   const library = useSprints();
   const goals = useGoals();
+  const gosLib = useGos();
+  const routinesLib = useRoutines();
   const f = useSprintsFilters();
+
+  // Lookup maps for item-progress computation.
+  const goalById = useMemo(() => {
+    const m = new Map<string, Task>();
+    for (const t of goals.tasks) m.set(t.id, t);
+    return m;
+  }, [goals.tasks]);
+  const goById = useMemo(() => {
+    const m = new Map<string, Go>();
+    for (const g of gosLib.gos) m.set(g.id, g);
+    return m;
+  }, [gosLib.gos]);
+  const routineById = useMemo(() => {
+    const m = new Map<string, Routine>();
+    for (const r of routinesLib.routines) m.set(r.id, r);
+    return m;
+  }, [routinesLib.routines]);
+
+  // Precompute item-stats per sprint so both the roadmap and detail share
+  // one source of truth (and one pass over the data).
+  const itemStatsBy = useMemo(() => {
+    const m = new Map<string, ItemStats>();
+    for (const d of library.decorated) {
+      m.set(d.sprint.id, itemStatsFor(d.sprint, goalById, goById, routineById));
+    }
+    return m;
+  }, [library.decorated, goalById, goById, routineById]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
@@ -656,7 +750,12 @@ export default function SprintsView() {
                     <b>{library.counts.past}</b> done
                   </span>
                 </div>
-                <SprintsRoadmap rows={sorted} selectedId={selectedId} onSelect={setSelectedId} />
+                <SprintsRoadmap
+                  rows={sorted}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  itemStatsBy={itemStatsBy}
+                />
                 {selected && (
                   <SprintDetail
                     row={selected}
@@ -667,6 +766,7 @@ export default function SprintsView() {
                     onSelectStep={setSelectedStepId}
                     onEdit={() => setEditSprintId(selected.sprint.id)}
                     onAddItem={() => setAddItemSprintId(selected.sprint.id)}
+                    stats={itemStatsBy.get(selected.sprint.id) ?? { done: 0, total: 0, pct: 0 }}
                   />
                 )}
               </>

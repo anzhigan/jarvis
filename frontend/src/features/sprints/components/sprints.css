@@ -243,6 +243,9 @@
 }
 .sp-detail[data-state="past"] .sp-detail__progress-fill { background: var(--moss); }
 .sp-detail[data-state="upcoming"] .sp-detail__progress-fill { background: var(--slate); }
+/* Time-elapsed bar uses indigo so it visually separates from items-progress
+   (which inherits the bucket colour above). */
+.sp-detail__progress-fill--time { background: var(--indigo) !important; opacity: 0.55; }
 .sp-detail__progress-text {
   font-family: var(--font-mono); font-size: 11px; color: var(--ink-4);
 }
