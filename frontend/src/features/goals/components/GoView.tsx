@@ -90,7 +90,14 @@ function fmtDue(due: string | null): { label: string; days: number | null } {
 
 function goalPct(t: Task): number {
   if (t.status === 'done') return 100;
-  return Math.round(t.progress);
+  return Math.round(t.progress || 0);
+}
+
+/** Defensive: works even if `s` is empty/undefined (which TS says can't
+ *  happen but old DB rows sometimes do). */
+function capitalize(s: string): string {
+  if (!s) return '';
+  return s[0].toUpperCase() + s.slice(1);
 }
 
 /** Was the go's target met on the given date? Pulled from its entries. */
@@ -518,7 +525,7 @@ export function GoView({
             // "active" (always present for orientation, even when empty).
             if (groupGoals.length === 0 && status !== 'active') return null;
             const isOpen = openStatus[status];
-            const label = status === 'paused' ? 'On hold' : status[0].toUpperCase() + status.slice(1);
+            const label = status === 'paused' ? 'On hold' : capitalize(status);
             return (
               <section key={status} className="go-leftpane-group" data-status={status}>
                 <button
@@ -744,14 +751,19 @@ function FocusedGoal({
       <header className="goal-ctx" style={{ ['--gc' as any]: accent }}>
         <div className="goal-ctx-tag-row">
           <div className="goal-ctx-meta-pills">
-            <span className="goal-ctx-status" data-status={goal.status}>
-              {goal.status === 'paused' ? 'On hold' : goal.status[0].toUpperCase() + goal.status.slice(1)}
+            {/* Defensive defaults — old DB rows can have null priority/tags
+                that TS thinks is required; rendering blindly used to throw
+                and white-screened the view. */}
+            <span className="goal-ctx-status" data-status={goal.status || 'backlog'}>
+              {goal.status === 'paused'
+                ? 'On hold'
+                : capitalize(goal.status || 'backlog')}
             </span>
-            <span className="goal-ctx-prio" data-prio={goal.priority}>
+            <span className="goal-ctx-prio" data-prio={goal.priority || 'medium'}>
               <span className="goal-ctx-prio__dot" />
-              {goal.priority[0].toUpperCase() + goal.priority.slice(1)}
+              {capitalize(goal.priority || 'medium')}
             </span>
-            {goal.tags.map((tag) => (
+            {(goal.tags ?? []).map((tag) => (
               <span
                 key={tag.id}
                 className="goal-ctx-tag-chip"
@@ -1160,6 +1172,26 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
     </div>
   ) : null;
 
+  // Date row — shown when either start or due is set. "Mar 12 → Apr 02"
+  // for a window, "Due Apr 02" for due-only, "From Mar 12" for start-only.
+  const fmtShort = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const datesBlock = (go.start_date || go.due_date) ? (
+    <div className="tg-card-dates">
+      {go.start_date && go.due_date ? (
+        <>
+          <span>{fmtShort(go.start_date)}</span>
+          <span className="tg-card-dates__sep">→</span>
+          <span>{fmtShort(go.due_date)}</span>
+        </>
+      ) : go.due_date ? (
+        <span>Due {fmtShort(go.due_date)}</span>
+      ) : (
+        <span>From {fmtShort(go.start_date!)}</span>
+      )}
+    </div>
+  ) : null;
+
   if (go.kind === 'boolean') {
     return (
       <article
@@ -1173,6 +1205,7 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
           <div className="tg-card-text">
             {kindRow}
             <h3 className="tg-card-title">{go.title}</h3>
+            {datesBlock}
             {descBlock}
           </div>
         </header>
@@ -1210,6 +1243,7 @@ function TgCard({ go, parentTitle, goalAccent, step, onLog, onSkip, onEdit }: Tg
         <div className="tg-card-text">
           {kindRow}
           <h3 className="tg-card-title">{go.title}</h3>
+          {datesBlock}
           {descBlock}
         </div>
       </header>

@@ -295,27 +295,41 @@ export function AIToastStack() {
   // otherwise sit on top of the result the user just opened. The panel still
   // surfaces those jobs when reopened.
   const anyDrawerOpen = openDrawerIds.size > 0;
-  // Each visible job gets its own toast. `hideFromToast` is the user's
-  // soft-dismiss; the job stays in the panel either way. Order: working
-  // first, then completed — with `column-reverse` on the stack this puts
-  // newer completed/working toasts visually higher.
-  const visibleJobs = [
-    ...workingJobs.filter((j) => !j.hideFromToast),
-    ...completedJobs.filter((j) => !j.hideFromToast),
+  // Per-category collapsing: when a category has ≥3 visible jobs, show
+  // just its head with a "+N" capsule (N = others - 1) instead of N
+  // separate toasts. Below 3 we still render each job on its own.
+  const COLLAPSE_AT = 3;
+  const collapse = (list: BgAIJob[]): { heads: BgAIJob[]; extra: number } => {
+    const visible = list.filter((j) => !j.hideFromToast);
+    if (visible.length < COLLAPSE_AT) return { heads: visible, extra: 0 };
+    return { heads: [visible[0]], extra: visible.length - 1 };
+  };
+  const workingSlot = collapse(workingJobs);
+  const completedSlot = collapse(completedJobs);
+  const renderable: Array<{ job: BgAIJob; extra: number }> = [
+    ...workingSlot.heads.map((j, i) => ({
+      job: j,
+      extra: i === 0 ? workingSlot.extra : 0,
+    })),
+    ...completedSlot.heads.map((j, i) => ({
+      job: j,
+      extra: i === 0 ? completedSlot.extra : 0,
+    })),
   ];
 
   return (
     <>
-      {!panelOpen && !anyDrawerOpen && visibleJobs.length > 0 && (
+      {!panelOpen && !anyDrawerOpen && renderable.length > 0 && (
         <div className="ai-toast-stack">
-          {visibleJobs.map((j) => (
+          {renderable.map(({ job, extra }) => (
             <AIGenerationToast
-              key={j.jobId}
-              jobId={j.jobId}
-              bumpedAt={j.bumpedAt}
-              sourceTitle={j.source.noteTitle}
+              key={job.jobId}
+              jobId={job.jobId}
+              bumpedAt={job.bumpedAt}
+              sourceTitle={job.source.noteTitle}
+              extraCount={extra}
               onOpen={handleToastClick}
-              onDismiss={() => handleDismissToast(j.jobId)}
+              onDismiss={() => handleDismissToast(job.jobId)}
             />
           ))}
         </div>

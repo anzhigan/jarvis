@@ -13,6 +13,10 @@ interface Props {
    *  with a `·` separator so the user can tell which quiz/schedule a toast
    *  belongs to — same format as the AI tasks panel. */
   sourceTitle?: string;
+  /** Other jobs of the same category (working/completed) hidden behind this
+   *  one. Rendered as a "+N" capsule next to the title. Use 0 (or omit) to
+   *  hide the capsule entirely. */
+  extraCount?: number;
   /** Called when user clicks the toast (works in any state). */
   onOpen: () => void;
   /** Called when user X's the toast OR success auto-dismiss timer fires. */
@@ -32,7 +36,9 @@ interface Props {
  *
  * Auto-dismisses 8s after success if user doesn't click open.
  */
-export function AIGenerationToast({ jobId, bumpedAt, sourceTitle, onOpen, onDismiss }: Props) {
+export function AIGenerationToast({
+  jobId, bumpedAt, sourceTitle, extraCount = 0, onOpen, onDismiss,
+}: Props) {
   const { job } = useAIJob(jobId);
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const [shake, setShake] = useState(false);
@@ -111,6 +117,7 @@ export function AIGenerationToast({ jobId, bumpedAt, sourceTitle, onOpen, onDism
           <>
             <p className="ai-toast__title">
               {isQueued ? `Queued ${label}` : `Generating ${label}`}
+              {extraCount > 0 && <span className="ai-toast__queue">+{extraCount}</span>}
             </p>
             <p className="ai-toast__sub">
               {isQueued
@@ -124,7 +131,10 @@ export function AIGenerationToast({ jobId, bumpedAt, sourceTitle, onOpen, onDism
         )}
         {isDone && (
           <>
-            <p className="ai-toast__title">{capitalize(label)} ready</p>
+            <p className="ai-toast__title">
+              {capitalize(label)} ready
+              {extraCount > 0 && <span className="ai-toast__queue">+{extraCount}</span>}
+            </p>
             <p className="ai-toast__sub">Click to open</p>
           </>
         )}

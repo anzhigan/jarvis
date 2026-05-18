@@ -1462,7 +1462,7 @@
 .tg-card-desc__less:hover { color: var(--indigo); }
 .tg-card-title {
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 15px;
   /* 600 (instead of 500) — Fraunces 500 lacks Cyrillic, so Russian titles
      fell back to Georgia at a weight Georgia doesn't have a cut for,
      rendering visually flat. 600 + the Source Serif 4 fallback in
@@ -1470,9 +1470,23 @@
   font-weight: 600;
   color: var(--ink);
   letter-spacing: var(--tracking-tight);
-  line-height: 1.25;
+  line-height: 1.3;
   margin: 0;
 }
+
+/* ── Go-card date row — start / due, optionally shown when set ──────── */
+.tg-card-dates {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  letter-spacing: 0.01em;
+  margin-top: 4px;
+}
+.tg-card-dates__sep { opacity: 0.6; }
+.tg-card-dates__icon { color: var(--ink-5); display: inline-flex; }
+.tg-card[data-done] .tg-card-dates { color: var(--moss); }
+.tg-card[data-partial] .tg-card-dates { color: var(--ochre); }
 .tg-card[data-done] .tg-card-title { color: var(--ink-3); }
 
 /* Numeric stepper */
