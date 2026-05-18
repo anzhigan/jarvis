@@ -967,6 +967,47 @@
 .lib-row .swatch { width: 8px; height: 8px; border-radius: var(--r-sharp); flex-shrink: 0; }
 .lib-row .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+/* ── DnD: grip handle + drop highlight ───────────────────────────────── */
+/* Mirrors the Plan-day grip — visible only on hover, on the left edge of
+   a note row. The button is a real <button> so it acts as the drag
+   activator; click event is stopped so it doesn't bubble to row-select. */
+.lib-row .lib-row-grip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 18px;
+  margin-left: -4px;
+  background: transparent; border: 0; padding: 0;
+  color: var(--ink-5);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+  flex-shrink: 0;
+}
+.lib-row:hover .lib-row-grip { opacity: 0.7; }
+.lib-row .lib-row-grip:hover { opacity: 1; color: var(--ink-2); }
+.lib-row .lib-row-grip:active { cursor: grabbing; }
+
+/* Faint the row while it's being dragged so the DragOverlay reads as the
+   "live" copy. */
+.lib-row[data-dragging] { opacity: 0.35; }
+
+/* Drop highlight on way/topic header rows. The wrapper has the droppable
+   ref; we propagate the over-state to the inner .lib-row via attribute
+   selector so we keep styling next to the rest of the row rules. */
+.lib-drop-wrap[data-drop-over] > .lib-row {
+  background: var(--indigo-soft);
+  box-shadow: inset 0 0 0 1px var(--indigo);
+  color: var(--indigo);
+}
+
+/* Floating preview while a note is being dragged. */
+.lib-row.lib-row--drag-preview {
+  background: var(--paper);
+  box-shadow: var(--sh-popover);
+  border: 1px solid var(--hairline-strong);
+  pointer-events: none;
+  max-width: 260px;
+}
+
 .lib-row .row-add,
 .lib-row .row-action {
   display: inline-flex; align-items: center; justify-content: center;

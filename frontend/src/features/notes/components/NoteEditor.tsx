@@ -2,13 +2,12 @@ import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } 
 import {
   AlignCenter, AlignLeft, AlignRight,
   Bold, Check, ChevronRight, Image as ImageIcon, Italic, Link as LinkIcon, Loader2,
-  Paperclip, Plus, Share2, Sigma, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
+  Paperclip, Plus, Share2, Sigma, Sparkles, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { EditorHelpers } from '../../../components/RichTextEditor';
 import type { Note } from '../../../api/types';
 import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
-import { AIMenuTrigger } from '../../ai/AIMenuTrigger';
 import { aiApi } from '../../../api/client';
 import {
   AI_JOB_OPEN_EVENT,
@@ -836,20 +835,27 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
             <Breadcrumb items={breadcrumbs} />
             <div className="doc-actions">
               <SavedPill saving={saving} savedAt={savedAt} />
-              <AIMenuTrigger
-                contextLabel={`«${note.name || 'untitled'}»`}
-                onSelect={handleAIAction}
-                enabledActions={['quiz']}
-              />
+              {/* Quiz trigger — single-click → generate (or open cached).
+                  Replaces the old AI menu, which was a multi-action picker
+                  with only quiz wired up; one button is faster. */}
               <button
                 type="button"
-                className="share-btn"
+                className="ai-trigger"
+                onClick={() => void handleAIAction('quiz')}
+                title={`Generate quiz on «${note.name || 'untitled'}»`}
+                aria-label="Quiz"
+              >
+                <Sparkles size={13} className="ai-trigger__spk" />
+                <span className="ai-trigger__label">Quiz</span>
+              </button>
+              <button
+                type="button"
+                className="share-btn share-btn--icon"
                 onClick={() => setShareOpen(true)}
                 title="Поделиться"
                 aria-label="Поделиться"
               >
                 <Share2 size={14} />
-                <span>Поделиться</span>
               </button>
             </div>
           </div>

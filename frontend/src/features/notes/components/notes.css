@@ -239,6 +239,13 @@
   color: var(--ink);
   border-color: var(--ink-5);
 }
+/* Icon-only variant — square, same size as other doc-actions controls. */
+.share-btn.share-btn--icon {
+  padding: 0;
+  width: 26px;
+  height: 26px;
+  justify-content: center;
+}
 .share-loading {
   display: inline-flex;
   align-items: center;
