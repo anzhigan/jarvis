@@ -402,6 +402,31 @@ const ResizableImage = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(ResizableImageView);
   },
+  addKeyboardShortcuts() {
+    return {
+      // Backspace in an empty paragraph that follows an image: delete just
+      // the empty paragraph, never the image. Default Tiptap behaviour
+      // "joinBackward" merges with the previous block — for an atom node
+      // like our image that ends up wiping the image, which is surprising.
+      Backspace: () => {
+        const { state, view } = this.editor;
+        const { $from, empty } = state.selection;
+        if (!empty) return false;
+        if ($from.parentOffset !== 0) return false;
+        const para = $from.parent;
+        if (para.type.name !== 'paragraph' || para.content.size !== 0) return false;
+        const parentDepth = $from.depth - 1;
+        const idx = $from.index(parentDepth);
+        if (idx === 0) return false;
+        const prev = $from.node(parentDepth).child(idx - 1);
+        if (prev.type.name !== 'image') return false;
+        const blockStart = $from.before($from.depth);
+        const blockEnd = $from.after($from.depth);
+        view.dispatch(state.tr.delete(blockStart, blockEnd));
+        return true;
+      },
+    };
+  },
 });
 
 // ─── InlineMath — renders $...$ LaTeX inline ──────────────────────────────

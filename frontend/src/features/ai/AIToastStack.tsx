@@ -36,29 +36,56 @@ function deriveSource(j: AIJobBrief): AIJobSource {
   return { section: 'notes', noteId, noteTitle };
 }
 
-// ─── Dismissed-job memory (localStorage) ─────────────────────────────────
-// User-X'd job ids are persisted so a page refresh doesn't bring them back
-// from the server's history list. We cap the set so it can't grow forever.
-const DISMISSED_KEY = 'jarvnote:ai-jobs:dismissed';
-const DISMISSED_MAX = 200;
+// ─── Soft-dismiss persistence ────────────────────────────────────────────
+// We persist per-job dismiss flags (toast / panel) so reloading the page
+// keeps the user's choices: previously-closed toasts don't pop back, and
+// jobs cleared from the AI tasks panel stay cleared. We never remove jobs
+// from the store on user-action — they stay around so `findSame` can hit
+// the backend cache and re-open the existing result instead of running a
+// fresh generation.
+const HIDDEN_KEY = 'jarvnote:ai-jobs:hidden';
+const HIDDEN_MAX = 200;
 
-function loadDismissed(): Set<string> {
+type HiddenMap = Record<string, { toast?: true; panel?: true }>;
+
+function loadHidden(): HiddenMap {
   try {
-    const raw = localStorage.getItem(DISMISSED_KEY);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    const raw = localStorage.getItem(HIDDEN_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
-    return new Set();
+    return {};
   }
 }
 
-function saveDismissed(set: Set<string>) {
+function saveHidden(map: HiddenMap) {
   try {
-    const arr = Array.from(set);
-    const trimmed = arr.length > DISMISSED_MAX ? arr.slice(arr.length - DISMISSED_MAX) : arr;
-    localStorage.setItem(DISMISSED_KEY, JSON.stringify(trimmed));
+    const entries = Object.entries(map);
+    const trimmed = entries.length > HIDDEN_MAX
+      ? Object.fromEntries(entries.slice(entries.length - HIDDEN_MAX))
+      : map;
+    localStorage.setItem(HIDDEN_KEY, JSON.stringify(trimmed));
   } catch {
     // storage full / disabled — best-effort, dismissals just won't persist
   }
+}
+
+function markHidden(jobId: string, surface: 'toast' | 'panel') {
+  const cur = loadHidden();
+  const entry = cur[jobId] ?? {};
+  entry[surface] = true;
+  // Panel dismiss implies toast dismiss too — they're nested.
+  if (surface === 'panel') entry.toast = true;
+  cur[jobId] = entry;
+  saveHidden(cur);
+}
+
+function unmarkHidden(jobId: string) {
+  const cur = loadHidden();
+  if (!(jobId in cur)) return;
+  delete cur[jobId];
+  saveHidden(cur);
 }
 
 /**
@@ -69,9 +96,10 @@ function saveDismissed(set: Set<string>) {
  */
 export function AIToastStack() {
   const jobs = useAIJobsStore((s) => s.jobs);
-  const remove = useAIJobsStore((s) => s.remove);
   const hydrate = useAIJobsStore((s) => s.hydrate);
   const dismissToast = useAIJobsStore((s) => s.dismissToast);
+  const dismissPanel = useAIJobsStore((s) => s.dismissPanel);
+  const bump = useAIJobsStore((s) => s.bump);
   const [panelOpen, setPanelOpen] = useState(false);
   // Per-job status snapshot, refreshed at the stack level. Used only to
   // split jobs into "working" vs "completed" sub-toasts — each toast still
@@ -88,19 +116,23 @@ export function AIToastStack() {
   const [openDrawerIds, setOpenDrawerIds] = useState<ReadonlySet<string>>(new Set());
 
   // Rehydrate from the backend on boot so refreshing the page doesn't lose
-  // in-flight / recent jobs (the store is in-memory). Failures are silent
-  // — worst case the user sees an empty queue and a fresh-started job
-  // populates it through the normal addBgJob path.
+  // in-flight / recent jobs (the store is in-memory). We also re-apply any
+  // persisted soft-dismiss flags here so a refresh respects the user's
+  // earlier "X" clicks on the toast / panel.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const recent = await aiApi.listJobs(20);
         if (cancelled) return;
-        const dismissed = loadDismissed();
-        hydrate(recent
-          .filter((j) => !dismissed.has(j.id))
-          .map(deriveBgJob));
+        const hidden = loadHidden();
+        hydrate(recent.map((j) => {
+          const bg = deriveBgJob(j);
+          const flag = hidden[j.id];
+          if (flag?.toast) bg.hideFromToast = true;
+          if (flag?.panel) bg.hideFromPanel = true;
+          return bg;
+        }));
         const m = new Map<string, AIJobStatus>();
         for (const j of recent) m.set(j.id, j.status);
         setStatusMap(m);
@@ -110,6 +142,23 @@ export function AIToastStack() {
     })();
     return () => { cancelled = true; };
   }, [hydrate]);
+
+  // Keep the persisted hidden-flags in sync with the store. Whenever a job
+  // is re-engaged (bump from re-triggering, or NoteEditor calling addBgJob
+  // on drawer close), its in-store flags reset to false. Mirror that into
+  // localStorage so a reload doesn't re-hide a job the user has revisited.
+  useEffect(() => {
+    const hidden = loadHidden();
+    let changed = false;
+    for (const j of jobs) {
+      const flag = hidden[j.jobId];
+      if (!flag) continue;
+      if (!j.hideFromToast && flag.toast) { delete flag.toast; changed = true; }
+      if (!j.hideFromPanel && flag.panel) { delete flag.panel; changed = true; }
+      if (!flag.toast && !flag.panel) { delete hidden[j.jobId]; changed = true; }
+    }
+    if (changed) saveHidden(hidden);
+  }, [jobs]);
 
   // Refresh the status map every 3s while any job exists. Matches useAIJob's
   // cadence; results feed the working-vs-completed split below.
@@ -132,7 +181,9 @@ export function AIToastStack() {
   // Split into the two sub-toast slots and also produce a fully-ordered
   // list for the panel. Order: running first, then queued, then done/failed
   // /cancelled. Unknown-status (just-added, not yet in statusMap) is
-  // treated as queued — the natural state of a fresh job.
+  // treated as queued — the natural state of a fresh job. Panel filters
+  // out `hideFromPanel` jobs (user clicked X in the sidebar); the toast
+  // filters out `hideFromToast` later in render.
   const { workingJobs, completedJobs, orderedJobs } = useMemo(() => {
     const running: BgAIJob[] = [];
     const queued: BgAIJob[] = [];
@@ -143,10 +194,11 @@ export function AIToastStack() {
       else if (s === 'done' || s === 'failed' || s === 'cancelled') completed.push(j);
       else queued.push(j);  // queued or unknown
     }
+    const all = [...running, ...queued, ...completed];
     return {
       workingJobs: [...running, ...queued],
       completedJobs: completed,
-      orderedJobs: [...running, ...queued, ...completed],
+      orderedJobs: all.filter((j) => !j.hideFromPanel),
     };
   }, [jobs, statusMap]);
 
@@ -208,28 +260,34 @@ export function AIToastStack() {
   }, [jobs.length]);
 
   const handlePickFromPanel = useCallback((job: BgAIJob) => {
-    // Remember the source so closing the drawer reopens the panel.
+    // Opening a job clears its dismissed flags — the user is actively
+    // engaging with it again, so its hash/cache is meaningful and either
+    // surface (toast / panel) should reappear next time it bumps.
+    if (job.hideFromToast || job.hideFromPanel) {
+      bump(job.jobId);
+      unmarkHidden(job.jobId);
+    }
     reopenPanelAfterCloseRef.current = job.jobId;
     setPanelOpen(false);
     openSourceDrawer(job);
-  }, [openSourceDrawer]);
+  }, [openSourceDrawer, bump]);
 
-  /** Toast X — soft dismissal. The job stays in the AI tasks panel; only
-   *  the bottom toast slot is hidden. Re-triggering via `bump` brings the
-   *  toast back. Backend work is never cancelled. */
+  /** Toast X — soft dismissal. The job stays in the AI tasks panel and in
+   *  the store (so the backend cache_key keeps working: next trigger of
+   *  the same generation opens this result via findSame, not a fresh run).
+   *  Persisted to localStorage so reload doesn't bring the toast back. */
   const handleDismissToast = useCallback((jobId: string) => {
     dismissToast(jobId);
+    markHidden(jobId, 'toast');
   }, [dismissToast]);
 
-  /** Panel X — full dismissal. Removes the job from the store entirely and
-   *  persists the id to localStorage so rehydrate-on-reload doesn't bring
-   *  it back. Backend work is never cancelled. */
+  /** Panel X — also soft. Hides from both panel and toast but the job
+   *  stays in the store so re-triggering the same kind+source on the same
+   *  unchanged input opens the existing cached result instantly. */
   const handleDismissFully = useCallback((jobId: string) => {
-    remove(jobId);
-    const dismissed = loadDismissed();
-    dismissed.add(jobId);
-    saveDismissed(dismissed);
-  }, [remove]);
+    dismissPanel(jobId);
+    markHidden(jobId, 'panel');
+  }, [dismissPanel]);
 
   if (jobs.length === 0) return null;
   // While any AI-job drawer is on screen, suppress the bottom toasts entirely

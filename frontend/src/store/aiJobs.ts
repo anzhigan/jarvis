@@ -34,6 +34,11 @@ export interface BgAIJob {
    *  in the AI tasks panel; only the toast slot is hidden. Re-triggering via
    *  `bump` (or a fresh `add`) clears the flag so the toast can reappear. */
   hideFromToast?: boolean;
+  /** User X'd the row inside the AI tasks panel. Also soft — we never drop
+   *  the job from the store so `findSame` keeps hitting the backend cache
+   *  (re-triggering the same generation opens the existing result instead
+   *  of starting a fresh run). Cleared by `bump` / `add`. */
+  hideFromPanel?: boolean;
 }
 
 interface State {
@@ -58,6 +63,10 @@ interface State {
   /** Soft dismiss for the bottom toast — keeps the job in the panel. Cleared
    *  on the next `bump` so re-triggering revives the toast. */
   dismissToast: (jobId: string) => void;
+  /** Soft dismiss for the AI tasks panel row — also hides from the bottom
+   *  toast. The job stays in the store so the backend cache (`findSame`) is
+   *  preserved. Cleared by `bump` / `add`. */
+  dismissPanel: (jobId: string) => void;
 }
 
 export const useAIJobsStore = create<State>((set, get) => ({
@@ -65,16 +74,16 @@ export const useAIJobsStore = create<State>((set, get) => ({
   add: (job) => set((s) => {
     // De-dupe: a single job id may be re-added if the user toggles drawer
     // open/closed several times. Latest source info wins. A fresh add also
-    // un-dismisses the toast — re-triggering should bring it back.
+    // un-dismisses both surfaces — re-triggering should bring everything back.
     const idx = s.jobs.findIndex((j) => j.jobId === job.jobId);
     if (idx >= 0) {
       const next = s.jobs.slice();
-      next[idx] = { ...next[idx], ...job, hideFromToast: false };
+      next[idx] = { ...next[idx], ...job, hideFromToast: false, hideFromPanel: false };
       return { jobs: next };
     }
     // Append to the tail — the head is the "currently visible" toast and
     // shouldn't be replaced just because a new background job spun up.
-    return { jobs: [...s.jobs, { ...job, hideFromToast: false }] };
+    return { jobs: [...s.jobs, { ...job, hideFromToast: false, hideFromPanel: false }] };
   }),
   remove: (jobId) => set((s) => ({ jobs: s.jobs.filter((j) => j.jobId !== jobId) })),
   has: (jobId) => get().jobs.some((j) => j.jobId === jobId),
@@ -86,9 +95,13 @@ export const useAIJobsStore = create<State>((set, get) => ({
     const idx = s.jobs.findIndex((j) => j.jobId === jobId);
     if (idx < 0) return s;
     const next = s.jobs.slice();
-    // Re-trigger revives the toast (in case it was previously X'd) and
-    // animates with the fresh timestamp.
-    next[idx] = { ...next[idx], bumpedAt: Date.now(), hideFromToast: false };
+    // Re-trigger revives both surfaces (in case the user previously X'd them).
+    next[idx] = {
+      ...next[idx],
+      bumpedAt: Date.now(),
+      hideFromToast: false,
+      hideFromPanel: false,
+    };
     return { jobs: next };
   }),
   dismissToast: (jobId) => set((s) => {
@@ -96,6 +109,13 @@ export const useAIJobsStore = create<State>((set, get) => ({
     if (idx < 0) return s;
     const next = s.jobs.slice();
     next[idx] = { ...next[idx], hideFromToast: true };
+    return { jobs: next };
+  }),
+  dismissPanel: (jobId) => set((s) => {
+    const idx = s.jobs.findIndex((j) => j.jobId === jobId);
+    if (idx < 0) return s;
+    const next = s.jobs.slice();
+    next[idx] = { ...next[idx], hideFromPanel: true, hideFromToast: true };
     return { jobs: next };
   }),
   hydrate: (jobs) => set((s) => {

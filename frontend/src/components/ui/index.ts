@@ -5,5 +5,5 @@ export { Input, Textarea, DateInput } from './Input';
 export { Tooltip, TooltipProvider } from './Tooltip';
 export { Dialog, DialogClose } from './Dialog';
 export { Drawer, DrawerClose } from './Drawer';
-export { confirmDialog } from './ConfirmDialog';
-export type { ConfirmSpec } from './ConfirmDialog';
+export { confirmDialog, promptDialog } from './ConfirmDialog';
+export type { ConfirmSpec, PromptSpec } from './ConfirmDialog';

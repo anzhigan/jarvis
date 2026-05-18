@@ -619,8 +619,11 @@
   background: transparent;
   border-radius: 0;
   font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.58;
+  font-size: 13px;
+  /* Whole-pixel line-height (20px @ 13px font) + ligatures off — both fight
+     subpixel jitter that made selection drawing flicker while dragging. */
+  line-height: 20px;
+  font-variant-ligatures: none;
   color: var(--cb-fg);
   overflow-x: auto;
 }
