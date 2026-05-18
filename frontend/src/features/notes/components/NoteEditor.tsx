@@ -226,6 +226,93 @@ function NoteColorPicker({ editor }: { editor: Editor }) {
   );
 }
 
+function NoteHighlightPicker({ editor }: { editor: Editor }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  const current = (editor.getAttributes('highlight').color as string | undefined) ?? undefined;
+  return (
+    <div className="ntb-color" ref={wrapRef}>
+      <button
+        type="button"
+        className="ntb-btn ntb-color-trigger"
+        title="Highlight (background colour)"
+        aria-label="Highlight"
+        data-active={open || undefined}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {/* Glyph: an "A" sitting on a coloured bar — the universal
+            highlighter affordance. The bar reflects the current highlight. */}
+        <span className="ntb-hl-icon" aria-hidden="true">
+          <span className="ntb-hl-icon__letter">A</span>
+          <span
+            className="ntb-hl-icon__bar"
+            style={{ background: current ?? 'var(--ochre-soft)' }}
+          />
+        </span>
+      </button>
+      {open && (
+        <div className="rt-popover" role="menu" style={{ left: 0, top: 'calc(100% + 6px)' }}>
+          <div className="rt-popover-label">Highlight</div>
+          {NTB_COLOR_GROUPS.map((group) => (
+            <div key={group.label} className="rt-color-group">
+              <div className="rt-color-group-label">{group.label}</div>
+              <div className="rt-color-grid">
+                {group.colors.map(({ name, token }) => {
+                  const value = colorValue(token);
+                  return (
+                    <button
+                      key={token}
+                      type="button"
+                      className="rt-color-swatch"
+                      aria-label={`${name} (${token})`}
+                      title={`${name} · ${token}`}
+                      data-active={current === value ? 'true' : undefined}
+                      style={{ background: value }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        editor.chain().focus().setHighlight({ color: value }).run();
+                        setOpen(false);
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="rt-color-group">
+            <button
+              type="button"
+              className="rt-color-reset"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                editor.chain().focus().unsetHighlight().run();
+                setOpen(false);
+              }}
+            >
+              <span className="rt-color-swatch rt-color-swatch--reset" aria-hidden="true">✕</span>
+              No highlight
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NoteToolbar({ editor, helpers }: ToolbarProps) {
   // Re-render on every Tiptap transaction so isActive() reflects current state.
   const [, tick] = useReducer((n: number) => n + 1, 0);
@@ -382,8 +469,9 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
       </div>
       <div className="ntb-sep" />
 
-      {/* Text color (design-system palette) */}
+      {/* Text + background color (design-system palette) */}
       <NoteColorPicker editor={editor} />
+      <NoteHighlightPicker editor={editor} />
       <div className="ntb-sep" />
 
       {/* Link is a text-formatting operation (wraps selection in a mark), so it
@@ -601,12 +689,17 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
           setQuizJobId(existing.jobId);
           setQuizJobNoteId(note.id);
           setDrawerOpen(true);
+          return;
         }
-        // else: nothing to open — user watches the row in the AI tasks panel.
+        if (live.status === 'queued' || live.status === 'running') {
+          // In-flight — user watches the AI tasks sidebar. Nothing to open.
+          return;
+        }
+        // Terminal but unusable (failed / cancelled) — fall through and
+        // start a fresh generation so the click isn't a silent no-op.
       } catch {
-        // ignore — at worst the user re-clicks and we retry
+        // Server unreachable — treat as "no existing", fall through to retry.
       }
-      return;
     }
     if (quizJobId && drawerOpen && quizJobNoteId === note.id) {
       return;

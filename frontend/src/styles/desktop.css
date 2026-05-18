@@ -1289,9 +1289,18 @@
   box-shadow: var(--sh-modal);
   display: flex; flex-direction: column;
   overflow: hidden;
-  animation: ui-pop-in var(--dur-med) var(--ease);
+  /* Use a translate-free animation: the panel is centered by the overlay's
+     flex layout (justify-content + padding-top), NOT by transform. The
+     generic `ui-pop-in` keyframe adds translate(-50%, -50%) which used to
+     yank the panel into the top-left for the first frame before snapping
+     back to the flex-centered position once the animation finished. */
+  animation: cmdk-pop-in var(--dur-med) var(--ease);
   transform-origin: top center;
   font-family: var(--font-ui);
+}
+@keyframes cmdk-pop-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
 }
 .cmdk-input-row {
   display: flex; align-items: center; gap: 10px;

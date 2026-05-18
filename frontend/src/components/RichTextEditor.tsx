@@ -3,6 +3,7 @@ import { StarterKit } from '@tiptap/starter-kit';
 import { Underline } from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
+import { Highlight } from '@tiptap/extension-highlight';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { Link } from '@tiptap/extension-link';
@@ -594,6 +595,9 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       Underline,
       TextStyle,
       Color,
+      // multicolor=true lets each highlight span carry its own background
+      // colour; without it the mark is binary (on / off) with a single hue.
+      Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       ResizableImage,
       Placeholder.configure({

@@ -211,6 +211,35 @@
   background: currentColor;
 }
 
+/* Highlight (background-colour) trigger — "A" sitting on a coloured bar so
+   it reads as the universal highlighter affordance, distinct from the
+   text-colour swatch above. */
+.ntb-hl-icon {
+  display: inline-flex; flex-direction: column; align-items: center;
+  line-height: 1;
+}
+.ntb-hl-icon__letter {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ntb-hl-icon__bar {
+  width: 14px; height: 3px;
+  margin-top: 2px;
+  border-radius: 1px;
+}
+
+/* Tiptap Highlight extension renders <mark style="background-color: …">.
+   Browsers default to a yellow background; clear that so our chosen colour
+   is the one the user sees, and inherit the surrounding text colour. */
+.doc-body mark {
+  background: none;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+}
+
 /* ─── Editorial doc layout ─────────────────────────────────────────────── */
 .doc {
   max-width: 920px;

@@ -655,6 +655,11 @@ function DroppableColumn({
         display: 'grid',
         gridTemplateColumns: `repeat(${cardsPerRow}, minmax(0, 1fr))`,
         gap: 10,
+        // Without `align-items: start` CSS Grid defaults to `stretch`, so
+        // every card in a row inflates to match the tallest one — clicking
+        // "Show gos & routines" on a single card used to balloon its
+        // neighbours. Self-sizing keeps each card to its own content height.
+        alignItems: 'start',
       } as React.CSSProperties
     : undefined;
   // When the body is a grid, the Add button needs to span all card columns

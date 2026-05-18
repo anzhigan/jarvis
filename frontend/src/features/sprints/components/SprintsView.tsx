@@ -1,27 +1,71 @@
+/**
+ * Desktop-style Sprints view: a Gantt-like roadmap of all sprints up top
+ * (auto-fit date axis with a today line), and a detail panel below the
+ * selected sprint with its items grid. Clicking a Goal item expands a
+ * nested compact Step Gantt + chip strips for the step's Gos and any
+ * goal-level Gos not attached to a step.
+ *
+ * Single page; no separate "featured" treatment. The existing edit drawer
+ * (`SprintDetailPanel`) and create dialog (`SprintCreateDialog`) are still
+ * mounted at the shell level and triggered from the detail panel header.
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Repeat, Target, Zap } from 'lucide-react';
-import type { Sprint, SprintItem } from '../../../api/types';
+import { Edit3, Loader2, Plus, Repeat, Target, Zap } from 'lucide-react';
+import type { Go, SprintItem, Step, Task } from '../../../api/types';
 import { useSprints, type SprintWithProgress } from '../hooks/useSprints';
 import { useSprintsFilters, type ViewFilter } from '../hooks/useSprintsFilters';
+import { useGoals } from '../../goals/hooks/useGoals';
 import { SprintDetailPanel } from './SprintDetailPanel';
 import { SprintCreateDialog } from './SprintCreateDialog';
 import './sprints.css';
 
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function fmtShort(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+function fmtFull(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+interface Range { start: Date; end: Date; ms: number; }
+function rangeFor(rows: SprintWithProgress[]): Range {
+  if (rows.length === 0) {
+    const today = new Date();
+    const s = new Date(today); s.setDate(s.getDate() - 30);
+    const e = new Date(today); e.setDate(e.getDate() + 30);
+    return { start: s, end: e, ms: e.getTime() - s.getTime() };
+  }
+  let min = Infinity, max = -Infinity;
+  for (const r of rows) {
+    const a = Date.parse(r.sprint.start_date);
+    const b = Date.parse(r.sprint.end_date);
+    if (!isNaN(a)) min = Math.min(min, a);
+    if (!isNaN(b)) max = Math.max(max, b);
+  }
+  const span = max - min;
+  const pad = Math.max(span * 0.04, 5 * 86_400_000);
+  const start = new Date(min - pad);
+  const end = new Date(max + pad);
+  return { start, end, ms: end.getTime() - start.getTime() };
+}
+
+function ticksFor(range: Range, count = 6): { pct: number; date: Date }[] {
+  const out: { pct: number; date: Date }[] = [];
+  for (let i = 0; i < count; i++) {
+    const pct = (i / (count - 1)) * 100;
+    out.push({ pct, date: new Date(range.start.getTime() + range.ms * (pct / 100)) });
+  }
+  return out;
+}
+
+function progressPct(row: SprintWithProgress): number {
+  return Math.round(row.progress * 100);
+}
+
 const VIEW_LABELS: Record<ViewFilter, string> = {
   all: 'All', active: 'Active', upcoming: 'Upcoming', past: 'Past',
 };
-
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function fmtPeriod(start: string, end: string): string {
-  const s = new Date(start), e = new Date(end);
-  const fmt = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-  return `${fmt(s)} — ${fmt(e)}`;
-}
-function fmtClosed(end: string): string {
-  return `closed ${new Date(end).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
-}
 
 const ITEM_ICON: Record<SprintItem['item_type'], React.ElementType> = {
   goal:    Target,
@@ -32,158 +76,470 @@ const ITEM_KIND_LABEL: Record<SprintItem['item_type'], string> = {
   goal: 'Goal', go: 'Go', routine: 'Routine',
 };
 
-function FeaturedSprint({ row, onSelect }: { row: SprintWithProgress; onSelect: (id: string) => void }) {
-  const { sprint, daysRemaining, daysTotal } = row;
-  const pct = Math.round(row.progress * 100);
+// ── Sprint roadmap (top-level Gantt) ─────────────────────────────────────
+
+interface RoadmapProps {
+  rows: SprintWithProgress[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}
+function SprintsRoadmap({ rows, selectedId, onSelect }: RoadmapProps) {
+  const range = useMemo(() => rangeFor(rows), [rows]);
+  const ticks = useMemo(() => ticksFor(range), [range]);
+  const todayPct = ((Date.now() - range.start.getTime()) / range.ms) * 100;
+  const showToday = todayPct >= 0 && todayPct <= 100;
+
+  return (
+    <div className="sp-gantt">
+      <div className="sp-gantt__corner" />
+      <div className="sp-gantt__axis">
+        {ticks.map((t, i) => (
+          <span key={i} className="sp-gantt__tick" style={{ left: `${t.pct}%` }}>
+            {fmtShort(t.date.toISOString())}
+          </span>
+        ))}
+        {showToday && (
+          <>
+            <span className="sp-gantt__today-pill" style={{ left: `${todayPct}%` }}>Today</span>
+            <span className="sp-gantt__today-line" style={{ left: `${todayPct}%` }} />
+          </>
+        )}
+      </div>
+      <div className="sp-gantt__rows-side">
+        {rows.map((row, i) => (
+          <button
+            key={row.sprint.id}
+            type="button"
+            className="sp-row-side"
+            data-selected={row.sprint.id === selectedId || undefined}
+            onClick={() => onSelect(row.sprint.id)}
+          >
+            <span className="sp-row-side__num">{String(i + 1).padStart(2, '0')}</span>
+            <span className="sp-row-side__title">{row.sprint.title}</span>
+            <span className="sp-row-side__count">{progressPct(row)}%</span>
+          </button>
+        ))}
+      </div>
+      <div className="sp-gantt__rows-bars">
+        {rows.map((row) => {
+          const st = Date.parse(row.sprint.start_date);
+          const en = Date.parse(row.sprint.end_date);
+          const left = ((st - range.start.getTime()) / range.ms) * 100;
+          const width = Math.max(((en - st) / range.ms) * 100, 1.5);
+          const state = row.bucket;
+          const fillPct = state === 'past' ? 100 : Math.round(row.progress * 100);
+          return (
+            <button
+              key={row.sprint.id}
+              type="button"
+              className="sp-row-bar"
+              data-selected={row.sprint.id === selectedId || undefined}
+              onClick={() => onSelect(row.sprint.id)}
+            >
+              <span
+                className="sp-bar"
+                data-state={state === 'past' ? 'done' : state === 'active' ? 'active' : 'upcoming'}
+                style={{ left: `${left}%`, width: `${width}%` }}
+              >
+                {state !== 'upcoming' && (
+                  <span className="sp-bar__fill" style={{ width: `${fillPct}%` }} />
+                )}
+                <span className="sp-bar__label">{row.sprint.title}</span>
+                <span className="sp-bar__pct">{fillPct}%</span>
+              </span>
+              {showToday && (
+                <span className="sp-gantt__today-line" style={{ left: `${todayPct}%` }} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Step drill-down (compact Gantt inside an expanded Goal item) ─────────
+
+interface StepGanttProps {
+  goal: Task;
+  selectedStepId: string | null;
+  onSelectStep: (id: string | null) => void;
+}
+function StepGantt({ goal, selectedStepId, onSelectStep }: StepGanttProps) {
+  const sorted = useMemo(
+    () => [...(goal.steps ?? [])].sort((a, b) => a.position - b.position),
+    [goal.steps],
+  );
+  const N = sorted.length;
+
+  // Range from goal + step dates with safe fallback.
+  const range = useMemo(() => {
+    const ms: number[] = [];
+    const push = (s: string | null) => { if (s) { const t = Date.parse(s); if (!isNaN(t)) ms.push(t); } };
+    push(goal.start_date);
+    push(goal.due_date);
+    for (const st of sorted) { push(st.start_date); push(st.end_date); }
+    if (ms.length < 2) {
+      const today = new Date();
+      const start = new Date(today); start.setDate(start.getDate() - 14);
+      const end = new Date(today); end.setDate(end.getDate() + 56);
+      return { start, end, ms: end.getTime() - start.getTime() };
+    }
+    let lo = Math.min(...ms), hi = Math.max(...ms);
+    const pad = Math.max((hi - lo) * 0.04, 86_400_000);
+    return { start: new Date(lo - pad), end: new Date(hi + pad), ms: (hi - lo) + 2 * pad };
+  }, [goal, sorted]);
+
+  const ticks = useMemo(() => ticksFor(range, 4), [range]);
+  const todayPct = ((Date.now() - range.start.getTime()) / range.ms) * 100;
+  const showToday = todayPct >= 0 && todayPct <= 100;
+
+  if (N === 0) {
+    return (
+      <div className="sp-step-empty">
+        No steps yet. Add steps to this goal to see them in a timeline here.
+      </div>
+    );
+  }
+
+  const barCoords = (s: Step, i: number): { left: number; width: number } => {
+    if (s.start_date && s.end_date) {
+      const st = Date.parse(s.start_date);
+      const en = Date.parse(s.end_date);
+      if (!isNaN(st) && !isNaN(en) && en >= st) {
+        const left = ((st - range.start.getTime()) / range.ms) * 100;
+        const width = Math.max(((en - st) / range.ms) * 100, 1.5);
+        return { left, width };
+      }
+    }
+    return { left: (i / N) * 100, width: (1 / N) * 100 };
+  };
+
+  return (
+    <div className="sp-gantt sp-gantt--compact">
+      <div className="sp-gantt__corner" />
+      <div className="sp-gantt__axis">
+        {ticks.map((t, i) => (
+          <span key={i} className="sp-gantt__tick" style={{ left: `${t.pct}%` }}>
+            {fmtShort(t.date.toISOString())}
+          </span>
+        ))}
+        {showToday && (
+          <>
+            <span className="sp-gantt__today-pill" style={{ left: `${todayPct}%` }}>Today</span>
+            <span className="sp-gantt__today-line" style={{ left: `${todayPct}%` }} />
+          </>
+        )}
+      </div>
+      <div className="sp-gantt__rows-side">
+        {sorted.map((s, i) => (
+          <button
+            key={s.id}
+            type="button"
+            className="sp-row-side"
+            data-selected={s.id === selectedStepId || undefined}
+            onClick={() => onSelectStep(s.id === selectedStepId ? null : s.id)}
+          >
+            <span className="sp-row-side__num">{String(i + 1).padStart(2, '0')}</span>
+            <span className="sp-row-side__title">{s.title}</span>
+            <span className="sp-row-side__count">{s.gos_done}/{s.gos_count}</span>
+          </button>
+        ))}
+      </div>
+      <div className="sp-gantt__rows-bars">
+        {sorted.map((s, i) => {
+          const state = s.status === 'done' ? 'done'
+            : s.status === 'in_progress' ? 'active' : 'upcoming';
+          const { left, width } = barCoords(s, i);
+          const pct = s.gos_count > 0
+            ? Math.round((s.gos_done / s.gos_count) * 100)
+            : (state === 'done' ? 100 : 0);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              className="sp-row-bar"
+              data-selected={s.id === selectedStepId || undefined}
+              onClick={() => onSelectStep(s.id === selectedStepId ? null : s.id)}
+            >
+              <span
+                className="sp-bar"
+                data-state={state}
+                style={{ left: `${left}%`, width: `${width}%` }}
+              >
+                {state !== 'upcoming' && <span className="sp-bar__fill" style={{ width: `${pct}%` }} />}
+                <span className="sp-bar__label">{s.title}</span>
+                <span className="sp-bar__pct">{pct}%</span>
+              </span>
+              {showToday && (
+                <span className="sp-gantt__today-line" style={{ left: `${todayPct}%` }} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Go chip strip ─────────────────────────────────────────────────────────
+
+interface GoStripProps {
+  label: string;
+  gos: Go[];
+  emptyText?: string;
+  loose?: boolean;
+}
+function GoStrip({ label, gos, emptyText, loose }: GoStripProps) {
+  if (gos.length === 0 && !emptyText) return null;
+  const stateOf = (g: Go) => {
+    if (g.is_done_today) return 'done';
+    // Defensive — old DB rows can ship null entries; the expression with raw
+    // optional chaining would still touch `g.entries.length` inside the
+    // bracket and throw before the short-circuit can save us.
+    const entries = g.entries ?? [];
+    const val = entries.length > 0 ? entries[entries.length - 1].value : 0;
+    return val > 0 ? 'active' : 'upcoming';
+  };
+  return (
+    <div className={`sp-gos-strip${loose ? ' sp-gos-strip--loose' : ''}`}>
+      <span className="sp-gos-strip__label">
+        {label}
+        <span className="sp-gos-strip__pill">{gos.length} item{gos.length === 1 ? '' : 's'}</span>
+      </span>
+      {gos.length === 0 ? (
+        <span className="sp-gos-strip__empty">{emptyText}</span>
+      ) : (
+        gos.map((g) => (
+          <span key={g.id} className="sp-go-chip" data-state={stateOf(g)}>
+            <span className="sp-go-chip__dot" /> {g.title}
+          </span>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ── Sprint detail (body of selected sprint) ──────────────────────────────
+
+interface DetailProps {
+  row: SprintWithProgress;
+  goals: Task[];
+  expandedGoalId: string | null;
+  onToggleGoal: (id: string | null) => void;
+  selectedStepId: string | null;
+  onSelectStep: (id: string | null) => void;
+  onEdit: () => void;
+}
+function SprintDetail({
+  row, goals, expandedGoalId, onToggleGoal, selectedStepId, onSelectStep, onEdit,
+}: DetailProps) {
+  const { sprint, daysRemaining, daysTotal, bucket } = row;
+  const pct = progressPct(row);
   const items = sprint.items;
-  // Pace projection: if elapsed% > progress% by > 15 — behind; if behind much — at risk.
-  const elapsedPct = ((daysTotal - daysRemaining) / Math.max(1, daysTotal)) * 100;
-  const pace =
-    pct >= elapsedPct ? 'on track'
-    : pct + 15 >= elapsedPct ? 'slowing'
-    : 'behind';
+  const counts = useMemo(() => {
+    const out = { goal: 0, go: 0, routine: 0 };
+    for (const it of items) out[it.item_type]++;
+    return out;
+  }, [items]);
+
+  const goalById = useMemo(() => {
+    const m = new Map<string, Task>();
+    for (const g of goals) m.set(g.id, g);
+    return m;
+  }, [goals]);
+
+  const statusLabel = bucket === 'active'
+    ? `In progress · day ${daysTotal - daysRemaining} / ${daysTotal}`
+    : bucket === 'upcoming' ? 'Upcoming'
+    : 'Completed';
 
   return (
-    <article
-      className="sp-featured"
-      onClick={() => onSelect(sprint.id)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') onSelect(sprint.id); }}
-    >
-      <div className="sp-featured-head">
-        <div>
-          <div className="sp-featured-period">{fmtPeriod(sprint.start_date, sprint.end_date)}</div>
-          <h2 className="sp-featured-title">{sprint.title}</h2>
-          {sprint.description && <p className="sp-featured-desc">{sprint.description}</p>}
+    <section className="sp-detail" data-state={bucket}>
+      <header className="sp-detail__head">
+        <div className="sp-detail__crumb">Sprint detail</div>
+        <div className="sp-detail__title-row">
+          <h2 className="sp-detail__title">{sprint.title}</h2>
+          <span className={`sp-detail__status sp-detail__status--${bucket}`}>{statusLabel}</span>
+          <button type="button" className="sp-detail__edit" onClick={onEdit} title="Edit sprint">
+            <Edit3 size={12} /> Edit
+          </button>
         </div>
-        <div className="sp-featured-status">
-          <div className="sp-featured-pct">
-            {pct}<em>%</em>
+        {sprint.description?.trim() && (
+          <p className="sp-detail__sub">{sprint.description}</p>
+        )}
+        <div className="sp-detail__meta">
+          <span><span>Window </span><b className="mono">{fmtFull(sprint.start_date)} → {fmtFull(sprint.end_date)}</b></span>
+          {counts.goal > 0 && <span><span>Goals </span><b>{counts.goal}</b></span>}
+          {counts.go > 0 && <span><span>Gos </span><b>{counts.go}</b></span>}
+          {counts.routine > 0 && <span><span>Routines </span><b>{counts.routine}</b></span>}
+        </div>
+        {bucket !== 'past' && (
+          <div className="sp-detail__progress">
+            <span className="sp-detail__progress-text">day {daysTotal - daysRemaining} / {daysTotal}</span>
+            <div className="sp-detail__progress-bar">
+              <div className="sp-detail__progress-fill" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="sp-detail__progress-text">{pct}%</span>
           </div>
-          <div className="sp-featured-pct-label">complete</div>
+        )}
+      </header>
+      <div className="sp-detail__body">
+        <div className="sp-detail__body-head">
+          <span className="sp-detail__body-label">Sprint items</span>
+          <span className="sp-detail__body-rule" />
+          <span className="sp-detail__body-count">
+            {items.length} total · {counts.goal} goal{counts.goal === 1 ? '' : 's'}
+            {expandedGoalId ? ' · 1 expanded' : ''}
+          </span>
         </div>
-      </div>
-
-      <div className="sp-featured-bar">
-        <div className="sp-featured-bar-fill" style={{ width: `${pct}%` }} />
-      </div>
-
-      <div className="sp-featured-meta">
-        <div className="sp-featured-meta-cell">
-          <span className="sp-featured-meta-num">{items.length}<em> items</em></span>
-          <span className="sp-featured-meta-label">In this sprint</span>
-        </div>
-        <div className="sp-featured-meta-cell">
-          <span className="sp-featured-meta-num">{daysRemaining}<em> {daysRemaining === 1 ? 'day' : 'days'}</em></span>
-          <span className="sp-featured-meta-label">Time remaining</span>
-        </div>
-        <div className="sp-featured-meta-cell">
-          <span className="sp-featured-meta-num">{pace}</span>
-          <span className="sp-featured-meta-label">Pace projection</span>
-        </div>
-      </div>
-
-      {items.length > 0 && (
-        <>
-          <div className="sp-items-head">— Items in this sprint</div>
-          <div className="sp-items">
+        {items.length === 0 ? (
+          <div className="sp-detail__empty">No items in this sprint yet.</div>
+        ) : (
+          <ul className="sp-items-grid">
             {items.map((it) => {
-              const Icon = ITEM_ICON[it.item_type];
-              return (
-                <div key={it.id} className="sp-item">
-                  <span className="sp-item-icon"><Icon /></span>
-                  <span className="sp-item-kind">{ITEM_KIND_LABEL[it.item_type]}</span>
-                  <span className="sp-item-name">{it.title || `(unnamed ${it.item_type})`}</span>
-                  <span className="sp-item-status">linked</span>
-                </div>
-              );
+              if (it.item_type === 'goal' && it.goal_id) {
+                const goal = goalById.get(it.goal_id);
+                const isExpanded = expandedGoalId === it.goal_id;
+                return (
+                  <ItemGoalCard
+                    key={it.id}
+                    item={it}
+                    goal={goal ?? null}
+                    expanded={isExpanded}
+                    selectedStepId={isExpanded ? selectedStepId : null}
+                    onToggle={() => onToggleGoal(isExpanded ? null : it.goal_id!)}
+                    onSelectStep={onSelectStep}
+                  />
+                );
+              }
+              return <ItemCard key={it.id} item={it} />;
             })}
-          </div>
-        </>
-      )}
-    </article>
-  );
-}
-
-function CompactCard({ row, onSelect }: { row: SprintWithProgress; onSelect: (id: string) => void }) {
-  const { sprint, bucket, daysRemaining, daysTotal } = row;
-  const pct = Math.round(row.progress * 100);
-  const status = bucket === 'past' ? 'done' : bucket; // map 'past' → 'done' for CSS
-  const startsIn = (() => {
-    if (bucket !== 'upcoming') return null;
-    const days = Math.max(0, Math.round(
-      (new Date(sprint.start_date).getTime() - Date.now()) / 86400_000,
-    ));
-    return `starts in ${days} day${days === 1 ? '' : 's'}`;
-  })();
-  const itemsLabel = `${sprint.items.length} item${sprint.items.length === 1 ? '' : 's'}${bucket === 'upcoming' ? ' planned' : ''}`;
-
-  return (
-    <article
-      className="sp-card-compact"
-      data-status={status}
-      onClick={() => onSelect(sprint.id)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') onSelect(sprint.id); }}
-    >
-      <div className="sp-card-compact-period">{fmtPeriod(sprint.start_date, sprint.end_date)}</div>
-      <h3 className="sp-card-compact-title">{sprint.title}</h3>
-      {bucket === 'upcoming' && sprint.description && (
-        <p className="sp-card-compact-desc">{sprint.description}</p>
-      )}
-      <div className="sp-card-compact-meta">
-        {bucket === 'active' && (
-          <>
-            <span className="sp-card-compact-progress">{pct}% complete</span>
-            <span className="sp-card-compact-sep">·</span>
-            <span>{itemsLabel}</span>
-            <span className="sp-card-compact-sep">·</span>
-            <span className="sp-card-compact-days">
-              {daysRemaining} day{daysRemaining === 1 ? '' : 's'} left
-            </span>
-          </>
-        )}
-        {bucket === 'upcoming' && (
-          <>
-            <span>{itemsLabel}</span>
-            {startsIn && (
-              <>
-                <span className="sp-card-compact-sep">·</span>
-                <span className="sp-card-compact-days">{startsIn}</span>
-              </>
-            )}
-          </>
-        )}
-        {bucket === 'past' && (
-          <>
-            <span className="sp-card-compact-progress sp-progress-done">{pct}% complete</span>
-            <span className="sp-card-compact-sep">·</span>
-            <span>{itemsLabel}</span>
-            <span className="sp-card-compact-sep">·</span>
-            <span>{fmtClosed(sprint.end_date)}</span>
-          </>
+          </ul>
         )}
       </div>
-      {bucket === 'active' && (
-        <div className="sp-card-compact-bar">
-          <div className="sp-card-compact-fill" style={{ width: `${pct}%` }} />
-        </div>
-      )}
-      {void daysTotal}
-    </article>
+    </section>
   );
 }
+
+// ── Item cards ────────────────────────────────────────────────────────────
+
+function ItemCard({ item }: { item: SprintItem }) {
+  const Icon = ITEM_ICON[item.item_type];
+  return (
+    <li className="sp-item" data-kind={item.item_type}>
+      <div className="sp-item__head">
+        <h4 className="sp-item__title">{item.title || 'Untitled'}</h4>
+        <span className="sp-item__kind">
+          <Icon size={10} /> {ITEM_KIND_LABEL[item.item_type]}
+        </span>
+      </div>
+    </li>
+  );
+}
+
+interface GoalCardProps {
+  item: SprintItem;
+  goal: Task | null;
+  expanded: boolean;
+  selectedStepId: string | null;
+  onToggle: () => void;
+  onSelectStep: (id: string | null) => void;
+}
+function ItemGoalCard({ item, goal, expanded, selectedStepId, onToggle, onSelectStep }: GoalCardProps) {
+  const Icon = ITEM_ICON.goal;
+  const stepsCount = goal?.steps?.length ?? 0;
+  const gos = goal?.gos ?? [];
+  const total = gos.length;
+  const done = gos.filter((g) => g.is_done_today).length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  // Selected step's Gos (filtered by step_id).
+  const stepGos = useMemo(() => {
+    if (!selectedStepId) return [];
+    return gos.filter((g) => g.step_id === selectedStepId);
+  }, [gos, selectedStepId]);
+  const looseGos = useMemo(() => gos.filter((g) => !g.step_id), [gos]);
+  const selectedStep = useMemo(
+    () => goal?.steps?.find((s) => s.id === selectedStepId) ?? null,
+    [goal, selectedStepId],
+  );
+
+  return (
+    <li
+      className="sp-item"
+      data-kind="goal"
+      data-expanded={expanded || undefined}
+      style={{ gridColumn: expanded ? '1 / -1' : undefined }}
+    >
+      <button
+        type="button"
+        className="sp-item__row"
+        onClick={onToggle}
+        title={expanded ? 'Collapse' : 'Expand to see Steps + Gos'}
+      >
+        <div className="sp-item__head">
+          <h4 className="sp-item__title">{item.title || goal?.title || 'Untitled goal'}</h4>
+          <span className="sp-item__kind">
+            <Icon size={10} /> Goal
+          </span>
+        </div>
+        <span className="sp-item__meta">
+          {goal
+            ? <>{done} / {total} gos · {pct}% · {stepsCount} step{stepsCount === 1 ? '' : 's'}</>
+            : 'Goal not found (deleted?)'}
+        </span>
+        {goal && total > 0 && (
+          <div className="sp-item__bar"><div className="sp-item__bar-fill" style={{ width: `${pct}%` }} /></div>
+        )}
+        {!expanded && goal && stepsCount > 0 && (
+          <span className="sp-item__hint">↳ click to expand Step timeline</span>
+        )}
+      </button>
+
+      {expanded && goal && (
+        <div className="sp-step-drill">
+          <div className="sp-step-drill__head">
+            <span className="sp-step-drill__label">Steps inside this goal</span>
+            <span className="sp-step-drill__rule" />
+            <span className="sp-step-drill__count">{stepsCount} step{stepsCount === 1 ? '' : 's'}</span>
+          </div>
+          <StepGantt goal={goal} selectedStepId={selectedStepId} onSelectStep={onSelectStep} />
+          {selectedStep && (
+            <GoStrip
+              label={`Gos inside «${selectedStep.title}»`}
+              gos={stepGos}
+              emptyText="No Gos in this step yet."
+            />
+          )}
+          <GoStrip
+            label="Gos without step · direct children of this goal"
+            gos={looseGos}
+            emptyText="None — every Go is attached to a step."
+            loose
+          />
+        </div>
+      )}
+    </li>
+  );
+}
+
+// ── Main view ─────────────────────────────────────────────────────────────
 
 export default function SprintsView() {
   const library = useSprints();
+  const goals = useGoals();
   const f = useSprintsFilters();
 
-  const [detailSprintId, setDetailSprintId] = useState<string | null>(null);
-  const detailSprint = useMemo(
-    () => library.decorated.find((d) => d.sprint.id === detailSprintId) ?? null,
-    [library.decorated, detailSprintId],
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+
+  // For the existing edit drawer.
+  const [editSprintId, setEditSprintId] = useState<string | null>(null);
+  const editSprint = useMemo(
+    () => library.decorated.find((d) => d.sprint.id === editSprintId) ?? null,
+    [library.decorated, editSprintId],
   );
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -198,32 +554,32 @@ export default function SprintsView() {
     return () => window.removeEventListener('jarvnote:newSprintFromTemplate', handler);
   }, []);
 
-  const onSelectSprint = useCallback((id: string) => setDetailSprintId(id), []);
   const onNewSprint = useCallback(() => setCreateOpen(true), []);
-  // "Templates" pill-seg button opens the create dialog with default 14-day length —
-  // matches gallery section 06 where the templates entry sits inline with the filters.
-  const onTemplatesClick = useCallback(() => {
-    setTemplateDays(14);
-    setCreateOpen(true);
-  }, []);
 
+  // Filter sprints by view (all/active/upcoming/past).
   const filtered = useMemo(() => f.apply(library.decorated), [f, library.decorated]);
 
-  // Buckets within the filtered set.
-  const today = ymd(new Date());
-  void today;
-  const active   = filtered.filter((d) => d.bucket === 'active');
-  const upcoming = filtered.filter((d) => d.bucket === 'upcoming');
-  const past     = filtered.filter((d) => d.bucket === 'past');
+  // Sort by start_date so the roadmap reads left-to-right chronologically.
+  const sorted = useMemo(
+    () => [...filtered].sort((a, b) => a.sprint.start_date.localeCompare(b.sprint.start_date)),
+    [filtered],
+  );
 
-  // Featured sprint: active with the *closest* end date.
-  const featured = active.length > 0
-    ? [...active].sort((a, b) => a.sprint.end_date.localeCompare(b.sprint.end_date))[0]
-    : null;
-  const otherActive = featured ? active.filter((d) => d.sprint.id !== featured.sprint.id) : [];
-  const recentCompleted = [...past]
-    .sort((a, b) => b.sprint.end_date.localeCompare(a.sprint.end_date))
-    .slice(0, 3);
+  // Auto-select: prefer the active sprint with the closest end date,
+  // otherwise the first row in the filtered list.
+  useEffect(() => {
+    if (sorted.length === 0) { setSelectedId(null); return; }
+    if (selectedId && sorted.find((d) => d.sprint.id === selectedId)) return;
+    const activeNext = [...sorted]
+      .filter((d) => d.bucket === 'active')
+      .sort((a, b) => a.sprint.end_date.localeCompare(b.sprint.end_date))[0];
+    setSelectedId((activeNext ?? sorted[0]).sprint.id);
+  }, [sorted, selectedId]);
+
+  // Drill-down state resets when the user picks a different sprint.
+  useEffect(() => { setExpandedGoalId(null); setSelectedStepId(null); }, [selectedId]);
+
+  const selected = sorted.find((d) => d.sprint.id === selectedId) ?? null;
 
   if (library.loading) {
     return (
@@ -234,16 +590,6 @@ export default function SprintsView() {
       </main>
     );
   }
-
-  // Headline depends on number of active sprints.
-  const title = active.length === 0
-    ? <>The runway, <em>open</em>.</>
-    : <>{active.length} sprint{active.length === 1 ? '' : 's'}<br /><em>in flight</em>.</>;
-
-  // Average completion across past sprints (for progress strip).
-  const avgComplete = past.length === 0 ? 0 : Math.round(
-    past.reduce((acc, d) => acc + (d.progress * 100), 0) / past.length,
-  );
 
   return (
     <>
@@ -264,7 +610,6 @@ export default function SprintsView() {
                 onClick={() => f.set('view', v)}
               >{VIEW_LABELS[v]}</button>
             ))}
-            <button onClick={onTemplatesClick}>Templates</button>
           </div>
           <button className="new-btn" onClick={onNewSprint}>
             <Plus /> New sprint
@@ -272,118 +617,52 @@ export default function SprintsView() {
         </div>
 
         <div className="content-scroll">
-          <header className="go-hero">
-            <div className="go-kicker">Time-bound focus periods</div>
-            <h1 className="go-hero-title">{title}</h1>
-            <p className="go-lede">
-              A sprint groups goals, steps, daily targets, and routines into a bounded period.
-              When the period closes, you have a clear answer: what you finished, what you didn't,
-              and what to carry forward.
-            </p>
-          </header>
-
-          <div className="go-progress-strip">
-            <div className="ps-cell">
-              <div className="ps-num">{library.counts.active}</div>
-              <div className="ps-label">Active</div>
-            </div>
-            <div className="ps-cell">
-              <div className="ps-num">{library.counts.upcoming}</div>
-              <div className="ps-label">Upcoming</div>
-            </div>
-            <div className="ps-cell">
-              <div className="ps-num">{library.counts.past}</div>
-              <div className="ps-label">Completed</div>
-            </div>
-            <div className="ps-cell">
-              <div className="ps-num">{avgComplete}<em>%</em></div>
-              <div className="ps-label">Avg completion</div>
-            </div>
-          </div>
-
-          {featured && (f.filters.view === 'all' || f.filters.view === 'active') && (
-            <>
-              <div className="section-head">
-                <span className="section-title">In focus now</span>
-                <span className="section-rule" />
-                <span className="section-meta">
-                  {featured.daysRemaining} {featured.daysRemaining === 1 ? 'day' : 'days'} left
-                  {featured.sprint.items.length > 0 && ` · ${featured.sprint.items.length} item${featured.sprint.items.length === 1 ? '' : 's'}`}
-                </span>
+          <div className="sp-page">
+            {sorted.length === 0 ? (
+              <div className="content-empty" style={{ minHeight: 240 }}>
+                <div className="content-empty-eyebrow">Sprints</div>
+                <div className="content-empty-title">
+                  Nothing <em>{f.filters.view === 'all' ? 'planned' : VIEW_LABELS[f.filters.view].toLowerCase()}</em>.
+                </div>
+                <div className="content-empty-desc">
+                  Click "New sprint" to plan a focus window.
+                </div>
               </div>
-              <FeaturedSprint row={featured} onSelect={onSelectSprint} />
-            </>
-          )}
-
-          {otherActive.length > 0 && (f.filters.view === 'all' || f.filters.view === 'active') && (
-            <>
-              <div className="section-head">
-                <span className="section-title">Also active</span>
-                <span className="section-rule" />
-              </div>
-              <div className="sp-grid">
-                {otherActive.map((d) => (
-                  <CompactCard key={d.sprint.id} row={d} onSelect={onSelectSprint} />
-                ))}
-              </div>
-            </>
-          )}
-
-          {upcoming.length > 0 && (f.filters.view === 'all' || f.filters.view === 'upcoming') && (
-            <>
-              <div className="section-head">
-                <span className="section-title">Upcoming</span>
-                <span className="section-rule" />
-                <span className="section-meta">Scheduled to start</span>
-              </div>
-              <div className="sp-grid">
-                {upcoming.map((d) => (
-                  <CompactCard key={d.sprint.id} row={d} onSelect={onSelectSprint} />
-                ))}
-              </div>
-            </>
-          )}
-
-          {(f.filters.view === 'all' || f.filters.view === 'past') && recentCompleted.length > 0 && (
-            <>
-              <div className="section-head">
-                <span className="section-title">
-                  {f.filters.view === 'past' ? 'Completed' : 'Recently completed'}
-                </span>
-                <span className="section-rule" />
-                {f.filters.view === 'all' && past.length > 3 && (
-                  <span className="section-meta">Last 3 of {past.length}</span>
+            ) : (
+              <>
+                <div className="sp-h-row">
+                  <span className="sp-h-row__label">Roadmap</span>
+                  <span className="sp-h-row__rule" />
+                  <span className="sp-h-row__meta">
+                    <b>{sorted.length}</b> sprint{sorted.length === 1 ? '' : 's'} ·{' '}
+                    <b>{library.counts.active}</b> active ·{' '}
+                    <b>{library.counts.past}</b> done
+                  </span>
+                </div>
+                <SprintsRoadmap rows={sorted} selectedId={selectedId} onSelect={setSelectedId} />
+                {selected && (
+                  <SprintDetail
+                    row={selected}
+                    goals={goals.tasks}
+                    expandedGoalId={expandedGoalId}
+                    onToggleGoal={setExpandedGoalId}
+                    selectedStepId={selectedStepId}
+                    onSelectStep={setSelectedStepId}
+                    onEdit={() => setEditSprintId(selected.sprint.id)}
+                  />
                 )}
-              </div>
-              <div className="sp-grid sp-grid-completed">
-                {(f.filters.view === 'past' ? past : recentCompleted).map((d) => (
-                  <CompactCard key={d.sprint.id} row={d} onSelect={onSelectSprint} />
-                ))}
-              </div>
-            </>
-          )}
-
-          {filtered.length === 0 && (
-            <div className="content-empty">
-              <div className="content-empty-eyebrow">Sprints</div>
-              <div className="content-empty-title">
-                Nothing <em>{f.filters.view === 'all' ? 'planned' : VIEW_LABELS[f.filters.view].toLowerCase()}</em>.
-              </div>
-              <div className="content-empty-desc">
-                Start a sprint from a template in the library, or use "New sprint" to plan one.
-              </div>
-            </div>
-          )}
-
-          <div style={{ height: 80 }} />
+              </>
+            )}
+          </div>
+          <div style={{ height: 60 }} />
         </div>
       </main>
 
       <SprintDetailPanel
-        decorated={detailSprint}
+        decorated={editSprint}
         library={library}
-        open={detailSprintId !== null}
-        onOpenChange={(o) => { if (!o) setDetailSprintId(null); }}
+        open={editSprintId !== null}
+        onOpenChange={(o) => { if (!o) setEditSprintId(null); }}
       />
 
       <SprintCreateDialog
@@ -396,5 +675,3 @@ export default function SprintsView() {
   );
 }
 
-// Touch unused-symbol guard so type-import for Sprint above isn't dropped.
-export type _SprintsViewExport = Sprint;

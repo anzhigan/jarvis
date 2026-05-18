@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sprints · Variant C+ — Step drill-down</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Source+Serif+4:opsz,wght@8..60,400..600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-display: "Fraunces", "Source Serif 4", Georgia, serif;
+  --font-body:    "Source Serif 4", Georgia, serif;
+  --font-ui:      "Inter", -apple-system, system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --paper: #FCFCF9; --cream: #ECEEEF; --soft: #DEE1E2;
+  --ink: #15202A; --ink-2: #2C353D; --ink-3: #455058; --ink-4: #6E7780; --ink-5: #9EA5AB;
+  --indigo: #2C4A60; --indigo-soft: rgba(44,74,96,.10); --indigo-tint: rgba(44,74,96,.18);
+  --moss: #6B7A4F; --moss-soft: rgba(107,122,79,.16);
+  --ochre: #A18030; --ochre-soft: rgba(161,128,48,.14);
+  --rust: #A04A39; --rust-soft: rgba(160,74,57,.10);
+  --slate: #5A6B78; --slate-soft: rgba(90,107,120,.14);
+  --hairline: rgba(15,24,32,.09); --hairline-strong: rgba(15,24,32,.16);
+  --r-card: 6px; --r-pill: 999px; --r-sharp: 2px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink-2); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+
+.page { max-width: 1280px; margin: 40px auto; padding: 0 32px; }
+.variant-label { font-family: var(--font-ui); font-size: 11px; color: var(--ink-5); text-transform: uppercase; letter-spacing: .1em; margin: 0 0 8px; }
+.page-title { font-family: var(--font-display); font-size: 32px; font-weight: 600; letter-spacing: -.028em; color: var(--ink); margin: 0 0 6px; }
+.page-sub { font-family: var(--font-body); font-size: 14px; color: var(--ink-3); margin: 0 0 24px; max-width: 760px; }
+
+/* ── Header row ───────────────────────────────────────────────────── */
+.h-row { display: flex; align-items: baseline; gap: 12px; margin: 0 0 16px; }
+.h-row__label { font-family: var(--font-ui); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-4); font-weight: 600; }
+.h-row__rule { flex: 1; height: 1px; background: var(--hairline); align-self: center; }
+.h-row__meta { font-family: var(--font-ui); font-size: 12px; color: var(--ink-4); }
+.h-row__meta b { color: var(--ink-2); font-weight: 600; }
+.h-row__btn { font-family: var(--font-ui); font-size: 11px; font-weight: 500; background: transparent; color: var(--ink-3); border: 1px solid var(--hairline); border-radius: var(--r-pill); padding: 4px 10px; cursor: pointer; }
+.h-row__btn:hover { background: var(--cream); color: var(--ink); }
+
+/* ── Gantt (shared between Sprint roadmap and Step timeline) ───────── */
+.gantt {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: auto 1fr;
+}
+.gantt--compact { grid-template-columns: 200px 1fr; }
+.gantt__corner   { grid-column: 1; grid-row: 1; border-bottom: 1px solid var(--hairline); }
+.gantt__axis     {
+  grid-column: 2; grid-row: 1; position: relative;
+  height: 32px; border-bottom: 1px solid var(--hairline);
+  border-left: 1px solid var(--hairline);
+}
+.gantt__tick {
+  position: absolute; top: 0; bottom: 0;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 6px;
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--ink-5); letter-spacing: .04em;
+  white-space: nowrap; transform: translateX(-50%);
+}
+.gantt__tick::after { content: ''; position: absolute; bottom: -1px; left: 50%; width: 1px; height: 5px; background: var(--ink-5); opacity: .45; transform: translateX(-50%); }
+.gantt__tick:first-child { transform: translateX(0); }
+.gantt__tick:first-child::after { left: 0; transform: translateX(0); }
+.gantt__tick:last-child  { transform: translateX(-100%); }
+.gantt__tick:last-child::after  { left: auto; right: 0; transform: translateX(0); }
+.gantt__today-line { position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--indigo); opacity: .7; pointer-events: none; z-index: 4; }
+.gantt__today-pill { position: absolute; top: -2px; transform: translateX(-50%); font-family: var(--font-ui); font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--paper); background: var(--indigo); padding: 2px 6px; border-radius: 3px; white-space: nowrap; pointer-events: none; z-index: 5; }
+.gantt__rows-side { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; }
+.gantt__rows-bars { grid-column: 2; grid-row: 2; position: relative; border-left: 1px solid var(--hairline); }
+.gantt__gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--hairline); pointer-events: none; }
+
+.row-side {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px; height: 56px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+  border-top: 0; border-left: 0; border-right: 0;
+  width: 100%; font: inherit; color: inherit;
+  cursor: pointer; text-align: left;
+  transition: background 140ms;
+}
+.row-side:hover { background: var(--cream); }
+.row-side[data-selected="true"] { background: var(--indigo-soft); }
+.row-side__num { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-5); letter-spacing: .06em; width: 14px; flex: none; }
+.row-side__title { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--ink); letter-spacing: -.012em; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-side__count { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-4); }
+
+.row-bar {
+  position: relative; height: 56px;
+  border-bottom: 1px solid var(--hairline);
+  background: transparent;
+  border-top: 0; border-left: 0; border-right: 0;
+  padding: 0; margin: 0; width: 100%;
+  cursor: pointer; font: inherit; color: inherit;
+  display: block;
+  transition: background 140ms;
+}
+.row-bar:hover { background: rgba(15,24,32,.018); }
+.row-bar[data-selected="true"] { background: var(--indigo-soft); }
+.bar {
+  position: absolute; top: 14px; height: 28px;
+  background: var(--cream);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex; align-items: center;
+  pointer-events: none;
+}
+.bar__fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--slate-soft); }
+.bar[data-state="done"] { border-color: var(--moss); }
+.bar[data-state="done"] .bar__fill { background: var(--moss); opacity: .55; }
+.bar[data-state="active"] { border-color: var(--ochre); }
+.bar[data-state="active"] .bar__fill { background: var(--ochre); opacity: .45; }
+.bar[data-state="upcoming"] { border-color: var(--ink-5); background: var(--paper); border-style: dashed; }
+.row-bar[data-selected="true"] .bar { box-shadow: 0 0 0 2px var(--indigo); }
+.bar__label { position: relative; z-index: 1; padding: 0 10px; font-family: var(--font-ui); font-size: 11px; font-weight: 500; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar__pct { margin-left: auto; padding-right: 10px; font-family: var(--font-mono); font-size: 10px; color: var(--ink-4); }
+
+/* compact Gantt for Step rows nested in goal */
+.gantt--compact .row-side,
+.gantt--compact .row-bar { height: 44px; }
+.gantt--compact .bar { top: 10px; height: 24px; }
+.gantt--compact .gantt__axis { height: 26px; }
+
+/* ── Detail panel ─────────────────────────────────────────────────── */
+.detail {
+  margin-top: 22px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--paper);
+}
+.detail__head { padding: 14px 18px 12px; border-bottom: 1px solid var(--hairline); background: linear-gradient(180deg, rgba(15,24,32,.02), transparent); }
+.detail__crumb { font-family: var(--font-ui); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-5); margin-bottom: 6px; }
+.detail__title-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.detail__num { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-5); letter-spacing: .06em; }
+.detail__title { font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: -.02em; color: var(--ink); margin: 0; }
+.detail__status { font-family: var(--font-ui); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; padding: 2px 9px; border-radius: var(--r-pill); background: var(--ochre-soft); color: var(--ochre); }
+.detail__sub { font-family: var(--font-body); font-size: 13px; color: var(--ink-3); margin: 6px 0 0; line-height: 1.5; max-width: 720px; }
+.detail__meta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-family: var(--font-ui); font-size: 11.5px; color: var(--ink-4); }
+.detail__meta b { color: var(--ink-2); font-weight: 600; }
+.detail__meta .mono { font-family: var(--font-mono); font-size: 11px; }
+.detail__progress { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.detail__progress-bar { flex: 1; max-width: 380px; height: 4px; background: var(--soft); border-radius: 2px; overflow: hidden; }
+.detail__progress-fill { height: 100%; background: var(--ochre); }
+.detail__progress-text { font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); }
+
+.detail__body { padding: 14px 18px 18px; }
+.detail__body-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.detail__body-label { font-family: var(--font-ui); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-4); }
+.detail__body-rule { flex: 1; height: 1px; background: var(--hairline); }
+.detail__body-count { font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); }
+
+/* ── Sprint items grid (cards) ────────────────────────────────────── */
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  list-style: none; margin: 0; padding: 0;
+  align-items: start;     /* each card sizes independently */
+}
+.item {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--indigo);
+  border-radius: var(--r-card);
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  cursor: pointer;
+  transition: border-color 140ms, box-shadow 140ms;
+}
+.item:hover { border-color: var(--hairline-strong); box-shadow: 0 2px 6px rgba(15,24,32,.06); }
+.item[data-selected="true"] { box-shadow: 0 0 0 2px var(--indigo); border-color: var(--indigo); }
+.item[data-kind="goal"]    { border-left-color: var(--moss); }
+.item[data-kind="go"]      { border-left-color: var(--indigo); }
+.item[data-kind="routine"] { border-left-color: var(--ochre); }
+.item__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.item__title { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--ink); margin: 0; }
+.item__kind { font-family: var(--font-ui); font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; padding: 2px 7px; border-radius: var(--r-sharp); }
+.item[data-kind="goal"]    .item__kind { background: var(--moss-soft); color: var(--moss); }
+.item[data-kind="go"]      .item__kind { background: var(--indigo-soft); color: var(--indigo); }
+.item[data-kind="routine"] .item__kind { background: var(--ochre-soft); color: var(--ochre); }
+.item__meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-4); }
+.item__bar { height: 3px; background: var(--soft); border-radius: 2px; overflow: hidden; }
+.item__bar-fill { height: 100%; background: var(--moss); }
+.item__hint {
+  font-family: var(--font-ui); font-size: 10.5px; color: var(--indigo); display: inline-flex; align-items: center; gap: 4px;
+}
+
+/* ── Step drill-down (mini Gantt under selected goal) ─────────────── */
+.steps-drill {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding: 14px 14px 12px;
+  border: 1px dashed var(--indigo);
+  border-radius: var(--r-card);
+  background: rgba(44,74,96,.04);
+}
+.steps-drill__head {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+}
+.steps-drill__label {
+  font-family: var(--font-ui); font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .12em;
+  color: var(--indigo);
+}
+.steps-drill__label::before {
+  content: '↳'; margin-right: 6px; color: var(--indigo);
+}
+.steps-drill__rule { flex: 1; height: 1px; background: var(--indigo-tint); }
+.steps-drill__count { font-family: var(--font-mono); font-size: 11px; color: var(--ink-4); }
+
+.gos-strip {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+}
+/* "Loose" Gos — direct children of a goal, not attached to any step.
+   Dashed border + slate accent reads as "not in the step timeline"
+   without competing with the active selection. */
+.gos-strip--loose {
+  border-style: dashed;
+  border-color: var(--slate);
+  background: rgba(90,107,120,.04);
+}
+.gos-strip--loose .gos-strip__label { color: var(--slate); }
+.gos-strip__label {
+  font-family: var(--font-ui); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: var(--ink-5);
+  width: 100%;
+}
+.gos-strip__label-pill {
+  display: inline-block;
+  font-family: var(--font-mono); font-size: 9.5px;
+  background: var(--cream); color: var(--ink-4);
+  padding: 1px 6px; margin-left: 6px;
+  border-radius: var(--r-sharp);
+  text-transform: none; letter-spacing: 0;
+}
+.go-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--cream);
+  border-radius: var(--r-pill);
+  padding: 3px 10px;
+  font-family: var(--font-ui); font-size: 11px;
+  color: var(--ink-2);
+}
+.go-chip__dot { width: 6px; height: 6px; border-radius: 999px; background: var(--ink-5); }
+.go-chip[data-state="done"]   .go-chip__dot { background: var(--moss); }
+.go-chip[data-state="done"]               { text-decoration: line-through; color: var(--ink-4); }
+.go-chip[data-state="active"] .go-chip__dot { background: var(--ochre); }
+
+/* Annotation callouts — pedagogical labels for this mockup */
+.annot {
+  margin: 18px 0 6px;
+  padding: 10px 14px;
+  background: var(--indigo-soft);
+  border-left: 3px solid var(--indigo);
+  border-radius: var(--r-sharp);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.annot strong { color: var(--indigo); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="variant-label">Variant C+ · Sprint → Goal → Step drill-down</p>
+  <h1 class="page-title">Sprints</h1>
+  <p class="page-sub">Same Gantt machinery scales down two levels: the Sprint roadmap up top, click a sprint to load its items below, and click a Goal item to expand a <strong>compact Step timeline</strong> inline — same dates, same bar styling, just half the row height.</p>
+
+  <div class="annot">
+    <strong>Interaction map.</strong> Sprint row click → loads items. Goal item click → expands a nested Step Gantt (same visual language) right inside that card slot. Step row click → reveals <em>that step's</em> Gos as chips. <strong>A second dashed strip below is always visible</strong> and lists Gos attached <strong>directly to the goal</strong> (no step) — so they don't disappear while you step-hop.
+  </div>
+
+  <!-- ── Level 1: Sprint roadmap ─────────────────────────────────── -->
+  <div class="h-row">
+    <span class="h-row__label">Roadmap</span>
+    <span class="h-row__rule"></span>
+    <span class="h-row__meta"><b>5</b> sprints · <b>1</b> active</span>
+    <button class="h-row__btn">+ Sprint</button>
+  </div>
+
+  <div class="gantt">
+    <div class="gantt__corner"></div>
+    <div class="gantt__axis">
+      <span class="gantt__tick" style="left: 0%">Feb 1</span>
+      <span class="gantt__tick" style="left: 20%">Mar 1</span>
+      <span class="gantt__tick" style="left: 40%">Apr 1</span>
+      <span class="gantt__tick" style="left: 60%">May 1</span>
+      <span class="gantt__tick" style="left: 80%">Jun 1</span>
+      <span class="gantt__tick" style="left: 100%">Jun 30</span>
+      <span class="gantt__today-pill" style="left: 71%">Today</span>
+      <span class="gantt__today-line" style="left: 71%"></span>
+    </div>
+
+    <div class="gantt__rows-side">
+      <button class="row-side"><span class="row-side__num">01</span><span class="row-side__title">Editor migration</span><span class="row-side__count">12 / 12</span></button>
+      <button class="row-side"><span class="row-side__num">02</span><span class="row-side__title">AI groundwork</span><span class="row-side__count">9 / 9</span></button>
+      <button class="row-side" data-selected="true"><span class="row-side__num">03</span><span class="row-side__title">v2 polish + launch</span><span class="row-side__count">5 / 8</span></button>
+      <button class="row-side"><span class="row-side__num">04</span><span class="row-side__title">Cool-down + retro</span><span class="row-side__count">0 / 4</span></button>
+      <button class="row-side"><span class="row-side__num">05</span><span class="row-side__title">Mobile parity</span><span class="row-side__count">0 / 6</span></button>
+    </div>
+
+    <div class="gantt__rows-bars">
+      <div class="gantt__gridline" style="left:20%"></div>
+      <div class="gantt__gridline" style="left:40%"></div>
+      <div class="gantt__gridline" style="left:60%"></div>
+      <div class="gantt__gridline" style="left:80%"></div>
+
+      <button class="row-bar">
+        <span class="bar" data-state="done" style="left:7%; width:10%">
+          <span class="bar__fill" style="width:100%"></span>
+          <span class="bar__label">Editor migration</span><span class="bar__pct">100%</span>
+        </span>
+        <span class="gantt__today-line" style="left:71%"></span>
+      </button>
+      <button class="row-bar">
+        <span class="bar" data-state="done" style="left:42%; width:10%">
+          <span class="bar__fill" style="width:100%"></span>
+          <span class="bar__label">AI groundwork</span><span class="bar__pct">100%</span>
+        </span>
+        <span class="gantt__today-line" style="left:71%"></span>
+      </button>
+      <button class="row-bar" data-selected="true">
+        <span class="bar" data-state="active" style="left:65%; width:10%">
+          <span class="bar__fill" style="width:62%"></span>
+          <span class="bar__label">v2 polish + launch</span><span class="bar__pct">62%</span>
+        </span>
+        <span class="gantt__today-line" style="left:71%"></span>
+      </button>
+      <button class="row-bar">
+        <span class="bar" data-state="upcoming" style="left:75%; width:10%">
+          <span class="bar__label">Cool-down + retro</span><span class="bar__pct">0%</span>
+        </span>
+        <span class="gantt__today-line" style="left:71%"></span>
+      </button>
+      <button class="row-bar">
+        <span class="bar" data-state="upcoming" style="left:86%; width:10%">
+          <span class="bar__label">Mobile parity</span><span class="bar__pct">0%</span>
+        </span>
+        <span class="gantt__today-line" style="left:71%"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Level 2: Sprint detail with items ──────────────────────── -->
+  <section class="detail">
+    <header class="detail__head">
+      <div class="detail__crumb">Sprint detail</div>
+      <div class="detail__title-row">
+        <span class="detail__num">03</span>
+        <h2 class="detail__title">v2 polish + launch</h2>
+        <span class="detail__status">In progress · day 9 / 14</span>
+      </div>
+      <p class="detail__sub">Onboarding, landing copy, the last AI surfaces, then a public launch on Product Hunt. Click a Goal below to inspect its Steps.</p>
+      <div class="detail__meta">
+        <span><span>Window </span><b class="mono">May 5 → May 18</b></span>
+        <span><span>Goals </span><b>3</b></span>
+        <span><span>Gos </span><b>4</b></span>
+        <span><span>Routines </span><b>1</b></span>
+      </div>
+      <div class="detail__progress">
+        <span class="detail__progress-text">5 / 8</span>
+        <div class="detail__progress-bar"><div class="detail__progress-fill" style="width:62%"></div></div>
+        <span class="detail__progress-text">62%</span>
+      </div>
+    </header>
+
+    <div class="detail__body">
+      <div class="detail__body-head">
+        <span class="detail__body-label">Sprint items</span>
+        <span class="detail__body-rule"></span>
+        <span class="detail__body-count">8 total · 5 done · 1 expanded</span>
+      </div>
+
+      <ul class="items-grid">
+        <!-- Selected goal — expanded inline with a compact Step Gantt -->
+        <li class="item" data-kind="goal" data-selected="true" style="grid-column: 1 / -1;">
+          <div class="item__head">
+            <h4 class="item__title">Launch v2 of Jarvnote</h4>
+            <span class="item__kind">Goal</span>
+          </div>
+          <span class="item__meta">5 / 8 gos · 62% · 5 steps</span>
+          <div class="item__bar"><div class="item__bar-fill" style="width:62%"></div></div>
+
+          <!-- ── Level 3: Step drill-down (mini-Gantt) ───────────── -->
+          <div class="steps-drill">
+            <div class="steps-drill__head">
+              <span class="steps-drill__label">Steps inside this goal</span>
+              <span class="steps-drill__rule"></span>
+              <span class="steps-drill__count">5 steps · 2 done · 1 active</span>
+            </div>
+
+            <div class="gantt gantt--compact">
+              <div class="gantt__corner"></div>
+              <div class="gantt__axis">
+                <span class="gantt__tick" style="left: 0%">Mar 04</span>
+                <span class="gantt__tick" style="left: 33%">Mar 25</span>
+                <span class="gantt__tick" style="left: 66%">Apr 15</span>
+                <span class="gantt__tick" style="left: 100%">May 27</span>
+                <span class="gantt__today-pill" style="left: 58%">Today</span>
+                <span class="gantt__today-line" style="left: 58%"></span>
+              </div>
+
+              <div class="gantt__rows-side">
+                <button class="row-side"><span class="row-side__num">01</span><span class="row-side__title">Foundations</span><span class="row-side__count">5/5</span></button>
+                <button class="row-side"><span class="row-side__num">02</span><span class="row-side__title">Editor rewrite</span><span class="row-side__count">8/8</span></button>
+                <button class="row-side" data-selected="true"><span class="row-side__num">03</span><span class="row-side__title">AI panel</span><span class="row-side__count">4/7</span></button>
+                <button class="row-side"><span class="row-side__num">04</span><span class="row-side__title">Onboarding</span><span class="row-side__count">0/6</span></button>
+                <button class="row-side"><span class="row-side__num">05</span><span class="row-side__title">Public launch</span><span class="row-side__count">0/4</span></button>
+              </div>
+
+              <div class="gantt__rows-bars">
+                <div class="gantt__gridline" style="left:33%"></div>
+                <div class="gantt__gridline" style="left:66%"></div>
+
+                <button class="row-bar">
+                  <span class="bar" data-state="done" style="left:0%; width:22%">
+                    <span class="bar__fill" style="width:100%"></span>
+                    <span class="bar__label">Foundations</span><span class="bar__pct">100%</span>
+                  </span>
+                  <span class="gantt__today-line" style="left:58%"></span>
+                </button>
+                <button class="row-bar">
+                  <span class="bar" data-state="done" style="left:20%; width:22%">
+                    <span class="bar__fill" style="width:100%"></span>
+                    <span class="bar__label">Editor rewrite</span><span class="bar__pct">100%</span>
+                  </span>
+                  <span class="gantt__today-line" style="left:58%"></span>
+                </button>
+                <button class="row-bar" data-selected="true">
+                  <span class="bar" data-state="active" style="left:40%; width:28%">
+                    <span class="bar__fill" style="width:57%"></span>
+                    <span class="bar__label">AI panel</span><span class="bar__pct">57%</span>
+                  </span>
+                  <span class="gantt__today-line" style="left:58%"></span>
+                </button>
+                <button class="row-bar">
+                  <span class="bar" data-state="upcoming" style="left:62%; width:22%">
+                    <span class="bar__label">Onboarding</span><span class="bar__pct">0%</span>
+                  </span>
+                  <span class="gantt__today-line" style="left:58%"></span>
+                </button>
+                <button class="row-bar">
+                  <span class="bar" data-state="upcoming" style="left:80%; width:18%">
+                    <span class="bar__label">Public launch</span><span class="bar__pct">0%</span>
+                  </span>
+                  <span class="gantt__today-line" style="left:58%"></span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Selected step's Gos shown inline as chips -->
+            <div class="gos-strip">
+              <span class="gos-strip__label">
+                Gos inside «AI panel» (step 03)
+                <span class="gos-strip__label-pill">7 items</span>
+              </span>
+              <span class="go-chip" data-state="done"><span class="go-chip__dot"></span> Job queue + ai_jobs DB</span>
+              <span class="go-chip" data-state="done"><span class="go-chip__dot"></span> Quiz handler</span>
+              <span class="go-chip" data-state="done"><span class="go-chip__dot"></span> Quiz drawer</span>
+              <span class="go-chip" data-state="done"><span class="go-chip__dot"></span> Universal toast</span>
+              <span class="go-chip" data-state="active"><span class="go-chip__dot"></span> Plan day handler</span>
+              <span class="go-chip" data-state="upcoming"><span class="go-chip__dot"></span> Weekly insights</span>
+              <span class="go-chip" data-state="upcoming"><span class="go-chip__dot"></span> Cache layer + precompute</span>
+            </div>
+
+            <!-- Goal-level Gos with no step attachment — always visible so
+                 the user never loses sight of them when navigating steps. -->
+            <div class="gos-strip gos-strip--loose">
+              <span class="gos-strip__label">
+                Gos without step · direct children of this goal
+                <span class="gos-strip__label-pill">3 items</span>
+              </span>
+              <span class="go-chip" data-state="done"><span class="go-chip__dot"></span> Pick a launch date</span>
+              <span class="go-chip" data-state="active"><span class="go-chip__dot"></span> Email beta list (212)</span>
+              <span class="go-chip" data-state="upcoming"><span class="go-chip__dot"></span> Buy domain renewal</span>
+            </div>
+          </div>
+        </li>
+
+        <!-- Other goals — collapsed; clicking expands their step Gantt the same way -->
+        <li class="item" data-kind="goal">
+          <div class="item__head"><h4 class="item__title">Onboarding revamp</h4><span class="item__kind">Goal</span></div>
+          <span class="item__meta">2 / 6 gos · 33% · 3 steps</span>
+          <div class="item__bar"><div class="item__bar-fill" style="width:33%; background: var(--ochre);"></div></div>
+          <span class="item__hint">↳ click to expand Step timeline</span>
+        </li>
+        <li class="item" data-kind="goal">
+          <div class="item__head"><h4 class="item__title">Marketing site copy</h4><span class="item__kind">Goal</span></div>
+          <span class="item__meta">0 / 4 gos · 0% · 2 steps</span>
+          <div class="item__bar"><div class="item__bar-fill" style="width:0%; background: var(--slate);"></div></div>
+          <span class="item__hint">↳ click to expand Step timeline</span>
+        </li>
+
+        <!-- Standalone (non-goal) sprint items stay flat — Steps belong to Goals only -->
+        <li class="item" data-kind="go">
+          <div class="item__head"><h4 class="item__title">First-run welcome sheet</h4><span class="item__kind">Go</span></div>
+          <span class="item__meta">due May 13 · ✓ done</span>
+        </li>
+        <li class="item" data-kind="go">
+          <div class="item__head"><h4 class="item__title">Sample notes seeding</h4><span class="item__kind">Go</span></div>
+          <span class="item__meta">due May 14 · ✓ done</span>
+        </li>
+        <li class="item" data-kind="go">
+          <div class="item__head"><h4 class="item__title">Plan day handler</h4><span class="item__kind">Go</span></div>
+          <span class="item__meta">due today · in progress</span>
+        </li>
+        <li class="item" data-kind="go">
+          <div class="item__head"><h4 class="item__title">Landing page hero</h4><span class="item__kind">Go</span></div>
+          <span class="item__meta">due May 22 · upcoming</span>
+        </li>
+        <li class="item" data-kind="routine">
+          <div class="item__head"><h4 class="item__title">Daily standup (3 min)</h4><span class="item__kind">Routine</span></div>
+          <span class="item__meta">9-day streak · 14 / 14 expected</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="annot" style="margin-top:18px">
+    <strong>Why nest the same Gantt?</strong> Consistency: a Step is structurally a mini-Sprint scoped to one Goal, with its own start/end window and own progress bar. Reusing the bar+axis primitive means the user reads "<em>this thing has a window in time and a completion fill</em>" exactly once. The dashed indigo frame around the inner Gantt signals <strong>nested context</strong> — you are now looking at one goal's internals.
+    <br><br>
+    <strong>Where step-less Gos live.</strong> Not every Go fits cleanly into a milestone — one-off chores, a single date-bound task, daily check-ins. They sit in the <em>second</em> (slate-dashed) strip below the step Gos, separated visually so it's obvious they aren't part of the timeline above. Same chip styling, same click target — only the container reads differently. Add new "loose" Gos from a `+ Add Go` button at the strip's right edge (omitted in this static mockup).
+  </div>
+</div>
+</body>
+</html>
