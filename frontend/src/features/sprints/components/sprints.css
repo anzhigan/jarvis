@@ -202,7 +202,8 @@
 .sp-detail__status--past     { background: var(--moss-soft);  color: var(--moss); }
 .sp-detail__status--upcoming { background: var(--slate-soft); color: var(--slate); }
 
-.sp-detail__edit {
+.sp-detail__edit,
+.sp-detail__add {
   margin-left: auto;
   font-family: var(--font-ui); font-size: 11px; font-weight: 500;
   background: transparent; color: var(--ink-3);
@@ -211,7 +212,11 @@
   padding: 4px 10px; cursor: pointer;
   display: inline-flex; align-items: center; gap: 4px;
 }
-.sp-detail__edit:hover { background: var(--cream); color: var(--ink); }
+.sp-detail__edit:hover,
+.sp-detail__add:hover { background: var(--cream); color: var(--ink); }
+/* Inside the body head the rule absorbs the leftover space, so the button
+   doesn't need `margin-left: auto`. */
+.sp-detail__body-head .sp-detail__add { margin-left: 0; }
 
 .sp-detail__sub {
   font-family: var(--font-body); font-size: 14px; color: var(--ink-3);
@@ -408,3 +413,90 @@
 .sp-go-chip[data-state="done"]   .sp-go-chip__dot { background: var(--moss); }
 .sp-go-chip[data-state="done"]                    { text-decoration: line-through; text-decoration-color: var(--ink-5); color: var(--ink-4); }
 .sp-go-chip[data-state="active"] .sp-go-chip__dot { background: var(--ochre); }
+
+/* ── Add-item dialog ──────────────────────────────────────────────────── */
+.sp-add { display: flex; flex-direction: column; gap: 12px; min-height: 320px; }
+.sp-add__tabs {
+  display: flex; gap: 4px;
+  background: var(--cream);
+  padding: 3px;
+  border-radius: var(--r-control);
+  width: fit-content;
+}
+.sp-add__tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; border: 0;
+  padding: 5px 10px;
+  border-radius: var(--r-control);
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.sp-add__tab:hover { color: var(--ink); }
+.sp-add__tab.is-on { background: var(--paper); color: var(--ink); box-shadow: var(--sh-card); }
+.sp-add__tab-count {
+  font-family: var(--font-mono); font-size: 10px;
+  background: var(--soft); color: var(--ink-4);
+  padding: 0 5px; border-radius: var(--r-sharp);
+}
+.sp-add__tab.is-on .sp-add__tab-count { background: var(--indigo-soft); color: var(--indigo); }
+
+.sp-add__search {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  color: var(--ink-4);
+}
+.sp-add__search:focus-within { background: var(--paper); box-shadow: var(--sh-focus); border-color: var(--hairline-strong); }
+.sp-add__search input {
+  flex: 1; border: 0; outline: 0; background: transparent;
+  font-family: var(--font-ui); font-size: 13px; color: var(--ink);
+}
+.sp-add__search input::placeholder { color: var(--ink-5); }
+
+.sp-add__list {
+  list-style: none; margin: 0; padding: 0;
+  max-height: 360px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.sp-add__row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  padding: 8px 10px;
+  background: transparent; border: 1px solid transparent;
+  border-radius: var(--r-control);
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.sp-add__row:hover:not(:disabled) {
+  background: var(--cream);
+  border-color: var(--hairline);
+}
+.sp-add__row:disabled { cursor: default; opacity: 0.55; }
+.sp-add__dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.sp-add__row-text { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sp-add__row-title {
+  font-family: var(--font-ui); font-size: 13px; font-weight: 500; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sp-add__row-sub {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-4);
+}
+.sp-add__row-badge {
+  font-family: var(--font-ui); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--indigo);
+  padding: 3px 8px; border-radius: var(--r-pill);
+  background: var(--indigo-soft);
+}
+.sp-add__row:disabled .sp-add__row-badge {
+  background: var(--soft);
+  color: var(--ink-4);
+}
+.sp-add__empty {
+  padding: 36px 12px;
+  text-align: center;
+  font-family: var(--font-ui); font-size: 12px; color: var(--ink-4);
+}

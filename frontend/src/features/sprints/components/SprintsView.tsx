@@ -17,6 +17,7 @@ import { useSprintsFilters, type ViewFilter } from '../hooks/useSprintsFilters';
 import { useGoals } from '../../goals/hooks/useGoals';
 import { SprintDetailPanel } from './SprintDetailPanel';
 import { SprintCreateDialog } from './SprintCreateDialog';
+import { AddSprintItemDialog } from './AddSprintItemDialog';
 import './sprints.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -330,9 +331,10 @@ interface DetailProps {
   selectedStepId: string | null;
   onSelectStep: (id: string | null) => void;
   onEdit: () => void;
+  onAddItem: () => void;
 }
 function SprintDetail({
-  row, goals, expandedGoalId, onToggleGoal, selectedStepId, onSelectStep, onEdit,
+  row, goals, expandedGoalId, onToggleGoal, selectedStepId, onSelectStep, onEdit, onAddItem,
 }: DetailProps) {
   const { sprint, daysRemaining, daysTotal, bucket } = row;
   const pct = progressPct(row);
@@ -392,9 +394,17 @@ function SprintDetail({
             {items.length} total · {counts.goal} goal{counts.goal === 1 ? '' : 's'}
             {expandedGoalId ? ' · 1 expanded' : ''}
           </span>
+          <button type="button" className="sp-detail__add" onClick={onAddItem}>
+            <Plus size={11} /> Add item
+          </button>
         </div>
         {items.length === 0 ? (
-          <div className="sp-detail__empty">No items in this sprint yet.</div>
+          <div className="sp-detail__empty">
+            <p style={{ margin: 0 }}>No items in this sprint yet.</p>
+            <button type="button" className="sp-detail__add" onClick={onAddItem} style={{ marginTop: 14 }}>
+              <Plus size={11} /> Add the first item
+            </button>
+          </div>
         ) : (
           <ul className="sp-items-grid">
             {items.map((it) => {
@@ -542,6 +552,13 @@ export default function SprintsView() {
     [library.decorated, editSprintId],
   );
 
+  // Add-item picker dialog (goal / go / routine tabs).
+  const [addItemSprintId, setAddItemSprintId] = useState<string | null>(null);
+  const addItemSprint = useMemo(
+    () => library.decorated.find((d) => d.sprint.id === addItemSprintId)?.sprint ?? null,
+    [library.decorated, addItemSprintId],
+  );
+
   const [createOpen, setCreateOpen] = useState(false);
   const [templateDays, setTemplateDays] = useState<number | null>(null);
   useEffect(() => {
@@ -649,6 +666,7 @@ export default function SprintsView() {
                     selectedStepId={selectedStepId}
                     onSelectStep={setSelectedStepId}
                     onEdit={() => setEditSprintId(selected.sprint.id)}
+                    onAddItem={() => setAddItemSprintId(selected.sprint.id)}
                   />
                 )}
               </>
@@ -670,6 +688,13 @@ export default function SprintsView() {
         onOpenChange={(o) => { setCreateOpen(o); if (!o) setTemplateDays(null); }}
         library={library}
         templateDays={templateDays}
+      />
+
+      <AddSprintItemDialog
+        open={addItemSprintId !== null}
+        onOpenChange={(o) => { if (!o) setAddItemSprintId(null); }}
+        sprint={addItemSprint}
+        library={library}
       />
     </>
   );
