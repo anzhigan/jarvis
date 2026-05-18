@@ -90,6 +90,7 @@ function ResizableImageView({
 }) {
   const [isResizing, setIsResizing] = useState(false);
   const [hover, setHover] = useState(false);
+  const [lightbox, setLightbox] = useState(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -98,6 +99,14 @@ function ResizableImageView({
   const align = (node.attrs.align as 'left' | 'center' | 'right') || 'left';
   const src = node.attrs.src as string;
   const readonly = !editor?.isEditable;
+
+  // Close lightbox on Esc — registered only while open.
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightbox(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox]);
 
   const startResize = useCallback((clientX: number) => {
     setIsResizing(true);
@@ -162,7 +171,7 @@ function ResizableImageView({
   };
 
   const onOpenFullSize = () => {
-    if (src) window.open(src, '_blank', 'noopener,noreferrer');
+    if (src) setLightbox(true);
   };
   const onDownload = () => {
     if (!src) return;
@@ -246,6 +255,33 @@ function ResizableImageView({
           </span>
         )}
       </span>
+      {lightbox && (
+        <div
+          className="img-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image preview"
+          onClick={() => setLightbox(false)}
+        >
+          <button
+            type="button"
+            className="img-lightbox__close"
+            aria-label="Close"
+            onClick={(e) => { e.stopPropagation(); setLightbox(false); }}
+          >
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path d="M3 3 L13 13 M13 3 L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+          <img
+            src={src}
+            alt={node.attrs.alt || ''}
+            className="img-lightbox__img"
+            draggable={false}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </NodeViewWrapper>
   );
 }

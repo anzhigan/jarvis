@@ -14,11 +14,11 @@
  * — that way left-click, middle-click, Cmd+click, "Copy link" and
  * "Save link as" all carry the current access_token automatically.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Node, mergeAttributes } from '@tiptap/core';
 import { NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
 import { Download } from 'lucide-react';
-import { resolveUrl } from '../../api/client';
+import { fetchAuthed, resolveUrl } from '../../api/client';
 
 export const KNOWN_EXTENSIONS = new Set(['pdf', 'xlsx', 'xls', 'docx', 'doc', 'csv']);
 export const FILE_ACCEPT =
@@ -60,24 +60,53 @@ function AttachmentView({ node, selected }: any) {
   };
   const kind = fileKind(filename, mimeType);
 
-  // Track the resolved (token-bearing) href in state so the browser can use it
-  // for *any* interaction: left-click, middle-click, Cmd+click, right-click
-  // → "Copy link" / "Save link as". Refresh it on every pointer/keyboard
-  // gesture so a token refreshed since mount is still applied just before use.
-  const [href, setHref] = useState<string>(() => resolveUrl(url));
+  // We update the <a>'s href synchronously on the DOM (via ref) instead of
+  // React state. Reason: mousedown → setState → click is racy — React's
+  // re-render hasn't applied the new href by the time the click fires, so the
+  // browser navigates using the stale (and possibly expired) tokenized URL
+  // captured at mount time. Direct DOM writes sidestep the reconciler.
+  const aRef = useRef<HTMLAnchorElement>(null);
   const refreshHref = useCallback(() => {
-    const next = resolveUrl(url);
-    setHref((cur) => (cur === next ? cur : next));
+    if (aRef.current) aRef.current.href = resolveUrl(url);
   }, [url]);
+
+  // Left-click → intercept and route through the auth wrapper (which
+  // auto-refreshes on 401). Then open the bytes via a blob URL so the new
+  // tab never relies on the URL token at all. Middle-click / Cmd+click skip
+  // this handler and fall back to the direct href above (token-injected),
+  // which is fine for plain right-after-load usage.
+  const onClick = useCallback(async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    try {
+      const res = await fetchAuthed(url);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      // Revoke shortly after handing the URL off — the new tab keeps its own
+      // reference, and we don't want to leak memory.
+      const w = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), w ? 60_000 : 1_000);
+    } catch {
+      // Fall back to a plain navigation with a freshly-resolved token URL —
+      // last-ditch attempt; browser will surface its own error if it fails.
+      window.open(resolveUrl(url), '_blank', 'noopener,noreferrer');
+    }
+  }, [url]);
+
+  // Set the initial href on mount and whenever url changes.
+  useEffect(() => { refreshHref(); }, [refreshHref]);
 
   return (
     <NodeViewWrapper className="rt-file-attachment-wrap" data-drag-handle>
       <a
-        href={href}
+        ref={aRef}
+        href={resolveUrl(url)}
         target="_blank"
         rel="noopener noreferrer"
         className="rt-file-attachment"
         data-active={selected ? 'true' : undefined}
+        onClick={onClick}
         onMouseDown={refreshHref}
         onMouseEnter={refreshHref}
         onFocus={refreshHref}

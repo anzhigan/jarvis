@@ -247,6 +247,44 @@
 }
 .img-block .img-resize-corner svg { width: 14px; height: 14px; }
 
+/* ── Image lightbox — modal preview for the magnifier button ─────── */
+.img-lightbox {
+  position: fixed; inset: 0;
+  z-index: var(--z-modal, 500);
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 24, 32, 0.78);
+  backdrop-filter: blur(2px);
+  padding: 40px;
+  cursor: zoom-out;
+  animation: img-lightbox-in 140ms ease-out;
+}
+@keyframes img-lightbox-in {
+  from { opacity: 0; } to { opacity: 1; }
+}
+.img-lightbox__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  cursor: default;
+}
+.img-lightbox__close {
+  position: absolute;
+  top: 16px; right: 16px;
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 140ms;
+}
+.img-lightbox__close:hover {
+  background: rgba(255,255,255,0.22);
+}
+
 .ProseMirror .math-display { margin: 2px 0; text-align: center; }
 
 .editor-wrap, .editor-content { outline: 0; }

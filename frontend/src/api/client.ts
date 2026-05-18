@@ -114,6 +114,28 @@ async function tryRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
+/** Fetch any authenticated URL (asset endpoint, blob download, etc.) with the
+ *  same auto-refresh-on-401 logic as `request()`. Returns the raw Response so
+ *  the caller can choose between `.blob()` / `.text()` / streaming. Used by
+ *  the file-attachment node to safely open files even when the cached
+ *  access_token has expired since page load. */
+export async function fetchAuthed(url: string, retry = true): Promise<Response> {
+  const token = localStorage.getItem('access_token');
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  // Strip any pre-baked ?token= so we don't double-auth (token in URL is for
+  // direct `<a>` links; here we use the header path).
+  const cleanUrl = url.replace(/([?&])token=[^&]*&?/g, (_m, sep) => sep === '?' ? '?' : '')
+                      .replace(/[?&]$/, '');
+  const target = cleanUrl.startsWith('http') ? cleanUrl : `${BASE_URL.startsWith('http') ? originOf(BASE_URL) : ''}${cleanUrl}`;
+  const res = await fetch(target, { headers });
+  if (res.status === 401 && retry) {
+    const ok = await tryRefresh();
+    if (ok) return fetchAuthed(url, false);
+  }
+  return res;
+}
+
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const token = localStorage.getItem('access_token');
   const headers: Record<string, string> = { ...(init.headers as Record<string, string>) };

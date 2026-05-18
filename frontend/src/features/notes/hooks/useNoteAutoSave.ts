@@ -37,12 +37,31 @@ export function useNoteAutoSave(onSaved?: (id: string) => void) {
     const op = (async () => {
       try {
         for (const [id, patch] of pending) {
-          await notesApi.update(id, patch);
+          // Single retry on transient gateway timeouts (504) — typical cause
+          // is the backend being briefly busy with another request. One
+          // retry after a short delay clears most of these silently so the
+          // user doesn't see scary "Failed to save" toasts for fluky waits.
+          try {
+            await notesApi.update(id, patch);
+          } catch (err: any) {
+            if (err?.status === 504 || err?.status === 502) {
+              await new Promise((r) => setTimeout(r, 800));
+              await notesApi.update(id, patch);
+            } else {
+              throw err;
+            }
+          }
           onSaved?.(id);
         }
         setSavedAt(Date.now());
       } catch (e: any) {
-        toast.error(e?.detail ?? 'Failed to save');
+        // Re-queue the unsaved patch so the next edit picks it up — losing
+        // an autosave silently is worse than a brief retry.
+        for (const [id, patch] of pending) {
+          const cur = drafts.current.get(id) ?? {};
+          drafts.current.set(id, { ...patch, ...cur });
+        }
+        toast.error(e?.detail ?? e?.message ?? 'Failed to save');
       } finally {
         setSaving(false);
       }
