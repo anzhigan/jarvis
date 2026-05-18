@@ -3,6 +3,7 @@ import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Go, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { aiApi, routinesApi } from '../../../api/client';
+import { confirmDialog } from '../../../components/ui';
 
 // Lazy: only when user clicks "Plan day" — ~80kB of Radix Popover + drawer.
 const ScheduleDrawer = lazy(() => import('../../ai/ScheduleDrawer').then((m) => ({ default: m.ScheduleDrawer })));
@@ -217,7 +218,12 @@ export default function GoalsView() {
   }, [goals]);
 
   const onUnlinkRoutine = useCallback(async (link: import('../../../api/types').GoalRoutineLink) => {
-    if (!window.confirm(`Detach "${link.routine.title}" from this goal? The routine itself stays in your list.`)) return;
+    const ok = await confirmDialog({
+      title: 'Detach routine?',
+      body: <>«{link.routine.title}» will be detached from this goal. The routine itself stays in your list.</>,
+      confirmLabel: 'Detach',
+    });
+    if (!ok) return;
     try {
       await routinesApi.deleteLink(link.id);
       await goals.refresh();
@@ -232,7 +238,13 @@ export default function GoalsView() {
   );
 
   const onDeleteGo = useCallback(async (go: Go) => {
-    if (!window.confirm(`Delete "${go.title}"? This cannot be undone.`)) return;
+    const ok = await confirmDialog({
+      title: 'Delete Go?',
+      body: <>«{go.title}» This cannot be undone.</>,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await gos.deleteGo(go.id);
   }, [gos]);
 

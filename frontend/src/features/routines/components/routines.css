@@ -190,7 +190,7 @@
 .rt-name {
   font-family: var(--font-display);
   font-size: var(--text-md);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--ink);
   letter-spacing: var(--tracking-tight);
   margin-bottom: 3px;

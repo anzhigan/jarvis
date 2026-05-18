@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, FilePlus2, FileText, FolderPlus, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
 import type { NotesLibrary } from '../hooks/useNotesLibrary';
 import type { Way } from '../../../api/types';
+import { confirmDialog } from '../../../components/ui';
 
 const EXP_WAYS_KEY   = 'jarvnote:notes:expandedWays';
 const EXP_TOPICS_KEY = 'jarvnote:notes:expandedTopics';
@@ -36,13 +37,20 @@ export function NotesPane({
   } = library;
 
   const promptRename = (currentName: string, kind: string): string | null => {
+    // Inline rename prompt — kept native until we have a unified inline-edit
+    // affordance; confirmDelete already uses the design-system dialog below.
     const next = window.prompt(`Rename ${kind}:`, currentName);
     if (next === null) return null;
     const trimmed = next.trim();
     return trimmed && trimmed !== currentName ? trimmed : null;
   };
-  const confirmDelete = (name: string, kind: string, extra = ''): boolean =>
-    window.confirm(`Delete ${kind} "${name}"?${extra ? ` ${extra}` : ''} This cannot be undone.`);
+  const confirmDelete = (name: string, kind: string, extra = ''): Promise<boolean> =>
+    confirmDialog({
+      title: `Delete ${kind}?`,
+      body: <>«{name}» {extra ? `${extra} ` : ''}This cannot be undone.</>,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
   const [expandedWays, setExpandedWays]     = useState<Set<string>>(readSet(EXP_WAYS_KEY));
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(readSet(EXP_TOPICS_KEY));
   const [search, setSearch] = useState('');
@@ -215,9 +223,9 @@ export function NotesPane({
                     role="button"
                     tabIndex={0}
                     title="Delete way"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      if (confirmDelete(way.name, 'way', 'All topics and notes inside it will be removed.')) {
+                      if (await confirmDelete(way.name, 'way', 'All topics and notes inside it will be removed.')) {
                         void deleteWay(way.id);
                       }
                     }}
@@ -271,9 +279,9 @@ export function NotesPane({
                           role="button"
                           tabIndex={0}
                           title="Delete note"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if (confirmDelete(note.name || 'Untitled', 'note')) {
+                            if (await confirmDelete(note.name || 'Untitled', 'note')) {
                               void deleteNote(note.id);
                             }
                           }}
@@ -312,9 +320,9 @@ export function NotesPane({
                               role="button"
                               tabIndex={0}
                               title="Delete topic"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                if (confirmDelete(topic.name, 'topic', 'All notes inside it will be removed.')) {
+                                if (await confirmDelete(topic.name, 'topic', 'All notes inside it will be removed.')) {
                                   void deleteTopic(topic.id);
                                 }
                               }}
@@ -357,9 +365,9 @@ export function NotesPane({
                                 role="button"
                                 tabIndex={0}
                                 title="Delete note"
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                   e.stopPropagation();
-                                  if (confirmDelete(note.name || 'Untitled', 'note')) {
+                                  if (await confirmDelete(note.name || 'Untitled', 'note')) {
                                     void deleteNote(note.id);
                                   }
                                 }}

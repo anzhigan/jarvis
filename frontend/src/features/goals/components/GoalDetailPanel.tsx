@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Trash2, Calendar, Flag, Tag as TagIcon, Box, Check } from 'lucide-react';
-import { Button, DateInput, Drawer, Input } from '../../../components/ui';
+import { Button, confirmDialog, DateInput, Drawer, Input } from '../../../components/ui';
 import type { Task, TaskPriority, TaskStatus } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
 
@@ -54,7 +54,13 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }:
     library.updateGoal(goal.id, { due_date: next || null });
 
   const onDelete = async () => {
-    if (!window.confirm(`Delete "${goal.title}"? This cannot be undone.`)) return;
+    const ok = await confirmDialog({
+      title: 'Delete goal?',
+      body: <>«{goal.title}» This cannot be undone.</>,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await library.deleteGoal(goal.id);
     onOpenChange(false);
   };

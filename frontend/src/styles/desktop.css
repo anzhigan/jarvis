@@ -979,22 +979,31 @@
   transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
 }
 .lib-row:hover .row-add,
-.lib-row:focus-within .row-add,
-.lib-row:hover .row-action,
-.lib-row:focus-within .row-action { opacity: 1; }
+.lib-row:hover .row-action { opacity: 1; }
+/* Keyboard-only focus also reveals the actions (mouse focus does not — see
+   note below). */
+.lib-row:focus-visible .row-add,
+.lib-row:focus-visible .row-action { opacity: 1; }
 .lib-row .row-add:hover,
 .lib-row .row-action:hover { background: var(--paper); color: var(--indigo); }
 .lib-row .row-action--danger:hover { color: var(--rust); }
 .lib-row .row-add svg,
 .lib-row .row-action svg { width: 12px; height: 12px; }
 
-/* row-action--hover variants stay completely hidden until the row is hovered. */
+/* row-action--hover variants stay completely hidden until the row is hovered.
+   We deliberately do NOT use :focus-within here: clicking an action focuses
+   it, which used to keep the parent row's icons pinned visible even after
+   the cursor moved to another row. Hover-only matches the user's intuition;
+   keyboard users still get visibility via :focus-visible above. */
 .lib-row .row-action--hover {
   opacity: 0;
   pointer-events: none;
 }
-.lib-row:hover .row-action--hover,
-.lib-row:focus-within .row-action--hover {
+.lib-row:hover .row-action--hover {
+  opacity: 0.85;
+  pointer-events: auto;
+}
+.lib-row:focus-visible .row-action--hover {
   opacity: 0.85;
   pointer-events: auto;
 }

@@ -168,17 +168,37 @@ export function GoView({
   const [sidebarPriority, setSidebarPriority] = useState<Set<TaskPriority>>(new Set());
   const [sidebarTags, setSidebarTags] = useState<Set<string>>(new Set());
 
-  // Day-bucket filter: past / today / future, derived purely from due_date.
-  // Standalone gos (no due_date) live in the Today bucket as daily checks.
+  // Day-bucket filter: past / today / future, derived from a Go's window —
+  //   today bucket: today ∈ [start_date, end_date]  OR
+  //                 due_date === today              OR
+  //                 (no start/due dates set — daily-check / standalone gos)
+  //   past bucket:   due_date or end_date strictly before today
+  //   future bucket: start_date or due_date strictly after today
   // We intentionally don't pull "is_done_today=true" gos into Today — that
   // used to leak past gos into Today after their late-completion click.
   const dayFiltered = useMemo(() => {
     const today = ymd(new Date());
     return allGos.filter((g) => {
-      const due = g.due_date;
-      if (dayFilter === 'past')   return !!due && due < today;
-      if (dayFilter === 'future') return !!due && due > today;
-      return !due || due === today;
+      const from = g.start_date;
+      const to   = g.due_date;
+      // Multi-day Gos belong to "today" while today is inside their window —
+      // earlier code only matched due_date === today, which dropped any Go
+      // whose period spanned today.
+      const inWindow = !!from && !!to && from <= today && to >= today;
+      if (dayFilter === 'past') {
+        // Strictly past: either no start_date and due_date in the past, or
+        // a window that closed before today.
+        if (from) return !!to && to < today;
+        return !!to && to < today;
+      }
+      if (dayFilter === 'future') {
+        if (from) return from > today;
+        return !!to && to > today;
+      }
+      // today bucket
+      return inWindow
+        || (!from && !!to && to === today)
+        || (!from && !to);
     });
   }, [allGos, dayFilter]);
 
@@ -287,13 +307,17 @@ export function GoView({
   const anyFilter = sidebarPriority.size > 0 || sidebarTags.size > 0 || sidebarSearch.trim().length > 0;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Default to first active goal; reset if the current selection vanishes.
+  // Default to the first active goal but honour a user-clicked done goal —
+  // sanity check against the full eligibleGoals (incl. done) so clicking a
+  // 100%-complete goal doesn't bounce the selection away (which used to
+  // cause a brief render → effect-reselect cycle that could blank the view).
   useEffect(() => {
-    if (activeGoals.length === 0) { setSelectedId(null); return; }
-    if (!selectedId || !activeGoals.find((g) => g.id === selectedId)) {
-      setSelectedId(activeGoals[0].id);
+    if (eligibleGoals.length === 0) { setSelectedId(null); return; }
+    if (!selectedId || !eligibleGoals.find((g) => g.id === selectedId)) {
+      const fallback = activeGoals[0]?.id ?? eligibleGoals[0].id;
+      setSelectedId(fallback);
     }
-  }, [activeGoals, selectedId]);
+  }, [eligibleGoals, activeGoals, selectedId]);
 
   // Selected Step inside the focused goal — drives the timeline highlight
   // and filters tg-cards to that step's gos. Reset whenever the goal changes.
@@ -310,10 +334,23 @@ export function GoView({
     const today = ymd(new Date());
     let past = 0, todayN = 0, future = 0;
     for (const g of source) {
-      const due = g.due_date;
-      if (!!due && due < today) past++;
-      else if (!!due && due > today) future++;
-      else todayN++;
+      const from = g.start_date;
+      const to   = g.due_date;
+      // Same window logic as `dayFiltered` — keep counts in sync with the
+      // actual list, so a multi-day Go covering today is counted in Today.
+      const inWindow = !!from && !!to && from <= today && to >= today;
+      if (inWindow) { todayN++; continue; }
+      if (from) {
+        if (from > today) future++;
+        else if (to && to < today) past++;
+        else todayN++;
+      } else if (to) {
+        if (to < today) past++;
+        else if (to > today) future++;
+        else todayN++;
+      } else {
+        todayN++;
+      }
     }
     return { past, today: todayN, future };
   }, [allGos, mode, selectedId]);

@@ -8,6 +8,7 @@ import { useRoutines } from '../../routines/hooks/useRoutines';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
 import type { Tab } from '../../../app/tabs';
+import { confirmDialog } from '../../../components/ui';
 
 interface Props {
   tab: Tab;
@@ -67,8 +68,13 @@ export default function MobileProfileScreen({
 
   const initial = (user?.username?.[0] ?? user?.email?.[0] ?? 'A').toUpperCase();
 
-  const handleSignOut = () => {
-    if (!window.confirm('Sign out of this device?')) return;
+  const handleSignOut = async () => {
+    const ok = await confirmDialog({
+      title: 'Sign out?',
+      body: 'You will be signed out of this device.',
+      confirmLabel: 'Sign out',
+    });
+    if (!ok) return;
     logout();
   };
 

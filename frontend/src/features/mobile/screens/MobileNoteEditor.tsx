@@ -3,6 +3,7 @@ import { ChevronLeft, Loader2, MoreHorizontal, Pin, PinOff, Trash2 } from 'lucid
 import type { Note } from '../../../api/types';
 import { useNoteAutoSave } from '../../notes/hooks/useNoteAutoSave';
 import type { NotesLibrary } from '../../notes/hooks/useNotesLibrary';
+import { confirmDialog } from '../../../components/ui';
 import '../../../styles/mobile.css';
 
 const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
@@ -44,7 +45,13 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
 
   const handleDelete = async () => {
     setMenuOpen(false);
-    if (!window.confirm(`Delete "${note.name || 'Untitled'}"?`)) return;
+    const ok = await confirmDialog({
+      title: 'Delete note?',
+      body: <>«{note.name || 'Untitled'}» This cannot be undone.</>,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await save.flush();
     await library.deleteNote(note.id);
     onBack();

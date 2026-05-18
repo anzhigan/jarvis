@@ -9,7 +9,10 @@
 
 :root {
   /* ── Typography ──────────────────────────────────────────────────────── */
-  --font-display: "Fraunces", Georgia, serif;       /* H1—H4, numbers, accent */
+  /* Fraunces is Latin-only — Source Serif 4 sits in the fallback chain so
+     Cyrillic glyphs pick up a real weight 600 variant (Georgia, the next
+     fallback, has no 500/600 cut and would render Russian titles flat). */
+  --font-display: "Fraunces", "Source Serif 4", Georgia, serif;
   --font-body:    "Source Serif 4", Georgia, serif; /* long-form reading      */
   --font-ui:      "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono:    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;

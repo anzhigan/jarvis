@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Trash2, Pause, Play, Calendar, Repeat, Target, Activity, Check, X } from 'lucide-react';
-import { Button, Drawer, Input } from '../../../components/ui';
+import { Button, confirmDialog, Drawer, Input } from '../../../components/ui';
 import type { Routine, RoutineScheduleType } from '../../../api/types';
 import type { RoutinesLibrary } from '../hooks/useRoutines';
 import { completionRate, currentStreak, scheduleLabel } from '../lib/heatmap';
@@ -47,7 +47,13 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
   const onSchedule    = (s: RoutineScheduleType) => library.update(routine.id, { schedule_type: s });
   const onTogglePause = () => library.togglePause(routine.id, routine.is_paused);
   const onDelete = async () => {
-    if (!window.confirm(`Delete "${routine.title}"? Entries are kept until you delete them manually.`)) return;
+    const ok = await confirmDialog({
+      title: 'Delete routine?',
+      body: <>«{routine.title}» Entries are kept until you delete them manually.</>,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await library.remove(routine.id);
     onOpenChange(false);
   };

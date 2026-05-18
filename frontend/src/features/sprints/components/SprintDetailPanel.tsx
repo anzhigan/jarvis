@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Trash2, Archive, ArchiveRestore, Calendar, Box, Clock } from 'lucide-react';
-import { Button, Drawer, Input } from '../../../components/ui';
+import { Button, confirmDialog, Drawer, Input } from '../../../components/ui';
 import type { Sprint } from '../../../api/types';
 import type { SprintsLibrary, SprintWithProgress } from '../hooks/useSprints';
 
@@ -54,7 +54,13 @@ export function SprintDetailPanel({ decorated, library, open, onOpenChange }: Pr
   const onArchiveToggle = () =>
     library.update(sprint.id, { is_archived: !sprint.is_archived } as Partial<Sprint>);
   const onDelete = async () => {
-    if (!window.confirm(`Delete sprint "${sprint.title}"?`)) return;
+    const ok = await confirmDialog({
+      title: 'Delete sprint?',
+      body: <>«{sprint.title}» This cannot be undone.</>,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await library.remove(sprint.id);
     onOpenChange(false);
   };

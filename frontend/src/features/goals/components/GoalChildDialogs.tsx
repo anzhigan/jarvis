@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, DateInput, Dialog, Drawer, Input } from '../../../components/ui';
+import { Button, confirmDialog, DateInput, Dialog, Drawer, Input } from '../../../components/ui';
 import { gosApi, routinesApi, stepsApi } from '../../../api/client';
 import type { Go, GoKind, GoRecurrence, Step, StepStatus, Task } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
@@ -759,7 +759,13 @@ export function StepEditDialog({ step, goals, onOpenChange, onSaved }: StepEditP
 
   const remove = async () => {
     if (!step) return;
-    if (!window.confirm(`Delete step "${step.title}"? Its Gos lose their step link but stay.`)) return;
+    const ok = await confirmDialog({
+      title: 'Delete step?',
+      body: <>«{step.title}» Its Gos lose their step link but stay in the goal.</>,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     setSubmitting(true);
     try {
       await stepsApi.delete(step.id);
@@ -958,7 +964,13 @@ export function GoEditDialog({ go, goals, onOpenChange, onSaved, nonModal }: GoE
 
   const remove = async () => {
     if (!go) return;
-    if (!window.confirm(`Delete "${go.title}"? This cannot be undone.`)) return;
+    const ok = await confirmDialog({
+      title: 'Delete Go?',
+      body: <>«{go.title}» This cannot be undone.</>,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     setSubmitting(true);
     try {
       await gosApi.delete(go.id);

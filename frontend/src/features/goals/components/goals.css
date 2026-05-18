@@ -1029,7 +1029,7 @@
 .gl-card-title {
   font-family: var(--font-display);
   font-size: var(--text-md);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--ink);
   letter-spacing: var(--tracking-tight);
   margin: 0;
@@ -1193,7 +1193,9 @@
 .goal-ctx-title {
   font-family: var(--font-display);
   font-size: 28px;
-  font-weight: 500;
+  /* 600 (was 500) — see comment on .tg-card-title for the Cyrillic fallback
+     rationale. Russian goal names now render properly bold. */
+  font-weight: 600;
   color: var(--ink);
   letter-spacing: var(--tracking-tight);
   line-height: 1.1;
@@ -1461,7 +1463,11 @@
 .tg-card-title {
   font-family: var(--font-display);
   font-size: 17px;
-  font-weight: 500;
+  /* 600 (instead of 500) — Fraunces 500 lacks Cyrillic, so Russian titles
+     fell back to Georgia at a weight Georgia doesn't have a cut for,
+     rendering visually flat. 600 + the Source Serif 4 fallback in
+     `--font-display` ensures a real bold-weight glyph for both scripts. */
+  font-weight: 600;
   color: var(--ink);
   letter-spacing: var(--tracking-tight);
   line-height: 1.25;
@@ -3035,7 +3041,7 @@
   width: 22px; flex: none;
 }
 .gantt-row-side__title {
-  font-family: var(--font-display); font-size: 14px; font-weight: 500;
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
   color: var(--ink); letter-spacing: -0.01em;
   flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -3140,7 +3146,7 @@
   color: var(--ink-5); letter-spacing: 0.06em;
 }
 .step-detail__title {
-  font-family: var(--font-display); font-size: 19px; font-weight: 500;
+  font-family: var(--font-display); font-size: 19px; font-weight: 600;
   letter-spacing: -0.02em; color: var(--ink); margin: 0;
 }
 .step-detail__status {
