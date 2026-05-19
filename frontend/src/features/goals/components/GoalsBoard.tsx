@@ -26,6 +26,14 @@ interface Props {
   onEditGo: (go: import('../../../api/types').Go) => void | Promise<void>;
   /** Open the routine detail drawer. Row click + pencil icon. */
   onEditRoutine: (routine: import('../../../api/types').Routine) => void | Promise<void>;
+  /** Detach the Go from its parent Goal (clears task_id + step_id). The Go
+   *  becomes a standalone item and disappears from this goal's kanban card. */
+  onUnlinkGo: (go: import('../../../api/types').Go) => void | Promise<void>;
+  /** Delete the Step (Step.goal_id is NOT NULL — can't be detached, only
+   *  removed). Child Gos with step_id keep their data; their step_id becomes
+   *  NULL via ON DELETE SET NULL and they fall back to the "gos · no step"
+   *  section under the same goal. */
+  onDeleteStep: (step: import('../../../api/types').Step) => void | Promise<void>;
   /** Quick-create a routine and attach to the goal — title prompted. */
   onAddRoutine: (taskId: string) => void | Promise<void>;
   /** Toggle a routine entry on the given date (defaults to today when omitted). */
@@ -77,6 +85,8 @@ interface CardCallbacks {
   onEditStep?: Props['onEditStep'];
   onEditGo?: Props['onEditGo'];
   onEditRoutine?: Props['onEditRoutine'];
+  onUnlinkGo?: Props['onUnlinkGo'];
+  onDeleteStep?: Props['onDeleteStep'];
   onAddRoutine?: Props['onAddRoutine'];
   onToggleRoutineDone?: Props['onToggleRoutineDone'];
   onSkipRoutine?: Props['onSkipRoutine'];
@@ -261,9 +271,11 @@ function GoalChildren({
               gos={gosByStep.get(s.id) ?? []}
               goalTitle={task.title}
               onEdit={callbacks?.onEditStep}
+              onDelete={callbacks?.onDeleteStep}
               onAddGoInStep={callbacks?.onAddGo ? () => callbacks.onAddGo?.(task.id, s.id) : undefined}
               onToggleGo={callbacks?.onToggleGoDone}
               onEditGo={callbacks?.onEditGo}
+              onUnlinkGo={callbacks?.onUnlinkGo}
             />
           ))}
           {callbacks?.onAddStep && (
@@ -291,6 +303,7 @@ function GoalChildren({
               goalTitle={task.title}
               onToggle={callbacks?.onToggleGoDone}
               onEdit={callbacks?.onEditGo}
+              onUnlink={callbacks?.onUnlinkGo}
             />
           ))}
           {callbacks?.onAddGo && (
@@ -344,15 +357,17 @@ const ymdDate = (d: Date) =>
  *  expandable to reveal its attached Gos. Row click toggles expand; pencil
  *  icon opens edit; "+ Go" creates a Go pre-attached to this step. */
 const StepSubcard = memo(function StepSubcard({
-  step, gos, goalTitle, onEdit, onAddGoInStep, onToggleGo, onEditGo,
+  step, gos, goalTitle, onEdit, onDelete, onAddGoInStep, onToggleGo, onEditGo, onUnlinkGo,
 }: {
   step: import('../../../api/types').Step;
   gos: import('../../../api/types').Go[];
   goalTitle?: string | null;
   onEdit?: (step: import('../../../api/types').Step) => void | Promise<void>;
+  onDelete?: (step: import('../../../api/types').Step) => void | Promise<void>;
   onAddGoInStep?: () => void;
   onToggleGo?: (go: import('../../../api/types').Go) => void | Promise<void>;
   onEditGo?: (go: import('../../../api/types').Go) => void | Promise<void>;
+  onUnlinkGo?: (go: import('../../../api/types').Go) => void | Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const state = step.status === 'done'
@@ -360,14 +375,23 @@ const StepSubcard = memo(function StepSubcard({
     : step.status === 'in_progress' ? 'active' : 'upcoming';
   return (
     <div
-      className="kc-child"
+      className="kc-child kc-child--clickable"
       data-kind="step"
       data-state={state}
       data-expanded={expanded || undefined}
+      role="button"
+      tabIndex={0}
+      title="Open step"
+      onClick={(e) => { e.stopPropagation(); onEdit?.(step); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault(); e.stopPropagation(); onEdit?.(step);
+        }
+      }}
     >
       <div className="kc-child-row">
-        {/* Chevron is its own button — expand/collapse only. The rest of the
-            row opens the edit drawer, mirroring how kanban cards behave. */}
+        {/* Chevron, X (delete), + (add go) and the gos-counter are all inert
+            relative to the row click — each has stopPropagation. */}
         <button
           type="button"
           className="kc-child-icon kc-child-chevron-btn"
@@ -375,18 +399,20 @@ const StepSubcard = memo(function StepSubcard({
           title={expanded ? 'Collapse' : 'Expand'}
           aria-label={expanded ? 'Collapse step' : 'Expand step'}
         ><ChevronRight size={12} className="kc-child-chevron" /></button>
-        <button
-          type="button"
-          className="kc-child-edit-target"
-          onClick={(e) => { e.stopPropagation(); onEdit?.(step); }}
-          title="Open step"
-        >
-          <span className="kc-child-num">{String(step.position + 1).padStart(2, '0')}</span>
-          <span className="kc-child-name">{step.title}</span>
-          <span className="kc-child-meta-inline">
-            {step.gos_done} / {step.gos_count}
-          </span>
-        </button>
+        <span className="kc-child-num">{String(step.position + 1).padStart(2, '0')}</span>
+        <span className="kc-child-name">{step.title}</span>
+        <span className="kc-child-meta-inline">
+          {step.gos_done} / {step.gos_count}
+        </span>
+        {onDelete && (
+          <button
+            type="button"
+            className="kc-child-icon kc-child-unlink"
+            onClick={(e) => { e.stopPropagation(); onDelete(step); }}
+            title="Delete step (children stay under «gos · no step»)"
+            aria-label="Delete step"
+          ><X size={11} /></button>
+        )}
         {onAddGoInStep && (
           <button
             type="button"
@@ -410,6 +436,7 @@ const StepSubcard = memo(function StepSubcard({
                 stepTitle={step.title}
                 onToggle={onToggleGo}
                 onEdit={onEditGo}
+                onUnlink={onUnlinkGo}
               />
             ))
           )}
@@ -471,20 +498,26 @@ const RoutineSubcard = memo(function RoutineSubcard({
   const isToday = selectedDate === todayKey;
 
   return (
-    <div className="kc-child" data-kind="routine" data-done={todayState === 'done' || undefined}>
+    <div
+      className="kc-child kc-child--clickable"
+      data-kind="routine"
+      data-done={todayState === 'done' || undefined}
+      role="button"
+      tabIndex={0}
+      title="Open routine"
+      onClick={(e) => { e.stopPropagation(); onEdit?.(r); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault(); e.stopPropagation(); onEdit?.(r);
+        }
+      }}
+    >
       <div className="kc-child-row">
         <span className="kc-child-pill">
           <Repeat size={10} style={{ verticalAlign: -1, marginRight: 3 }} />
           Routine
         </span>
-        <button
-          type="button"
-          className="kc-child-edit-target"
-          onClick={(e) => { e.stopPropagation(); onEdit?.(r); }}
-          title="Open routine"
-        >
-          <span className="kc-child-name">{r.title}</span>
-        </button>
+        <span className="kc-child-name">{r.title}</span>
         {onUnlink && (
           <button
             type="button"
@@ -560,7 +593,7 @@ const RoutineSubcard = memo(function RoutineSubcard({
 
 /** Go sub-card — rendered inside an expanded goal. */
 const GoSubcard = memo(function GoSubcard({
-  go, goalTitle, stepTitle, onToggle, onEdit,
+  go, goalTitle, stepTitle, onToggle, onEdit, onUnlink,
 }: {
   go: import('../../../api/types').Go;
   /** Parent goal title — shown as a tag on the row. */
@@ -570,6 +603,9 @@ const GoSubcard = memo(function GoSubcard({
   onToggle?: (go: import('../../../api/types').Go) => void | Promise<void>;
   /** Opens the right-side edit drawer for this Go. Row click target. */
   onEdit?: (go: import('../../../api/types').Go) => void | Promise<void>;
+  /** Detach the Go from its parent Goal (and Step, if any). The Go
+   *  becomes standalone and disappears from this kanban card. */
+  onUnlink?: (go: import('../../../api/types').Go) => void | Promise<void>;
 }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const due = go.due_date ? new Date(go.due_date) : null;
@@ -579,9 +615,18 @@ const GoSubcard = memo(function GoSubcard({
     : null;
   return (
     <div
-      className="kc-child kc-child--roomy"
+      className="kc-child kc-child--roomy kc-child--clickable"
       data-kind="go"
       data-done={go.is_done_today || undefined}
+      role="button"
+      tabIndex={0}
+      title="Open go"
+      onClick={(e) => { e.stopPropagation(); onEdit?.(go); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault(); e.stopPropagation(); onEdit?.(go);
+        }
+      }}
     >
       {(goalTitle || stepTitle) && (
         <div className="kc-child-tags">
@@ -594,7 +639,8 @@ const GoSubcard = memo(function GoSubcard({
         </div>
       )}
       <div className="kc-child-row">
-        {/* Check stays its own button so clicking it doesn't also open edit. */}
+        {/* Check + unlink each stop propagation so clicking them doesn't
+            also open the edit drawer. */}
         <button
           type="button"
           className="kc-child-check kc-child-check-btn"
@@ -604,16 +650,16 @@ const GoSubcard = memo(function GoSubcard({
         >
           {go.is_done_today && <Check />}
         </button>
-        {/* The name is the edit affordance — click opens the right-side drawer
-            where the user can rename, change schedule, or delete. */}
-        <button
-          type="button"
-          className="kc-child-edit-target"
-          onClick={(e) => { e.stopPropagation(); onEdit?.(go); }}
-          title="Open go"
-        >
-          <span className="kc-child-name">{go.title}</span>
-        </button>
+        <span className="kc-child-name">{go.title}</span>
+        {onUnlink && (
+          <button
+            type="button"
+            className="kc-child-unlink"
+            onClick={(e) => { e.stopPropagation(); onUnlink(go); }}
+            title="Detach go from this goal"
+            aria-label="Detach go from this goal"
+          ><Unlink2 size={11} /></button>
+        )}
       </div>
       {(valueLabel || due) && (
         <div className="kc-child-meta">

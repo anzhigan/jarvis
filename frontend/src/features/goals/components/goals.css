@@ -551,25 +551,20 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* Click target that opens the right-side edit drawer for a step / go /
-   routine. Stretched flex item with transparent background so it inherits
-   the row's hover style; underline on hover gives it a clickable hint. */
-.kc-child-edit-target {
-  flex: 1; min-width: 0;
-  display: inline-flex; align-items: center; gap: 6px;
-  background: transparent; border: 0; padding: 0; margin: 0;
-  font: inherit; color: inherit; cursor: pointer;
-  text-align: left;
+/* The whole step / go / routine plate is the click target — opens the
+   right-side edit drawer. Inner buttons (check, chevron, X, +, unlink)
+   each stopPropagation so they keep their own behaviour. */
+.kc-child--clickable {
+  cursor: pointer;
 }
-.kc-child-edit-target:hover .kc-child-name {
+.kc-child--clickable:hover .kc-child-name {
   text-decoration: underline;
   text-decoration-color: var(--hairline-strong);
   text-underline-offset: 3px;
 }
-.kc-child-edit-target:focus-visible {
+.kc-child--clickable:focus-visible {
   outline: 2px solid var(--indigo-tint);
-  outline-offset: 2px;
-  border-radius: 3px;
+  outline-offset: -2px;
 }
 .kc-child-chevron-btn {
   /* Match kc-child-icon sizing but stay visually inert until hovered. */

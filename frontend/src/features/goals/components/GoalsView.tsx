@@ -178,6 +178,34 @@ export default function GoalsView() {
   const onEditGo      = useCallback((go: Go) => setEditingGo(go), []);
   const onEditRoutine = useCallback((r: Routine) => setEditingRoutine(r), []);
 
+  // Detach a Go from its parent Goal: clears task_id AND step_id so it
+  // shows up in the standalone Gos list. Don't ask for confirmation — the
+  // action is fully reversible (drag back / Go-edit drawer's goal picker).
+  const onUnlinkGo = useCallback(async (go: Go) => {
+    await gos.updateGo(go.id, { task_id: null, step_id: null });
+    await goals.refresh();
+  }, [gos, goals]);
+
+  // "Detach" a Step from its Goal — impossible by schema (Step.goal_id is
+  // NOT NULL), so we delete it. Children Gos survive: ON DELETE SET NULL on
+  // gos.step_id keeps them under the same Goal in the "gos · no step" group.
+  const onDeleteStep = useCallback(async (step: Step) => {
+    const ok = await confirmDialog({
+      title: 'Delete this step?',
+      body: <>«{step.title}» Its Gos stay under the goal in <em>«gos · no step»</em>. This cannot be undone.</>,
+      confirmLabel: 'Delete step',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const { stepsApi } = await import('../../../api/client');
+      await stepsApi.delete(step.id);
+      await Promise.all([goals.refresh(), gos.refresh()]);
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to delete step');
+    }
+  }, [goals, gos]);
+
   // ── Stable callbacks for the kanban + sub-views ──────────────────────────
 
   const onToggleGoDone = useCallback((go: Go) => {
@@ -498,6 +526,8 @@ export default function GoalsView() {
               onEditStep={onEditStep}
               onEditGo={onEditGo}
               onEditRoutine={onEditRoutine}
+              onUnlinkGo={onUnlinkGo}
+              onDeleteStep={onDeleteStep}
               onAddRoutine={onAddRoutine}
               onToggleRoutineDone={onToggleRoutineDone}
               onSkipRoutine={onSkipRoutine}
