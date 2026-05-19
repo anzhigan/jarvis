@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronRight, Flag, Plus, Repeat, Unlink2, X } from 'lucide-react';
+import { GoalProgressTrack } from './GoalProgressTrack';
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor,
   useDraggable, useDroppable, useSensor, useSensors,
@@ -112,9 +113,10 @@ function GoalCardContent({
     setDescTruncated(el.scrollHeight > el.clientHeight + 1);
   }, [task.description, descExpanded]);
 
-  const pct = Math.round(task.progress ?? 0);
   // Always show progress so the goal card carries an at-a-glance % across all
-  // statuses (backlog, active, paused, done).
+  // statuses (backlog, active, paused, done). The pct + bar/segmented track
+  // are rendered by GoalProgressTrack — keeping the wrapper here in case we
+  // want to gate by status later.
   const showProgress = true;
   const gosCount = task.gos.length;
   const routinesCount = task.routines.length;
@@ -165,10 +167,7 @@ function GoalCardContent({
 
       {showProgress && (
         <div className="kc-progress">
-          <div className="kc-progress-bar"><div className="kc-progress-fill" style={{ width: `${pct}%` }} /></div>
-          <span className="kc-progress-num">
-            {pct}<span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>%</span>
-          </span>
+          <GoalProgressTrack task={task} />
         </div>
       )}
 

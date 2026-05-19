@@ -1095,6 +1095,120 @@
   font-style: italic;
   color: var(--ink-5);
 }
+.gl-card-track {
+  margin-top: 8px;
+}
+
+/* ── GoalProgressTrack ─────────────────────────────────────────────────────
+   Segmented progress strip used on kanban Goal plates AND sidebar Goal cards.
+   One cell per Step (proportional to dates when present, equal otherwise);
+   "today" caret floats above based on % time elapsed in the goal window. */
+
+.gpt {
+  display: flex; flex-direction: column;
+  width: 100%;
+  gap: 3px;
+}
+.gpt--compact { gap: 2px; }
+
+/* Caret row sits over the bar — fixed height keeps the bar's vertical
+   position constant regardless of whether the caret is shown. */
+.gpt__marker-row {
+  position: relative;
+  height: 11px;
+  pointer-events: none;
+}
+.gpt--compact .gpt__marker-row { height: 7px; }
+
+.gpt__today {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  gap: 1px;
+  color: var(--indigo);
+}
+.gpt__today-label {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+.gpt__today-caret {
+  display: block;
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--indigo);
+  filter: drop-shadow(0 0 0 var(--paper));
+}
+
+/* Segmented track — each `gpt__seg` is a milestone segment. */
+.gpt__segments {
+  display: grid;
+  width: 100%;
+  height: 8px;
+  gap: 2px;
+  background: transparent;
+}
+.gpt--compact .gpt__segments { height: 6px; gap: 1.5px; }
+
+.gpt__seg {
+  height: 100%;
+  background: var(--cream);
+  border-radius: 2px;
+  position: relative;
+  transition: background var(--dur-fast);
+  min-width: 4px;
+}
+.gpt__seg[data-state="done"]        { background: var(--moss); }
+.gpt__seg[data-state="in_progress"] {
+  background: var(--ochre-soft);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--ochre)       0px, var(--ochre)       2px,
+    transparent        2px, transparent        6px
+  );
+}
+
+/* Fallback plain track — used when goal has 0 steps. */
+.gpt__track {
+  width: 100%; height: 8px;
+  background: var(--cream);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.gpt--compact .gpt__track { height: 6px; }
+.gpt__fill {
+  height: 100%;
+  background: var(--indigo);
+  border-radius: 2px;
+  transition: width var(--dur-med);
+}
+
+/* Footer line — big pct + step counter. Hidden in compact mode. */
+.gpt__foot {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.gpt__pct {
+  color: var(--ink-2);
+}
+.gpt__pct b {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  letter-spacing: -0.012em;
+  margin-right: 1px;
+}
+.gpt__pct-sym { color: var(--ink-4); }
+.gpt__steps { color: var(--ink-4); }
 
 /* ── Right pane: focused goal canvas ─────────────────────────────────────── */
 .go-rightpane {

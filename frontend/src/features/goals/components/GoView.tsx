@@ -3,6 +3,7 @@ import { Check, ChevronDown, ChevronRight, Edit3, Minus, Plus, Repeat, Search, X
 import type { Go, Step, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { goCurrentStreak, groupGosByGoal } from '../hooks/useGos';
 import { ErrorBoundary } from '../../../components/ErrorBoundary';
+import { GoalProgressTrack } from './GoalProgressTrack';
 import type { GoMode } from './GoalsView';
 
 type DayFilter = 'past' | 'today' | 'future';
@@ -600,6 +601,12 @@ export function GoView({
                                     ? `${due.label} · overdue`
                                     : `due ${due.label} · ${due.days}d`}
                               </span>
+                            </div>
+                            {/* Editorial step-segmented progress strip with a
+                                "today" caret. Compact variant — no big pct
+                                footer (the title row already shows it). */}
+                            <div className="gl-card-track">
+                              <GoalProgressTrack task={goal} compact />
                             </div>
                           </div>
                         </button>
