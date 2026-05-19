@@ -141,13 +141,38 @@ def _build_prompt(
 
     mode_block = ""
     if mode == "dates_only":
+        # In dates_only we also surface each step's existing Gos so the
+        # model can suggest a due_date per go (inside its step's window).
+        # IDs are NOT exposed — frontend matches proposals to existing
+        # steps/gos by position to avoid LLM ID hallucination.
+        existing_with_gos: list[dict[str, Any]] = []
+        for s in sorted(goal.steps, key=lambda x: x.position):
+            step_gos: list[dict[str, Any]] = []
+            for g in s.gos:  # ordered by created_at by default — preserve
+                step_gos.append({
+                    "title": g.title,
+                    "due_date": g.due_date.isoformat() if g.due_date else None,
+                })
+            existing_with_gos.append({
+                "position": s.position,
+                "title": s.title,
+                "description": (s.description or "")[:200],
+                "start_date": s.start_date.isoformat() if s.start_date else None,
+                "end_date": s.end_date.isoformat() if s.end_date else None,
+                "gos": step_gos,
+            })
         mode_block = f"""
 MODE: dates_only
 
-EXISTING STEPS (preserve order, titles, descriptions — only fill in dates):
-{json.dumps(existing_steps, ensure_ascii=False, indent=2)}
+EXISTING STEPS WITH THEIR GOS (preserve order, titles, descriptions —
+ONLY fill in dates):
+{json.dumps(existing_with_gos, ensure_ascii=False, indent=2)}
 
-DO NOT add, remove, or rename steps. Set start_date / end_date for each."""
+For EACH step: set start_date + end_date inside the goal window.
+For EACH go inside a step: set due_date inside that step's window.
+Distribute evenly but bias earlier-step boundaries shorter; later
+boundaries longer (lead-in is small, execution is big).
+DO NOT add, remove, or rename steps or gos. Output the same lengths back."""
     else:
         mode_block = f"""
 MODE: full
@@ -258,19 +283,19 @@ def _clamp_dates(
         st.start_date = s.isoformat()
         st.end_date = e.isoformat()
 
-        # Clamp Go due_dates into [s, e]
-        if mode == "dates_only":
-            st.gos = []  # never auto-add gos in dates_only
-        else:
-            cleaned_gos: list[GoalPlanGo] = []
-            for g in st.gos:
-                gd = clamp(g.due_date)
-                if gd is None or gd < s or gd > e:
-                    # Place mid-step as default fallback
-                    gd = s + (e - s) // 2
-                g.due_date = gd.isoformat()
-                cleaned_gos.append(g)
-            st.gos = cleaned_gos
+        # Clamp Go due_dates into [s, e]. Both modes now propose dates for
+        # gos — in dates_only we keep gos but only their due_date is honoured
+        # downstream; in full we use everything (title, kind, target, etc.).
+        cleaned_gos: list[GoalPlanGo] = []
+        for g in st.gos:
+            gd = clamp(g.due_date)
+            if gd is None or gd < s or gd > e:
+                # Place mid-step as default fallback when LLM gave an out-of-
+                # range or unparsable date.
+                gd = s + (e - s) // 2
+            g.due_date = gd.isoformat()
+            cleaned_gos.append(g)
+        st.gos = cleaned_gos
 
         last_end = e
         cleaned.append(st)

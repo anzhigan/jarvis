@@ -321,9 +321,12 @@ export default function GoalsView() {
   // AI goal-plan drawer state — separate from the manual create dialogs.
   // `goalPlanJobId` is the AI job id we're polling; `goalPlanGoalId` is the
   // goal it targets (we keep it explicitly so Regenerate inside the drawer
-  // can fire a fresh job for the same goal).
+  // can fire a fresh job for the same goal). `goalPlanMode` distinguishes
+  // 'full' (fresh planning) from 'dates_only' (auto-place on existing
+  // steps) so the drawer can render and apply differently.
   const [goalPlanJobId,  setGoalPlanJobId]  = useState<string | null>(null);
   const [goalPlanGoalId, setGoalPlanGoalId] = useState<string | null>(null);
+  const [goalPlanMode,   setGoalPlanMode]   = useState<'full' | 'dates_only'>('full');
 
   const onGoalCreated = useCallback(async (
     taskId: string, followUp: 'none' | 'go' | 'routine' | 'ai_plan',
@@ -339,10 +342,30 @@ export default function GoalsView() {
           source: { section: 'goals', noteTitle: 'goal plan' },
         });
         setGoalPlanGoalId(taskId);
+        setGoalPlanMode('full');
         setGoalPlanJobId(job.id);
       } catch (e: any) {
         toast.error(e?.detail ?? e?.message ?? 'Failed to start AI plan');
       }
+    }
+  }, [addBgJob]);
+
+  /** Trigger AI 'dates_only' plan for an existing goal — wired into
+   *  GoalDetailPanel's "Auto-place dates" button. Same drawer renders
+   *  the diff and patches dates on Apply. */
+  const onPlanDates = useCallback(async (taskId: string) => {
+    try {
+      const job = await aiApi.createGoalPlan({ goal_id: taskId, mode: 'dates_only' });
+      addBgJob({
+        jobId: job.id,
+        kind: 'goal_plan',
+        source: { section: 'goals', noteTitle: 'auto dates' },
+      });
+      setGoalPlanGoalId(taskId);
+      setGoalPlanMode('dates_only');
+      setGoalPlanJobId(job.id);
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to start auto-place dates');
     }
   }, [addBgJob]);
 
@@ -674,6 +697,7 @@ export default function GoalsView() {
         // When opened from a Plan-day Goal pill the plan stays visible — drop
         // its overlay so it isn't dimmed twice and clicks can hop between.
         nonModal={scheduleJobId !== null && scheduleDrawerOpen}
+        onPlanDates={onPlanDates}
       />
 
       <GoalCreateDialog
@@ -754,8 +778,20 @@ export default function GoalsView() {
       <GoalPlanDrawer
         jobId={goalPlanJobId}
         goalId={goalPlanGoalId}
+        // Live goal — drawer needs it in dates_only mode to match
+        // proposed[i] → existing step / go IDs by position when applying.
+        existingGoal={
+          goalPlanGoalId
+            ? goals.tasks.find((t) => t.id === goalPlanGoalId) ?? null
+            : null
+        }
+        regenerateMode={goalPlanMode}
         onJobIdChange={setGoalPlanJobId}
-        onClose={() => { setGoalPlanJobId(null); setGoalPlanGoalId(null); }}
+        onClose={() => {
+          setGoalPlanJobId(null);
+          setGoalPlanGoalId(null);
+          setGoalPlanMode('full');
+        }}
         onApplied={async () => {
           await Promise.all([goals.refresh(), gos.refresh()]);
         }}

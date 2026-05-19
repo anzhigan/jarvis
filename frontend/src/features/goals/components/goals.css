@@ -3910,3 +3910,34 @@
   padding-top: 10px;
   border-top: 1px solid var(--hairline);
 }
+
+/* dates_only mode — static step title (read-only) + current→proposed diff */
+.gp-plan__step-title-static {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 14px; color: var(--ink);
+  letter-spacing: -0.012em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0;
+  padding: 6px 0;
+}
+
+.gp-diff {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  font-family: var(--font-mono); font-size: 10.5px;
+  margin-right: 12px;
+}
+.gp-diff--compact { margin-right: 0; margin-left: auto; }
+.gp-diff__label {
+  font-family: var(--font-ui); font-size: 9.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-5);
+  margin-right: 2px;
+}
+.gp-diff__current {
+  color: var(--ink-5); text-decoration: line-through;
+  text-decoration-color: var(--ink-5);
+}
+.gp-diff__arrow { color: var(--ink-5); }
+.gp-diff__proposed { color: var(--indigo); font-weight: 600; }
+.gp-diff[data-same] .gp-diff__current { text-decoration: none; color: var(--ink-4); }
+.gp-diff[data-same] .gp-diff__proposed { color: var(--ink-4); font-weight: 400; }

@@ -26,6 +26,9 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Skip overlay/focus-trap when stacked alongside another drawer (Plan-day). */
   nonModal?: boolean;
+  /** Fires the AI `dates_only` goal_plan for the current goal — parent
+   *  (GoalsView) handles enqueueing + opening the GoalPlanDrawer. */
+  onPlanDates?: (goalId: string) => void;
 }
 
 const STATUSES: { value: TaskStatus; label: string }[] = [
@@ -41,7 +44,9 @@ const PRIORITIES: { value: TaskPriority; label: string; tone: string }[] = [
   { value: 'high',   label: 'High',   tone: 'var(--rust)'  },
 ];
 
-export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }: Props) {
+export function GoalDetailPanel({
+  goal, library, open, onOpenChange, nonModal, onPlanDates,
+}: Props) {
   const [title, setTitle] = useState(goal?.title ?? '');
   const [description, setDescription] = useState(goal?.description ?? '');
   useEffect(() => {
@@ -335,6 +340,28 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }:
             : <>{gosDone} / {goal.gos.length} done today</>}
         </span>
       </div>
+
+      {/* AI CTA — only meaningful when there's actually something to date.
+          The handler is parent-provided so it can wire into the existing
+          AI-job + drawer plumbing in GoalsView. */}
+      {onPlanDates && goal.steps.length > 0 && (
+        <div className="ui-field" style={{ marginTop: 8 }}>
+          <Button
+            variant="ghost"
+            onClick={() => onPlanDates(goal.id)}
+            style={{ width: '100%', justifyContent: 'center', gap: 6 }}
+          >
+            <span aria-hidden>✨</span> Auto-place dates with AI
+          </Button>
+          <p style={{
+            margin: '6px 2px 0', fontSize: 'var(--text-2xs)',
+            color: 'var(--ink-5)', fontStyle: 'italic',
+          }}>
+            Proposes start/end for each step and due dates for their gos —
+            balanced across the goal window and your other active deadlines.
+          </p>
+        </div>
+      )}
     </Drawer>
   );
 }

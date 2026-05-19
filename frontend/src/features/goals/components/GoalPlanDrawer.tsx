@@ -16,7 +16,7 @@ import { Loader2, RefreshCw, Sparkles, Target, X, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Drawer, Input } from '../../../components/ui';
 import { aiApi, gosApi, stepsApi } from '../../../api/client';
-import type { AIJob, GoalPlanOutput } from '../../../api/types';
+import type { AIJob, GoalPlanOutput, Task } from '../../../api/types';
 import { useAIJob } from '../../ai/useAIJob';
 import {
   dispatchAIJobDrawerClosed,
@@ -33,6 +33,15 @@ interface Props {
   onApplied?: () => Promise<void> | void;
   /** Goal that this plan targets. Used to drive Regenerate if user wants. */
   goalId: string | null;
+  /** Current state of the goal — needed in `dates_only` mode so we can
+   *  match proposed steps/gos back to real IDs by position and call
+   *  PATCH endpoints instead of POST. Optional; only required for
+   *  `dates_only` proposals. */
+  existingGoal?: Task | null;
+  /** Force the regenerate button to fire this mode (defaults to whatever
+   *  mode the current draft says). Used by the parent to keep the
+   *  dates-only flow on dates-only refresh. */
+  regenerateMode?: 'full' | 'dates_only';
 }
 
 type View =
@@ -41,7 +50,7 @@ type View =
   | { kind: 'plan';    plan: GoalPlanOutput };
 
 export function GoalPlanDrawer({
-  jobId, onJobIdChange, onClose, onApplied, goalId,
+  jobId, onJobIdChange, onClose, onApplied, goalId, existingGoal, regenerateMode,
 }: Props) {
   const open = jobId !== null;
   const { job, error: pollError } = useAIJob(jobId);
@@ -106,12 +115,16 @@ export function GoalPlanDrawer({
   const regenerate = async () => {
     if (!goalId) return;
     setRegenerating(true);
+    // Stick to the original flow: a dates_only drawer regenerates dates_only,
+    // a full drawer regenerates full. Falls back to current draft.mode, then
+    // to 'full' as a safe default.
+    const mode = regenerateMode ?? draft?.mode ?? 'full';
     try {
-      const fresh = await aiApi.createGoalPlan({ goal_id: goalId });
+      const fresh = await aiApi.createGoalPlan({ goal_id: goalId, mode });
       addBgJob({
         jobId: fresh.id,
         kind: 'goal_plan',
-        source: { section: 'goals', noteTitle: 'goal plan' },
+        source: { section: 'goals', noteTitle: mode === 'dates_only' ? 'auto dates' : 'goal plan' },
       });
       onJobIdChange(fresh.id);
     } catch (e: any) {
@@ -121,13 +134,86 @@ export function GoalPlanDrawer({
     }
   };
 
-  /** Materialise the accepted steps + their gos via the regular APIs.
-   *  Sequential to preserve order (steps get positions inferred from
-   *  the backend's autoincrement). Per-step failure is toasted but
-   *  doesn't block the rest. */
+  /** Apply the proposal. Two paths:
+   *
+   *   - **full**: create new steps + their first gos via POST. Sequential
+   *     so step.position is stable and per-step failures don't block.
+   *
+   *   - **dates_only**: PATCH existing steps' start/end dates + each go's
+   *     due_date. We match proposed[i] → existingGoal.steps[i] by position
+   *     (backend's prompt rule "preserve order") — same goes for gos
+   *     within each step.
+   */
   const apply = async () => {
     if (!draft || !goalId) return;
     setSubmitting(true);
+
+    if (draft.mode === 'dates_only') {
+      if (!existingGoal) {
+        toast.error('Cannot apply — missing goal context');
+        setSubmitting(false);
+        return;
+      }
+      // Sort existing steps by position so the index-match aligns with
+      // the prompt's "preserve order" instruction.
+      const existingSteps = [...(existingGoal.steps ?? [])].sort(
+        (a, b) => a.position - b.position,
+      );
+      // Bucket existing gos by step_id so we can pluck the i-th go per step.
+      const gosByStepId = new Map<string, typeof existingGoal.gos>();
+      for (const g of existingGoal.gos ?? []) {
+        if (!g.step_id) continue;
+        const arr = gosByStepId.get(g.step_id) ?? [];
+        arr.push(g);
+        gosByStepId.set(g.step_id, arr);
+      }
+
+      let stepsUpdated = 0;
+      let gosUpdated = 0;
+      try {
+        for (let i = 0; i < acceptedSteps.length; i++) {
+          const proposed = acceptedSteps[i];
+          // Find the original index relative to draft.steps so we map back
+          // to the same existingSteps[i] even if user dropped some.
+          const origIdx = draft.steps.indexOf(proposed);
+          const existing = existingSteps[origIdx];
+          if (!existing) continue;
+          try {
+            await stepsApi.update(existing.id, {
+              start_date: proposed.start_date || null,
+              end_date:   proposed.end_date   || null,
+            });
+            stepsUpdated++;
+          } catch (e: any) {
+            toast.error(`Step «${proposed.title}» date update failed: ${e?.detail ?? 'error'}`);
+            continue;
+          }
+          // Match this step's gos by index within the step's gos list.
+          const existingGos = gosByStepId.get(existing.id) ?? [];
+          for (let gi = 0; gi < (proposed.gos ?? []).length; gi++) {
+            const proposedGo = proposed.gos[gi];
+            const existingGo = existingGos[gi];
+            if (!existingGo || !proposedGo.due_date) continue;
+            try {
+              await gosApi.update(existingGo.id, { due_date: proposedGo.due_date });
+              gosUpdated++;
+            } catch { /* per-go failure already noisy in console */ }
+          }
+        }
+        toast.success(
+          `Updated · ${stepsUpdated} step${stepsUpdated === 1 ? '' : 's'}, `
+          + `${gosUpdated} go${gosUpdated === 1 ? '' : 's'}`,
+        );
+        await onApplied?.();
+        onJobIdChange(null);
+        onClose();
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // ── full mode (original create flow) ───────────────────────────────
     let stepsCreated = 0;
     let gosCreated = 0;
     try {
@@ -140,7 +226,6 @@ export function GoalPlanDrawer({
             end_date:   step.end_date   || null,
           });
           stepsCreated++;
-          // Materialise this step's gos (full mode only — dates_only has empty arrays).
           for (const g of step.gos ?? []) {
             try {
               await gosApi.create({
@@ -236,6 +321,16 @@ export function GoalPlanDrawer({
                 <ul className="gp-plan__steps">
                   {draft.steps.map((s, i) => {
                     const dropped = droppedStepIdx.has(i);
+                    const isDatesOnly = draft.mode === 'dates_only';
+                    // Pull the original step + gos from the live goal so we
+                    // can render the "current → proposed" diff inline.
+                    const existingSteps = existingGoal
+                      ? [...(existingGoal.steps ?? [])].sort((a, b) => a.position - b.position)
+                      : [];
+                    const existingStep = existingSteps[i];
+                    const existingGos = existingGoal && existingStep
+                      ? (existingGoal.gos ?? []).filter((g) => g.step_id === existingStep.id)
+                      : [];
                     return (
                       <li
                         key={i}
@@ -244,40 +339,77 @@ export function GoalPlanDrawer({
                       >
                         <div className="gp-plan__step-head">
                           <span className="gp-plan__step-num">{String(i + 1).padStart(2, '0')}</span>
-                          <Input
-                            value={s.title}
-                            onChange={(e) => updateStepTitle(i, e.target.value)}
-                            aria-label={`Step ${i + 1} title`}
-                          />
+                          {isDatesOnly ? (
+                            <span className="gp-plan__step-title-static">{s.title}</span>
+                          ) : (
+                            <Input
+                              value={s.title}
+                              onChange={(e) => updateStepTitle(i, e.target.value)}
+                              aria-label={`Step ${i + 1} title`}
+                            />
+                          )}
                           <button
                             type="button"
                             className="gp-plan__step-drop"
                             onClick={() => toggleDropStep(i)}
-                            title={dropped ? 'Bring back' : 'Drop this step'}
-                            aria-label={dropped ? 'Restore step' : 'Drop step'}
+                            title={
+                              dropped
+                                ? 'Include'
+                                : isDatesOnly ? 'Skip this update' : 'Drop this step'
+                            }
+                            aria-label={dropped ? 'Include' : 'Skip'}
                           >
                             {dropped ? '↺' : <X size={12} />}
                           </button>
                         </div>
-                        {s.description && (
+                        {s.description && !isDatesOnly && (
                           <p className="gp-plan__step-desc">{s.description}</p>
                         )}
                         <div className="gp-plan__step-dates">
-                          <time>{s.start_date}</time>
-                          <span className="gp-plan__step-dates-sep">→</span>
-                          <time>{s.end_date}</time>
+                          {isDatesOnly && existingStep ? (
+                            <>
+                              <DateDiff
+                                label="start"
+                                current={existingStep.start_date}
+                                proposed={s.start_date}
+                              />
+                              <DateDiff
+                                label="end"
+                                current={existingStep.end_date}
+                                proposed={s.end_date}
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <time>{s.start_date}</time>
+                              <span className="gp-plan__step-dates-sep">→</span>
+                              <time>{s.end_date}</time>
+                            </>
+                          )}
                         </div>
                         {s.gos.length > 0 && (
                           <ul className="gp-plan__gos">
-                            {s.gos.map((g, gi) => (
-                              <li key={gi} className="gp-plan__go">
-                                <Zap size={9} className="gp-plan__go-icon" />
-                                <span className="gp-plan__go-title">{g.title}</span>
-                                {g.due_date && (
-                                  <time className="gp-plan__go-due">{g.due_date}</time>
-                                )}
-                              </li>
-                            ))}
+                            {s.gos.map((g, gi) => {
+                              const existingGo = existingGos[gi];
+                              return (
+                                <li key={gi} className="gp-plan__go">
+                                  <Zap size={9} className="gp-plan__go-icon" />
+                                  <span className="gp-plan__go-title">{g.title}</span>
+                                  {isDatesOnly && existingGo ? (
+                                    <DateDiff
+                                      label=""
+                                      current={existingGo.due_date}
+                                      proposed={g.due_date}
+                                      compact
+                                    />
+                                  ) : (
+                                    g.due_date && (
+                                      <time className="gp-plan__go-due">{g.due_date}</time>
+                                    )
+                                  )}
+                                </li>
+                              );
+                            })}
                           </ul>
                         )}
                       </li>
@@ -306,12 +438,43 @@ export function GoalPlanDrawer({
               >
                 {submitting
                   ? 'Applying…'
-                  : `Apply plan · ${acceptedSteps.length} step${acceptedSteps.length === 1 ? '' : 's'}`}
+                  : draft.mode === 'dates_only'
+                    ? `Update dates · ${acceptedSteps.length} step${acceptedSteps.length === 1 ? '' : 's'}`
+                    : `Apply plan · ${acceptedSteps.length} step${acceptedSteps.length === 1 ? '' : 's'}`}
               </Button>
             </div>
           </>
         )}
       </div>
     </Drawer>
+  );
+}
+
+
+/** Inline "current → proposed" date diff. When the user has no current
+ *  date set, only the proposed is shown (no strikethrough source). Compact
+ *  mode shrinks the label so it fits inside the per-go row. */
+function DateDiff({
+  current, proposed, label, compact = false,
+}: {
+  current: string | null;
+  proposed: string;
+  label: string;
+  compact?: boolean;
+}) {
+  const cur = current ?? '';
+  const same = cur === proposed;
+  const hasCurrent = Boolean(current);
+  return (
+    <span className={`gp-diff${compact ? ' gp-diff--compact' : ''}`} data-same={same || undefined}>
+      {label && <span className="gp-diff__label">{label}</span>}
+      {hasCurrent && (
+        <>
+          <span className="gp-diff__current">{cur}</span>
+          <span className="gp-diff__arrow">→</span>
+        </>
+      )}
+      <span className="gp-diff__proposed">{proposed}</span>
+    </span>
   );
 }
