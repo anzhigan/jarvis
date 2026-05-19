@@ -60,6 +60,8 @@ function areaPathFor(line: string, firstX: number, lastX: number, baselineY: num
 
 export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: CompletionProps) {
   const [mode, setMode] = useState<SeriesMode>('routines');
+  // Hovered index — drives the vertical guide + tooltip. null = no hover.
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   // ── Series ──────────────────────────────────────────────────────────
   const routinesSeries = useMemo(() => {
@@ -156,9 +158,17 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
   const xScale = (i: number) => CPAD_L + (i / Math.max(1, N - 1)) * innerW;
 
   const yTicks = [0, 25, 50, 75, 100].map((v) => ({ v, y: yScale(v) }));
+  // X ticks every ~5 days, label = real calendar date ("May 14"), so a glance
+  // at the bottom tells the user when they actually were active.
+  const fmtTick = (iso: string) => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  };
+  const tickEvery = N > 60 ? 14 : N > 30 ? 7 : 5;
   const xTicks = Array.from({ length: N }, (_, i) => i)
-    .filter((i) => i === 0 || i === N - 1 || i % 5 === 0)
-    .map((i) => ({ x: xScale(i), label: `d-${N - 1 - i}` }));
+    .filter((i) => i === 0 || i === N - 1 || i % tickEvery === 0)
+    .map((i) => ({ x: xScale(i), label: fmtTick(activity[i].date) }));
 
   const showRoutines = mode === 'routines' || mode === 'both';
   const showGoals    = mode === 'goals'    || mode === 'both';
@@ -214,6 +224,7 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
         </div>
       </header>
       <div className="acc-body">
+       <div className="dc-plot">
         <svg viewBox={`0 0 ${CW} ${CH}`} className="chart-svg" preserveAspectRatio="xMidYMid meet">
           {/* Grid */}
           {yTicks.map((t) => (
@@ -256,7 +267,102 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
                 fill="var(--rust)" fontSize={10} fontFamily="JetBrains Mono">expected · {pace.expectedPct}%</text>
             </>
           )}
+
+          {/* Hover guide — vertical line at the hovered day + colored dots on
+              each visible series. Computed once from hoverIdx so all the
+              point markers stay aligned. */}
+          {hoverIdx !== null && (
+            <g pointerEvents="none">
+              <line
+                x1={xScale(hoverIdx)} x2={xScale(hoverIdx)}
+                y1={CPAD_T} y2={CH - CPAD_B}
+                stroke="var(--ink-3)" strokeWidth={1} strokeDasharray="3 3" opacity={0.55}
+              />
+              {showRoutines && routinesSeries[hoverIdx] !== undefined && (
+                <circle cx={xScale(hoverIdx)} cy={yScale(routinesSeries[hoverIdx])}
+                  r={4} fill="var(--indigo)" stroke="var(--paper)" strokeWidth={1.5} />
+              )}
+              {showGoals && goalsSeries[hoverIdx] !== undefined && (
+                <circle cx={xScale(hoverIdx)} cy={yScale(goalsSeries[hoverIdx])}
+                  r={4} fill="var(--moss)" stroke="var(--paper)" strokeWidth={1.5} />
+              )}
+            </g>
+          )}
+
+          {/* Invisible overlay that captures mouse moves anywhere over the
+              plot area and resolves the nearest index. Must be the LAST
+              element so it sits on top of paths/areas (and doesn't get
+              hidden by them under pointer-events). */}
+          <rect
+            x={CPAD_L} y={CPAD_T}
+            width={innerW} height={innerH}
+            fill="transparent"
+            style={{ cursor: 'crosshair' }}
+            onMouseMove={(e) => {
+              const svg = e.currentTarget.ownerSVGElement;
+              if (!svg) return;
+              const pt = svg.createSVGPoint();
+              pt.x = e.clientX; pt.y = e.clientY;
+              const local = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+              const t = Math.max(0, Math.min(1, (local.x - CPAD_L) / innerW));
+              const idx = Math.round(t * Math.max(1, N - 1));
+              if (idx !== hoverIdx) setHoverIdx(idx);
+            }}
+            onMouseLeave={() => setHoverIdx(null)}
+          />
         </svg>
+
+        {/* Tooltip — rendered as a positioned div outside the SVG so we get
+            crisp text + design-system fonts. Anchored via % calculation so
+            it stays inside the chart bounds. */}
+        {hoverIdx !== null && (() => {
+          const a = activity[hoverIdx];
+          const rPct = routinesSeries[hoverIdx];
+          const gPct = goalsSeries[hoverIdx];
+          const xPct = ((xScale(hoverIdx) / CW) * 100);
+          // Flip the tooltip to the left when near the right edge.
+          const flipLeft = xPct > 70;
+          const d = new Date(a.date);
+          const niceDate = isNaN(d.getTime())
+            ? a.label
+            : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+          return (
+            <div
+              className="dc-tooltip"
+              data-flip={flipLeft || undefined}
+              style={{ left: `${xPct}%` }}
+            >
+              <div className="dc-tooltip__date">{niceDate}</div>
+              <div className="dc-tooltip__rows">
+                {showRoutines && rPct !== undefined && (
+                  <div className="dc-tooltip__row">
+                    <span className="dc-tooltip__sw" style={{ background: 'var(--indigo)' }} />
+                    <span className="dc-tooltip__lbl">Routines</span>
+                    <span className="dc-tooltip__val">{rPct}%</span>
+                    <span className="dc-tooltip__sub">{a.routines} logged</span>
+                  </div>
+                )}
+                {showGoals && gPct !== undefined && (
+                  <div className="dc-tooltip__row">
+                    <span className="dc-tooltip__sw" style={{ background: 'var(--moss)' }} />
+                    <span className="dc-tooltip__lbl">Goals</span>
+                    <span className="dc-tooltip__val">{gPct}%</span>
+                    <span className="dc-tooltip__sub">{a.goals} closed</span>
+                  </div>
+                )}
+                {showPace && (
+                  <div className="dc-tooltip__row">
+                    <span className="dc-tooltip__sw dc-tooltip__sw--line"
+                      style={{ background: 'var(--rust)' }} />
+                    <span className="dc-tooltip__lbl">Expected</span>
+                    <span className="dc-tooltip__val">{pace.expectedPct}%</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+       </div>
 
         {/* Legend */}
         <div className="dc-legend">

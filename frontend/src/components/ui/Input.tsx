@@ -131,8 +131,12 @@ function CalendarMonth({
   const minD = parseYmd(min ?? '');
   const maxD = parseYmd(max ?? '');
 
+  // When the field is empty AND has a `min` constraint, open the calendar
+  // on `min`'s month so the user lands directly on the first allowed day
+  // (typical case: end-date picker for a goal/step/go whose start is set —
+  // we don't want to scroll back through months that are all disabled).
   const [view, setView] = useState(() => {
-    const anchor = selected ?? today;
+    const anchor = selected ?? minD ?? today;
     return new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   });
 
