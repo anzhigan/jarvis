@@ -103,7 +103,9 @@
 .ana-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 460px;
-  gap: 24px;
+  /* Tight enough to feel related, loose enough to breathe. The main column
+     keeps its `1fr` so the saved gap goes straight into chart card width. */
+  gap: 14px;
   align-items: start;
 }
 .ana-main { display: flex; flex-direction: column; min-width: 0; }

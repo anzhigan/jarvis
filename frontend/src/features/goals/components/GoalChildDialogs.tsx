@@ -7,6 +7,34 @@ import type { Go, GoKind, GoRecurrence, Step, StepStatus, Task } from '../../../
 import type { GoalsLibrary } from '../hooks/useGoals';
 import type { GosLibrary } from '../hooks/useGos';
 
+/** YMD + 1 day, ISO format. Robust to month/year rollover (Date handles it).
+ *  Empty / unparsable input returns ''. */
+function addOneDay(ymd: string | null | undefined): string {
+  if (!ymd) return '';
+  const d = new Date(ymd);
+  if (isNaN(d.getTime())) return '';
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Given a goal and (optionally) the current step being edited, return the
+ *  end_date of the step that precedes it by position. For a fresh step we
+ *  use the latest step's end_date. Null when there's no previous step or
+ *  its end_date is unset. */
+function previousStepEnd(goal: Task | null, currentStepId?: string): string | null {
+  if (!goal) return null;
+  const steps = [...(goal.steps ?? [])].sort((a, b) => a.position - b.position);
+  if (steps.length === 0) return null;
+  // Edit mode: previous = step right before `currentStepId` by position.
+  if (currentStepId) {
+    const idx = steps.findIndex((s) => s.id === currentStepId);
+    if (idx <= 0) return null;
+    return steps[idx - 1].end_date ?? null;
+  }
+  // Create mode: last existing step is the predecessor.
+  return steps[steps.length - 1].end_date ?? null;
+}
+
 const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -489,20 +517,30 @@ export function StepCreateDialog({ open, onOpenChange, taskId, goals, onCreated 
   const [attachSearch, setAttachSearch] = useState('');
   const [submitting, setSubmitting]   = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setTitle(''); setDescription(''); setStatus('not_started');
-      setStart(''); setEnd(''); setFirstGoTitle('');
-      setAttachIds(new Set()); setAttachSearch('');
-    }
-  }, [open]);
-
   // Pull this goal's Gos so user can attach existing items to the new step.
   const parentGoal = useMemo(() => {
     if (!taskId || !goals) return null;
     return goals.find((t) => t.id === taskId) ?? null;
   }, [taskId, goals]);
   const goalGos = useMemo<Go[]>(() => parentGoal?.gos ?? [], [parentGoal]);
+
+  // Suggested start date for the new step = previous step's end + 1 day.
+  // Falls back to goal's start_date when there's no previous step.
+  const suggestedStart = useMemo(() => {
+    const prevEnd = previousStepEnd(parentGoal);
+    if (prevEnd) return addOneDay(prevEnd);
+    return parentGoal?.start_date ?? '';
+  }, [parentGoal]);
+
+  useEffect(() => {
+    if (open) {
+      setTitle(''); setDescription(''); setStatus('not_started');
+      // Pre-fill start with the suggestion so the user only adjusts if
+      // they actually want a different date. End stays empty.
+      setStart(suggestedStart); setEnd(''); setFirstGoTitle('');
+      setAttachIds(new Set()); setAttachSearch('');
+    }
+  }, [open, suggestedStart]);
 
   const filteredGos = useMemo(() => {
     const q = attachSearch.trim().toLowerCase();
@@ -603,12 +641,13 @@ export function StepCreateDialog({ open, onOpenChange, taskId, goals, onCreated 
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            {/* Step must live inside its parent Goal's window — start ≥
-                goal.start_date, end ≤ goal.due_date, end ≥ start. */}
+            {/* Suggested = previous step's end + 1 day; user can still
+                shift it but the picker opens on the suggested month and
+                disables anything before it. */}
             <DateInput
               value={start}
               onChange={setStart}
-              min={parentGoal?.start_date ?? undefined}
+              min={suggestedStart || parentGoal?.start_date || undefined}
               max={end || parentGoal?.due_date || undefined}
             />
           </div>
@@ -617,7 +656,7 @@ export function StepCreateDialog({ open, onOpenChange, taskId, goals, onCreated 
             <DateInput
               value={end}
               onChange={setEnd}
-              min={start || parentGoal?.start_date || undefined}
+              min={start || suggestedStart || parentGoal?.start_date || undefined}
               max={parentGoal?.due_date ?? undefined}
             />
           </div>
@@ -711,12 +750,21 @@ export function StepEditDialog({ step, goals, onOpenChange, onSaved }: StepEditP
   );
   const goalGos = useMemo<Go[]>(() => parentGoal?.gos ?? [], [parentGoal]);
 
+  // Suggested start = previous step's end + 1 (relative to *this* step's
+  // position). Edit mode pre-fills only when start_date is empty — never
+  // overwrite a user-set date on dialog open.
+  const suggestedStart = useMemo(() => {
+    const prevEnd = previousStepEnd(parentGoal, step?.id);
+    if (prevEnd) return addOneDay(prevEnd);
+    return parentGoal?.start_date ?? '';
+  }, [parentGoal, step?.id]);
+
   useEffect(() => {
     if (step) {
       setTitle(step.title);
       setDescription(step.description ?? '');
       setStatus(step.status);
-      setStart(step.start_date ?? '');
+      setStart(step.start_date ?? suggestedStart);
       setEnd(step.end_date ?? '');
       setAttachSearch('');
       // Pre-fill checkbox state with gos that already point to this step.
@@ -727,7 +775,7 @@ export function StepEditDialog({ step, goals, onOpenChange, onSaved }: StepEditP
       setAttachIds(new Set(ids));
       setOriginalIds(new Set(ids));
     }
-  }, [step, goals]);
+  }, [step, goals, suggestedStart]);
 
   const filteredGos = useMemo(() => {
     const q = attachSearch.trim().toLowerCase();
@@ -841,23 +889,22 @@ export function StepEditDialog({ step, goals, onOpenChange, onSaved }: StepEditP
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            {/* Step must live inside its parent Goal's window.
-                Start gets the goal's start_date as `min` and the chosen
-                end (or goal's due_date) as `max`. */}
+            {/* `min` = previous step's end + 1 day when there is one (or
+                goal.start_date otherwise). Picker opens on that month and
+                disables earlier days so steps can't overlap by accident. */}
             <DateInput
               value={start}
               onChange={setStart}
-              min={parentGoal?.start_date ?? undefined}
+              min={suggestedStart || parentGoal?.start_date || undefined}
               max={end || parentGoal?.due_date || undefined}
             />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">End (optional)</span>
-            {/* End ≥ Start (item #6) AND End ≤ Goal.due_date (item #5). */}
             <DateInput
               value={end}
               onChange={setEnd}
-              min={start || parentGoal?.start_date || undefined}
+              min={start || suggestedStart || parentGoal?.start_date || undefined}
               max={parentGoal?.due_date ?? undefined}
             />
           </div>
