@@ -3,7 +3,7 @@ import { Loader2, MoreHorizontal } from 'lucide-react';
 import { useAnalytics, type PeriodKey, PERIOD_DAYS } from '../hooks/useAnalytics';
 import { KpiGrid } from './KpiGrid';
 import {
-  RoutineCompletionChart, GoalsProgressChart, TopStreaksTrending,
+  RoutineCompletionChart, GoalsProgressChart,
   YearHeatmapCard,
 } from './AnalysisCharts';
 import { BreakdownDonut } from './BreakdownDonut';
@@ -139,53 +139,58 @@ export default function AnalysisView() {
               </div>
             </div>
           ) : (
-            <>
-              {/* Row 1 — Hero + KPI 2×2 */}
-              <section className="ana-row ana-row-hero">
-                <div className="ana-hero-block">
-                  <div className="go-eyebrow">{fmtMonth()}, in figures</div>
-                  <h1 className="ana-hero-title">{heroTitle}</h1>
-                  <p className="ana-hero-lede">{heroLede}</p>
-                </div>
-                <KpiGrid kpis={a.kpis} trends={kpiTrends} />
-              </section>
+            <div className="ana-shell">
+              {/* ─ MAIN COLUMN ─────────────────────────────────────────────── */}
+              <div className="ana-main">
+                {/* Row 1 — Hero + KPI 2×2 */}
+                <section className="ana-row ana-row-hero">
+                  <div className="ana-hero-block">
+                    <div className="go-eyebrow">{fmtMonth()}, in figures</div>
+                    <h1 className="ana-hero-title">{heroTitle}</h1>
+                    <p className="ana-hero-lede">{heroLede}</p>
+                  </div>
+                  <KpiGrid kpis={a.kpis} trends={kpiTrends} />
+                </section>
 
-              {/* Row 1.5 — AI Coach panel: one play + at-risk + if-then plan +
-                  capacity math + hidden lever. Replaces the older
-                  Doing-well/Needs-attention/Focus-next narrative. */}
-              <CoachCard period={a.period} />
+                {/* Row 2 — Daily completion (toggle + pace overlay) + Goals
+                    progress bars side-by-side. */}
+                <section className="ana-row ana-row-charts-1">
+                  <RoutineCompletionChart
+                    activity={a.activity}
+                    activeRoutineCount={activeRoutineCount}
+                    tasks={a.tasks}
+                  />
+                  <GoalsProgressChart rows={a.goalProgress} />
+                </section>
 
-              {/* Row 2 — Daily completion (with mode toggle + pace overlay) +
-                  Goals progress bars side-by-side. */}
-              <section className="ana-row ana-row-charts-1">
-                <RoutineCompletionChart
-                  activity={a.activity}
-                  activeRoutineCount={activeRoutineCount}
-                  tasks={a.tasks}
-                />
-                <GoalsProgressChart rows={a.goalProgress} />
-              </section>
+                {/* Row 3 — Breakdown donut + Weekday radar (TopStreaks moved
+                    to the sticky rail). 2-up grid. */}
+                <section className="ana-row ana-row-charts-2">
+                  <BreakdownDonut tasks={a.tasks} routines={a.routines} />
+                  <WeekdayRadar routines={a.routines} periodDays={PERIOD_DAYS[a.period]} />
+                </section>
 
-              {/* Row 3 — Breakdown donut (Tag/Priority/Status/Goal) +
-                  Weekday radar + Top streaks list. */}
-              <section className="ana-row ana-row-charts-2">
-                <BreakdownDonut tasks={a.tasks} routines={a.routines} />
-                <WeekdayRadar routines={a.routines} periodDays={PERIOD_DAYS[a.period]} />
-                <TopStreaksTrending rows={a.topStreaks} routines={a.routines} />
-              </section>
+                {/* Row 3.5 — Per-routine pulse grid (one mini line per routine). */}
+                <section className="ana-row">
+                  <PerRoutinePulse routines={a.routines} windowDays={PERIOD_DAYS[a.period]} />
+                </section>
 
-              {/* Row 3.5 — Per-routine pulse grid (one mini line per routine). */}
-              <section className="ana-row">
-                <PerRoutinePulse routines={a.routines} windowDays={PERIOD_DAYS[a.period]} />
-              </section>
+                {/* Row 4 — Year heatmap full width */}
+                <section className="ana-row">
+                  <YearHeatmapCard grid={a.yearGrid} totalEntries={heatmapEntries} />
+                </section>
 
-              {/* Row 4 — Year heatmap full width */}
-              <section className="ana-row">
-                <YearHeatmapCard grid={a.yearGrid} totalEntries={heatmapEntries} />
-              </section>
+                <div style={{ height: 40 }} />
+              </div>
 
-              <div style={{ height: 40 }} />
-            </>
+              {/* ─ STICKY RAIL ─────────────────────────────────────────────
+                  Coach lives here so it follows the user as they scroll
+                  through the long main column — same role as the sticky
+                  rail in analysis-variant-b.html mockup. */}
+              <aside className="ana-rail">
+                <CoachCard period={a.period} />
+              </aside>
+            </div>
           )}
         </div>
       </main>

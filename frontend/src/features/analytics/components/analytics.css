@@ -97,6 +97,28 @@
 .kpi-trend-down { color: var(--rust); }
 .kpi-trend-neutral { color: var(--ink-4); }
 
+/* ── Page shell — main column + sticky rail ──────────────────────────────
+   Coach lives in the rail so it follows the user through the long main
+   column. Rail collapses to a stacked block on narrow viewports. */
+.ana-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  align-items: start;
+}
+.ana-main { display: flex; flex-direction: column; min-width: 0; }
+.ana-rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  /* Keep the rail card visible even when the user scrolls past the
+     viewport top — leave some breathing room below the topbar. */
+}
+@media (max-width: 1200px) {
+  .ana-shell { grid-template-columns: 1fr; }
+  .ana-rail  { position: static; max-width: 560px; }
+}
+
 /* ── Row 2/3 — chart card rows ───────────────────────────────────────────── */
 .ana-row-charts-1 {
   display: grid;
@@ -105,10 +127,9 @@
 }
 .ana-row-charts-2 {
   display: grid;
-  grid-template-columns: 380px 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-@media (max-width: 1300px) { .ana-row-charts-2 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 900px) {
   .ana-row-charts-1, .ana-row-charts-2 { grid-template-columns: 1fr; }
 }

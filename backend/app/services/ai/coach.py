@@ -86,9 +86,13 @@ async def _load_context(
     )
     goals = list(goals_q.scalars().all())
 
-    # Routines + entries — for streak risk detection.
+    # Routines + entries — for streak risk detection. Eager-load entries via
+    # selectinload so iterating `r.entries` inside _build_risk_candidates
+    # doesn't trip MissingGreenlet (lazy-load in async session).
     routines_q = await db.execute(
-        select(Routine).where(Routine.user_id == user_id, Routine.is_paused.is_(False)),
+        select(Routine)
+        .options(selectinload(Routine.entries))
+        .where(Routine.user_id == user_id, Routine.is_paused.is_(False)),
     )
     routines = list(routines_q.scalars().all())
 
