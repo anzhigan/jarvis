@@ -41,11 +41,6 @@ const PRIORITIES: { value: TaskPriority; label: string; tone: string }[] = [
   { value: 'high',   label: 'High',   tone: 'var(--rust)'  },
 ];
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }: Props) {
   const [title, setTitle] = useState(goal?.title ?? '');
   const [description, setDescription] = useState(goal?.description ?? '');
@@ -86,6 +81,11 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }:
   };
   const onStatus   = (s: TaskStatus)   => library.updateGoal(goal.id, { status: s });
   const onPriority = (p: TaskPriority) => library.updateGoal(goal.id, { priority: p });
+  // Date setters: empty string clears (null). When a user shifts start past
+  // due, the due_date field's `min` prop blocks the date-picker beyond it
+  // — defence-in-depth so the saved row never has end < start.
+  const onStart = (next: string) =>
+    library.updateGoal(goal.id, { start_date: next || null });
   const onDue = (next: string) =>
     library.updateGoal(goal.id, { due_date: next || null });
 
@@ -220,14 +220,29 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }:
       </div>
 
       <div className="ui-field-row">
-        <span className="label"><Calendar size={11} /> Due</span>
+        <span className="label"><Calendar size={11} /> Start</span>
         <span className="value" style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-          <DateInput value={goal.due_date ?? ''} onChange={onDue} ariaLabel="Due date" />
+          {/* When the user picks a start past the current due, we don't
+              block it here — `max` on Start would lock the picker to an
+              outdated due_date. The Due input's `min` enforces the
+              ordering instead (end ≥ start). */}
+          <DateInput
+            value={goal.start_date ?? ''}
+            onChange={onStart}
+            ariaLabel="Start date"
+          />
         </span>
       </div>
       <div className="ui-field-row">
-        <span className="label"><Calendar size={11} /> Start</span>
-        <span className="value">{fmtDate(goal.start_date)}</span>
+        <span className="label"><Calendar size={11} /> Due</span>
+        <span className="value" style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          <DateInput
+            value={goal.due_date ?? ''}
+            onChange={onDue}
+            ariaLabel="Due date"
+            min={goal.start_date ?? undefined}
+          />
+        </span>
       </div>
 
       <div className="ui-field">

@@ -102,7 +102,7 @@
    column. Rail collapses to a stacked block on narrow viewports. */
 .ana-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 400px;
   gap: 24px;
   align-items: start;
 }
@@ -620,21 +620,25 @@
 
 .bd-body {
   display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 16px;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
   align-items: center;
-  padding: 6px 0 4px;
+  padding: 8px 0 4px;
 }
 .bd-svg {
-  width: 140px; height: 140px; display: block;
+  width: 200px; height: 200px; display: block;
 }
 .bd-center {
   font-family: var(--font-display); font-weight: 500;
-  fill: var(--ink); font-size: 14px; letter-spacing: -0.018em;
+  fill: var(--ink); font-size: 16px; letter-spacing: -0.02em;
 }
 .bd-center-lbl {
   font-family: var(--font-ui); font-size: 7.5px;
   letter-spacing: 0.14em; fill: var(--ink-5);
+}
+@media (max-width: 700px) {
+  .bd-body { grid-template-columns: 1fr; }
+  .bd-svg  { width: 180px; height: 180px; margin: 0 auto; }
 }
 .bd-slice {
   transition: opacity var(--dur-fast);
@@ -816,6 +820,21 @@
   stroke: var(--hairline-faint);
   stroke-dasharray: 2 3;
   stroke-width: 1;
+}
+/* Faint vertical lines every 7 days so a reader can locate "this Monday"
+   relative to today without a separate axis. */
+.prp-week {
+  stroke: var(--hairline-faint);
+  stroke-width: 1;
+}
+
+/* Tiny x-axis labels under each spark — "30d ago" / "today" so the
+   left/right edges are unambiguous. */
+.prp-card__axis {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 9.5px;
+  color: var(--ink-5); letter-spacing: 0.04em;
+  margin-top: -2px;
 }
 .prp-area {
   fill: currentColor;

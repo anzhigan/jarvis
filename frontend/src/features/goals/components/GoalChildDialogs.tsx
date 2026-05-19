@@ -213,15 +213,16 @@ export function GoCreateDialog({
         )}
 
         {/* Period: leave both blank for an undated Go, set just `due` for a
-            single-day deadline, or set both to make it span a period. */}
+            single-day deadline, or set both to make it span a period.
+            Due ≥ Start (item #6) — enforced via `min` on the Due picker. */}
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            <DateInput value={start} onChange={setStart} />
+            <DateInput value={start} onChange={setStart} max={due || undefined} />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">Due (optional)</span>
-            <DateInput value={due} onChange={setDue} />
+            <DateInput value={due} onChange={setDue} min={start || undefined} />
           </div>
         </div>
       </div>
@@ -497,11 +498,11 @@ export function StepCreateDialog({ open, onOpenChange, taskId, goals, onCreated 
   }, [open]);
 
   // Pull this goal's Gos so user can attach existing items to the new step.
-  const goalGos = useMemo<Go[]>(() => {
-    if (!taskId || !goals) return [];
-    const g = goals.find((t) => t.id === taskId);
-    return g?.gos ?? [];
+  const parentGoal = useMemo(() => {
+    if (!taskId || !goals) return null;
+    return goals.find((t) => t.id === taskId) ?? null;
   }, [taskId, goals]);
+  const goalGos = useMemo<Go[]>(() => parentGoal?.gos ?? [], [parentGoal]);
 
   const filteredGos = useMemo(() => {
     const q = attachSearch.trim().toLowerCase();
@@ -602,11 +603,23 @@ export function StepCreateDialog({ open, onOpenChange, taskId, goals, onCreated 
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            <DateInput value={start} onChange={setStart} />
+            {/* Step must live inside its parent Goal's window — start ≥
+                goal.start_date, end ≤ goal.due_date, end ≥ start. */}
+            <DateInput
+              value={start}
+              onChange={setStart}
+              min={parentGoal?.start_date ?? undefined}
+              max={end || parentGoal?.due_date || undefined}
+            />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">End (optional)</span>
-            <DateInput value={end} onChange={setEnd} />
+            <DateInput
+              value={end}
+              onChange={setEnd}
+              min={start || parentGoal?.start_date || undefined}
+              max={parentGoal?.due_date ?? undefined}
+            />
           </div>
         </div>
 
@@ -828,11 +841,25 @@ export function StepEditDialog({ step, goals, onOpenChange, onSaved }: StepEditP
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            <DateInput value={start} onChange={setStart} />
+            {/* Step must live inside its parent Goal's window.
+                Start gets the goal's start_date as `min` and the chosen
+                end (or goal's due_date) as `max`. */}
+            <DateInput
+              value={start}
+              onChange={setStart}
+              min={parentGoal?.start_date ?? undefined}
+              max={end || parentGoal?.due_date || undefined}
+            />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">End (optional)</span>
-            <DateInput value={end} onChange={setEnd} />
+            {/* End ≥ Start (item #6) AND End ≤ Goal.due_date (item #5). */}
+            <DateInput
+              value={end}
+              onChange={setEnd}
+              min={start || parentGoal?.start_date || undefined}
+              max={parentGoal?.due_date ?? undefined}
+            />
           </div>
         </div>
 
@@ -1105,11 +1132,20 @@ export function GoEditDialog({ go, goals, onOpenChange, onSaved, nonModal }: GoE
         <div className="ui-form-row">
           <div className="ui-field">
             <span className="ui-field-label">Start (optional)</span>
-            <DateInput value={start} onChange={setStart} />
+            <DateInput
+              value={start}
+              onChange={setStart}
+              max={due || undefined}
+            />
           </div>
           <div className="ui-field">
             <span className="ui-field-label">Due (optional)</span>
-            <DateInput value={due} onChange={setDue} />
+            {/* End ≥ Start (item #6) — `min` clamps the picker. */}
+            <DateInput
+              value={due}
+              onChange={setDue}
+              min={start || undefined}
+            />
           </div>
         </div>
       </div>

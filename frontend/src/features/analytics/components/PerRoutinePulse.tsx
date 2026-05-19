@@ -82,8 +82,17 @@ function buildSvg(rawValues: number[]): string {
   const last = pts.length - 1;
   const baselineY = toY(0.5);
 
+  // Weekly tick marks — faint vertical lines every 7 days so the reader
+  // can locate "this Monday" relative to "today" without a separate axis.
+  const weekTicks: string[] = [];
+  for (let i = N - 1 - 7; i > 0; i -= 7) {
+    const x = (i * step).toFixed(1);
+    weekTicks.push(`<line class="prp-week" x1="${x}" y1="0" x2="${x}" y2="${H}"/>`);
+  }
+
   return `
     <line class="prp-axis" x1="0" y1="${baselineY.toFixed(1)}" x2="${W}" y2="${baselineY.toFixed(1)}"/>
+    ${weekTicks.join('')}
     <path class="prp-area" d="${area}"/>
     <path class="prp-line" d="${path}"/>
     <circle class="prp-min" cx="${pts[minI][0].toFixed(1)}" cy="${pts[minI][1].toFixed(1)}" r="2"/>
@@ -189,6 +198,13 @@ export function PerRoutinePulse({ routines, windowDays = 30 }: Props) {
                 __html: `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${row.svg}</svg>`,
               }}
             />
+            {/* Tiny axis hint — anchors the reader: leftmost cell = N days
+                ago, rightmost = today. Faint weekly grid lines above
+                (drawn inside the SVG) handle intra-period orientation. */}
+            <div className="prp-card__axis">
+              <span>{windowDays}d ago</span>
+              <span>today</span>
+            </div>
             {!compact && (
               <div className="prp-card__foot">
                 <span>{routineScheduleLabel(row.routine)}</span>

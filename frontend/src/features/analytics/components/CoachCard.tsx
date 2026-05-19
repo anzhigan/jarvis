@@ -24,6 +24,11 @@ import { aiApi } from '../../../api/client';
 import type { AIJob, CoachOutput } from '../../../api/types';
 import type { PeriodKey } from '../hooks/useAnalytics';
 import { useAIJob } from '../../ai/useAIJob';
+import {
+  AI_JOB_OPEN_EVENT,
+  useAIJobsStore,
+  type AIJobOpenDetail,
+} from '../../../store/aiJobs';
 
 interface Props {
   period: PeriodKey;
@@ -68,18 +73,40 @@ export function CoachCard({ period }: Props) {
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { job } = useAIJob(jobId);
+  // Register the coach job with the global AI-jobs store so it shows up in
+  // the bottom toast stack + AI tasks panel just like quiz/schedule/sprint.
+  const addBgJob = useAIJobsStore((s) => s.add);
 
   const start = useCallback(async () => {
     setError(null);
     try {
-      const j = await aiApi.createCoach({ range_days: PERIOD_TO_DAYS[period] });
+      const days = PERIOD_TO_DAYS[period];
+      const j = await aiApi.createCoach({ range_days: days });
+      addBgJob({
+        jobId: j.id,
+        kind: 'coach',
+        source: { section: 'analysis', noteTitle: `${days}d window` },
+      });
       setJobId(j.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed to start');
     }
-  }, [period]);
+  }, [period, addBgJob]);
 
   useEffect(() => { void start(); }, [start]);
+
+  // When the user clicks the toast/sidebar row for a coach job — and we
+  // got navigated to Analysis — pick up that job id so the card shows the
+  // same result the user was looking at.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
+      if (detail.kind !== 'coach') return;
+      setJobId(detail.jobId);
+    };
+    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
+  }, []);
 
   const isLoading = job && (job.status === 'queued' || job.status === 'running');
   const isFailed  = job?.status === 'failed' || error !== null;
@@ -95,7 +122,7 @@ export function CoachCard({ period }: Props) {
               <Sparkles size={14} />
             </span>
             <h3 className="coach-card__title">
-              Plays for <em>today</em>
+              Jarvnote for <em>Today</em>
             </h3>
             {data && (
               <span className="coach-card__period">
@@ -133,7 +160,7 @@ function LoadingState({ job }: { job: AIJob }) {
   return (
     <div className="coach-card__loading">
       <div className="ai-spk" />
-      <p>Building your plays… <span className="coach-card__elapsed">{elapsed}s elapsed</span></p>
+      <p>Building today's brief… <span className="coach-card__elapsed">{elapsed}s elapsed</span></p>
     </div>
   );
 }
