@@ -80,13 +80,14 @@ async def _gather_context(
     today = target_start
 
     # Active goals — surfaces priority + due_date so the model can match
-    # urgency against the sprint window. We eager-load `gos` here so
-    # `task_progress_pct` (which iterates `task.gos`) doesn't trigger lazy
-    # loads inside an async session (which would raise MissingGreenlet).
+    # urgency against the sprint window. We eager-load `gos` AND each Go's
+    # `entries` here so `task_progress_pct` → `go_completion_ratio` (which
+    # iterates `go.entries`) doesn't trigger lazy loads inside an async
+    # session (which would raise MissingGreenlet).
     from sqlalchemy.orm import selectinload
     goals_q = await db.execute(
         select(Task)
-        .options(selectinload(Task.gos))
+        .options(selectinload(Task.gos).selectinload(Go.entries))
         .where(Task.user_id == user_id, Task.status == "active")
         .order_by(Task.due_date.asc().nullslast(), Task.priority.asc())
         .limit(MAX_GOALS),
