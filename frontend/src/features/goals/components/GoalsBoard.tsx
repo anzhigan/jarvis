@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronRight, Flag, Pencil, Plus, Repeat, Unlink2, X } from 'lucide-react';
+import { Check, ChevronRight, Flag, Plus, Repeat, Unlink2, X } from 'lucide-react';
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor,
   useDraggable, useDroppable, useSensor, useSensors,
@@ -22,6 +22,10 @@ interface Props {
   onAddStep: (taskId: string) => void | Promise<void>;
   /** Open the edit-step dialog. */
   onEditStep: (step: import('../../../api/types').Step) => void | Promise<void>;
+  /** Open the edit-go drawer. Row click + pencil icon. */
+  onEditGo: (go: import('../../../api/types').Go) => void | Promise<void>;
+  /** Open the routine detail drawer. Row click + pencil icon. */
+  onEditRoutine: (routine: import('../../../api/types').Routine) => void | Promise<void>;
   /** Quick-create a routine and attach to the goal — title prompted. */
   onAddRoutine: (taskId: string) => void | Promise<void>;
   /** Toggle a routine entry on the given date (defaults to today when omitted). */
@@ -71,6 +75,8 @@ interface CardCallbacks {
   onAddGo?: Props['onAddGo'];
   onAddStep?: Props['onAddStep'];
   onEditStep?: Props['onEditStep'];
+  onEditGo?: Props['onEditGo'];
+  onEditRoutine?: Props['onEditRoutine'];
   onAddRoutine?: Props['onAddRoutine'];
   onToggleRoutineDone?: Props['onToggleRoutineDone'];
   onSkipRoutine?: Props['onSkipRoutine'];
@@ -257,6 +263,7 @@ function GoalChildren({
               onEdit={callbacks?.onEditStep}
               onAddGoInStep={callbacks?.onAddGo ? () => callbacks.onAddGo?.(task.id, s.id) : undefined}
               onToggleGo={callbacks?.onToggleGoDone}
+              onEditGo={callbacks?.onEditGo}
             />
           ))}
           {callbacks?.onAddStep && (
@@ -283,6 +290,7 @@ function GoalChildren({
               go={g}
               goalTitle={task.title}
               onToggle={callbacks?.onToggleGoDone}
+              onEdit={callbacks?.onEditGo}
             />
           ))}
           {callbacks?.onAddGo && (
@@ -308,6 +316,7 @@ function GoalChildren({
               onToggle={callbacks?.onToggleRoutineDone}
               onSkip={callbacks?.onSkipRoutine}
               onUnlink={callbacks?.onUnlinkRoutine}
+              onEdit={callbacks?.onEditRoutine}
             />
           ))}
           {callbacks?.onAddRoutine && (
@@ -335,7 +344,7 @@ const ymdDate = (d: Date) =>
  *  expandable to reveal its attached Gos. Row click toggles expand; pencil
  *  icon opens edit; "+ Go" creates a Go pre-attached to this step. */
 const StepSubcard = memo(function StepSubcard({
-  step, gos, goalTitle, onEdit, onAddGoInStep, onToggleGo,
+  step, gos, goalTitle, onEdit, onAddGoInStep, onToggleGo, onEditGo,
 }: {
   step: import('../../../api/types').Step;
   gos: import('../../../api/types').Go[];
@@ -343,6 +352,7 @@ const StepSubcard = memo(function StepSubcard({
   onEdit?: (step: import('../../../api/types').Step) => void | Promise<void>;
   onAddGoInStep?: () => void;
   onToggleGo?: (go: import('../../../api/types').Go) => void | Promise<void>;
+  onEditGo?: (go: import('../../../api/types').Go) => void | Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const state = step.status === 'done'
@@ -355,27 +365,28 @@ const StepSubcard = memo(function StepSubcard({
       data-state={state}
       data-expanded={expanded || undefined}
     >
-      <div
-        className="kc-child-row"
-        onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-        role="button"
-        tabIndex={0}
-      >
-        <ChevronRight size={12} className="kc-child-chevron" />
-        <span className="kc-child-num">{String(step.position + 1).padStart(2, '0')}</span>
-        <span className="kc-child-name">{step.title}</span>
-        <span className="kc-child-meta-inline">
-          {step.gos_done} / {step.gos_count}
-        </span>
-        {onEdit && (
-          <button
-            type="button"
-            className="kc-child-icon"
-            title="Edit step"
-            aria-label="Edit step"
-            onClick={(e) => { e.stopPropagation(); onEdit(step); }}
-          ><Pencil size={10} /></button>
-        )}
+      <div className="kc-child-row">
+        {/* Chevron is its own button — expand/collapse only. The rest of the
+            row opens the edit drawer, mirroring how kanban cards behave. */}
+        <button
+          type="button"
+          className="kc-child-icon kc-child-chevron-btn"
+          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          title={expanded ? 'Collapse' : 'Expand'}
+          aria-label={expanded ? 'Collapse step' : 'Expand step'}
+        ><ChevronRight size={12} className="kc-child-chevron" /></button>
+        <button
+          type="button"
+          className="kc-child-edit-target"
+          onClick={(e) => { e.stopPropagation(); onEdit?.(step); }}
+          title="Open step"
+        >
+          <span className="kc-child-num">{String(step.position + 1).padStart(2, '0')}</span>
+          <span className="kc-child-name">{step.title}</span>
+          <span className="kc-child-meta-inline">
+            {step.gos_done} / {step.gos_count}
+          </span>
+        </button>
         {onAddGoInStep && (
           <button
             type="button"
@@ -398,6 +409,7 @@ const StepSubcard = memo(function StepSubcard({
                 goalTitle={goalTitle}
                 stepTitle={step.title}
                 onToggle={onToggleGo}
+                onEdit={onEditGo}
               />
             ))
           )}
@@ -412,12 +424,14 @@ const StepSubcard = memo(function StepSubcard({
  *  plus two action circles (Done / Skip) for today.
  */
 const RoutineSubcard = memo(function RoutineSubcard({
-  link, onToggle, onSkip, onUnlink,
+  link, onToggle, onSkip, onUnlink, onEdit,
 }: {
   link: import('../../../api/types').GoalRoutineLink;
   onToggle?: (link: import('../../../api/types').GoalRoutineLink, date?: string) => void | Promise<void>;
   onSkip?:   (link: import('../../../api/types').GoalRoutineLink, date?: string) => void | Promise<void>;
   onUnlink?: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
+  /** Opens the right-side detail drawer for the underlying Routine. */
+  onEdit?: (routine: import('../../../api/types').Routine) => void | Promise<void>;
 }) {
   const r = link.routine;
   // Local selection — which past day is currently highlighted. Defaults to
@@ -463,7 +477,14 @@ const RoutineSubcard = memo(function RoutineSubcard({
           <Repeat size={10} style={{ verticalAlign: -1, marginRight: 3 }} />
           Routine
         </span>
-        <span className="kc-child-name">{r.title}</span>
+        <button
+          type="button"
+          className="kc-child-edit-target"
+          onClick={(e) => { e.stopPropagation(); onEdit?.(r); }}
+          title="Open routine"
+        >
+          <span className="kc-child-name">{r.title}</span>
+        </button>
         {onUnlink && (
           <button
             type="button"
@@ -539,7 +560,7 @@ const RoutineSubcard = memo(function RoutineSubcard({
 
 /** Go sub-card — rendered inside an expanded goal. */
 const GoSubcard = memo(function GoSubcard({
-  go, goalTitle, stepTitle, onToggle,
+  go, goalTitle, stepTitle, onToggle, onEdit,
 }: {
   go: import('../../../api/types').Go;
   /** Parent goal title — shown as a tag on the row. */
@@ -547,6 +568,8 @@ const GoSubcard = memo(function GoSubcard({
   /** Step title, when the Go is attached to a Step. */
   stepTitle?: string | null;
   onToggle?: (go: import('../../../api/types').Go) => void | Promise<void>;
+  /** Opens the right-side edit drawer for this Go. Row click target. */
+  onEdit?: (go: import('../../../api/types').Go) => void | Promise<void>;
 }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const due = go.due_date ? new Date(go.due_date) : null;
@@ -571,6 +594,7 @@ const GoSubcard = memo(function GoSubcard({
         </div>
       )}
       <div className="kc-child-row">
+        {/* Check stays its own button so clicking it doesn't also open edit. */}
         <button
           type="button"
           className="kc-child-check kc-child-check-btn"
@@ -580,7 +604,16 @@ const GoSubcard = memo(function GoSubcard({
         >
           {go.is_done_today && <Check />}
         </button>
-        <span className="kc-child-name">{go.title}</span>
+        {/* The name is the edit affordance — click opens the right-side drawer
+            where the user can rename, change schedule, or delete. */}
+        <button
+          type="button"
+          className="kc-child-edit-target"
+          onClick={(e) => { e.stopPropagation(); onEdit?.(go); }}
+          title="Open go"
+        >
+          <span className="kc-child-name">{go.title}</span>
+        </button>
       </div>
       {(valueLabel || due) && (
         <div className="kc-child-meta">

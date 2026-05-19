@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Analysis — Variant B · Operations cockpit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,1,400;9..144,1,500&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body:    "Source Serif 4", Georgia, serif;
+  --font-ui:      "Inter", -apple-system, system-ui, sans-serif;
+  --font-mono:    ui-monospace, "SF Mono", Menlo, monospace;
+
+  --paper:#FCFCF9; --cream:#ECEEEF; --soft:#DEE1E2; --rail-bg:#D6DADB;
+  --ink:#15202A; --ink-2:#2C353D; --ink-3:#455058; --ink-4:#6E7780; --ink-5:#9EA5AB;
+  --indigo:#2C4A60; --indigo-soft:rgba(44,74,96,0.10); --indigo-tint:rgba(44,74,96,0.18);
+  --moss:#6B7A4F; --moss-soft:rgba(107,122,79,0.16);
+  --ochre:#A18030; --ochre-soft:rgba(161,128,48,0.14);
+  --rust:#A04A39;  --rust-soft:rgba(160,74,57,0.10);
+  --slate:#5A6B78; --slate-soft:rgba(90,107,120,0.14);
+
+  --hairline:rgba(15,24,32,0.09);
+  --hairline-strong:rgba(15,24,32,0.16);
+  --hairline-faint:rgba(15,24,32,0.04);
+
+  --heat-0:rgba(15,24,32,0.06);
+  --heat-1:rgba(107,122,79,0.22);
+  --heat-2:rgba(107,122,79,0.42);
+  --heat-3:rgba(107,122,79,0.65);
+  --heat-4:rgba(107,122,79,0.92);
+}
+* { box-sizing: border-box; }
+html, body { margin:0; padding:0; }
+body {
+  font-family: var(--font-ui);
+  color: var(--ink-2);
+  background: var(--paper);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Top bar ───────────────────────────────────────────────────── */
+.bar {
+  display:flex; align-items:center; gap:14px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+  position: sticky; top:0; z-index:10;
+}
+.crumb { font-size: 12.5px; color: var(--ink-4); }
+.crumb b { color: var(--ink); font-weight: 600; }
+.crumb-sep { color: var(--ink-5); margin: 0 6px; }
+.spacer { flex:1; }
+.seg { display:inline-flex; gap:2px; background: var(--cream); padding:2px; border-radius: 5px; }
+.seg button {
+  font-size: 11px; font-weight: 500;
+  padding: 5px 11px; background: transparent; border: 0; cursor: pointer;
+  color: var(--ink-3); border-radius: 4px;
+}
+.seg button.on { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1px var(--hairline); }
+.btn-sm {
+  height: 28px; padding: 0 12px; border-radius: 5px; border: 1px solid var(--hairline);
+  background: var(--paper); color: var(--ink-2); font: inherit; font-weight: 500; font-size: 11px;
+  display:inline-flex; align-items:center; gap: 6px; cursor: pointer;
+}
+.btn-sm:hover { background: var(--cream); color: var(--ink); }
+
+/* ── Shell layout: main + right rail ───────────────────────────── */
+.shell {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 0;
+  align-items: stretch;
+  min-height: calc(100vh - 53px);
+}
+.main { padding: 24px 24px 60px; min-width: 0; }
+.rail {
+  border-left: 1px solid var(--hairline);
+  background: var(--paper);
+  padding: 20px 20px 60px;
+  position: sticky; top: 53px;
+  align-self: start;
+  height: calc(100vh - 53px);
+  overflow-y: auto;
+}
+
+/* ── KPI strip (top of main) ───────────────────────────────────── */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: var(--paper);
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+.kpi-cell {
+  padding: 14px 16px;
+  border-right: 1px solid var(--hairline-faint);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.kpi-cell:last-child { border-right: 0; }
+.kpi-cell__lbl {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--ink-4);
+}
+.kpi-cell__row { display:flex; align-items:baseline; gap: 8px; }
+.kpi-cell__val {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 26px; letter-spacing: -0.025em; color: var(--ink);
+}
+.kpi-cell__delta {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-4);
+  display:inline-flex; align-items:center; gap: 3px;
+}
+.kpi-cell__delta[data-dir="up"]   { color: var(--moss); }
+.kpi-cell__delta[data-dir="down"] { color: var(--rust); }
+.kpi-cell__delta b { font-weight: 600; }
+.kpi-cell__spark {
+  height: 22px; display:flex; gap: 2px; align-items: flex-end; margin-top: 4px;
+}
+.kpi-cell__spark span {
+  display:block; width: 5px; background: var(--indigo); opacity: 0.55; border-radius: 1px;
+}
+.kpi-cell[data-tone="moss"]  .kpi-cell__spark span { background: var(--moss); }
+.kpi-cell[data-tone="ochre"] .kpi-cell__spark span { background: var(--ochre); }
+.kpi-cell[data-tone="rust"]  .kpi-cell__spark span { background: var(--rust); }
+
+/* ── Section header ────────────────────────────────────────────── */
+.h-row {
+  display:flex; align-items: baseline; gap: 10px;
+  margin: 24px 0 10px;
+}
+.h-row__label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--ink-4);
+}
+.h-row__rule { flex: 1; height: 1px; background: var(--hairline); align-self: center; }
+.h-row__meta { font-size: 11px; color: var(--ink-4); }
+.h-row__meta b { color: var(--ink-2); font-weight: 600; }
+
+/* ── Chart grid ────────────────────────────────────────────────── */
+.charts {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+}
+.card {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 16px 18px;
+}
+.card__head { display:flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.card__title {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 15px; color: var(--ink); letter-spacing: -0.015em;
+  margin: 0;
+}
+.card__title em { font-style: italic; color: var(--indigo); }
+.card__sub { font-size: 11px; color: var(--ink-4); flex:1; text-align: right; }
+
+/* Routine completion line chart */
+.svg-line { width: 100%; height: 120px; }
+
+/* Goals progress bars */
+.bars { display:flex; flex-direction: column; gap: 9px; }
+.bars__row { display: grid; grid-template-columns: 1fr 36px; gap: 10px; align-items: center; }
+.bars__t {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 13.5px; color: var(--ink); letter-spacing: -0.012em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bars__sub { font-size: 10.5px; color: var(--ink-4); margin-top: 2px; }
+.bars__bar {
+  height: 5px; margin-top: 6px;
+  background: var(--cream); border-radius: 2px; overflow: hidden;
+}
+.bars__fill {
+  display:block; height: 100%; background: var(--indigo); border-radius: 2px;
+}
+.bars__row[data-s="done"]  .bars__fill { background: var(--moss); }
+.bars__row[data-s="stale"] .bars__fill { background: var(--ochre); }
+.bars__pct {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--ink-3); text-align: right;
+}
+.bars__row[data-s="done"] .bars__pct { color: var(--moss); }
+
+/* Donut + practice */
+.donut { display:flex; align-items: center; gap: 18px; padding: 4px 0; }
+.donut__svg { width: 100px; height: 100px; }
+.donut__legend { display:flex; flex-direction: column; gap: 6px; flex: 1; }
+.donut__lrow {
+  display:flex; justify-content: space-between; align-items: center;
+  font-size: 11.5px; color: var(--ink-3);
+}
+.donut__sw { display:inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 8px; }
+.donut__num { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2); }
+
+/* Practice activity (stacked bars by tag) */
+.stack { display:flex; flex-direction: column; gap: 9px; }
+.stack__row {
+  display: grid; grid-template-columns: 70px 1fr 50px; gap: 10px; align-items: center;
+}
+.stack__lbl {
+  font-size: 11px; color: var(--ink-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stack__bar {
+  height: 14px; background: var(--cream); border-radius: 3px;
+  display:flex; overflow: hidden;
+}
+.stack__bar span { display:block; height: 100%; }
+.stack__bar .s1 { background: var(--indigo); }
+.stack__bar .s2 { background: var(--moss); }
+.stack__bar .s3 { background: var(--ochre); }
+.stack__num {
+  font-family: var(--font-mono); font-size: 11.5px;
+  color: var(--ink-3); text-align: right;
+}
+
+/* Heatmap card */
+.heat-card { grid-column: 1 / -1; }
+.heat__grid {
+  display: grid;
+  grid-template-columns: repeat(53, 1fr);
+  grid-template-rows: repeat(7, 11px);
+  gap: 2px;
+}
+.heat__cell { background: var(--heat-0); border-radius: 2px; }
+.heat__cell[data-l="1"] { background: var(--heat-1); }
+.heat__cell[data-l="2"] { background: var(--heat-2); }
+.heat__cell[data-l="3"] { background: var(--heat-3); }
+.heat__cell[data-l="4"] { background: var(--heat-4); }
+.heat__footer {
+  display:flex; justify-content: space-between; align-items: center;
+  margin-top: 10px; font-size: 11px; color: var(--ink-4);
+}
+.heat__scale { display:inline-flex; align-items: center; gap: 4px; }
+.heat__sw { display:inline-block; width: 9px; height: 9px; border-radius: 2px; }
+
+/* ── Right rail ────────────────────────────────────────────────── */
+.rail-head {
+  display:flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--ink-4);
+  margin: 6px 0 12px;
+}
+.rail-head .pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--indigo); box-shadow: 0 0 0 4px var(--indigo-soft);
+}
+
+.ai-card {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.ai-card__title-row { display:flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.ai-card__title {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 16px; color: var(--ink); margin: 0;
+  letter-spacing: -0.015em;
+}
+.ai-card__title em { font-style: italic; color: var(--indigo); }
+.ai-card__period {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ink-5); flex: 1; text-align: right;
+}
+.ai-rows { display:flex; flex-direction: column; gap: 10px; }
+.ai-rows__row {
+  padding-left: 10px;
+  border-left: 2px solid var(--indigo);
+}
+.ai-rows__row[data-tone="good"]  { border-color: var(--moss); }
+.ai-rows__row[data-tone="warn"]  { border-color: var(--ochre); }
+.ai-rows__row[data-tone="focus"] { border-color: var(--indigo); }
+.ai-rows__label {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--ink-4);
+  margin-bottom: 3px;
+}
+.ai-rows__row[data-tone="good"]  .ai-rows__label { color: var(--moss); }
+.ai-rows__row[data-tone="warn"]  .ai-rows__label { color: var(--ochre); }
+.ai-rows__row[data-tone="focus"] .ai-rows__label { color: var(--indigo); }
+.ai-rows__text {
+  font-family: var(--font-body); font-size: 13px; line-height: 1.5;
+  color: var(--ink); margin: 0;
+}
+.ai-card__metrics {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin-top: 14px;
+  padding-top: 12px; border-top: 1px dashed var(--hairline);
+}
+.ai-card__metric {
+  display:flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.ai-card__metric b {
+  font-family: var(--font-display); font-weight: 500; font-size: 18px;
+  color: var(--ink); letter-spacing: -0.018em;
+}
+.ai-card__metric span {
+  font-size: 10px; color: var(--ink-4);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  text-align: center;
+}
+.ai-card__metric[data-tone="warn"] b { color: var(--rust); }
+
+/* Top streaks list (rail) */
+.streaks {
+  display:flex; flex-direction: column; gap: 8px;
+}
+.streaks__row {
+  display: grid; grid-template-columns: 22px 1fr 44px;
+  gap: 10px; align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+}
+.streaks__num {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ink-5); text-align: right;
+}
+.streaks__title {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 13.5px; color: var(--ink); letter-spacing: -0.012em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.streaks__sub { font-size: 10.5px; color: var(--ink-4); margin-top: 1px; }
+.streaks__pill {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--moss); background: var(--moss-soft);
+  border-radius: 999px; padding: 2px 8px; text-align: center;
+}
+.streaks__row[data-slip] .streaks__pill { color: var(--rust); background: var(--rust-soft); }
+
+/* Quick links footer (rail) */
+.quick {
+  margin-top: 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.quick a {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 5px;
+  color: var(--ink-3); font-size: 12px;
+  text-decoration: none;
+}
+.quick a:hover { background: var(--cream); color: var(--ink); }
+.quick a span.k { color: var(--ink-5); font-family: var(--font-mono); font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <span class="crumb"><b>Analysis</b><span class="crumb-sep">›</span>Last 30 days</span>
+  <div class="spacer"></div>
+  <div class="seg" role="tablist">
+    <button role="tab">7d</button>
+    <button class="on" role="tab" aria-selected="true">30d</button>
+    <button role="tab">90d</button>
+    <button role="tab">1y</button>
+  </div>
+  <button class="btn-sm" title="Export">⤓ Export</button>
+  <button class="btn-sm" title="Refresh">↻</button>
+</header>
+
+<div class="shell">
+
+  <!-- ───── Main column ───── -->
+  <main class="main">
+
+    <!-- KPI strip — 5 cells, mini sparklines -->
+    <section class="kpi-strip">
+      <div class="kpi-cell" data-tone="moss">
+        <div class="kpi-cell__lbl">Routine rate</div>
+        <div class="kpi-cell__row">
+          <span class="kpi-cell__val">83%</span>
+          <span class="kpi-cell__delta" data-dir="up">▲ <b>+6</b></span>
+        </div>
+        <div class="kpi-cell__spark" aria-hidden>
+          <span style="height:10px"></span><span style="height:14px"></span><span style="height:12px"></span>
+          <span style="height:18px"></span><span style="height:16px"></span><span style="height:20px"></span>
+          <span style="height:18px"></span><span style="height:22px"></span>
+        </div>
+      </div>
+
+      <div class="kpi-cell">
+        <div class="kpi-cell__lbl">Best streak</div>
+        <div class="kpi-cell__row">
+          <span class="kpi-cell__val">14<span style="font-size:14px;color:var(--ink-4)">d</span></span>
+          <span class="kpi-cell__delta" data-dir="up">▲ <b>+3</b></span>
+        </div>
+        <div class="kpi-cell__spark" aria-hidden>
+          <span style="height:6px"></span><span style="height:10px"></span><span style="height:8px"></span>
+          <span style="height:12px"></span><span style="height:14px"></span><span style="height:18px"></span>
+          <span style="height:16px"></span><span style="height:22px"></span>
+        </div>
+      </div>
+
+      <div class="kpi-cell">
+        <div class="kpi-cell__lbl">Goals shipped</div>
+        <div class="kpi-cell__row">
+          <span class="kpi-cell__val">4</span>
+          <span class="kpi-cell__delta" data-dir="up">▲ <b>+1</b></span>
+        </div>
+        <div class="kpi-cell__spark" aria-hidden>
+          <span style="height:4px"></span><span style="height:8px"></span><span style="height:6px"></span>
+          <span style="height:10px"></span><span style="height:8px"></span><span style="height:14px"></span>
+          <span style="height:12px"></span><span style="height:18px"></span>
+        </div>
+      </div>
+
+      <div class="kpi-cell">
+        <div class="kpi-cell__lbl">Check-ins</div>
+        <div class="kpi-cell__row">
+          <span class="kpi-cell__val">147</span>
+          <span class="kpi-cell__delta">— same</span>
+        </div>
+        <div class="kpi-cell__spark" aria-hidden>
+          <span style="height:14px"></span><span style="height:12px"></span><span style="height:16px"></span>
+          <span style="height:14px"></span><span style="height:18px"></span><span style="height:14px"></span>
+          <span style="height:16px"></span><span style="height:14px"></span>
+        </div>
+      </div>
+
+      <div class="kpi-cell" data-tone="rust">
+        <div class="kpi-cell__lbl">Overdue</div>
+        <div class="kpi-cell__row">
+          <span class="kpi-cell__val">3</span>
+          <span class="kpi-cell__delta" data-dir="down">▲ <b>+2</b></span>
+        </div>
+        <div class="kpi-cell__spark" aria-hidden>
+          <span style="height:4px"></span><span style="height:6px"></span><span style="height:4px"></span>
+          <span style="height:8px"></span><span style="height:10px"></span><span style="height:8px"></span>
+          <span style="height:14px"></span><span style="height:18px"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Row: routine line + goals bars -->
+    <div class="h-row">
+      <span class="h-row__label">Daily completion</span>
+      <span class="h-row__rule"></span>
+      <span class="h-row__meta"><b>6</b> active routines · 30 days</span>
+    </div>
+    <section class="charts">
+
+      <div class="card">
+        <div class="card__head">
+          <h3 class="card__title">Routine <em>completion</em></h3>
+          <span class="card__sub">% of routines logged each day</span>
+        </div>
+        <svg class="svg-line" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden>
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#2C4A60" stop-opacity="0.20"/>
+              <stop offset="100%" stop-color="#2C4A60" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <!-- baseline & grid -->
+          <line x1="0" y1="60" x2="400" y2="60" stroke="rgba(15,24,32,0.07)" stroke-dasharray="2 4"/>
+          <line x1="0" y1="100" x2="400" y2="100" stroke="rgba(15,24,32,0.07)" stroke-dasharray="2 4"/>
+          <!-- area -->
+          <path d="M0,72 L20,68 L40,60 L60,50 L80,52 L100,40 L120,46 L140,30 L160,36 L180,24 L200,32 L220,22 L240,28 L260,18 L280,26 L300,16 L320,24 L340,18 L360,22 L380,14 L400,18 L400,120 L0,120 Z" fill="url(#g1)"/>
+          <!-- line -->
+          <path d="M0,72 L20,68 L40,60 L60,50 L80,52 L100,40 L120,46 L140,30 L160,36 L180,24 L200,32 L220,22 L240,28 L260,18 L280,26 L300,16 L320,24 L340,18 L360,22 L380,14 L400,18"
+                fill="none" stroke="#2C4A60" stroke-width="1.8"/>
+        </svg>
+      </div>
+
+      <div class="card">
+        <div class="card__head">
+          <h3 class="card__title">Goals <em>progress</em></h3>
+          <span class="card__sub">12 active</span>
+        </div>
+        <div class="bars">
+          <div class="bars__row" data-s="done">
+            <div>
+              <div class="bars__t">Релиз v2.1 — Sprints flow</div>
+              <div class="bars__sub">closed · 6 days early</div>
+              <span class="bars__bar"><span class="bars__fill" style="width:100%"></span></span>
+            </div>
+            <span class="bars__pct">100%</span>
+          </div>
+          <div class="bars__row">
+            <div>
+              <div class="bars__t">Q2 OKR — internal tooling</div>
+              <div class="bars__sub">14 / 22 gos</div>
+              <span class="bars__bar"><span class="bars__fill" style="width:64%"></span></span>
+            </div>
+            <span class="bars__pct">64%</span>
+          </div>
+          <div class="bars__row">
+            <div>
+              <div class="bars__t">Книга по системному дизайну</div>
+              <div class="bars__sub">12 / 30 · 9d idle</div>
+              <span class="bars__bar"><span class="bars__fill" style="width:40%"></span></span>
+            </div>
+            <span class="bars__pct">40%</span>
+          </div>
+          <div class="bars__row" data-s="stale">
+            <div>
+              <div class="bars__t">Курс по статистике</div>
+              <div class="bars__sub">7 / 24 · pace too slow</div>
+              <span class="bars__bar"><span class="bars__fill" style="width:29%"></span></span>
+            </div>
+            <span class="bars__pct">29%</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Row: status donut + practice activity -->
+    <div class="h-row">
+      <span class="h-row__label">Distribution</span>
+      <span class="h-row__rule"></span>
+      <span class="h-row__meta">snapshot · today</span>
+    </div>
+    <section class="charts">
+
+      <div class="card">
+        <div class="card__head">
+          <h3 class="card__title">Status <em>donut</em></h3>
+          <span class="card__sub">routines · today</span>
+        </div>
+        <div class="donut">
+          <svg class="donut__svg" viewBox="0 0 36 36" aria-hidden>
+            <circle cx="18" cy="18" r="14" fill="none" stroke="#ECEEEF" stroke-width="5"/>
+            <circle cx="18" cy="18" r="14" fill="none" stroke="#6B7A4F" stroke-width="5"
+                    stroke-dasharray="55 88" stroke-dashoffset="0" transform="rotate(-90 18 18)"/>
+            <circle cx="18" cy="18" r="14" fill="none" stroke="#A18030" stroke-width="5"
+                    stroke-dasharray="14 88" stroke-dashoffset="-55" transform="rotate(-90 18 18)"/>
+            <circle cx="18" cy="18" r="14" fill="none" stroke="#A04A39" stroke-width="5"
+                    stroke-dasharray="9 88" stroke-dashoffset="-69" transform="rotate(-90 18 18)"/>
+            <text x="18" y="19" text-anchor="middle" dominant-baseline="middle"
+                  font-family="Fraunces, serif" font-size="7" font-weight="500" fill="#15202A">6</text>
+          </svg>
+          <div class="donut__legend">
+            <div class="donut__lrow">
+              <span><span class="donut__sw" style="background:#6B7A4F"></span>Done today</span>
+              <span class="donut__num">3</span>
+            </div>
+            <div class="donut__lrow">
+              <span><span class="donut__sw" style="background:#A18030"></span>Pending</span>
+              <span class="donut__num">2</span>
+            </div>
+            <div class="donut__lrow">
+              <span><span class="donut__sw" style="background:#A04A39"></span>Missed</span>
+              <span class="donut__num">1</span>
+            </div>
+            <div class="donut__lrow">
+              <span><span class="donut__sw" style="background:#ECEEEF"></span>Paused</span>
+              <span class="donut__num">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__head">
+          <h3 class="card__title">Practice <em>by tag</em></h3>
+          <span class="card__sub">activity volume</span>
+        </div>
+        <div class="stack">
+          <div class="stack__row">
+            <span class="stack__lbl">Health</span>
+            <div class="stack__bar">
+              <span class="s1" style="width:60%"></span><span class="s2" style="width:25%"></span><span class="s3" style="width:15%"></span>
+            </div>
+            <span class="stack__num">52</span>
+          </div>
+          <div class="stack__row">
+            <span class="stack__lbl">Reading</span>
+            <div class="stack__bar">
+              <span class="s1" style="width:30%"></span><span class="s2" style="width:50%"></span><span class="s3" style="width:20%"></span>
+            </div>
+            <span class="stack__num">31</span>
+          </div>
+          <div class="stack__row">
+            <span class="stack__lbl">Build</span>
+            <div class="stack__bar">
+              <span class="s1" style="width:70%"></span><span class="s2" style="width:20%"></span><span class="s3" style="width:10%"></span>
+            </div>
+            <span class="stack__num">28</span>
+          </div>
+          <div class="stack__row">
+            <span class="stack__lbl">Study</span>
+            <div class="stack__bar">
+              <span class="s1" style="width:45%"></span><span class="s2" style="width:40%"></span><span class="s3" style="width:15%"></span>
+            </div>
+            <span class="stack__num">22</span>
+          </div>
+          <div class="stack__row">
+            <span class="stack__lbl">Side proj.</span>
+            <div class="stack__bar">
+              <span class="s1" style="width:55%"></span><span class="s2" style="width:30%"></span><span class="s3" style="width:15%"></span>
+            </div>
+            <span class="stack__num">14</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Heatmap full width -->
+    <div class="h-row">
+      <span class="h-row__label">Year</span>
+      <span class="h-row__rule"></span>
+      <span class="h-row__meta"><b>532</b> entries</span>
+    </div>
+    <section>
+      <div class="card heat-card">
+        <div class="card__head">
+          <h3 class="card__title">Activity <em>heatmap</em></h3>
+          <span class="card__sub">rolling 12 months</span>
+        </div>
+        <div class="heat__grid" aria-hidden></div>
+        <div class="heat__footer">
+          <span>Each cell = one day · darker = more check-ins</span>
+          <span class="heat__scale">
+            Less
+            <span class="heat__sw" style="background:var(--heat-0)"></span>
+            <span class="heat__sw" style="background:var(--heat-1)"></span>
+            <span class="heat__sw" style="background:var(--heat-2)"></span>
+            <span class="heat__sw" style="background:var(--heat-3)"></span>
+            <span class="heat__sw" style="background:var(--heat-4)"></span>
+            More
+          </span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ───── Right rail ───── -->
+  <aside class="rail">
+
+    <div class="rail-head"><span class="pulse"></span>AI Review · sticky</div>
+
+    <div class="ai-card">
+      <div class="ai-card__title-row">
+        <h3 class="ai-card__title">AI <em>review</em></h3>
+        <span class="ai-card__period">04-19 → 05-19</span>
+      </div>
+      <div class="ai-rows">
+        <div class="ai-rows__row" data-tone="good">
+          <div class="ai-rows__label">Doing well</div>
+          <p class="ai-rows__text">Morning routines solid at 27/30 — the pattern has stuck.</p>
+        </div>
+        <div class="ai-rows__row" data-tone="warn">
+          <div class="ai-rows__label">Needs attention</div>
+          <p class="ai-rows__text">Evening reading slipped to 9/30. The work→leisure transition is the weak hinge.</p>
+        </div>
+        <div class="ai-rows__row" data-tone="focus">
+          <div class="ai-rows__label">Focus next</div>
+          <p class="ai-rows__text">«Книга по системному дизайну» is the only goal without recent progress — a 90-min block this week would unblock the rest.</p>
+        </div>
+      </div>
+      <div class="ai-card__metrics">
+        <div class="ai-card__metric"><b>23</b><span>Gos closed</span></div>
+        <div class="ai-card__metric"><b>9</b><span>Notes</span></div>
+        <div class="ai-card__metric" data-tone="warn"><b>3</b><span>Overdue</span></div>
+      </div>
+    </div>
+
+    <div class="rail-head">Top streaks</div>
+    <div class="streaks">
+      <div class="streaks__row">
+        <span class="streaks__num">01</span>
+        <div>
+          <div class="streaks__title">Morning meditation</div>
+          <div class="streaks__sub">93% · daily</div>
+        </div>
+        <span class="streaks__pill">14d</span>
+      </div>
+      <div class="streaks__row">
+        <span class="streaks__num">02</span>
+        <div>
+          <div class="streaks__title">Morning pages</div>
+          <div class="streaks__sub">90% · daily</div>
+        </div>
+        <span class="streaks__pill">9d</span>
+      </div>
+      <div class="streaks__row">
+        <span class="streaks__num">03</span>
+        <div>
+          <div class="streaks__title">Run 5km</div>
+          <div class="streaks__sub">92% · 3×/week</div>
+        </div>
+        <span class="streaks__pill">3w</span>
+      </div>
+      <div class="streaks__row" data-slip>
+        <span class="streaks__num">04</span>
+        <div>
+          <div class="streaks__title">Evening reading</div>
+          <div class="streaks__sub">30% · slipping</div>
+        </div>
+        <span class="streaks__pill">1d</span>
+      </div>
+    </div>
+
+    <div class="rail-head" style="margin-top:24px">Jump to</div>
+    <nav class="quick">
+      <a href="#"><span>Plan day</span><span class="k">G P</span></a>
+      <a href="#"><span>Open active sprint</span><span class="k">G S</span></a>
+      <a href="#"><span>Today's Gos</span><span class="k">G T</span></a>
+    </nav>
+
+  </aside>
+
+</div>
+
+<script>
+(() => {
+  const grid = document.querySelector('.heat__grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const N = 53 * 7;
+  for (let i = 0; i < N; i++) {
+    const c = document.createElement('span');
+    c.className = 'heat__cell';
+    const r = Math.random();
+    let lvl = 0;
+    if (r > 0.92) lvl = 4;
+    else if (r > 0.80) lvl = 3;
+    else if (r > 0.62) lvl = 2;
+    else if (r > 0.34) lvl = 1;
+    if (lvl > 0) c.dataset.l = String(lvl);
+    grid.appendChild(c);
+  }
+})();
+</script>
+
+</body>
+</html>

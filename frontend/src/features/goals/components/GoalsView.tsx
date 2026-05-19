@@ -10,6 +10,9 @@ const ScheduleDrawer = lazy(() => import('../../ai/ScheduleDrawer').then((m) => 
 import { useGoals } from '../hooks/useGoals';
 import { useGos } from '../hooks/useGos';
 import { useGoalsView, type GoalsViewMode } from '../hooks/useGoalsView';
+import { useRoutines } from '../../routines/hooks/useRoutines';
+import { RoutineDetailPanel } from '../../routines/components/RoutineDetailPanel';
+import type { Routine } from '../../../api/types';
 import {
   AI_JOB_OPEN_EVENT,
   useAIJobsStore,
@@ -58,6 +61,10 @@ export default function GoalsView() {
   const goals = useGoals();
   const gos   = useGos(goals);
   const view  = useGoalsView();
+  // Routines library — used by both the kanban subcard's edit drawer and the
+  // GoalRoutineLink unlink/skip handlers further down. Shares cache with
+  // RoutinesView via its own internal hydration.
+  const routinesLib = useRoutines();
 
   // Single-goal ↔ Cross-goal mode for Go view (persisted in localStorage).
   const [goMode, setGoMode] = useState<GoMode>(readGoMode);
@@ -157,8 +164,9 @@ export default function GoalsView() {
   // Step-create dialog — taskId is the parent goal.
   const [stepDialogTaskId, setStepDialogTaskId] = useState<string | null>(null);
   // Edit dialogs — null means closed.
-  const [editingStep, setEditingStep] = useState<Step | null>(null);
-  const [editingGo,   setEditingGo]   = useState<Go | null>(null);
+  const [editingStep,    setEditingStep]    = useState<Step | null>(null);
+  const [editingGo,      setEditingGo]      = useState<Go | null>(null);
+  const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
 
   const onAddGoal = useCallback((status: TaskStatus) => {
     setCreateStatus(status);
@@ -166,8 +174,9 @@ export default function GoalsView() {
   }, []);
   const onSelectGoal = useCallback((id: string) => setDetailGoalId(id), []);
   const onAddStep    = useCallback((taskId: string) => setStepDialogTaskId(taskId), []);
-  const onEditStep   = useCallback((step: Step) => setEditingStep(step), []);
-  const onEditGo     = useCallback((go: Go) => setEditingGo(go), []);
+  const onEditStep    = useCallback((step: Step) => setEditingStep(step), []);
+  const onEditGo      = useCallback((go: Go) => setEditingGo(go), []);
+  const onEditRoutine = useCallback((r: Routine) => setEditingRoutine(r), []);
 
   // ── Stable callbacks for the kanban + sub-views ──────────────────────────
 
@@ -487,6 +496,8 @@ export default function GoalsView() {
               onAddGo={onAddGo}
               onAddStep={onAddStep}
               onEditStep={onEditStep}
+              onEditGo={onEditGo}
+              onEditRoutine={onEditRoutine}
               onAddRoutine={onAddRoutine}
               onToggleRoutineDone={onToggleRoutineDone}
               onSkipRoutine={onSkipRoutine}
@@ -610,6 +621,20 @@ export default function GoalsView() {
         // gos (the dialog's `go` prop comes from this list — without refresh
         // the next-time-open shows stale data).
         onSaved={async () => { await Promise.all([goals.refresh(), gos.refresh()]); }}
+      />
+
+      {/* Right-side detail drawer for a Routine, opened from a kanban
+          RoutineSubcard. Lets the user rename, change schedule, pause/resume
+          or delete the underlying routine — same component used in
+          RoutinesView. We refresh goals afterwards so the heatmap inside the
+          subcard reflects any new entry/state. */}
+      <RoutineDetailPanel
+        routine={editingRoutine}
+        library={routinesLib}
+        open={editingRoutine !== null}
+        onOpenChange={(o) => {
+          if (!o) { setEditingRoutine(null); void goals.refresh(); }
+        }}
       />
 
       <RoutineCreateForGoalDialog

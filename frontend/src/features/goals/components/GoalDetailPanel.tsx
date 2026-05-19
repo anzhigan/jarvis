@@ -1,8 +1,23 @@
-import { useEffect, useState } from 'react';
-import { Trash2, Calendar, Flag, Tag as TagIcon, Box, Check } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Trash2, Calendar, Flag, Box, Check, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button, confirmDialog, DateInput, Drawer, Input } from '../../../components/ui';
-import type { Task, TaskPriority, TaskStatus } from '../../../api/types';
+import { tagsApi } from '../../../api/client';
+import type { Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
+
+// Same palette as GoalCreateDialog — keeps inline tag swatch consistent with
+// the rest of the editorial accents (tokens.css).
+const TAG_COLORS: { value: string; name: string }[] = [
+  { value: '#2C4A60', name: 'Indigo'   },
+  { value: '#5A6B78', name: 'Slate'    },
+  { value: '#6B7A4F', name: 'Moss'     },
+  { value: '#A18030', name: 'Ochre'    },
+  { value: '#A04A39', name: 'Rust'     },
+  { value: '#4A3A2D', name: 'Walnut'   },
+  { value: '#1B3447', name: 'Indigo-2' },
+  { value: '#6B4F3D', name: 'Walnut-2' },
+];
 
 interface Props {
   goal: Task | null;
@@ -39,6 +54,27 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }:
     setDescription(goal?.description ?? '');
   }, [goal?.id]);
 
+  // Inline new-tag creator — mirrors GoalCreateDialog so adding/creating tags
+  // works the same way before vs. after a goal exists.
+  const [creatingTag, setCreatingTag] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0].value);
+  const [savingTag, setSavingTag] = useState(false);
+  const [tagBusyId, setTagBusyId] = useState<string | null>(null);
+
+  // Close the inline creator whenever the drawer flips to a different goal —
+  // otherwise the "Tag name" field carries over to the next goal.
+  useEffect(() => {
+    setCreatingTag(false);
+    setNewTagName('');
+    setNewTagColor(TAG_COLORS[0].value);
+  }, [goal?.id]);
+
+  const goalTagIds = useMemo(
+    () => new Set((goal?.tags ?? []).map((t) => t.id)),
+    [goal?.tags],
+  );
+
   if (!goal) return null;
 
   const flushTitle = async () => {
@@ -52,6 +88,39 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }:
   const onPriority = (p: TaskPriority) => library.updateGoal(goal.id, { priority: p });
   const onDue = (next: string) =>
     library.updateGoal(goal.id, { due_date: next || null });
+
+  // Tag attach/detach uses dedicated M2M endpoints (attachTag/detachTag) —
+  // updateGoal doesn't accept tag_ids, and toggling per-tag keeps the
+  // optimistic-refresh contract identical to GoalCreateDialog.
+  const toggleTag = async (tagId: string) => {
+    if (!goal || tagBusyId) return;
+    setTagBusyId(tagId);
+    try {
+      if (goalTagIds.has(tagId)) await library.detachTag(goal.id, tagId);
+      else                       await library.attachTag(goal.id, tagId);
+    } finally {
+      setTagBusyId(null);
+    }
+  };
+  const saveNewTag = async () => {
+    if (!goal) return;
+    const n = newTagName.trim();
+    if (!n) return;
+    setSavingTag(true);
+    try {
+      const tag = await tagsApi.create(n, newTagColor);
+      await library.refresh();
+      // Attach the freshly created tag to the current goal — otherwise the
+      // user would have to click again. Matches dialog UX expectation.
+      await library.attachTag(goal.id, tag.id);
+      setCreatingTag(false);
+      setNewTagName('');
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to create tag');
+    } finally {
+      setSavingTag(false);
+    }
+  };
 
   const onDelete = async () => {
     const ok = await confirmDialog({
@@ -163,19 +232,82 @@ export function GoalDetailPanel({ goal, library, open, onOpenChange, nonModal }:
 
       <div className="ui-field">
         <span className="ui-field-label">Tags</span>
-        {goal.tags.length === 0 ? (
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-4)' }}>No tags</span>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {goal.tags.map((tag) => (
-              <span
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          {library.tags.map((tag: Tag) => {
+            const on = goalTagIds.has(tag.id);
+            return (
+              <button
                 key={tag.id}
+                type="button"
                 className="ui-chip"
-                data-tone="muted"
+                data-active={on || undefined}
+                disabled={tagBusyId === tag.id}
+                onClick={() => toggleTag(tag.id)}
               >
-                <TagIcon size={10} style={{ color: tag.color }} /> {tag.name}
-              </span>
-            ))}
+                <span style={{
+                  width: 8, height: 8, borderRadius: 2,
+                  background: tag.color, display: 'inline-block',
+                }} />
+                {tag.name}
+              </button>
+            );
+          })}
+          {!creatingTag && (
+            <button
+              type="button"
+              className="ui-chip"
+              data-tone="muted"
+              onClick={() => setCreatingTag(true)}
+            ><Plus size={11} /> New tag</button>
+          )}
+        </div>
+        {creatingTag && (
+          <div style={{
+            marginTop: 8, padding: 10,
+            borderRadius: 'var(--r-control)',
+            background: 'var(--cream)',
+            display: 'flex', flexDirection: 'column', gap: 8,
+          }}>
+            <Input
+              autoFocus
+              placeholder="Tag name"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter')  { e.preventDefault(); void saveNewTag(); }
+                if (e.key === 'Escape') { setCreatingTag(false); setNewTagName(''); }
+              }}
+            />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {TAG_COLORS.map((c) => {
+                const on = newTagColor === c.value;
+                return (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setNewTagColor(c.value)}
+                    title={c.name}
+                    style={{
+                      width: 22, height: 22, borderRadius: 6,
+                      background: c.value, border: 0, cursor: 'pointer',
+                      boxShadow: on
+                        ? `0 0 0 2px var(--paper), 0 0 0 4px ${c.value}`
+                        : '0 0 0 1px var(--hairline-faint)',
+                    }}
+                  />
+                );
+              })}
+              <span style={{ flex: 1 }} />
+              <Button
+                variant="ghost"
+                onClick={() => { setCreatingTag(false); setNewTagName(''); }}
+              >Cancel</Button>
+              <Button
+                variant="primary"
+                onClick={saveNewTag}
+                disabled={!newTagName.trim() || savingTag}
+              >{savingTag ? 'Saving…' : 'Save tag'}</Button>
+            </div>
           </div>
         )}
       </div>
