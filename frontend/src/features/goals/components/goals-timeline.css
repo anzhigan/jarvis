@@ -1,0 +1,238 @@
+/* ──────────────────────────────────────────────────────────────────────
+   Goals master timeline — swim lanes by status (or priority).
+   Ported from goals-timeline-variant-c.html mockup. Namespace `gt-` to
+   avoid clashing with the existing kanban / Go-view styles.
+   ──────────────────────────────────────────────────────────────────── */
+
+.gt-page {
+  padding: 20px 28px 60px;
+  min-width: 0;
+}
+
+.gt-empty {
+  padding: 60px 24px;
+  text-align: center;
+  font-family: var(--font-body);
+}
+.gt-empty__title {
+  font-family: var(--font-display); font-size: 18px; font-weight: 500;
+  color: var(--ink); letter-spacing: -0.018em;
+  margin-bottom: 8px;
+}
+.gt-empty__body {
+  font-style: italic; font-size: 13px; color: var(--ink-4);
+}
+
+/* ── Page header ──────────────────────────────────────────────────── */
+.gt-h-row {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 16px;
+}
+.gt-h-row__label {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 22px; color: var(--ink); letter-spacing: -0.022em;
+  margin: 0;
+}
+.gt-h-row__label em { font-style: italic; color: var(--indigo); }
+.gt-h-row__rule { flex: 1; height: 1px; background: var(--hairline); align-self: center; }
+.gt-h-row__meta { font-family: var(--font-ui); font-size: 11.5px; color: var(--ink-4); }
+.gt-h-row__meta b { color: var(--ink-2); font-weight: 600; }
+
+/* ── Filters ──────────────────────────────────────────────────────── */
+.gt-filters {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.gt-filters__label {
+  font-family: var(--font-ui); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--ink-5); margin-right: 4px;
+}
+.gt-filters__group {
+  display: inline-flex; gap: 2px;
+  background: var(--cream); padding: 2px;
+  border-radius: 5px;
+}
+.gt-filters__group button {
+  font-family: var(--font-ui); font-size: 11px; font-weight: 500;
+  padding: 4px 10px;
+  background: transparent; border: 0; border-radius: 4px;
+  color: var(--ink-3); cursor: pointer;
+}
+.gt-filters__group button.on {
+  background: var(--paper); color: var(--ink);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+
+/* ── Master axis ──────────────────────────────────────────────────── */
+.gt-timeline-shell {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  position: relative;
+}
+.gt-master-axis-spacer {
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-right: 0;
+  border-radius: 6px 0 0 0;
+  border-bottom: 0;
+  display: flex; align-items: center; padding: 0 14px;
+  height: 36px;
+  font-family: var(--font-ui); font-size: 10.5px; font-weight: 600;
+  color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.12em;
+}
+.gt-master-axis {
+  position: relative;
+  height: 36px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: 0 6px 0 0;
+  border-bottom: 0;
+}
+.gt-master-axis__tick {
+  position: absolute; top: 0; bottom: 0;
+  display: flex; align-items: center;
+  padding-left: 8px;
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ink-4); letter-spacing: 0.04em;
+  border-left: 1px solid var(--hairline-faint);
+}
+.gt-master-axis__tick.now {
+  color: var(--indigo); font-weight: 600;
+  border-left-color: var(--indigo); opacity: 0.85;
+}
+.gt-master-axis__now {
+  position: absolute; top: 0; bottom: 0; width: 0;
+  border-left: 1.5px dashed var(--indigo); opacity: 0.7;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ── Lane ─────────────────────────────────────────────────────────── */
+.gt-lane {
+  background: var(--paper);
+  border-left: 1px solid var(--hairline);
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  display: grid;
+  grid-template-columns: 180px 1fr;
+}
+.gt-lane:last-of-type { border-radius: 0 0 6px 6px; }
+
+.gt-lane__head {
+  padding: 12px 14px;
+  border-right: 1px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--cream);
+}
+.gt-lane__head[data-tone="moss"]   { background: var(--moss-soft); }
+.gt-lane__head[data-tone="ochre"]  { background: var(--ochre-soft); }
+.gt-lane__head[data-tone="rust"]   { background: var(--rust-soft); }
+.gt-lane__head[data-tone="slate"]  { background: var(--slate-soft); }
+.gt-lane__title {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: 13.5px; color: var(--ink);
+  letter-spacing: -0.012em;
+}
+.gt-lane__title em { font-style: italic; color: var(--indigo); }
+.gt-lane__head[data-tone="moss"]  .gt-lane__title em { color: var(--moss); }
+.gt-lane__head[data-tone="ochre"] .gt-lane__title em { color: var(--ochre); }
+.gt-lane__head[data-tone="rust"]  .gt-lane__title em { color: var(--rust); }
+.gt-lane__head[data-tone="slate"] .gt-lane__title em { color: var(--slate); }
+.gt-lane__count {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.1em;
+}
+.gt-lane__bars {
+  position: relative;
+  min-height: 56px;
+  padding: 6px 0;
+}
+.gt-lane__empty {
+  padding: 14px 16px;
+  font-family: var(--font-body); font-style: italic;
+  font-size: 12px; color: var(--ink-5);
+}
+.gt-lane__now {
+  position: absolute; top: 0; bottom: 0; width: 0;
+  border-left: 1.5px dashed var(--indigo); opacity: 0.55;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Per-goal row + bar ──────────────────────────────────────────── */
+.gt-lane-row {
+  position: relative;
+  height: 32px;
+  margin: 4px 0;
+}
+.gt-bar {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  height: 24px; border-radius: 4px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  display: flex; align-items: center;
+  padding: 0 9px;
+  overflow: hidden;
+  cursor: pointer;
+  font: inherit; color: inherit;
+  text-align: left;
+  z-index: 2;
+  transition: filter var(--dur-fast), box-shadow var(--dur-fast);
+}
+.gt-bar:hover {
+  filter: brightness(0.96);
+  box-shadow: 0 0 0 2px var(--indigo-tint);
+}
+.gt-bar:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2px var(--indigo);
+}
+
+.gt-bar[data-state="upcoming"] { background: var(--slate-soft);  border-color: var(--slate); }
+.gt-bar[data-state="active"]   { background: var(--ochre-soft);  border-color: var(--ochre); }
+.gt-bar[data-state="done"]     { background: var(--moss-soft);   border-color: var(--moss); }
+.gt-bar[data-state="overdue"]  { background: var(--rust-soft);   border-color: var(--rust); }
+
+.gt-bar__fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  opacity: 0.22;
+  border-radius: 3px 0 0 3px;
+}
+.gt-bar[data-state="active"]   .gt-bar__fill { background: var(--ochre); }
+.gt-bar[data-state="done"]     .gt-bar__fill { background: var(--moss); }
+.gt-bar[data-state="overdue"]  .gt-bar__fill { background: var(--rust); }
+.gt-bar[data-state="upcoming"] .gt-bar__fill { background: var(--slate); }
+
+.gt-bar__pri {
+  width: 4px; height: 14px; border-radius: 1px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  position: relative; z-index: 1;
+}
+.gt-bar__pri[data-p="high"]   { background: var(--rust); }
+.gt-bar__pri[data-p="medium"] { background: var(--ochre); }
+.gt-bar__pri[data-p="low"]    { background: var(--ink-5); }
+
+.gt-bar__label {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 11.5px; color: var(--ink);
+  letter-spacing: -0.012em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  position: relative; z-index: 1;
+}
+.gt-bar__pct {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--ink-2); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  position: relative; z-index: 1;
+  padding-left: 8px;
+}
+
+/* ── Footnote ─────────────────────────────────────────────────── */
+.gt-footnote {
+  margin-top: 14px;
+  font-family: var(--font-body); font-style: italic;
+  font-size: 12px; color: var(--ink-4);
+}

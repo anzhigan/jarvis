@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type GoalsViewMode = 'goals' | 'go';
+export type GoalsViewMode = 'goals' | 'go' | 'timeline';
 
 const STORAGE_KEY = 'jarvnote:goals:view';
 
-const VALID: GoalsViewMode[] = ['goals', 'go'];
+const VALID: GoalsViewMode[] = ['goals', 'go', 'timeline'];
 
 function readMode(): GoalsViewMode {
   const v = localStorage.getItem(STORAGE_KEY);

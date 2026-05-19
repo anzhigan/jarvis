@@ -20,6 +20,7 @@ import {
 } from '../../../store/aiJobs';
 import { GoalsBoard } from './GoalsBoard';
 import { GoView } from './GoView';
+import { GoalsTimelineView } from './GoalsTimelineView';
 import { GoalDetailPanel } from './GoalDetailPanel';
 import { GoalCreateDialog } from './GoalCreateDialog';
 import {
@@ -39,8 +40,9 @@ const ymdStr = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const VIEW_LABELS: Record<GoalsViewMode, string> = {
-  goals: 'Kanban',
-  go:    'Go',
+  goals:    'Kanban',
+  go:       'Go',
+  timeline: 'Timeline',
 };
 
 export type GoMode = 'single-goal' | 'cross-goal';
@@ -395,6 +397,11 @@ export default function GoalsView() {
                 onClick={() => view.setMode('goals')}
               >Kanban</button>
               <button
+                className={view.mode === 'timeline' ? 'on' : ''}
+                role="tab" aria-selected={view.mode === 'timeline'}
+                onClick={() => view.setMode('timeline')}
+              >Timeline</button>
+              <button
                 className={view.mode === 'go' ? 'on' : ''}
                 role="tab" aria-selected={view.mode === 'go'}
                 onClick={() => view.setMode('go')}
@@ -438,7 +445,11 @@ export default function GoalsView() {
           </div>
         </div>
 
-        {view.mode === 'go' ? (
+        {view.mode === 'timeline' ? (
+          <div className="content-scroll">
+            <GoalsTimelineView tasks={goals.tasks} onSelectGoal={onSelectGoal} />
+          </div>
+        ) : view.mode === 'go' ? (
           <GoView
             gos={gos.gos}
             goals={goals.tasks}
