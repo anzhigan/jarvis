@@ -14,7 +14,11 @@ import { Button, Drawer, Input } from '../../../components/ui';
 import { aiApi } from '../../../api/client';
 import type { AIJob, SprintPlanItem, SprintPlanOutput } from '../../../api/types';
 import { useAIJob } from '../../ai/useAIJob';
-import { dispatchAIJobDrawerClosed, dispatchAIJobDrawerOpened } from '../../../store/aiJobs';
+import {
+  dispatchAIJobDrawerClosed,
+  dispatchAIJobDrawerOpened,
+  useAIJobsStore,
+} from '../../../store/aiJobs';
 import type { SprintsLibrary } from '../hooks/useSprints';
 
 interface Props {
@@ -46,6 +50,7 @@ const ITEM_KIND_LABEL: Record<SprintPlanItem['kind'], string> = {
 export function SprintPlanDrawer({ jobId, onJobIdChange, onClose, library, days }: Props) {
   const open = jobId !== null;
   const { job, error: pollError } = useAIJob(jobId);
+  const addBgJob = useAIJobsStore((s) => s.add);
 
   // Editable copy of the AI proposal so the user can tweak title/dates and
   // drop items they don't like before commit. Initialised from the AI
@@ -101,6 +106,11 @@ export function SprintPlanDrawer({ jobId, onJobIdChange, onClose, library, days 
     setRegenerating(true);
     try {
       const fresh = await aiApi.createSprintPlan({ days });
+      addBgJob({
+        jobId: fresh.id,
+        kind: 'sprint_plan',
+        source: { section: 'sprints', noteTitle: `${days}-day plan` },
+      });
       onJobIdChange(fresh.id);
     } catch (e: any) {
       toast.error(e?.detail ?? e?.message ?? 'Failed to regenerate');

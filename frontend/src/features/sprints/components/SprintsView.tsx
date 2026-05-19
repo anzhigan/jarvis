@@ -24,6 +24,7 @@ import { SprintDetailPanel } from './SprintDetailPanel';
 import { SprintCreateDialog } from './SprintCreateDialog';
 import { AddSprintItemDialog } from './AddSprintItemDialog';
 import { SprintPlanDrawer } from './SprintPlanDrawer';
+import { AI_JOB_OPEN_EVENT, useAIJobsStore, type AIJobOpenDetail } from '../../../store/aiJobs';
 import './sprints.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -668,10 +669,30 @@ export default function SprintsView() {
   const [aiDays, setAiDays] = useState(14);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiJobId, setAiJobId] = useState<string | null>(null);
+  // Register every AI job in the global store so the bottom toast stack +
+  // AI tasks sidebar pick it up the same way they pick up quizzes / plan-day.
+  const addBgJob = useAIJobsStore((s) => s.add);
+
+  // Re-open the drawer when the user clicks a sprint_plan toast / panel row
+  // — same event AIToastStack dispatches for any kind of AI job.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
+      if (detail.kind !== 'sprint_plan') return;
+      setAiJobId(detail.jobId);
+    };
+    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
+  }, []);
   const startAiSprint = async () => {
     setAiBusy(true);
     try {
       const job = await aiApi.createSprintPlan({ days: aiDays });
+      addBgJob({
+        jobId: job.id,
+        kind: 'sprint_plan',
+        source: { section: 'sprints', noteTitle: `${aiDays}-day plan` },
+      });
       setAiJobId(job.id);
       setAiPickerOpen(false);
     } catch (e: any) {

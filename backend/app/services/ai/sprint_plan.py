@@ -30,6 +30,7 @@ from app.models.tasks import Go, GoEntry, Routine, Task
 from app.schemas.ai import SprintPlanCreate, SprintPlanItem, SprintPlanOutput
 from app.services.ai.jobs import register_handler
 from app.services.ai.ollama_client import OllamaClient
+from app.services.tasks import task_progress_pct
 
 logger = logging.getLogger(__name__)
 
@@ -79,20 +80,26 @@ async def _gather_context(
     today = target_start
 
     # Active goals — surfaces priority + due_date so the model can match
-    # urgency against the sprint window.
+    # urgency against the sprint window. We eager-load `gos` here so
+    # `task_progress_pct` (which iterates `task.gos`) doesn't trigger lazy
+    # loads inside an async session (which would raise MissingGreenlet).
+    from sqlalchemy.orm import selectinload
     goals_q = await db.execute(
         select(Task)
+        .options(selectinload(Task.gos))
         .where(Task.user_id == user_id, Task.status == "active")
         .order_by(Task.due_date.asc().nullslast(), Task.priority.asc())
         .limit(MAX_GOALS),
     )
     goals: list[dict[str, Any]] = []
     for t in goals_q.scalars().all():
+        # `progress` isn't a column on Task — it's computed from child Gos
+        # by the same helper the /tasks endpoints use.
         goals.append({
             "id": str(t.id),
             "title": t.title,
             "priority": t.priority,
-            "progress": round(t.progress or 0),
+            "progress": task_progress_pct(t),
             "due_date": t.due_date.isoformat() if t.due_date else None,
             "is_overdue": bool(t.due_date and t.due_date < today),
         })
