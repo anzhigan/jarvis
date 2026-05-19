@@ -3,7 +3,7 @@ import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Go, Tag, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { aiApi, routinesApi } from '../../../api/client';
-import { confirmDialog } from '../../../components/ui';
+import { Button, confirmDialog, Dialog } from '../../../components/ui';
 
 // Lazy: only when user clicks "Plan day" — ~80kB of Radix Popover + drawer.
 const ScheduleDrawer = lazy(() => import('../../ai/ScheduleDrawer').then((m) => ({ default: m.ScheduleDrawer })));
@@ -167,6 +167,11 @@ export default function GoalsView() {
   const [editingStep,    setEditingStep]    = useState<Step | null>(null);
   const [editingGo,      setEditingGo]      = useState<Go | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
+  // Kanban X-button on a Go opens a tiny dialog asking detach-or-delete.
+  // Stored as the target Go (null = closed) plus a "busy" flag so the dialog
+  // can disable its buttons while the network call is in flight.
+  const [unlinkingGo, setUnlinkingGo] = useState<Go | null>(null);
+  const [unlinkBusy,  setUnlinkBusy]  = useState(false);
 
   const onAddGoal = useCallback((status: TaskStatus) => {
     setCreateStatus(status);
@@ -178,13 +183,38 @@ export default function GoalsView() {
   const onEditGo      = useCallback((go: Go) => setEditingGo(go), []);
   const onEditRoutine = useCallback((r: Routine) => setEditingRoutine(r), []);
 
-  // Detach a Go from its parent Goal: clears task_id AND step_id so it
-  // shows up in the standalone Gos list. Don't ask for confirmation — the
-  // action is fully reversible (drag back / Go-edit drawer's goal picker).
-  const onUnlinkGo = useCallback(async (go: Go) => {
-    await gos.updateGo(go.id, { task_id: null, step_id: null });
-    await goals.refresh();
-  }, [gos, goals]);
+  // The X on a Go subcard always opens a small dialog with two outcomes:
+  // "Detach from goal" (reversible — Go becomes standalone) or "Delete go"
+  // (irreversible — drops entries too). The plain "open dialog" callback
+  // stays cheap so memoisation in CardCallbacks holds.
+  const onUnlinkGo = useCallback((go: Go) => { setUnlinkingGo(go); }, []);
+
+  const closeUnlinkDialog = useCallback(() => {
+    setUnlinkingGo(null);
+    setUnlinkBusy(false);
+  }, []);
+
+  const confirmDetachGo = useCallback(async () => {
+    if (!unlinkingGo) return;
+    setUnlinkBusy(true);
+    try {
+      await gos.updateGo(unlinkingGo.id, { task_id: null, step_id: null });
+      await goals.refresh();
+    } finally {
+      closeUnlinkDialog();
+    }
+  }, [unlinkingGo, gos, goals, closeUnlinkDialog]);
+
+  const confirmDeleteGo = useCallback(async () => {
+    if (!unlinkingGo) return;
+    setUnlinkBusy(true);
+    try {
+      await gos.deleteGo(unlinkingGo.id);
+      await goals.refresh();
+    } finally {
+      closeUnlinkDialog();
+    }
+  }, [unlinkingGo, gos, goals, closeUnlinkDialog]);
 
   // "Detach" a Step from its Goal — impossible by schema (Step.goal_id is
   // NOT NULL), so we delete it. Children Gos survive: ON DELETE SET NULL on
@@ -666,6 +696,45 @@ export default function GoalsView() {
           if (!o) { setEditingRoutine(null); void goals.refresh(); }
         }}
       />
+
+      {/* X-on-Go prompt — three outcomes:
+            • Detach from goal: clears task_id+step_id, Go becomes standalone.
+            • Delete go: hard delete (cascade nukes its entries).
+            • Cancel: just close.
+          We render two primary-ish action buttons so neither requires hunting
+          and the destructive one stays explicitly tinted danger. */}
+      <Dialog
+        open={unlinkingGo !== null}
+        onOpenChange={(o) => { if (!o) closeUnlinkDialog(); }}
+        size="sm"
+        title={unlinkingGo ? `«${unlinkingGo.title}»` : 'Go'}
+        description="What should happen to this go?"
+        footer={
+          <>
+            <Button variant="ghost" onClick={closeUnlinkDialog} disabled={unlinkBusy}>
+              Cancel
+            </Button>
+            <span style={{ flex: 1 }} />
+            <Button variant="danger" onClick={confirmDeleteGo} disabled={unlinkBusy}>
+              Delete go
+            </Button>
+            <Button variant="primary" onClick={confirmDetachGo} disabled={unlinkBusy}>
+              Detach from goal
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--text-sm)' }}>
+          <p style={{ margin: 0, color: 'var(--ink-2)' }}>
+            <b>Detach from goal</b> keeps the go and its entries — it just
+            leaves this goal&apos;s kanban card and lands in the standalone
+            Gos list. Reversible.
+          </p>
+          <p style={{ margin: 0, color: 'var(--ink-2)' }}>
+            <b>Delete go</b> removes the go and all its entries permanently.
+          </p>
+        </div>
+      </Dialog>
 
       <RoutineCreateForGoalDialog
         open={routineDialogTaskId !== null}

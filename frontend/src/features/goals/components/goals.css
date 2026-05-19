@@ -490,8 +490,9 @@
   font-weight: 700;
 }
 
-/* Detach (unlink) routine button — small icon at the top-right of the
-   routine subcard. Visible on hover so it doesn't clutter the row. */
+/* X-button on a Go / Step / Routine subcard. Opens a "detach or delete"
+   prompt for Go, instant-detach for Routine, instant-delete for Step
+   (the X is the visible affordance the user reaches for). */
 .kc-child-unlink {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px;
@@ -502,7 +503,7 @@
   color: var(--ink-4);
   cursor: pointer;
   flex-shrink: 0;
-  opacity: 0.55;
+  opacity: 0.7;
   transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
 }
 .kc-child:hover .kc-child-unlink,

@@ -656,9 +656,9 @@ const GoSubcard = memo(function GoSubcard({
             type="button"
             className="kc-child-unlink"
             onClick={(e) => { e.stopPropagation(); onUnlink(go); }}
-            title="Detach go from this goal"
-            aria-label="Detach go from this goal"
-          ><Unlink2 size={11} /></button>
+            title="Detach from goal or delete…"
+            aria-label="Detach from goal or delete"
+          ><X size={12} /></button>
         )}
       </div>
       {(valueLabel || due) && (
