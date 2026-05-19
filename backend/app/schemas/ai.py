@@ -324,3 +324,51 @@ class CoachOutput(BaseModel):
     if_then: CoachIfThen | None = None
     capacity: CoachCapacity = Field(default_factory=CoachCapacity)
     hidden_lever: CoachHiddenLever | None = None
+
+
+# ── Goal planner (Plan with AI on a goal) ──────────────────────────────────
+
+
+class GoalPlanCreate(BaseModel):
+    """Body for POST /ai/goal-plan.
+
+    `goal_id`: the goal to plan — its title/description/dates feed the prompt.
+    `mode`: 'full' generates steps + first gos for each; 'dates_only' takes
+    the user's existing steps/gos and only proposes start/end dates for them
+    (used by the 'I'll plan manually then auto-place dates' flow)."""
+    goal_id: str
+    mode: str = Field(default="full", pattern=r"^(full|dates_only)$")
+
+
+class GoalPlanGo(BaseModel):
+    """One proposed Go inside a step. `kind` is boolean for "did it?" items
+    and numeric for "log a value" (with target). `due_date` is anchored to
+    the parent step's window — handler clamps any drift."""
+    title: str
+    description: str = ""
+    kind: str = Field(default="boolean", pattern=r"^(boolean|numeric)$")
+    target_value: float | None = None
+    unit: str = ""
+    due_date: str = ""               # ISO YYYY-MM-DD; "" = no due
+
+
+class GoalPlanStep(BaseModel):
+    """One proposed milestone phase of the goal. `start_date` / `end_date`
+    fall inside the parent goal's window; handler clamps the right edge to
+    goal.due_date. `gos` list is non-empty in 'full' mode, empty in
+    'dates_only'."""
+    title: str
+    description: str = ""
+    start_date: str = ""             # ISO YYYY-MM-DD
+    end_date: str = ""               # ISO YYYY-MM-DD
+    gos: list[GoalPlanGo] = Field(default_factory=list)
+
+
+class GoalPlanOutput(BaseModel):
+    """Server-resolved output. `mode` echoes the request so the drawer
+    knows which UI to render (plan vs date-suggestion)."""
+    goal_id: str
+    goal_title: str
+    mode: str = "full"
+    rationale: str = ""              # 1-2 sentence framing for the user
+    steps: list[GoalPlanStep] = Field(default_factory=list)

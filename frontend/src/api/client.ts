@@ -525,4 +525,10 @@ export const aiApi = {
    *  the same activity window is instant. */
   createCoach: (body: { range_days: number }) =>
     request<AIJob>('/ai/coach', { method: 'POST', body: JSON.stringify(body) }),
+
+  /** Goal planner — proposes step breakdown + first gos for a goal.
+   *  `mode='full'` for newly-created goals; `'dates_only'` re-uses the
+   *  user's existing steps and only proposes dates for them. */
+  createGoalPlan: (body: { goal_id: string; mode?: 'full' | 'dates_only' }) =>
+    request<AIJob>('/ai/goal-plan', { method: 'POST', body: JSON.stringify(body) }),
 };

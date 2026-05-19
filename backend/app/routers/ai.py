@@ -32,6 +32,7 @@ from app.schemas.ai import (
     AIJobOut,
     AIQuizOut,
     CoachCreate,
+    GoalPlanCreate,
     InsightsCreate,
     QuizAttemptCreate,
     QuizAttemptItemOut,
@@ -43,6 +44,7 @@ from app.schemas.ai import (
 from app.services.ai.cache import (
     coach_cache_key,
     find_cached,
+    goal_plan_cache_key,
     insights_cache_key,
     quiz_cache_key,
     schedule_cache_key,
@@ -228,6 +230,7 @@ def _estimate_eta(kind: str, input_data: dict) -> int:
         "insights": 120,       # narrative reasoning is longest
         "sprint_plan": 90,     # title + rationale + ~5-12 items with reasons
         "coach": 75,           # smaller output than insights; tight prompt
+        "goal_plan": 80,       # rationale + 3-7 steps × 2-4 gos each
     }.get(kind, 90)
 
 
@@ -614,6 +617,49 @@ async def create_coach(
         kind="coach",
         input_data=body.model_dump(mode="json"),
         eta_seconds=_estimate_eta("coach", body.model_dump()),
+        cache_key=cache_key,
+        db=db,
+    )
+    await db.commit()
+    await job_queue.enqueue(job.id)
+    return job
+
+
+# ── Goal planner (Plan with AI on a Goal) ──────────────────────────────────
+
+
+@router.post("/goal-plan", response_model=AIJobOut, status_code=status.HTTP_202_ACCEPTED)
+async def create_goal_plan(
+    body: GoalPlanCreate,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Plan a Goal's steps + first gos (mode='full') or auto-place dates
+    on existing steps (mode='dates_only'). Cache reuse: same goal in same
+    state returns the previous result instantly."""
+    try:
+        goal_uuid = uuid.UUID(body.goal_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="invalid goal_id")
+
+    cache_key = await goal_plan_cache_key(user.id, goal_uuid, body.mode, db)
+    cached = await find_cached(cache_key, user.id, "goal_plan", db)
+    if cached is not None:
+        return cached
+
+    async with OllamaClient() as ollama:
+        if not await ollama.health():
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI runtime is offline. Try again in a moment.",
+            )
+
+    job = await create_job(
+        user_id=user.id,
+        kind="goal_plan",
+        input_data=body.model_dump(mode="json"),
+        eta_seconds=_estimate_eta("goal_plan", body.model_dump()),
         cache_key=cache_key,
         db=db,
     )

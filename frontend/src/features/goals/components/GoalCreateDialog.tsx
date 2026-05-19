@@ -7,7 +7,15 @@ import type { Tag, TaskPriority, TaskStatus } from '../../../api/types';
 import type { GoalsLibrary } from '../hooks/useGoals';
 import type { GosLibrary } from '../hooks/useGos';
 
-type FollowUp = 'none' | 'go' | 'routine';
+/**
+ * Follow-up action after creating a goal.
+ *   - `none`      → just save, user adds children manually later
+ *   - `go`        → open the Go-create dialog with goal pre-selected
+ *   - `routine`   → open the Routine-create-for-goal dialog
+ *   - `ai_plan`   → fire `goal_plan` AI job + open the proposal drawer
+ *                   so user gets a ready-made step + first-go breakdown
+ */
+type FollowUp = 'none' | 'go' | 'routine' | 'ai_plan';
 
 interface Props {
   open: boolean;
@@ -48,9 +56,10 @@ const COLORS: { value: string; name: string }[] = [
 ];
 
 const FOLLOW_UPS: { value: FollowUp; label: string }[] = [
-  { value: 'none',    label: 'Just save'  },
-  { value: 'go',      label: '+ Go'       },
-  { value: 'routine', label: '+ Routine'  },
+  { value: 'ai_plan', label: '✨ Plan with AI' },
+  { value: 'none',    label: 'Just save'       },
+  { value: 'go',      label: '+ Go'            },
+  { value: 'routine', label: '+ Routine'       },
 ];
 
 export function GoalCreateDialog({

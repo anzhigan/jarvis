@@ -253,6 +253,45 @@ async def coach_cache_key(
     return f"coach:{user_id}:{window_end.isoformat()}:{days}d:{_short_hash(fingerprint)}"
 
 
+async def goal_plan_cache_key(
+    user_id: uuid.UUID,
+    goal_id: uuid.UUID,
+    mode: str,
+    db: AsyncSession,
+) -> str:
+    """Cache key for goal_plan. Invalidates when the goal's window changes,
+    when its steps count changes, or when goals around it shift load (we
+    surface the global active-goal count so re-planning after adding a new
+    goal proposes different dates)."""
+    from sqlalchemy import func
+    from app.models.tasks import Step, Task
+
+    goal_q = await db.execute(
+        select(Task.start_date, Task.due_date)
+        .where(Task.id == goal_id, Task.user_id == user_id),
+    )
+    row = goal_q.first()
+    g_start = (row[0].isoformat() if row and row[0] else "")
+    g_due   = (row[1].isoformat() if row and row[1] else "")
+
+    steps_count = (await db.execute(
+        select(func.count()).select_from(Step).where(
+            Step.user_id == user_id, Step.goal_id == goal_id,
+        ),
+    )).scalar_one()
+
+    other_active = (await db.execute(
+        select(func.count()).select_from(Task).where(
+            Task.user_id == user_id,
+            Task.status == "active",
+            Task.id != goal_id,
+        ),
+    )).scalar_one()
+
+    fingerprint = f"{g_start}|{g_due}|{steps_count}|{other_active}|{mode}"
+    return f"goal_plan:{user_id}:{goal_id}:{_short_hash(fingerprint)}"
+
+
 async def find_cached(
     cache_key: str,
     user_id: uuid.UUID,

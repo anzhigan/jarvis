@@ -26,10 +26,11 @@ function deriveBgJob(j: AIJobBrief): BgAIJob {
 }
 
 function deriveSource(j: AIJobBrief): AIJobSource {
-  if (j.kind === 'schedule') return { section: 'goals' };
-  if (j.kind === 'insights') return { section: 'analysis' };
-  if (j.kind === 'coach')    return { section: 'analysis' };
+  if (j.kind === 'schedule')   return { section: 'goals' };
+  if (j.kind === 'insights')   return { section: 'analysis' };
+  if (j.kind === 'coach')      return { section: 'analysis' };
   if (j.kind === 'sprint_plan') return { section: 'sprints' };
+  if (j.kind === 'goal_plan')  return { section: 'goals' };
   // quiz: noteId only when scope.kind='note'; noteTitle comes from
   // server-resolved display_title (real note name for single-note quizzes,
   // "all notes" / "N notes" for cross-notes ones).

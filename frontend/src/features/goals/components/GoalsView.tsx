@@ -22,6 +22,7 @@ import { GoalsBoard } from './GoalsBoard';
 import { GoView } from './GoView';
 import { GoalsTimelineView } from './GoalsTimelineView';
 import { GoalDetailPanel } from './GoalDetailPanel';
+import { GoalPlanDrawer } from './GoalPlanDrawer';
 import { GoalCreateDialog } from './GoalCreateDialog';
 import {
   GoCreateDialog,
@@ -317,9 +318,46 @@ export default function GoalsView() {
     await gos.deleteGo(go.id);
   }, [gos]);
 
-  const onGoalCreated = useCallback((taskId: string, followUp: 'none' | 'go' | 'routine') => {
+  // AI goal-plan drawer state — separate from the manual create dialogs.
+  // `goalPlanJobId` is the AI job id we're polling; `goalPlanGoalId` is the
+  // goal it targets (we keep it explicitly so Regenerate inside the drawer
+  // can fire a fresh job for the same goal).
+  const [goalPlanJobId,  setGoalPlanJobId]  = useState<string | null>(null);
+  const [goalPlanGoalId, setGoalPlanGoalId] = useState<string | null>(null);
+
+  const onGoalCreated = useCallback(async (
+    taskId: string, followUp: 'none' | 'go' | 'routine' | 'ai_plan',
+  ) => {
     if (followUp === 'go')      setGoDialogTaskId(taskId);
     if (followUp === 'routine') setRoutineDialogTaskId(taskId);
+    if (followUp === 'ai_plan') {
+      try {
+        const job = await aiApi.createGoalPlan({ goal_id: taskId, mode: 'full' });
+        addBgJob({
+          jobId: job.id,
+          kind: 'goal_plan',
+          source: { section: 'goals', noteTitle: 'goal plan' },
+        });
+        setGoalPlanGoalId(taskId);
+        setGoalPlanJobId(job.id);
+      } catch (e: any) {
+        toast.error(e?.detail ?? e?.message ?? 'Failed to start AI plan');
+      }
+    }
+  }, [addBgJob]);
+
+  // Reopen via the toast / panel "Open" click — same protocol as quiz etc.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
+      if (detail.kind !== 'goal_plan') return;
+      setGoalPlanJobId(detail.jobId);
+      // We don't have the goal_id from the event payload alone; the drawer
+      // pulls it from job.output_json.goal_id once the job lands done.
+      // For an in-flight job, Regenerate will be disabled until then.
+    };
+    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
   }, []);
 
   const closeGoDialog      = useCallback((o: boolean) => {
@@ -705,6 +743,21 @@ export default function GoalsView() {
         open={editingRoutine !== null}
         onOpenChange={(o) => {
           if (!o) { setEditingRoutine(null); void goals.refresh(); }
+        }}
+      />
+
+      {/* AI goal-plan drawer — opens via the «✨ Plan with AI» follow-up
+          on GoalCreateDialog. On Apply, materialises proposed steps +
+          first gos via stepsApi.create / gosApi.create; we refresh both
+          goals (per-goal go counts re-hydrate) and gos (so the new gos
+          appear in standalone list views). */}
+      <GoalPlanDrawer
+        jobId={goalPlanJobId}
+        goalId={goalPlanGoalId}
+        onJobIdChange={setGoalPlanJobId}
+        onClose={() => { setGoalPlanJobId(null); setGoalPlanGoalId(null); }}
+        onApplied={async () => {
+          await Promise.all([goals.refresh(), gos.refresh()]);
         }}
       />
 

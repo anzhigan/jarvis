@@ -231,7 +231,7 @@ export interface Sprint {
 // Generic job lifecycle mirrors AIJobOut in backend.
 
 export type AIJobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
-export type AIJobKind = 'quiz' | 'schedule' | 'insights' | 'sprint_plan' | 'coach';
+export type AIJobKind = 'quiz' | 'schedule' | 'insights' | 'sprint_plan' | 'coach' | 'goal_plan';
 
 export interface AIJob {
   id: string;
@@ -452,4 +452,30 @@ export interface CoachOutput {
   if_then: CoachIfThen | null;
   capacity: CoachCapacity;
   hidden_lever: CoachHiddenLever | null;
+}
+
+// Goal planner — AI proposes steps + first gos for a freshly-created goal,
+// or just dates for an already-filled-in plan. Mirrors
+// backend `app/schemas/ai.py::GoalPlanOutput`.
+export interface GoalPlanGo {
+  title: string;
+  description: string;
+  kind: 'boolean' | 'numeric';
+  target_value: number | null;
+  unit: string;
+  due_date: string;   // YYYY-MM-DD
+}
+export interface GoalPlanStep {
+  title: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  gos: GoalPlanGo[];
+}
+export interface GoalPlanOutput {
+  goal_id: string;
+  goal_title: string;
+  mode: 'full' | 'dates_only';
+  rationale: string;
+  steps: GoalPlanStep[];
 }
