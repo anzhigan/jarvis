@@ -333,11 +333,18 @@ class GoalPlanCreate(BaseModel):
     """Body for POST /ai/goal-plan.
 
     `goal_id`: the goal to plan — its title/description/dates feed the prompt.
-    `mode`: 'full' generates steps + first gos for each; 'dates_only' takes
-    the user's existing steps/gos and only proposes start/end dates for them
-    (used by the 'I'll plan manually then auto-place dates' flow)."""
+    `mode`: one of —
+      - `full`            generate fresh step + first-go breakdown
+      - `fill_dates`      propose dates only for steps/gos whose current
+                          date is null; preserve any already-set ones
+      - `rebalance_dates` overwrite ALL step/go dates with a fresh balanced
+                          distribution (was `dates_only` in v1; kept as alias)
+    """
     goal_id: str
-    mode: str = Field(default="full", pattern=r"^(full|dates_only)$")
+    mode: str = Field(
+        default="full",
+        pattern=r"^(full|fill_dates|rebalance_dates|dates_only)$",
+    )
 
 
 class GoalPlanGo(BaseModel):

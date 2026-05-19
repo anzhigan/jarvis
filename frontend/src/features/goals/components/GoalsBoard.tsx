@@ -1,5 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronRight, Flag, Plus, Repeat, Unlink2, X } from 'lucide-react';
+import * as Popover from '@radix-ui/react-popover';
+import {
+  Calendar, Check, ChevronRight, Flag, Plus, Repeat, Sparkles, Unlink2, X, Zap,
+} from 'lucide-react';
 import { GoalProgressTrack } from './GoalProgressTrack';
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor,
@@ -35,6 +38,12 @@ interface Props {
    *  NULL via ON DELETE SET NULL and they fall back to the "gos · no step"
    *  section under the same goal. */
   onDeleteStep: (step: import('../../../api/types').Step) => void | Promise<void>;
+  /** AI plan action — kanban Goal card has a ✨ menu that fires goal_plan
+   *  in one of three modes. Parent (GoalsView) handles enqueue + drawer. */
+  onPlanGoalWithAi: (
+    goalId: string,
+    mode: 'full' | 'fill_dates' | 'rebalance_dates',
+  ) => void | Promise<void>;
   /** Quick-create a routine and attach to the goal — title prompted. */
   onAddRoutine: (taskId: string) => void | Promise<void>;
   /** Toggle a routine entry on the given date (defaults to today when omitted). */
@@ -92,6 +101,7 @@ interface CardCallbacks {
   onToggleRoutineDone?: Props['onToggleRoutineDone'];
   onSkipRoutine?: Props['onSkipRoutine'];
   onUnlinkRoutine?: Props['onUnlinkRoutine'];
+  onPlanGoalWithAi?: Props['onPlanGoalWithAi'];
 }
 
 function GoalCardContent({
@@ -140,6 +150,12 @@ function GoalCardContent({
       <span className="kc-pri" data-pri={task.priority as TaskPriority} />
       <div className="kc-title-row">
         <h3 className="kc-title">{task.title}</h3>
+        {callbacks?.onPlanGoalWithAi && (
+          <GoalAiMenu
+            hasSteps={(task.steps?.length ?? 0) > 0}
+            onPick={(mode) => callbacks.onPlanGoalWithAi?.(task.id, mode)}
+          />
+        )}
         <span className="kc-pri-flag" data-pri={task.priority} title={`Priority: ${task.priority}`}>
           <Flag size={11} />
         </span>
@@ -775,7 +791,7 @@ function DroppableColumn({
 export function GoalsBoard({
   tasks, visibleStatuses, onSelect, onAdd, onMove,
   onToggleGoDone, onAddGo, onAddStep, onEditStep, onEditGo, onEditRoutine,
-  onUnlinkGo, onDeleteStep,
+  onUnlinkGo, onDeleteStep, onPlanGoalWithAi,
   onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
 }: Props) {
   // When the user picks specific statuses in the filter bar, render only
@@ -837,13 +853,14 @@ export function GoalsBoard({
     onEditRoutine,
     onUnlinkGo,
     onDeleteStep,
+    onPlanGoalWithAi,
     onAddRoutine,
     onToggleRoutineDone,
     onSkipRoutine,
     onUnlinkRoutine,
   }), [
     onToggleGoDone, onAddGo, onAddStep, onEditStep, onEditGo, onEditRoutine,
-    onUnlinkGo, onDeleteStep,
+    onUnlinkGo, onDeleteStep, onPlanGoalWithAi,
     onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
   ]);
 
@@ -882,5 +899,92 @@ export function GoalsBoard({
         ) : null}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+
+/* ───────────── Goal AI menu ─────────────────────────────────────────────
+ * Small ✨ button in the Goal kanban card header. Opens a popover with
+ * three actions. We disable date-related options when the goal has no
+ * steps yet (backend would reject anyway) — keeps the UI honest.            */
+
+type AiMode = 'full' | 'fill_dates' | 'rebalance_dates';
+
+function GoalAiMenu({
+  hasSteps, onPick,
+}: {
+  hasSteps: boolean;
+  onPick: (mode: AiMode) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const choose = (mode: AiMode) => { setOpen(false); onPick(mode); };
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          className="kc-ai-btn"
+          aria-label="Plan with AI"
+          title="Plan with AI"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Sparkles size={11} />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          className="kc-ai-menu"
+          sideOffset={6}
+          align="end"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="kc-ai-menu__head">Plan this goal with AI</div>
+          <button
+            type="button"
+            className="kc-ai-menu__item"
+            onClick={() => choose('full')}
+          >
+            <span className="kc-ai-menu__icon"><Zap size={13} /></span>
+            <span className="kc-ai-menu__body">
+              <span className="kc-ai-menu__title">Generate plan</span>
+              <span className="kc-ai-menu__desc">
+                Steps + first gos breakdown · uses goal window + your other deadlines
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="kc-ai-menu__item"
+            disabled={!hasSteps}
+            onClick={() => choose('fill_dates')}
+            title={hasSteps ? undefined : 'No steps yet — use Generate plan first'}
+          >
+            <span className="kc-ai-menu__icon"><Calendar size={13} /></span>
+            <span className="kc-ai-menu__body">
+              <span className="kc-ai-menu__title">Fill missing dates</span>
+              <span className="kc-ai-menu__desc">
+                Only blank start/end/due — leaves your existing dates alone
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="kc-ai-menu__item"
+            disabled={!hasSteps}
+            onClick={() => choose('rebalance_dates')}
+            title={hasSteps ? undefined : 'No steps yet — use Generate plan first'}
+          >
+            <span className="kc-ai-menu__icon"><Sparkles size={13} /></span>
+            <span className="kc-ai-menu__body">
+              <span className="kc-ai-menu__title">Re-balance all dates</span>
+              <span className="kc-ai-menu__desc">
+                Smart spread across the goal window — overwrites every date
+              </span>
+            </span>
+          </button>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

@@ -140,7 +140,9 @@ def _build_prompt(
         })
 
     mode_block = ""
-    if mode == "dates_only":
+    # Accept both new names and the legacy alias `dates_only`.
+    is_dates_mode = mode in {"dates_only", "fill_dates", "rebalance_dates"}
+    if is_dates_mode:
         # In dates_only we also surface each step's existing Gos so the
         # model can suggest a due_date per go (inside its step's window).
         # IDs are NOT exposed — frontend matches proposals to existing
@@ -161,17 +163,32 @@ def _build_prompt(
                 "end_date": s.end_date.isoformat() if s.end_date else None,
                 "gos": step_gos,
             })
+        # Distinct guidance per dates-mode. Fill = only blanks; rebalance =
+        # full overwrite even when current dates exist.
+        if mode == "fill_dates":
+            mode_instruction = (
+                "For each step / go: if `start_date` / `end_date` / `due_date` "
+                "is currently null, propose a date inside the appropriate "
+                "window. If the field already has a value, COPY IT THROUGH "
+                "UNCHANGED — do NOT alter it. The server enforces this rule "
+                "even if you slip."
+            )
+        else:
+            mode_instruction = (
+                "For EACH step: set start_date + end_date inside the goal "
+                "window. For EACH go inside a step: set due_date inside that "
+                "step's window. Distribute evenly but bias earlier-step "
+                "boundaries shorter; later boundaries longer (lead-in is small, "
+                "execution is big)."
+            )
         mode_block = f"""
-MODE: dates_only
+MODE: {mode}
 
 EXISTING STEPS WITH THEIR GOS (preserve order, titles, descriptions —
 ONLY fill in dates):
 {json.dumps(existing_with_gos, ensure_ascii=False, indent=2)}
 
-For EACH step: set start_date + end_date inside the goal window.
-For EACH go inside a step: set due_date inside that step's window.
-Distribute evenly but bias earlier-step boundaries shorter; later
-boundaries longer (lead-in is small, execution is big).
+{mode_instruction}
 DO NOT add, remove, or rename steps or gos. Output the same lengths back."""
     else:
         mode_block = f"""
@@ -253,7 +270,12 @@ def _clamp_dates(
 ) -> GoalPlanOutput:
     """Defence-in-depth — even with the prompt instructions, the model
     sometimes returns dates outside the window or out-of-order. We clamp
-    to goal window and force step monotonicity."""
+    to goal window and force step monotonicity.
+
+    For `fill_dates` mode: if a step / go's original date was non-null,
+    server forces the original value back regardless of what the LLM
+    returned. The frontend can rely on this — no need to mirror the
+    logic there."""
     def clamp(s: str) -> date_cls | None:
         if not s:
             return None
@@ -267,37 +289,56 @@ def _clamp_dates(
             return end
         return d
 
+    is_fill = mode == "fill_dates"
+    # For fill mode we need to know the user's original dates step-by-step
+    # to restore them after the LLM returns.
+    existing_steps_sorted = sorted(goal.steps, key=lambda x: x.position)
+
     last_end: date_cls | None = None
     cleaned: list[GoalPlanStep] = []
-    for st in plan.steps:
-        s = clamp(st.start_date) or (last_end + timedelta(days=1) if last_end else start)
-        if last_end and s <= last_end:
-            s = last_end + timedelta(days=1)
-            if s > end:
-                continue  # no room left
-        e = clamp(st.end_date) or s
-        if e < s:
-            e = s
-        if e > end:
-            e = end
-        st.start_date = s.isoformat()
-        st.end_date = e.isoformat()
+    for idx, st in enumerate(plan.steps):
+        original_step = existing_steps_sorted[idx] if idx < len(existing_steps_sorted) else None
 
-        # Clamp Go due_dates into [s, e]. Both modes now propose dates for
-        # gos — in dates_only we keep gos but only their due_date is honoured
-        # downstream; in full we use everything (title, kind, target, etc.).
+        s_proposed = clamp(st.start_date) or (last_end + timedelta(days=1) if last_end else start)
+        if last_end and s_proposed <= last_end:
+            s_proposed = last_end + timedelta(days=1)
+            if s_proposed > end:
+                continue  # no room left
+        e_proposed = clamp(st.end_date) or s_proposed
+        if e_proposed < s_proposed:
+            e_proposed = s_proposed
+        if e_proposed > end:
+            e_proposed = end
+
+        # fill_dates: prefer the original value when set.
+        if is_fill and original_step:
+            s_final = original_step.start_date or s_proposed
+            e_final = original_step.end_date or e_proposed
+        else:
+            s_final = s_proposed
+            e_final = e_proposed
+
+        st.start_date = s_final.isoformat()
+        st.end_date = e_final.isoformat()
+
+        # Match step's existing gos by position so we can preserve their
+        # current due_dates in fill mode.
+        original_gos = list(original_step.gos) if original_step else []
+
         cleaned_gos: list[GoalPlanGo] = []
-        for g in st.gos:
-            gd = clamp(g.due_date)
-            if gd is None or gd < s or gd > e:
-                # Place mid-step as default fallback when LLM gave an out-of-
-                # range or unparsable date.
-                gd = s + (e - s) // 2
-            g.due_date = gd.isoformat()
+        for gi, g in enumerate(st.gos):
+            original_go = original_gos[gi] if gi < len(original_gos) else None
+            gd_proposed = clamp(g.due_date)
+            if gd_proposed is None or gd_proposed < s_final or gd_proposed > e_final:
+                gd_proposed = s_final + (e_final - s_final) // 2
+            if is_fill and original_go and original_go.due_date:
+                g.due_date = original_go.due_date.isoformat()
+            else:
+                g.due_date = gd_proposed.isoformat()
             cleaned_gos.append(g)
         st.gos = cleaned_gos
 
-        last_end = e
+        last_end = e_final
         cleaned.append(st)
 
     plan.steps = cleaned
@@ -322,8 +363,10 @@ async def run_goal_plan_job(
     ctx = await _load_context(job.user_id, goal_uuid, db)
     goal: Task = ctx["goal"]
 
-    if params.mode == "dates_only" and len(goal.steps) == 0:
-        raise ValueError("dates_only mode requires existing steps to date")
+    if params.mode in {"dates_only", "fill_dates", "rebalance_dates"} and len(goal.steps) == 0:
+        raise ValueError(
+            f"{params.mode} mode requires existing steps — add at least one or use full mode",
+        )
 
     start, end = _resolve_window(goal)
     prompt = _build_prompt(params.mode, goal, start, end, ctx["other_dues"])

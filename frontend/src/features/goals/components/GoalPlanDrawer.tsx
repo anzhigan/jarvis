@@ -39,9 +39,9 @@ interface Props {
    *  `dates_only` proposals. */
   existingGoal?: Task | null;
   /** Force the regenerate button to fire this mode (defaults to whatever
-   *  mode the current draft says). Used by the parent to keep the
-   *  dates-only flow on dates-only refresh. */
-  regenerateMode?: 'full' | 'dates_only';
+   *  mode the current draft says). Used by the parent to keep the dates
+   *  flow on the same flavour on refresh. */
+  regenerateMode?: 'full' | 'fill_dates' | 'rebalance_dates' | 'dates_only';
 }
 
 type View =
@@ -148,7 +148,12 @@ export function GoalPlanDrawer({
     if (!draft || !goalId) return;
     setSubmitting(true);
 
-    if (draft.mode === 'dates_only') {
+    // dates_only / fill_dates / rebalance_dates — все three apply через
+    // stepsApi.update + gosApi.update (а не create).
+    const isDatesMode = draft.mode === 'dates_only'
+      || draft.mode === 'fill_dates'
+      || draft.mode === 'rebalance_dates';
+    if (isDatesMode) {
       if (!existingGoal) {
         toast.error('Cannot apply — missing goal context');
         setSubmitting(false);
@@ -321,7 +326,9 @@ export function GoalPlanDrawer({
                 <ul className="gp-plan__steps">
                   {draft.steps.map((s, i) => {
                     const dropped = droppedStepIdx.has(i);
-                    const isDatesOnly = draft.mode === 'dates_only';
+                    const isDatesOnly = draft.mode === 'dates_only'
+                      || draft.mode === 'fill_dates'
+                      || draft.mode === 'rebalance_dates';
                     // Pull the original step + gos from the live goal so we
                     // can render the "current → proposed" diff inline.
                     const existingSteps = existingGoal
@@ -438,7 +445,7 @@ export function GoalPlanDrawer({
               >
                 {submitting
                   ? 'Applying…'
-                  : draft.mode === 'dates_only'
+                  : (draft.mode === 'dates_only' || draft.mode === 'fill_dates' || draft.mode === 'rebalance_dates')
                     ? `Update dates · ${acceptedSteps.length} step${acceptedSteps.length === 1 ? '' : 's'}`
                     : `Apply plan · ${acceptedSteps.length} step${acceptedSteps.length === 1 ? '' : 's'}`}
               </Button>

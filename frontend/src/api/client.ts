@@ -526,9 +526,14 @@ export const aiApi = {
   createCoach: (body: { range_days: number }) =>
     request<AIJob>('/ai/coach', { method: 'POST', body: JSON.stringify(body) }),
 
-  /** Goal planner — proposes step breakdown + first gos for a goal.
-   *  `mode='full'` for newly-created goals; `'dates_only'` re-uses the
-   *  user's existing steps and only proposes dates for them. */
-  createGoalPlan: (body: { goal_id: string; mode?: 'full' | 'dates_only' }) =>
+  /** Goal planner. Modes:
+   *  - `full`            generate step + first-gos breakdown
+   *  - `fill_dates`      propose dates only for steps/gos with null dates
+   *  - `rebalance_dates` overwrite all existing dates for an even spread
+   *  - `dates_only`      legacy alias for `rebalance_dates` */
+  createGoalPlan: (body: {
+    goal_id: string;
+    mode?: 'full' | 'fill_dates' | 'rebalance_dates' | 'dates_only';
+  }) =>
     request<AIJob>('/ai/goal-plan', { method: 'POST', body: JSON.stringify(body) }),
 };

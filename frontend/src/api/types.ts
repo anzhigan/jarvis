@@ -472,10 +472,11 @@ export interface GoalPlanStep {
   end_date: string;
   gos: GoalPlanGo[];
 }
+export type GoalPlanMode = 'full' | 'fill_dates' | 'rebalance_dates' | 'dates_only';
 export interface GoalPlanOutput {
   goal_id: string;
   goal_title: string;
-  mode: 'full' | 'dates_only';
+  mode: GoalPlanMode;
   rationale: string;
   steps: GoalPlanStep[];
 }

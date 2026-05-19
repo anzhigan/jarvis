@@ -326,7 +326,9 @@ export default function GoalsView() {
   // steps) so the drawer can render and apply differently.
   const [goalPlanJobId,  setGoalPlanJobId]  = useState<string | null>(null);
   const [goalPlanGoalId, setGoalPlanGoalId] = useState<string | null>(null);
-  const [goalPlanMode,   setGoalPlanMode]   = useState<'full' | 'dates_only'>('full');
+  const [goalPlanMode,   setGoalPlanMode]   = useState<
+    'full' | 'fill_dates' | 'rebalance_dates' | 'dates_only'
+  >('full');
 
   const onGoalCreated = useCallback(async (
     taskId: string, followUp: 'none' | 'go' | 'routine' | 'ai_plan',
@@ -350,14 +352,15 @@ export default function GoalsView() {
     }
   }, [addBgJob]);
 
-  /** Trigger AI plan from GoalDetailPanel's "Plan with AI" button.
-   *  Mode is auto-detected: a goal with no steps yet → `full` (generate
-   *  step breakdown + first gos); a goal that already has steps → `dates_only`
-   *  (patch dates on existing steps/gos). Same drawer for both. */
-  const onPlanDates = useCallback(async (taskId: string) => {
-    const task = goals.tasks.find((t) => t.id === taskId);
-    const mode: 'full' | 'dates_only' =
-      (task?.steps?.length ?? 0) > 0 ? 'dates_only' : 'full';
+  /** Trigger AI plan in an explicit mode. Used by:
+   *   - GoalsBoard ✨ menu on each Goal card (passes a specific mode)
+   *   - GoalDetailPanel "Plan with AI" button (mode auto-detected from
+   *     whether the goal has steps yet) — wired via onPlanDates below.
+   */
+  const onPlanGoalWithAi = useCallback(async (
+    taskId: string,
+    mode: 'full' | 'fill_dates' | 'rebalance_dates',
+  ) => {
     try {
       const job = await aiApi.createGoalPlan({ goal_id: taskId, mode });
       addBgJob({
@@ -365,16 +368,28 @@ export default function GoalsView() {
         kind: 'goal_plan',
         source: {
           section: 'goals',
-          noteTitle: mode === 'dates_only' ? 'auto dates' : 'goal plan',
+          noteTitle: mode === 'full' ? 'goal plan'
+            : mode === 'fill_dates' ? 'fill dates'
+            : 'rebalance dates',
         },
       });
       setGoalPlanGoalId(taskId);
-      setGoalPlanMode(mode);
+      // Stored mode goes to drawer as both the rendering mode + the
+      // regenerate-mode preset (so Regenerate keeps the same flavour).
+      setGoalPlanMode(mode === 'full' ? 'full' : 'dates_only');
       setGoalPlanJobId(job.id);
     } catch (e: any) {
       toast.error(e?.detail ?? e?.message ?? 'Failed to start AI plan');
     }
-  }, [addBgJob, goals.tasks]);
+  }, [addBgJob]);
+
+  /** Detail-panel helper — auto-picks mode based on goal state. */
+  const onPlanDates = useCallback((taskId: string) => {
+    const task = goals.tasks.find((t) => t.id === taskId);
+    const mode: 'full' | 'rebalance_dates' =
+      (task?.steps?.length ?? 0) > 0 ? 'rebalance_dates' : 'full';
+    return onPlanGoalWithAi(taskId, mode);
+  }, [onPlanGoalWithAi, goals.tasks]);
 
   // Reopen via the toast / panel "Open" click — same protocol as quiz etc.
   useEffect(() => {
@@ -637,6 +652,7 @@ export default function GoalsView() {
               onEditRoutine={onEditRoutine}
               onUnlinkGo={onUnlinkGo}
               onDeleteStep={onDeleteStep}
+              onPlanGoalWithAi={onPlanGoalWithAi}
               onAddRoutine={onAddRoutine}
               onToggleRoutineDone={onToggleRoutineDone}
               onSkipRoutine={onSkipRoutine}

@@ -3941,3 +3941,85 @@
 .gp-diff__proposed { color: var(--indigo); font-weight: 600; }
 .gp-diff[data-same] .gp-diff__current { text-decoration: none; color: var(--ink-4); }
 .gp-diff[data-same] .gp-diff__proposed { color: var(--ink-4); font-weight: 400; }
+
+/* ── AI ✨ button in the kanban Goal card title row ────────────────────── */
+.kc-ai-btn {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-left: 6px;
+  flex-shrink: 0;
+  transition: background var(--dur-fast), transform var(--dur-fast);
+}
+.kc-ai-btn:hover { background: var(--indigo-tint); transform: scale(1.06); }
+.kc-ai-btn:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+
+/* The 3-action popover menu */
+.kc-ai-menu {
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-popover);
+  padding: 6px;
+  min-width: 280px;
+  max-width: 320px;
+  z-index: var(--z-popover);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.kc-ai-menu__head {
+  padding: 6px 10px 8px;
+  font-family: var(--font-ui); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--ink-4);
+  border-bottom: 1px solid var(--hairline-faint);
+  margin-bottom: 4px;
+}
+
+.kc-ai-menu__item {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 8px; align-items: start;
+  padding: 8px 10px;
+  background: transparent; border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit; color: inherit;
+  transition: background var(--dur-fast);
+}
+.kc-ai-menu__item:hover:not(:disabled) {
+  background: var(--cream);
+}
+.kc-ai-menu__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.kc-ai-menu__icon {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  border-radius: 50%;
+  margin-top: 1px;
+}
+.kc-ai-menu__body {
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: 0;
+}
+.kc-ai-menu__title {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 13.5px; color: var(--ink);
+  letter-spacing: -0.012em;
+}
+.kc-ai-menu__desc {
+  font-family: var(--font-body); font-style: italic;
+  font-size: 11.5px; line-height: 1.4;
+  color: var(--ink-4);
+}
