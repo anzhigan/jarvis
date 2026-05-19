@@ -31,6 +31,7 @@ from app.schemas.ai import (
     AIJobCreate,
     AIJobOut,
     AIQuizOut,
+    CoachCreate,
     InsightsCreate,
     QuizAttemptCreate,
     QuizAttemptItemOut,
@@ -40,6 +41,7 @@ from app.schemas.ai import (
     SprintPlanCreate,
 )
 from app.services.ai.cache import (
+    coach_cache_key,
     find_cached,
     insights_cache_key,
     quiz_cache_key,
@@ -225,6 +227,7 @@ def _estimate_eta(kind: str, input_data: dict) -> int:
         "schedule": 60,
         "insights": 120,       # narrative reasoning is longest
         "sprint_plan": 90,     # title + rationale + ~5-12 items with reasons
+        "coach": 75,           # smaller output than insights; tight prompt
     }.get(kind, 90)
 
 
@@ -574,6 +577,46 @@ async def create_sprint_plan(
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
+    await db.commit()
+    await job_queue.enqueue(job.id)
+    return job
+
+
+# ── Coach panel (Analysis) ──────────────────────────────────────────────────
+
+
+@router.post("/coach", response_model=AIJobOut, status_code=status.HTTP_202_ACCEPTED)
+async def create_coach(
+    body: CoachCreate,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Enqueue a coach job. Returns immediately; the cached entry is reused
+    when activity hasn't meaningfully changed since the last run."""
+    today = datetime.now(UTC).date()
+    window_start = today - timedelta(days=body.range_days - 1)
+
+    cache_key = await coach_cache_key(user.id, window_start, today, db)
+    cached = await find_cached(cache_key, user.id, "coach", db)
+    if cached is not None:
+        return cached
+
+    async with OllamaClient() as ollama:
+        if not await ollama.health():
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI runtime is offline. Try again in a moment.",
+            )
+
+    job = await create_job(
+        user_id=user.id,
+        kind="coach",
+        input_data=body.model_dump(mode="json"),
+        eta_seconds=_estimate_eta("coach", body.model_dump()),
+        cache_key=cache_key,
+        db=db,
+    )
     await db.commit()
     await job_queue.enqueue(job.id)
     return job

@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import type { Routine } from '../../../api/types';
+import { useMemo, useState } from 'react';
+import type { Routine, Task } from '../../../api/types';
 import type { ActivityPoint, GoalProgressRow, StreakRow } from '../hooks/useAnalytics';
 import { ymd } from '../../routines/lib/heatmap';
 
@@ -16,11 +16,26 @@ function accentFor(seed: string): string {
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 interface CompletionProps {
-  /** activity[].routines = routines logged that day. We use this as a proxy. */
+  /** Daily counts of routine + goal completions in the period. */
   activity: ActivityPoint[];
-  /** Number of active routines — denominator for "completed of due". */
+  /** Number of active routines — denominator for routine completion %. */
   activeRoutineCount: number;
+  /** Tasks (goals) — used to size the "goals completion" series and to
+   *  compute the expected pace line / pace verdict from due dates. */
+  tasks: Task[];
 }
+
+type SeriesMode = 'routines' | 'goals' | 'both';
+const SERIES_LABELS: Record<SeriesMode, string> = {
+  routines: '% of routines logged each day',
+  goals:    '% of goals workload closed each day',
+  both:     'routines vs goals + expected pace',
+};
+const MODE_BUTTONS: { key: SeriesMode; label: string }[] = [
+  { key: 'routines', label: 'Routines' },
+  { key: 'goals',    label: 'Goals' },
+  { key: 'both',     label: 'Both' },
+];
 
 const CW = 900;
 const CH = 240;
@@ -29,69 +44,173 @@ const CPAD_R = 20;
 const CPAD_T = 18;
 const CPAD_B = 36;
 
-export function RoutineCompletionChart({ activity, activeRoutineCount }: CompletionProps) {
-  const series = useMemo(() => {
-    if (activity.length === 0 || activeRoutineCount === 0) return [];
-    return activity.map((a) => Math.min(100, Math.round((a.routines / activeRoutineCount) * 100)));
-  }, [activity, activeRoutineCount]);
-
-  const avg = series.length === 0 ? 0
-    : Math.round(series.reduce((acc, v) => acc + v, 0) / series.length);
-
-  if (series.length === 0) {
-    return (
-      <div className="ana-card-chart">
-        <header className="acc-head">
-          <div className="acc-head-text">
-            <h3 className="acc-title">Routine completion · 30 days</h3>
-            <p className="acc-sub">% of due routines completed each day</p>
-          </div>
-        </header>
-        <div className="ana-card-empty">No routines logged yet.</div>
-      </div>
-    );
-  }
-
-  // Normalize to chart axis. Y: 0 → bottom, 100 → top.
-  const innerW = CW - CPAD_L - CPAD_R;
-  const innerH = CH - CPAD_T - CPAD_B;
-  const minY = Math.max(0, Math.min(...series) - 10);
-  const maxY = Math.min(100, Math.max(...series) + 10);
-  const yScale = (v: number) => CPAD_T + (1 - (v - minY) / (maxY - minY)) * innerH;
-  const xScale = (i: number) => CPAD_L + (i / Math.max(1, series.length - 1)) * innerW;
-
-  // 5 horizontal grid lines + Y labels.
-  const yTicks = [0, 1, 2, 3, 4].map((i) => {
-    const v = Math.round(minY + (i / 4) * (maxY - minY));
-    return { y: yScale(v), v };
-  });
-  // X ticks: every 5 days.
-  const xTicks = series.map((_, i) => i)
-    .filter((i) => i === 0 || i === series.length - 1 || i % 5 === 0)
-    .map((i) => ({ x: xScale(i), label: `d-${series.length - 1 - i}` }));
-
-  // Path for the line.
-  const linePath = series.map((v, i) => {
+/** Build an SVG path `M…L…L…` from values + scales. */
+function linePathFor(values: number[], xScale: (i: number) => number, yScale: (v: number) => number): string {
+  return values.map((v, i) => {
     const x = xScale(i).toFixed(1);
     const y = yScale(v).toFixed(1);
     return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
   }).join(' ');
-  // Area path closes back to baseline.
-  const baselineY = yScale(minY).toFixed(1);
-  const firstX = xScale(0).toFixed(1);
-  const lastX = xScale(series.length - 1).toFixed(1);
-  const areaPath = `M ${firstX},${baselineY} L ${linePath.slice(2)} L ${lastX},${baselineY} Z`;
+}
+
+/** Close a line path back to the baseline → area polygon. */
+function areaPathFor(line: string, firstX: number, lastX: number, baselineY: number): string {
+  return `M ${firstX.toFixed(1)},${baselineY.toFixed(1)} L ${line.slice(2)} L ${lastX.toFixed(1)},${baselineY.toFixed(1)} Z`;
+}
+
+export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: CompletionProps) {
+  const [mode, setMode] = useState<SeriesMode>('routines');
+
+  // ── Series ──────────────────────────────────────────────────────────
+  const routinesSeries = useMemo(() => {
+    if (activity.length === 0 || activeRoutineCount === 0) return [];
+    return activity.map((a) => Math.min(100, Math.round((a.routines / activeRoutineCount) * 100)));
+  }, [activity, activeRoutineCount]);
+
+  // Goal "completion %" — proxy: each goal contributes `(gos_done_today /
+  // gos_total)` × 100 normalised across active goals. For the daily series,
+  // we don't have per-day historic snapshots; we use entries closed that
+  // day from `activity.goals` divided by total open workload.
+  const goalsSeries = useMemo(() => {
+    const openGosTotal = tasks
+      .filter((t) => t.status !== 'done')
+      .reduce((s, t) => s + (t.gos?.length ?? 0), 0);
+    if (activity.length === 0 || openGosTotal === 0) return [];
+    return activity.map((a) => Math.min(100, Math.round((a.goals / openGosTotal) * 100)));
+  }, [activity, tasks]);
+
+  // ── Pace expectation ────────────────────────────────────────────────
+  // Honest math for "you should be at X% by now". For each active goal
+  // with a deadline, expected % is the fraction of its window elapsed.
+  // The daily pace target (gos/day) is sum(remaining_gos) ÷ sum(days_left).
+  const pace = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    let remainingGos = 0;
+    let weightedDaysLeft = 0;
+    let expectedSum = 0;
+    let actualSum = 0;
+    let goalsCounted = 0;
+
+    for (const t of tasks) {
+      if (t.status === 'done' || t.status === 'backlog' || !t.due_date) continue;
+      const due = new Date(t.due_date);
+      const start = t.start_date ? new Date(t.start_date) : null;
+      const total = start && due > start ? due.getTime() - start.getTime() : null;
+      const elapsed = start ? Math.max(0, today.getTime() - start.getTime()) : 0;
+      const daysLeft = Math.max(1, Math.ceil((due.getTime() - today.getTime()) / 86_400_000));
+
+      const open = (t.gos?.length ?? 0);
+      const doneCount = t.gos?.filter((g) => g.is_done_today).length ?? 0;
+      const remaining = Math.max(0, open - doneCount);
+      remainingGos += remaining;
+      weightedDaysLeft += daysLeft;
+
+      if (total) {
+        const expectedPct = Math.min(100, Math.round((elapsed / total) * 100));
+        // Reached this branch only for active/paused (we `continue` on
+        // done/backlog above) — progress is the only meaningful actual.
+        const actualPct = Math.round(t.progress);
+        expectedSum += expectedPct;
+        actualSum += actualPct;
+        goalsCounted++;
+      }
+    }
+
+    if (goalsCounted === 0) {
+      return { available: false, expectedPct: 0, actualPct: 0, gap: 0, paceNeeded: 0, currentRate: 0 };
+    }
+    const expectedPct = Math.round(expectedSum / goalsCounted);
+    const actualPct = Math.round(actualSum / goalsCounted);
+    const gap = expectedPct - actualPct;  // positive → behind
+    // Pace needed = remaining gos / max(1, average days left)
+    const paceNeeded = Math.round((remainingGos / Math.max(1, weightedDaysLeft / goalsCounted)) * 10) / 10;
+    // Current rate = average gos closed per day over the activity window.
+    const totalClosed = activity.reduce((s, a) => s + a.goals, 0);
+    const currentRate = activity.length === 0 ? 0 : Math.round((totalClosed / activity.length) * 10) / 10;
+
+    return { available: true, expectedPct, actualPct, gap, paceNeeded, currentRate };
+  }, [tasks, activity]);
+
+  // ── Render ──────────────────────────────────────────────────────────
+  const anyData = routinesSeries.length > 0 || goalsSeries.length > 0;
+  if (!anyData) {
+    return (
+      <div className="ana-card-chart">
+        <header className="acc-head">
+          <div className="acc-head-text">
+            <h3 className="acc-title">Daily <em>completion</em></h3>
+            <p className="acc-sub">% logged each day · routines</p>
+          </div>
+        </header>
+        <div className="ana-card-empty">No activity yet.</div>
+      </div>
+    );
+  }
+
+  const innerW = CW - CPAD_L - CPAD_R;
+  const innerH = CH - CPAD_T - CPAD_B;
+  // Fixed 0..100 axis so toggling between series doesn't re-scale visually.
+  const minY = 0, maxY = 100;
+  const yScale = (v: number) => CPAD_T + (1 - (v - minY) / (maxY - minY)) * innerH;
+  const N = activity.length;
+  const xScale = (i: number) => CPAD_L + (i / Math.max(1, N - 1)) * innerW;
+
+  const yTicks = [0, 25, 50, 75, 100].map((v) => ({ v, y: yScale(v) }));
+  const xTicks = Array.from({ length: N }, (_, i) => i)
+    .filter((i) => i === 0 || i === N - 1 || i % 5 === 0)
+    .map((i) => ({ x: xScale(i), label: `d-${N - 1 - i}` }));
+
+  const showRoutines = mode === 'routines' || mode === 'both';
+  const showGoals    = mode === 'goals'    || mode === 'both';
+  const showPace     = (mode === 'goals' || mode === 'both') && pace.available;
+
+  const routinesLine = showRoutines && routinesSeries.length > 0
+    ? linePathFor(routinesSeries, xScale, yScale) : '';
+  const goalsLine = showGoals && goalsSeries.length > 0
+    ? linePathFor(goalsSeries, xScale, yScale) : '';
+
+  const baseY = yScale(0);
+  const routinesArea = routinesLine ? areaPathFor(routinesLine, xScale(0), xScale(routinesSeries.length - 1), baseY) : '';
+  const goalsArea    = goalsLine    ? areaPathFor(goalsLine,    xScale(0), xScale(goalsSeries.length - 1),    baseY) : '';
+
+  // Pace line — straight reference at "expected pct" so the user reads
+  // it as "where you should be on average right now". Slight band for
+  // intuition: ±5% tolerance.
+  const expectedY = yScale(pace.expectedPct);
+  const expectedYHi = yScale(Math.min(100, pace.expectedPct + 5));
+  const expectedYLo = yScale(Math.max(0, pace.expectedPct - 5));
+
+  const routinesAvg = routinesSeries.length === 0 ? 0
+    : Math.round(routinesSeries.reduce((a, v) => a + v, 0) / routinesSeries.length);
+  const goalsAvg = goalsSeries.length === 0 ? 0
+    : Math.round(goalsSeries.reduce((a, v) => a + v, 0) / goalsSeries.length);
+  const headerAvg = mode === 'goals' ? goalsAvg : routinesAvg;
+
+  // Pace verdict tone — behind if gap > 3, ahead if gap < -3, else neutral.
+  const verdictTone = pace.gap > 3 ? 'bad' : pace.gap < -3 ? 'good' : 'neutral';
 
   return (
     <div className="ana-card-chart">
       <header className="acc-head">
         <div className="acc-head-text">
-          <h3 className="acc-title">Routine completion · 30 days</h3>
-          <p className="acc-sub">% of due routines completed each day</p>
+          <h3 className="acc-title">Daily <em>completion</em></h3>
+          <p className="acc-sub">{SERIES_LABELS[mode]}</p>
+        </div>
+        <div className="dc-seg" role="tablist">
+          {MODE_BUTTONS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              className={mode === key ? 'on' : ''}
+              role="tab"
+              aria-selected={mode === key}
+              onClick={() => setMode(key)}
+            >{label}</button>
+          ))}
         </div>
         <div className="acc-stat">
-          <div className="acc-stat-num">{avg}<em>%</em></div>
-          <div className="acc-stat-trend">avg · last 30 days</div>
+          <div className="acc-stat-num">{headerAvg}<em>%</em></div>
+          <div className="acc-stat-trend">avg · {N}d</div>
         </div>
       </header>
       <div className="acc-body">
@@ -105,29 +224,87 @@ export function RoutineCompletionChart({ activity, activeRoutineCount }: Complet
                 fill="var(--ink-5)" fontSize={10} fontFamily="JetBrains Mono">{t.v}%</text>
             </g>
           ))}
-          {/* X axis labels */}
           {xTicks.map((t, i) => (
             <text key={i} x={t.x} y={CH - 12} textAnchor="middle"
               fill="var(--ink-5)" fontSize={10} fontFamily="JetBrains Mono">{t.label}</text>
           ))}
-          {/* Area + line + dots */}
-          <path d={areaPath} fill="var(--indigo)" fillOpacity={0.10} />
-          <path d={linePath} fill="none" stroke="var(--indigo)" strokeWidth={1.8}
-            strokeLinecap="round" strokeLinejoin="round" />
-          {series.map((v, i) => (
-            <circle key={i} cx={xScale(i)} cy={yScale(v)} r={2.5} fill="var(--indigo)" />
-          ))}
-          {/* Highlight last point */}
-          {series.length > 0 && (
+
+          {/* Routines series (indigo) */}
+          {showRoutines && routinesLine && (
             <>
-              <circle cx={xScale(series.length - 1)} cy={yScale(series[series.length - 1])}
-                r={5} fill="var(--indigo)" opacity={0.25} />
-              <circle cx={xScale(series.length - 1)} cy={yScale(series[series.length - 1])}
-                r={3.5} fill="var(--indigo)" />
+              <path d={routinesArea} fill="var(--indigo)" fillOpacity={0.10} />
+              <path d={routinesLine} fill="none" stroke="var(--indigo)" strokeWidth={1.8}
+                strokeLinecap="round" strokeLinejoin="round" />
+            </>
+          )}
+          {/* Goals series (moss) */}
+          {showGoals && goalsLine && (
+            <>
+              <path d={goalsArea} fill="var(--moss)" fillOpacity={0.10} />
+              <path d={goalsLine} fill="none" stroke="var(--moss)" strokeWidth={1.6}
+                strokeLinecap="round" strokeLinejoin="round" />
+            </>
+          )}
+          {/* Expected pace — rust dashed line + faint band */}
+          {showPace && (
+            <>
+              <rect x={CPAD_L} y={Math.min(expectedYHi, expectedYLo)} width={innerW}
+                height={Math.abs(expectedYHi - expectedYLo)} fill="var(--rust)" fillOpacity={0.05} />
+              <line x1={CPAD_L} x2={CW - CPAD_R} y1={expectedY} y2={expectedY}
+                stroke="var(--rust)" strokeWidth={1.4} strokeDasharray="4 3" opacity={0.85} />
+              <text x={CW - CPAD_R - 4} y={expectedY - 4} textAnchor="end"
+                fill="var(--rust)" fontSize={10} fontFamily="JetBrains Mono">expected · {pace.expectedPct}%</text>
             </>
           )}
         </svg>
+
+        {/* Legend */}
+        <div className="dc-legend">
+          <span className={`dc-legend__item${!showRoutines ? ' dim' : ''}`}>
+            <span className="dc-legend__sw" style={{ background: 'var(--indigo)' }} />
+            Routines · <span style={{ color: 'var(--ink-4)' }}>{routinesAvg}% avg</span>
+          </span>
+          <span className={`dc-legend__item${!showGoals ? ' dim' : ''}`}>
+            <span className="dc-legend__sw" style={{ background: 'var(--moss)' }} />
+            Goals · <span style={{ color: 'var(--ink-4)' }}>{goalsAvg}% avg</span>
+          </span>
+          {pace.available && (
+            <span className={`dc-legend__item${!showPace ? ' dim' : ''}`}>
+              <span className="dc-legend__sw dc-legend__sw--line" style={{ background: 'var(--rust)' }} />
+              Expected pace
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Pace verdict — only when we have meaningful deadline data */}
+      {pace.available && (
+        <div className="pace-strip" data-tone={verdictTone}>
+          <span className="pace-strip__icon">
+            {pace.gap > 3 ? '↓' : pace.gap < -3 ? '↑' : '='}
+          </span>
+          <span className="pace-strip__txt">
+            {pace.gap > 3 ? (
+              <>
+                <strong>You&apos;re ~{pace.gap}% behind plan.</strong>{' '}
+                Current rate <em>{pace.currentRate} gos/day</em>; to clear
+                every deadline you need <em>{pace.paceNeeded}/day</em>.
+              </>
+            ) : pace.gap < -3 ? (
+              <>
+                <strong>Ahead of plan by ~{-pace.gap}%.</strong>{' '}
+                At <em>{pace.currentRate} gos/day</em>, room to take on more
+                or coast into the weekend.
+              </>
+            ) : (
+              <>
+                <strong>On plan.</strong> Closing <em>{pace.currentRate} gos/day</em>,
+                target is <em>{pace.paceNeeded}/day</em>.
+              </>
+            )}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

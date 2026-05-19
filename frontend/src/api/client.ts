@@ -519,4 +519,10 @@ export const aiApi = {
 
   createSprintPlan: (body: { days: number }) =>
     request<AIJob>('/ai/sprint-plan', { method: 'POST', body: JSON.stringify(body) }),
+
+  /** Coach panel — action-oriented AI block on Analysis. Server cache keys
+   *  off (entries, dues-soon, gos-created, active-goals) so revisiting in
+   *  the same activity window is instant. */
+  createCoach: (body: { range_days: number }) =>
+    request<AIJob>('/ai/coach', { method: 'POST', body: JSON.stringify(body) }),
 };

@@ -198,6 +198,61 @@ async def insights_cache_key(
     return f"insights:{user_id}:{week_start.isoformat()}:{days}d:{_short_hash(fingerprint)}"
 
 
+async def coach_cache_key(
+    user_id: uuid.UUID,
+    window_start: date_cls,
+    window_end: date_cls,
+    db: AsyncSession,
+) -> str:
+    """Cache key for coach. Similar to insights but ALSO includes near-future
+    state (due date counts in the next 7 days) so coach output invalidates
+    when something newly becomes due — not just when something happens."""
+    from datetime import datetime as _dt
+    from datetime import timedelta as _td
+    from sqlalchemy import func
+    from app.models.tasks import GoEntry, Task
+
+    today = window_end  # treat the right edge of window as "today"
+    soon = today + _td(days=7)
+    window_start_dt = _dt.combine(window_start, _dt.min.time())
+    window_end_dt = _dt.combine(window_end, _dt.max.time())
+
+    entries_count = (await db.execute(
+        select(func.count()).select_from(GoEntry).join(Go, GoEntry.go_id == Go.id).where(
+            Go.user_id == user_id,
+            GoEntry.date >= window_start,
+            GoEntry.date <= window_end,
+        ),
+    )).scalar_one()
+
+    gos_due_soon = (await db.execute(
+        select(func.count()).select_from(Go).where(
+            Go.user_id == user_id,
+            Go.due_date.isnot(None),
+            Go.due_date >= today,
+            Go.due_date <= soon,
+        ),
+    )).scalar_one()
+
+    gos_created = (await db.execute(
+        select(func.count()).select_from(Go).where(
+            Go.user_id == user_id,
+            Go.created_at >= window_start_dt,
+            Go.created_at <= window_end_dt,
+        ),
+    )).scalar_one()
+
+    active_goals = (await db.execute(
+        select(func.count()).select_from(Task).where(
+            Task.user_id == user_id, Task.status == "active",
+        ),
+    )).scalar_one()
+
+    days = (window_end - window_start).days + 1
+    fingerprint = f"{entries_count}|{gos_due_soon}|{gos_created}|{active_goals}"
+    return f"coach:{user_id}:{window_end.isoformat()}:{days}d:{_short_hash(fingerprint)}"
+
+
 async def find_cached(
     cache_key: str,
     user_id: uuid.UUID,

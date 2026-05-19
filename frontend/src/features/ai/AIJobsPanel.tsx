@@ -36,6 +36,7 @@ const KIND_LABELS: Record<AIJobKind, string> = {
   schedule:    'Plan day',
   insights:    'Weekly review',
   sprint_plan: 'Sprint plan',
+  coach:       'Coach',
 };
 
 /** "75" → "1m 15s"; "5" → "5s". Compact but readable for elapsed/ETA. */

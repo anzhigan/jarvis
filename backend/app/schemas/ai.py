@@ -256,3 +256,71 @@ class SprintPlanOutput(BaseModel):
     # Short narrative — same role as ScheduleSummary.focus: what this
     # sprint is fundamentally about, in one or two sentences.
     rationale: str = ""
+
+
+# ── Coach panel (Analysis) ──────────────────────────────────────────────────
+#
+# The Coach is intentionally smaller in vocabulary than `insights` — it
+# doesn't summarise; it nudges. Each output is a concrete action prompt
+# anchored in behavioural science: ONE high-leverage play (decision fatigue),
+# 2-3 LOSSES if no action (loss aversion), an IF-THEN plan (Gollwitzer
+# implementation intentions), capacity math (Hofstadter buffer), and a
+# single Eisenhower Q2 nudge ("important, not urgent").
+
+
+class CoachCreate(BaseModel):
+    """Body for POST /ai/coach. Single knob — analysis window length."""
+    range_days: int = Field(default=30, ge=7, le=365)
+
+
+class CoachOnePlay(BaseModel):
+    """The one play to do now — decision-fatigue antidote: don't list five
+    options, pick one and justify it. `est_minutes` is a hint, not a hard
+    promise — used to size the CTA ('Start 25 min')."""
+    what: str
+    why: str = ""
+    est_minutes: int = Field(default=25, ge=5, le=180)
+
+
+class CoachRisk(BaseModel):
+    """A concrete LOSS the user incurs if no action. `when_label` is
+    intentionally a short string ("14h left", "23d slip") so the UI can
+    render it as a chip without parsing back to a date."""
+    what: str
+    when_label: str
+    severity: str = Field(default="warn", pattern=r"^(low|warn|high)$")
+
+
+class CoachIfThen(BaseModel):
+    """Implementation intention. The trigger should be a concrete cue the
+    user reliably encounters (morning standup, finishing coffee), not a
+    time-of-day — research shows cue-anchored plans outperform clock-anchored."""
+    trigger: str
+    action: str
+
+
+class CoachCapacity(BaseModel):
+    """Capacity math computed server-side from real data (we don't trust
+    the LLM to count). The narrative `note` is the LLM's contribution —
+    one sentence framing the math."""
+    due_count: int = 0
+    throughput_per_week: int = 0
+    gap: int = 0           # positive → overload; negative → headroom
+    note: str = ""
+
+
+class CoachHiddenLever(BaseModel):
+    """A single Eisenhower-Q2 candidate: important but never urgent.
+    Surfaced because urgent-mode minds defer Q2 indefinitely."""
+    what: str
+    why: str = ""
+
+
+class CoachOutput(BaseModel):
+    period_start: str
+    period_end: str
+    one_play: CoachOnePlay
+    at_risk: list[CoachRisk] = Field(default_factory=list)
+    if_then: CoachIfThen | None = None
+    capacity: CoachCapacity = Field(default_factory=CoachCapacity)
+    hidden_lever: CoachHiddenLever | None = None

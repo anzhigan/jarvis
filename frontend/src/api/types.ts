@@ -231,7 +231,7 @@ export interface Sprint {
 // Generic job lifecycle mirrors AIJobOut in backend.
 
 export type AIJobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
-export type AIJobKind = 'quiz' | 'schedule' | 'insights' | 'sprint_plan';
+export type AIJobKind = 'quiz' | 'schedule' | 'insights' | 'sprint_plan' | 'coach';
 
 export interface AIJob {
   id: string;
@@ -414,4 +414,42 @@ export interface SprintPlanOutput {
   end_date: string;       // YYYY-MM-DD
   rationale: string;
   items: SprintPlanItem[];
+}
+
+// Coach panel — action-oriented AI block on Analysis. Schema mirrors
+// backend `app/schemas/ai.py::CoachOutput`. Fields can be null when the
+// model genuinely couldn't observe something (no streaks at risk, no
+// hidden lever candidate, etc.) — UI hides those sections gracefully.
+export interface CoachOnePlay {
+  what: string;
+  why: string;
+  est_minutes: number;
+}
+export interface CoachRisk {
+  what: string;
+  when_label: string;
+  severity: 'low' | 'warn' | 'high';
+}
+export interface CoachIfThen {
+  trigger: string;
+  action: string;
+}
+export interface CoachCapacity {
+  due_count: number;
+  throughput_per_week: number;
+  gap: number;
+  note: string;
+}
+export interface CoachHiddenLever {
+  what: string;
+  why: string;
+}
+export interface CoachOutput {
+  period_start: string;
+  period_end: string;
+  one_play: CoachOnePlay;
+  at_risk: CoachRisk[];
+  if_then: CoachIfThen | null;
+  capacity: CoachCapacity;
+  hidden_lever: CoachHiddenLever | null;
 }

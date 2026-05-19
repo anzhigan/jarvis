@@ -162,6 +162,7 @@ const LABELS: Record<AIJobKind, string> = {
   schedule: 'plan day',
   sprint_plan: 'sprint plan',
   insights: 'review',
+  coach:    'coach',
 };
 
 function capitalize(s: string): string {

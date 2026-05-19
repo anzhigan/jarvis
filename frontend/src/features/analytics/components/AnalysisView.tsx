@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
 import { Loader2, MoreHorizontal } from 'lucide-react';
-import { useAnalytics, type PeriodKey } from '../hooks/useAnalytics';
+import { useAnalytics, type PeriodKey, PERIOD_DAYS } from '../hooks/useAnalytics';
 import { KpiGrid } from './KpiGrid';
-import { StatusDonut } from './StatusDonut';
 import {
   RoutineCompletionChart, GoalsProgressChart, TopStreaksTrending,
-  PracticeActivityChart, YearHeatmapCard,
+  YearHeatmapCard,
 } from './AnalysisCharts';
-import { InsightsCard } from './InsightsCard';
+import { BreakdownDonut } from './BreakdownDonut';
+import { WeekdayRadar } from './WeekdayRadar';
+import { PerRoutinePulse } from './PerRoutinePulse';
+import { CoachCard } from './CoachCard';
 import './analytics.css';
 
 const PERIOD_TABS: { key: PeriodKey; label: string }[] = [
@@ -148,23 +150,33 @@ export default function AnalysisView() {
                 <KpiGrid kpis={a.kpis} trends={kpiTrends} />
               </section>
 
-              {/* Row 1.5 — AI narrative review for the current period */}
-              <InsightsCard period={a.period} />
+              {/* Row 1.5 — AI Coach panel: one play + at-risk + if-then plan +
+                  capacity math + hidden lever. Replaces the older
+                  Doing-well/Needs-attention/Focus-next narrative. */}
+              <CoachCard period={a.period} />
 
-              {/* Row 2 — Routine completion line + Goals progress bars */}
+              {/* Row 2 — Daily completion (with mode toggle + pace overlay) +
+                  Goals progress bars side-by-side. */}
               <section className="ana-row ana-row-charts-1">
                 <RoutineCompletionChart
                   activity={a.activity}
                   activeRoutineCount={activeRoutineCount}
+                  tasks={a.tasks}
                 />
                 <GoalsProgressChart rows={a.goalProgress} />
               </section>
 
-              {/* Row 3 — Donut · Top streaks · Practice activity */}
+              {/* Row 3 — Breakdown donut (Tag/Priority/Status/Goal) +
+                  Weekday radar + Top streaks list. */}
               <section className="ana-row ana-row-charts-2">
-                <StatusDonut routines={a.routines} />
+                <BreakdownDonut tasks={a.tasks} routines={a.routines} />
+                <WeekdayRadar routines={a.routines} periodDays={PERIOD_DAYS[a.period]} />
                 <TopStreaksTrending rows={a.topStreaks} routines={a.routines} />
-                <PracticeActivityChart activity={a.activity} tagRows={a.tagRows} />
+              </section>
+
+              {/* Row 3.5 — Per-routine pulse grid (one mini line per routine). */}
+              <section className="ana-row">
+                <PerRoutinePulse routines={a.routines} windowDays={PERIOD_DAYS[a.period]} />
               </section>
 
               {/* Row 4 — Year heatmap full width */}
