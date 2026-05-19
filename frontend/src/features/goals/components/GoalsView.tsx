@@ -350,24 +350,31 @@ export default function GoalsView() {
     }
   }, [addBgJob]);
 
-  /** Trigger AI 'dates_only' plan for an existing goal — wired into
-   *  GoalDetailPanel's "Auto-place dates" button. Same drawer renders
-   *  the diff and patches dates on Apply. */
+  /** Trigger AI plan from GoalDetailPanel's "Plan with AI" button.
+   *  Mode is auto-detected: a goal with no steps yet → `full` (generate
+   *  step breakdown + first gos); a goal that already has steps → `dates_only`
+   *  (patch dates on existing steps/gos). Same drawer for both. */
   const onPlanDates = useCallback(async (taskId: string) => {
+    const task = goals.tasks.find((t) => t.id === taskId);
+    const mode: 'full' | 'dates_only' =
+      (task?.steps?.length ?? 0) > 0 ? 'dates_only' : 'full';
     try {
-      const job = await aiApi.createGoalPlan({ goal_id: taskId, mode: 'dates_only' });
+      const job = await aiApi.createGoalPlan({ goal_id: taskId, mode });
       addBgJob({
         jobId: job.id,
         kind: 'goal_plan',
-        source: { section: 'goals', noteTitle: 'auto dates' },
+        source: {
+          section: 'goals',
+          noteTitle: mode === 'dates_only' ? 'auto dates' : 'goal plan',
+        },
       });
       setGoalPlanGoalId(taskId);
-      setGoalPlanMode('dates_only');
+      setGoalPlanMode(mode);
       setGoalPlanJobId(job.id);
     } catch (e: any) {
-      toast.error(e?.detail ?? e?.message ?? 'Failed to start auto-place dates');
+      toast.error(e?.detail ?? e?.message ?? 'Failed to start AI plan');
     }
-  }, [addBgJob]);
+  }, [addBgJob, goals.tasks]);
 
   // Reopen via the toast / panel "Open" click — same protocol as quiz etc.
   useEffect(() => {

@@ -341,24 +341,29 @@ export function GoalDetailPanel({
         </span>
       </div>
 
-      {/* AI CTA — only meaningful when there's actually something to date.
-          The handler is parent-provided so it can wire into the existing
-          AI-job + drawer plumbing in GoalsView. */}
-      {onPlanDates && goal.steps.length > 0 && (
+      {/* AI CTA — adaptive label + mode based on what the goal already has.
+          When there are steps, AI just re-balances dates (dates_only mode);
+          when the goal is empty, AI proposes a full step+go breakdown
+          (full mode). Parent (GoalsView) picks the mode from goal state. */}
+      {onPlanDates && (
         <div className="ui-field" style={{ marginTop: 8 }}>
           <Button
             variant="ghost"
             onClick={() => onPlanDates(goal.id)}
             style={{ width: '100%', justifyContent: 'center', gap: 6 }}
           >
-            <span aria-hidden>✨</span> Auto-place dates with AI
+            <span aria-hidden>✨</span>
+            {goal.steps.length > 0
+              ? 'Auto-place dates with AI'
+              : 'Plan steps & dates with AI'}
           </Button>
           <p style={{
             margin: '6px 2px 0', fontSize: 'var(--text-2xs)',
             color: 'var(--ink-5)', fontStyle: 'italic',
           }}>
-            Proposes start/end for each step and due dates for their gos —
-            balanced across the goal window and your other active deadlines.
+            {goal.steps.length > 0
+              ? 'Proposes start/end for each step and due dates for their gos — balanced across the goal window and your other active deadlines.'
+              : 'Generates a step breakdown with dates + 2-4 first gos per step, balanced across the goal window.'}
           </p>
         </div>
       )}
