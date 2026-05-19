@@ -215,7 +215,9 @@ function GoalCardContent({
             aria-label={expanded ? 'Hide gos and routines' : 'Show gos and routines'}
           >
             <ChevronRight />
-            {childTotal === 0 ? 'Gos & routines' : `${childTotal} ${childTotal === 1 ? 'item' : 'items'}`}
+            {childTotal === 0
+              ? 'Gos & routines'
+              : <>{childTotal} <span style={{ color: 'var(--ink-4)' }}>·</span> gos &amp; routines</>}
           </button>
         )}
       </div>
@@ -773,7 +775,8 @@ function DroppableColumn({
 
 export function GoalsBoard({
   tasks, visibleStatuses, onSelect, onAdd, onMove,
-  onToggleGoDone, onAddGo, onAddStep, onEditStep,
+  onToggleGoDone, onAddGo, onAddStep, onEditStep, onEditGo, onEditRoutine,
+  onUnlinkGo, onDeleteStep,
   onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
 }: Props) {
   // When the user picks specific statuses in the filter bar, render only
@@ -831,11 +834,19 @@ export function GoalsBoard({
     onAddGo,
     onAddStep,
     onEditStep,
+    onEditGo,
+    onEditRoutine,
+    onUnlinkGo,
+    onDeleteStep,
     onAddRoutine,
     onToggleRoutineDone,
     onSkipRoutine,
     onUnlinkRoutine,
-  }), [onToggleGoDone, onAddGo, onAddStep, onEditStep, onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine]);
+  }), [
+    onToggleGoDone, onAddGo, onAddStep, onEditStep, onEditGo, onEditRoutine,
+    onUnlinkGo, onDeleteStep,
+    onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
+  ]);
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
