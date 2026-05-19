@@ -23,10 +23,10 @@
 /* ── Gantt (shared between roadmap and Step drill-down) ──────────────── */
 .sp-gantt {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 320px 1fr;
   grid-template-rows: auto 1fr;
 }
-.sp-gantt--compact { grid-template-columns: 200px 1fr; }
+.sp-gantt--compact { grid-template-columns: 260px 1fr; }
 
 .sp-gantt__corner {
   grid-column: 1; grid-row: 1;

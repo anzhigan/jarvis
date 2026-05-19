@@ -26,7 +26,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai import AIJob
-from app.models.tasks import Go, GoEntry, Routine, Task
+from app.models.tasks import Go, GoEntry, Task
 from app.schemas.ai import SprintPlanCreate, SprintPlanItem, SprintPlanOutput
 from app.services.ai.jobs import register_handler
 from app.services.ai.ollama_client import OllamaClient
@@ -37,7 +37,6 @@ logger = logging.getLogger(__name__)
 # Cap context sent to the model so the prompt stays tight.
 MAX_GOALS = 20
 MAX_GOS = 40
-MAX_ROUTINES = 15
 
 # Item count guidance for the model — tuned with prompt-engineering tweaks
 # so the result feels like a manageable sprint, not a wishlist dump.
@@ -50,16 +49,19 @@ SYSTEM_PROMPT = """\
 
 You are a productivity planner. The user wants a focused, time-bounded \
 SPRINT — a coherent batch of work to ship over the next N days. From their \
-current goals / pending tasks / routines, pick the items that belong in \
-this sprint and write a memorable title + rationale.
+current goals and pending tasks, pick the items that belong in this sprint \
+and write a memorable title + rationale.
+
+A sprint is a finite commitment to concrete deliverables. RECURRING \
+routines (daily habits etc.) are tracked elsewhere and MUST NOT appear in \
+a sprint — pick only goals and one-off "Go" tasks.
 
 GUIDING PRINCIPLES:
 1. A sprint has a THEME — items hang together around one direction \
    (e.g. "ship v2 polish", "winter health reset"). Don't pick random items \
    from unrelated goals.
 2. Favor overdue + due-soon items (they're already past their planning \
-   horizon). Routines anchor the cadence — include 1-2 if they fit the \
-   theme.
+   horizon).
 3. Aim for SUGGESTED_ITEMS_MIN..SUGGESTED_ITEMS_MAX items total. Tight is \
    better than sprawling — a sprint of 5 things you'll actually finish \
    beats a sprint of 15 you'll feel guilty about.
@@ -144,23 +146,9 @@ async def _gather_context(
             "bucket": bucket,
         })
 
-    # Active (non-paused) routines.
-    routines_q = await db.execute(
-        select(Routine)
-        .where(Routine.user_id == user_id, Routine.is_paused.is_(False))
-        .order_by(Routine.created_at.desc())
-        .limit(MAX_ROUTINES),
-    )
-    routines: list[dict[str, Any]] = []
-    for r in routines_q.scalars().all():
-        routines.append({
-            "id": str(r.id),
-            "title": r.title,
-            "schedule": r.schedule_type,
-            "goal_id": str(r.goal_id) if r.goal_id else None,
-        })
-
-    return {"goals": goals, "gos": gos, "routines": routines}
+    # Routines are tracked elsewhere — a sprint is a finite scope, not a
+    # cadence container — so we don't surface them to the planner at all.
+    return {"goals": goals, "gos": gos, "routines": []}
 
 
 def _build_prompt(
@@ -189,9 +177,6 @@ Active goals (id, title, priority, progress%, due_date):
 Open Gos (id, title, goal_id, due_date, bucket):
 {json.dumps(context["gos"], ensure_ascii=False, indent=2)}
 
-Active routines (id, title, schedule, goal_id):
-{json.dumps(context["routines"], ensure_ascii=False, indent=2)}
-
 OUTPUT SCHEMA
 =============
 
@@ -204,10 +189,11 @@ Respond with JSON of this exact shape:
   "rationale":  "Why these items, why now — 1-2 sentences",
   "items": [
     {{ "kind": "goal", "id": "<id from list>", "title": "<for reference>", "reason": "Why this goal belongs in the sprint" }},
-    {{ "kind": "go",   "id": "<id from list>", "title": "<for reference>", "reason": "..." }},
-    {{ "kind": "routine", "id": "<id from list>", "title": "<for reference>", "reason": "..." }}
+    {{ "kind": "go",   "id": "<id from list>", "title": "<for reference>", "reason": "..." }}
   ]
-}}"""
+}}
+
+Allowed "kind" values: "goal", "go". Do not output items with kind="routine"."""
 
 
 def _parse_output(raw: str) -> SprintPlanOutput:
@@ -268,9 +254,9 @@ async def run_sprint_plan_job(
     end = start + timedelta(days=params.days - 1)
 
     context = await _gather_context(job.user_id, start, end, db)
-    if not context["goals"] and not context["gos"] and not context["routines"]:
+    if not context["goals"] and not context["gos"]:
         raise ValueError(
-            "no active goals, open tasks or routines to plan a sprint from",
+            "no active goals or open tasks to plan a sprint from",
         )
 
     prompt = _build_prompt(params.days, start, end, context)

@@ -1,7 +1,7 @@
 import { Sparkles, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '../../components/ui';
-import type { AIJobKind } from '../../api/types';
+import type { AIJobKind, AIJobStatus } from '../../api/types';
 import { type BgAIJob } from '../../store/aiJobs';
 import { useAIJob } from './useAIJob';
 import './ai.css';
@@ -17,8 +17,18 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   jobs: BgAIJob[];
+  /** Snapshot of statuses keyed by jobId — passed in so the panel + each row
+   *  agree on whether the X means "cancel" (running/queued) or "dismiss"
+   *  (done/failed/cancelled), and so the "Clear completed" button knows how
+   *  many rows it would affect. */
+  statusMap: ReadonlyMap<string, AIJobStatus>;
   onPickJob: (job: BgAIJob) => void;
-  onDismissJob: (jobId: string) => void;
+  /** X handler — parent decides cancel vs dismiss based on the job's current
+   *  status. Returns a promise so the row can await (we briefly disable the
+   *  X to prevent double-clicks during the confirm + network round-trip). */
+  onJobX: (job: BgAIJob) => Promise<void> | void;
+  /** Soft-dismiss every completed (done/failed/cancelled) row in one click. */
+  onClearCompleted: () => void;
 }
 
 const KIND_LABELS: Record<AIJobKind, string> = {
@@ -50,7 +60,24 @@ const STATUS_LABEL: Record<string, string> = {
  * status via useAIJob so positions/timers stay accurate while the panel sits
  * open. Click → opens the relevant source drawer (delegates back up).
  */
-export function AIJobsPanel({ open, onOpenChange, jobs, onPickJob, onDismissJob }: Props) {
+/** Snapshot statuses that count as "completed" for the Clear button. */
+const COMPLETED_STATUSES: ReadonlySet<AIJobStatus> = new Set<AIJobStatus>([
+  'done', 'failed', 'cancelled',
+]);
+
+export function AIJobsPanel({
+  open, onOpenChange, jobs, statusMap, onPickJob, onJobX, onClearCompleted,
+}: Props) {
+  // Count completed rows from the parent's status snapshot — it's what the
+  // panel sorts by, so the count stays in sync with what the user actually sees.
+  const completedCount = useMemo(
+    () => jobs.reduce(
+      (n, j) => n + (COMPLETED_STATUSES.has(statusMap.get(j.jobId) ?? 'queued') ? 1 : 0),
+      0,
+    ),
+    [jobs, statusMap],
+  );
+
   return (
     <Drawer
       open={open}
@@ -66,28 +93,45 @@ export function AIJobsPanel({ open, onOpenChange, jobs, onPickJob, onDismissJob 
           <p className="ai-empty__body">All background generations finished or dismissed.</p>
         </div>
       ) : (
-        <ul className="ai-jobs-list">
-          {jobs.map((job) => (
-            <JobRow
-              key={job.jobId}
-              job={job}
-              onClick={() => onPickJob(job)}
-              onDismiss={() => onDismissJob(job.jobId)}
-            />
-          ))}
-        </ul>
+        <>
+          {completedCount > 0 && (
+            <div className="ai-jobs-actions">
+              <button
+                type="button"
+                className="ai-jobs-actions__clear"
+                onClick={onClearCompleted}
+              >
+                Clear {completedCount} completed
+              </button>
+            </div>
+          )}
+          <ul className="ai-jobs-list">
+            {jobs.map((job) => (
+              <JobRow
+                key={job.jobId}
+                job={job}
+                onClick={() => onPickJob(job)}
+                onX={() => onJobX(job)}
+              />
+            ))}
+          </ul>
+        </>
       )}
     </Drawer>
   );
 }
 
 function JobRow({
-  job, onClick, onDismiss,
+  job, onClick, onX,
 }: {
   job: BgAIJob;
   onClick: () => void;
-  onDismiss: () => void;
+  /** Single X handler — parent picks cancel vs dismiss from the job's
+   *  current status. Awaited so we can disable the button briefly to
+   *  guard against double-clicks. */
+  onX: () => Promise<void> | void;
 }) {
+  const [xBusy, setXBusy] = useState(false);
   const { job: live } = useAIJob(job.jobId);
   const [elapsed, setElapsed] = useState(0);
 
@@ -170,9 +214,14 @@ function JobRow({
       <button
         type="button"
         className="ai-jobs-row__dismiss"
-        onClick={onDismiss}
-        title="Dismiss"
-        aria-label="Dismiss"
+        onClick={async () => {
+          if (xBusy) return;
+          setXBusy(true);
+          try { await onX(); } finally { setXBusy(false); }
+        }}
+        disabled={xBusy}
+        title={isRunning || isQueued ? 'Cancel this task' : 'Dismiss'}
+        aria-label={isRunning || isQueued ? 'Cancel' : 'Dismiss'}
       >
         <X size={12} />
       </button>

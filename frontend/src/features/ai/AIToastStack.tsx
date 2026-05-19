@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { aiApi } from '../../api/client';
+import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import type { AIJobBrief, AIJobKind, AIJobStatus } from '../../api/types';
 import {
   AI_JOB_DRAWER_CLOSED_EVENT,
@@ -282,13 +284,47 @@ export function AIToastStack() {
     markHidden(jobId, 'toast');
   }, [dismissToast]);
 
-  /** Panel X — also soft. Hides from both panel and toast but the job
-   *  stays in the store so re-triggering the same kind+source on the same
-   *  unchanged input opens the existing cached result instantly. */
-  const handleDismissFully = useCallback((jobId: string) => {
-    dismissPanel(jobId);
-    markHidden(jobId, 'panel');
-  }, [dismissPanel]);
+  /** Panel X handler — status-dependent.
+   *
+   *  Running / queued: ask first, then call POST /ai/jobs/{id}/cancel. We
+   *  also soft-dismiss the row so it disappears immediately (the next poll
+   *  will reflect status='cancelled' anyway, but waiting feels laggy).
+   *
+   *  Done / failed / cancelled: pure soft dismiss (same as before) — job
+   *  stays in the store so re-triggering the same kind+source still hits
+   *  the backend cache via findSame instead of starting a fresh run. */
+  const handlePanelX = useCallback(async (job: BgAIJob) => {
+    const s = statusMap.get(job.jobId) ?? 'queued';
+    const isActive = s === 'running' || s === 'queued';
+    if (isActive) {
+      const ok = await confirmDialog({
+        title: 'Cancel this AI task?',
+        body: 'It will stop right now and the result will not be saved.',
+        confirmLabel: 'Cancel task',
+        cancelLabel: 'Keep running',
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await aiApi.cancelJob(job.jobId);
+      } catch (e: any) {
+        toast.error(e?.detail ?? e?.message ?? 'Failed to cancel task');
+        return;
+      }
+    }
+    dismissPanel(job.jobId);
+    markHidden(job.jobId, 'panel');
+  }, [statusMap, dismissPanel]);
+
+  /** Clear-completed: soft-dismiss every row whose status is in {done,failed,cancelled}.
+   *  No confirmation — destination is the panel only; the underlying jobs
+   *  stay in the store so the backend cache still works. */
+  const handleClearCompleted = useCallback(() => {
+    for (const j of completedJobs) {
+      dismissPanel(j.jobId);
+      markHidden(j.jobId, 'panel');
+    }
+  }, [completedJobs, dismissPanel]);
 
   if (jobs.length === 0) return null;
   // While any AI-job drawer is on screen, suppress the bottom toasts entirely
@@ -339,8 +375,10 @@ export function AIToastStack() {
         open={panelOpen}
         onOpenChange={setPanelOpen}
         jobs={orderedJobs}
+        statusMap={statusMap}
         onPickJob={handlePickFromPanel}
-        onDismissJob={handleDismissFully}
+        onJobX={handlePanelX}
+        onClearCompleted={handleClearCompleted}
       />
     </>
   );
