@@ -146,7 +146,11 @@
 .gt-lane__bars {
   position: relative;
   min-height: 56px;
-  padding: 6px 0;
+  padding: 10px 0;
+  /* Rows live in normal flow inside this container; isolate the stacking
+     context so absolutely-positioned bars don't peek into neighbouring
+     lanes (the dashed now-line is also inside this container). */
+  isolation: isolate;
 }
 .gt-lane__empty {
   padding: 14px 16px;
@@ -163,21 +167,28 @@
 /* ── Per-goal row + bar ──────────────────────────────────────────── */
 .gt-lane-row {
   position: relative;
-  height: 32px;
-  margin: 4px 0;
+  height: 38px;
+  /* Use padding-based spacing instead of margin so adjacent rows don't
+     collapse their vertical margins together — guarantees a true gap
+     between bars regardless of browser margin-collapse behaviour. */
+  padding: 4px 0;
+  box-sizing: content-box;
 }
 .gt-bar {
   position: absolute; top: 50%; transform: translateY(-50%);
-  height: 24px; border-radius: 4px;
+  height: 28px; border-radius: 4px;
   background: var(--cream);
   border: 1px solid var(--hairline);
   display: flex; align-items: center;
-  padding: 0 9px;
+  padding: 0 10px;
   overflow: hidden;
   cursor: pointer;
   font: inherit; color: inherit;
   text-align: left;
   z-index: 2;
+  /* Subtle outer ring on top of background ensures bars don't visually
+     merge when stacked at the same x position. */
+  box-shadow: 0 0 0 1px var(--paper);
   transition: filter var(--dur-fast), box-shadow var(--dur-fast);
 }
 .gt-bar:hover {
@@ -220,6 +231,9 @@
   letter-spacing: -0.012em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   position: relative; z-index: 1;
+  /* Allow the label to shrink in narrow bars so the % chip stays visible. */
+  min-width: 0;
+  flex: 1 1 auto;
 }
 .gt-bar__pct {
   margin-left: auto;

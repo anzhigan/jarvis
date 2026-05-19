@@ -4,7 +4,9 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .ana-row {
-  padding: 24px 40px 0;
+  /* Horizontal gutter lives on .ana-shell (40px) so the main↔rail gap is
+     not overpowered by per-row padding. Only vertical rhythm here. */
+  padding: 24px 0 0;
 }
 .ana-row:last-child { padding-bottom: 24px; }
 
@@ -104,9 +106,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 400px;
   /* Tight gap + narrower rail → left chart cards widen meaningfully.
-     Coach at 400px still comfortably fits its lead block + sub-sections
-     without wrapping awkwardly. */
+     Per-row horizontal padding moved to this shell so the gap actually
+     reads (was being absorbed by `.ana-row { padding: 0 40px }`). */
   gap: 10px;
+  padding: 0 40px;
   align-items: start;
 }
 .ana-main { display: flex; flex-direction: column; min-width: 0; }
