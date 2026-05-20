@@ -126,9 +126,11 @@
 }
 
 /* ── Row 2/3 — chart card rows ───────────────────────────────────────────── */
+/* Row 2 now holds only Daily completion — full width so the larger chart
+   has room to breathe. Row 3 keeps its 2-up donut + radar layout. */
 .ana-row-charts-1 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
 }
 .ana-row-charts-2 {
@@ -137,7 +139,7 @@
   gap: 16px;
 }
 @media (max-width: 900px) {
-  .ana-row-charts-1, .ana-row-charts-2 { grid-template-columns: 1fr; }
+  .ana-row-charts-2 { grid-template-columns: 1fr; }
 }
 
 /* ── Card chart wrapper ──────────────────────────────────────────────────── */
@@ -616,6 +618,60 @@
   border-radius: 2px;
 }
 .dc-legend__sw--line { height: 2px; }
+/* Faint thick line — visual cue for the 7-day moving-average overlay. */
+.dc-legend__sw--ma {
+  height: 4px;
+  background: var(--ink-4);
+  opacity: 0.35;
+  border-radius: 2px;
+}
+
+/* ── Daily completion · KPI strip ─────────────────────────────────────────
+   Period totals displayed above the chart. Answers "what did I actually
+   do this period?" at a glance — counts that didn't survive the old
+   chart's percent-only framing. */
+.dc-kpi {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 14px 0 4px;
+  padding: 12px 4px;
+  border-top: 1px solid var(--hairline-faint);
+  border-bottom: 1px solid var(--hairline-faint);
+}
+.dc-kpi__item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex; flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  padding: 0 12px;
+}
+.dc-kpi__num {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ink);
+  font-weight: 500;
+}
+.dc-kpi__num em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink-4);
+  margin-left: 2px;
+}
+.dc-kpi__lbl {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--ink-4);
+  letter-spacing: 0.02em;
+}
+.dc-kpi__sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--hairline-faint);
+}
 
 /* Pace verdict strip */
 .pace-strip {

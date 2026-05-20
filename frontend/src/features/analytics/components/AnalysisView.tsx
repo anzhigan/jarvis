@@ -3,7 +3,7 @@ import { Loader2, MoreHorizontal } from 'lucide-react';
 import { useAnalytics, type PeriodKey, PERIOD_DAYS } from '../hooks/useAnalytics';
 import { KpiGrid } from './KpiGrid';
 import {
-  RoutineCompletionChart, GoalsProgressChart,
+  RoutineCompletionChart,
   YearHeatmapCard,
 } from './AnalysisCharts';
 import { BreakdownDonut } from './BreakdownDonut';
@@ -152,15 +152,16 @@ export default function AnalysisView() {
                   <KpiGrid kpis={a.kpis} trends={kpiTrends} />
                 </section>
 
-                {/* Row 2 — Daily completion (toggle + pace overlay) + Goals
-                    progress bars side-by-side. */}
+                {/* Row 2 — Daily completion fills full row. The old "Goals
+                    progress vs plan" panel was removed: with the new gos-based
+                    metric the daily chart already tells the same story (and
+                    the pace strip below it gives the at-a-glance verdict). */}
                 <section className="ana-row ana-row-charts-1">
                   <RoutineCompletionChart
                     activity={a.activity}
                     activeRoutineCount={activeRoutineCount}
                     tasks={a.tasks}
                   />
-                  <GoalsProgressChart rows={a.goalProgress} />
                 </section>
 
                 {/* Row 3 — Breakdown donut + Weekday radar (TopStreaks moved

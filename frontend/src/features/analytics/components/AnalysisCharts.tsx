@@ -1,14 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Routine, Task } from '../../../api/types';
-import type { ActivityPoint, GoalProgressRow, StreakRow } from '../hooks/useAnalytics';
+import type { ActivityPoint, StreakRow } from '../hooks/useAnalytics';
 import { ymd } from '../../routines/lib/heatmap';
-
-const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--slate)', 'var(--ochre)', 'var(--rust)'] as const;
-function accentFor(seed: string): string {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return ACCENTS[h % ACCENTS.length];
-}
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  Routine completion · 30 days                                                */
@@ -28,21 +21,37 @@ interface CompletionProps {
 type SeriesMode = 'routines' | 'goals' | 'both';
 const SERIES_LABELS: Record<SeriesMode, string> = {
   routines: '% of routines logged each day',
-  goals:    '% of goals workload closed each day',
-  both:     'routines vs goals + expected pace',
+  goals:    '% of goal-work (gos) closed each day',
+  both:     'routines vs goal-work + expected pace',
 };
 const MODE_BUTTONS: { key: SeriesMode; label: string }[] = [
   { key: 'routines', label: 'Routines' },
-  { key: 'goals',    label: 'Goals' },
+  { key: 'goals',    label: 'Goal work' },
   { key: 'both',     label: 'Both' },
 ];
 
 const CW = 900;
-const CH = 240;
-const CPAD_L = 50;
-const CPAD_R = 20;
-const CPAD_T = 18;
-const CPAD_B = 36;
+const CH = 320;
+const CPAD_L = 52;
+const CPAD_R = 24;
+const CPAD_T = 22;
+const CPAD_B = 38;
+
+/** Trailing 7-day moving average. Smooths the spiky daily series so a long
+ *  multi-month goal doesn't look dead on quiet days — the smoothed line
+ *  shows the user's actual cadence over the surrounding week. */
+function movingAverage7(values: number[]): number[] {
+  if (values.length === 0) return [];
+  const out: number[] = new Array(values.length);
+  let sum = 0;
+  for (let i = 0; i < values.length; i++) {
+    sum += values[i];
+    if (i >= 7) sum -= values[i - 7];
+    const denom = Math.min(i + 1, 7);
+    out[i] = sum / denom;
+  }
+  return out;
+}
 
 /** Build an SVG path `M…L…L…` from values + scales. */
 function linePathFor(values: number[], xScale: (i: number) => number, yScale: (v: number) => number): string {
@@ -69,17 +78,41 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
     return activity.map((a) => Math.min(100, Math.round((a.routines / activeRoutineCount) * 100)));
   }, [activity, activeRoutineCount]);
 
-  // Goal "completion %" — proxy: each goal contributes `(gos_done_today /
-  // gos_total)` × 100 normalised across active goals. For the daily series,
-  // we don't have per-day historic snapshots; we use entries closed that
-  // day from `activity.goals` divided by total open workload.
-  const goalsSeries = useMemo(() => {
-    const openGosTotal = tasks
+  // Goal-work series. Uses `activity.gos` (distinct gos worked on that
+  // day) — not `activity.goals` (whole-goal closures, which are rare events
+  // and made long multi-month goals look dead). Denominator is the total
+  // count of open gos across non-done goals; a normalised % is fairer than
+  // raw counts when comparing across periods of different workload size.
+  const openGosTotal = useMemo(
+    () => tasks
       .filter((t) => t.status !== 'done')
-      .reduce((s, t) => s + (t.gos?.length ?? 0), 0);
+      .reduce((s, t) => s + (t.gos?.length ?? 0), 0),
+    [tasks],
+  );
+  const goalsSeries = useMemo(() => {
     if (activity.length === 0 || openGosTotal === 0) return [];
-    return activity.map((a) => Math.min(100, Math.round((a.goals / openGosTotal) * 100)));
-  }, [activity, tasks]);
+    return activity.map((a) => Math.min(100, Math.round((a.gos / openGosTotal) * 100)));
+  }, [activity, openGosTotal]);
+
+  // 7-day moving averages of each percent-series — drawn as faint lines
+  // behind the main series so the user can read the underlying cadence
+  // through the day-to-day noise.
+  const routinesMA = useMemo(() => movingAverage7(routinesSeries), [routinesSeries]);
+  const goalsMA    = useMemo(() => movingAverage7(goalsSeries),    [goalsSeries]);
+
+  // Period totals — shown in the KPI strip above the chart. These are
+  // the answers to "what did I actually do this period?" and are what
+  // the user said was missing from the chart's previous storytelling.
+  const totals = useMemo(() => {
+    let gos = 0, routines = 0, goalsClosed = 0, activeDays = 0;
+    for (const a of activity) {
+      gos += a.gos;
+      routines += a.routines;
+      goalsClosed += a.goals;
+      if (a.gos > 0 || a.routines > 0 || a.goals > 0) activeDays++;
+    }
+    return { gos, routines, goalsClosed, activeDays };
+  }, [activity]);
 
   // ── Pace expectation ────────────────────────────────────────────────
   // Honest math for "you should be at X% by now". For each active goal
@@ -126,9 +159,11 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
     const gap = expectedPct - actualPct;  // positive → behind
     // Pace needed = remaining gos / max(1, average days left)
     const paceNeeded = Math.round((remainingGos / Math.max(1, weightedDaysLeft / goalsCounted)) * 10) / 10;
-    // Current rate = average gos closed per day over the activity window.
-    const totalClosed = activity.reduce((s, a) => s + a.goals, 0);
-    const currentRate = activity.length === 0 ? 0 : Math.round((totalClosed / activity.length) * 10) / 10;
+    // Current rate = average gos *worked on* per day over the activity window.
+    // Was previously `activity.goals` (whole-goal closures) which underrepresented
+    // long goals — anyone making daily progress would see "0.0 gos/day".
+    const totalWorked = activity.reduce((s, a) => s + a.gos, 0);
+    const currentRate = activity.length === 0 ? 0 : Math.round((totalWorked / activity.length) * 10) / 10;
 
     return { available: true, expectedPct, actualPct, gap, paceNeeded, currentRate };
   }, [tasks, activity]);
@@ -184,6 +219,15 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
   const showGoals    = mode === 'goals'    || mode === 'both';
   const showPace     = (mode === 'goals' || mode === 'both') && pace.available;
 
+  // Index of "today" in the activity array — used to draw a subtle vertical
+  // marker so the user can tell at a glance where the period ends. -1 when
+  // today is outside the visible window (e.g. historical period).
+  const todayIdx = useMemo(() => {
+    if (activity.length === 0) return -1;
+    const today = ymd(new Date());
+    return activity.findIndex((a) => a.date === today);
+  }, [activity]);
+
   // Path strings are pure derivations from the series + scales — memoise so
   // hovering the chart (which bumps `hoverIdx` on every mousemove) doesn't
   // rebuild N-point Bezier strings on every tick.
@@ -213,6 +257,18 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
       : ''),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [goalsLine, goalsSeries.length, N],
+  );
+  const routinesMALine = useMemo(
+    () => (showRoutines && routinesMA.length > 0
+      ? linePathFor(routinesMA, xScale, yScale) : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showRoutines, routinesMA, N],
+  );
+  const goalsMALine = useMemo(
+    () => (showGoals && goalsMA.length > 0
+      ? linePathFor(goalsMA, xScale, yScale) : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showGoals, goalsMA, N],
   );
 
   // Pace line — straight reference at "expected pct" so the user reads
@@ -255,6 +311,27 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
           <div className="acc-stat-trend">avg · {N}d</div>
         </div>
       </header>
+      <div className="dc-kpi">
+        <div className="dc-kpi__item">
+          <div className="dc-kpi__num">{totals.gos}</div>
+          <div className="dc-kpi__lbl">gos worked on</div>
+        </div>
+        <div className="dc-kpi__sep" />
+        <div className="dc-kpi__item">
+          <div className="dc-kpi__num">{totals.routines}</div>
+          <div className="dc-kpi__lbl">routines logged</div>
+        </div>
+        <div className="dc-kpi__sep" />
+        <div className="dc-kpi__item">
+          <div className="dc-kpi__num">{totals.goalsClosed}</div>
+          <div className="dc-kpi__lbl">goals shipped</div>
+        </div>
+        <div className="dc-kpi__sep" />
+        <div className="dc-kpi__item">
+          <div className="dc-kpi__num">{totals.activeDays}<em>/{N}</em></div>
+          <div className="dc-kpi__lbl">active days</div>
+        </div>
+      </div>
       <div className="acc-body">
        <div className="dc-plot">
         <svg viewBox={`0 0 ${CW} ${CH}`} className="chart-svg" preserveAspectRatio="xMidYMid meet">
@@ -272,6 +349,19 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
               fill="var(--ink-5)" fontSize={10} fontFamily="JetBrains Mono">{t.label}</text>
           ))}
 
+          {/* Today marker — vertical line at today's index when visible. */}
+          {todayIdx >= 0 && (
+            <g pointerEvents="none">
+              <line
+                x1={xScale(todayIdx)} x2={xScale(todayIdx)}
+                y1={CPAD_T} y2={CH - CPAD_B}
+                stroke="var(--ochre)" strokeWidth={1} strokeDasharray="2 3" opacity={0.7}
+              />
+              <text x={xScale(todayIdx) + 4} y={CPAD_T + 10}
+                fill="var(--ochre)" fontSize={10} fontFamily="JetBrains Mono">today</text>
+            </g>
+          )}
+
           {/* Routines series (indigo) */}
           {showRoutines && routinesLine && (
             <>
@@ -287,6 +377,16 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
               <path d={goalsLine} fill="none" stroke="var(--moss)" strokeWidth={1.6}
                 strokeLinecap="round" strokeLinejoin="round" />
             </>
+          )}
+          {/* 7-day moving averages — faint thick line behind, so the eye reads
+              the daily series in the foreground and the trend in the background. */}
+          {showRoutines && routinesMALine && (
+            <path d={routinesMALine} fill="none" stroke="var(--indigo)" strokeWidth={2.6}
+              strokeLinecap="round" strokeLinejoin="round" opacity={0.22} />
+          )}
+          {showGoals && goalsMALine && (
+            <path d={goalsMALine} fill="none" stroke="var(--moss)" strokeWidth={2.6}
+              strokeLinecap="round" strokeLinejoin="round" opacity={0.22} />
           )}
           {/* Expected pace — rust dashed line + faint band */}
           {showPace && (
@@ -377,9 +477,21 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
                 {showGoals && gPct !== undefined && (
                   <div className="dc-tooltip__row">
                     <span className="dc-tooltip__sw" style={{ background: 'var(--moss)' }} />
-                    <span className="dc-tooltip__lbl">Goals</span>
+                    <span className="dc-tooltip__lbl">Goal work</span>
                     <span className="dc-tooltip__val">{gPct}%</span>
-                    <span className="dc-tooltip__sub">{a.goals} closed</span>
+                    <span className="dc-tooltip__sub">
+                      {a.gos} {a.gos === 1 ? 'go' : 'gos'} worked on
+                    </span>
+                  </div>
+                )}
+                {a.goals > 0 && (
+                  <div className="dc-tooltip__row">
+                    <span className="dc-tooltip__sw" style={{ background: 'var(--ochre)' }} />
+                    <span className="dc-tooltip__lbl">Shipped</span>
+                    <span className="dc-tooltip__val">{a.goals}</span>
+                    <span className="dc-tooltip__sub">
+                      goal{a.goals === 1 ? '' : 's'} closed
+                    </span>
                   </div>
                 )}
                 {showPace && (
@@ -404,8 +516,14 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
           </span>
           <span className={`dc-legend__item${!showGoals ? ' dim' : ''}`}>
             <span className="dc-legend__sw" style={{ background: 'var(--moss)' }} />
-            Goals · <span style={{ color: 'var(--ink-4)' }}>{goalsAvg}% avg</span>
+            Goal work · <span style={{ color: 'var(--ink-4)' }}>{goalsAvg}% avg</span>
           </span>
+          {(showRoutines || showGoals) && (
+            <span className="dc-legend__item">
+              <span className="dc-legend__sw dc-legend__sw--ma" />
+              7-day average
+            </span>
+          )}
           {pace.available && (
             <span className={`dc-legend__item${!showPace ? ' dim' : ''}`}>
               <span className="dc-legend__sw dc-legend__sw--line" style={{ background: 'var(--rust)' }} />
@@ -425,8 +543,8 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
             {pace.gap > 3 ? (
               <>
                 <strong>You&apos;re ~{pace.gap}% behind plan.</strong>{' '}
-                Current rate <em>{pace.currentRate} gos/day</em>; to clear
-                every deadline you need <em>{pace.paceNeeded}/day</em>.
+                Working <em>{pace.currentRate} gos/day</em>; to clear every
+                deadline you need <em>{pace.paceNeeded}/day</em>.
               </>
             ) : pace.gap < -3 ? (
               <>
@@ -436,107 +554,13 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
               </>
             ) : (
               <>
-                <strong>On plan.</strong> Closing <em>{pace.currentRate} gos/day</em>,
+                <strong>On plan.</strong> Working <em>{pace.currentRate} gos/day</em>,
                 target is <em>{pace.paceNeeded}/day</em>.
               </>
             )}
           </span>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Goals progress vs plan (horizontal bars + dashed expected marker)           */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-interface GoalsBarsProps {
-  rows: GoalProgressRow[];
-}
-
-const GW = 900;
-const GH_ROW = 47.2;
-const GH_GAP = 8;
-const GLEFT = 200;
-const GRIGHT = 60;
-
-export function GoalsProgressChart({ rows }: GoalsBarsProps) {
-  const top = rows.slice(0, 5);
-  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-
-  const rowsWithExpected = top.map((r) => {
-    const accent = accentFor(r.task.id);
-    const start = r.task.start_date ? new Date(r.task.start_date) : null;
-    const end = r.task.due_date ? new Date(r.task.due_date) : null;
-    let expected = 0;
-    if (start && end && end > start) {
-      const total = end.getTime() - start.getTime();
-      const elapsed = Math.max(0, Math.min(total, today.getTime() - start.getTime()));
-      expected = Math.round((elapsed / total) * 100);
-    } else {
-      expected = r.pct;
-    }
-    return { ...r, accent, expected };
-  });
-
-  const onPlan = rowsWithExpected.filter((r) => r.pct >= r.expected).length;
-  const totalH = rowsWithExpected.length === 0
-    ? 0
-    : rowsWithExpected.length * (GH_ROW + GH_GAP);
-  const trackW = GW - GLEFT - GRIGHT;
-
-  if (rowsWithExpected.length === 0) {
-    return (
-      <div className="ana-card-chart">
-        <header className="acc-head">
-          <div className="acc-head-text">
-            <h3 className="acc-title">Goals progress vs plan</h3>
-            <p className="acc-sub">Bar shows actual %. Dashed line is expected for today.</p>
-          </div>
-        </header>
-        <div className="ana-card-empty">No active goals to track yet.</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="ana-card-chart">
-      <header className="acc-head">
-        <div className="acc-head-text">
-          <h3 className="acc-title">Goals progress vs plan</h3>
-          <p className="acc-sub">Bar shows actual %. Dashed line is expected progress for today.</p>
-        </div>
-        <div className="acc-stat">
-          <div className="acc-stat-num">{onPlan}<em>/{rowsWithExpected.length}</em></div>
-          <div className="acc-stat-trend">on or ahead of plan</div>
-        </div>
-      </header>
-      <div className="acc-body">
-        <svg viewBox={`0 0 ${GW} ${Math.max(60, totalH)}`} className="chart-svg" preserveAspectRatio="xMidYMid meet">
-          {rowsWithExpected.map((r, i) => {
-            const y = i * (GH_ROW + GH_GAP) + 12;
-            const expectedX = GLEFT + (r.expected / 100) * trackW;
-            const fillW = (r.pct / 100) * trackW;
-            return (
-              <g key={r.task.id}>
-                <rect x={GLEFT} y={y} width={trackW} height={GH_ROW} rx={3} fill="var(--cream)" />
-                <line x1={expectedX} y1={y - 3} x2={expectedX} y2={y + GH_ROW + 3}
-                  stroke="var(--ink-4)" strokeWidth={1.5} strokeDasharray="3 2" />
-                <rect x={GLEFT} y={y} width={fillW} height={GH_ROW} rx={3} fill={r.accent} />
-                <text x={GLEFT - 14} y={y + GH_ROW / 2 + 5} textAnchor="end"
-                  fill="var(--ink)" fontSize={14} fontFamily="Source Serif 4" fontWeight={500}>
-                  {r.task.title.length > 20 ? r.task.title.slice(0, 18) + '…' : r.task.title}
-                </text>
-                <text x={GW - GRIGHT + 8} y={y + GH_ROW / 2 + 5}
-                  fill="var(--ink)" fontSize={14} fontFamily="JetBrains Mono" fontWeight={500}>
-                  {r.pct}%
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
     </div>
   );
 }

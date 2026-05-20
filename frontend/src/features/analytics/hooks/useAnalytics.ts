@@ -25,7 +25,14 @@ export interface KPI {
 export interface ActivityPoint {
   date: string;       // ymd
   label: string;      // "May 1"
+  /** Count of whole goals that transitioned to status='done' on this day.
+   *  Rare event — typically zero. Use `gos` for day-to-day work signal. */
   goals: number;
+  /** Distinct gos that had at least one entry with value > 0 on this day.
+   *  This is the right "did real work" metric — includes gos inside steps
+   *  of a long-running goal, so multi-month goals don't look dead. */
+  gos: number;
+  /** Routine entries with value > 0 logged on this day (count of rows). */
   routines: number;
 }
 
@@ -113,7 +120,13 @@ export function useAnalytics() {
   const today = useMemo(() => startOfDay(new Date()), []);
   const periodStart = useMemo(() => addDays(today, -(days - 1)), [today, days]);
 
-  /** Daily completion counts (goals done + routines logged), period-aware. */
+  /** Daily completion counts. Three independent metrics per day:
+   *    - `goals`   = whole-goal status='done' transitions (milestone events)
+   *    - `gos`     = distinct gos with a positive entry that day (work signal)
+   *    - `routines` = routine-entry rows logged that day
+   *
+   *  `gos` is the metric that matters for multi-month goals — it surfaces
+   *  the daily work even when no goal/step has fully closed yet. */
   const activity = useMemo<ActivityPoint[]>(() => {
     const out: ActivityPoint[] = [];
     const goalDoneByDay = new Map<string, number>();
@@ -121,6 +134,20 @@ export function useAnalytics() {
       if (t.status !== 'done') continue;
       const key = ymd(new Date(t.updated_at));
       goalDoneByDay.set(key, (goalDoneByDay.get(key) ?? 0) + 1);
+    }
+    // Distinct gos done per day. Iterate every Go inside every Task; bucket
+    // its positive entries by date into a Set so multiple entries on the
+    // same day (e.g. a numeric Go logged twice) still count as one "go done".
+    const gosByDay = new Map<string, Set<string>>();
+    for (const t of tasks) {
+      for (const g of t.gos) {
+        for (const e of g.entries) {
+          if (e.value <= 0) continue;
+          let set = gosByDay.get(e.date);
+          if (!set) { set = new Set<string>(); gosByDay.set(e.date, set); }
+          set.add(g.id);
+        }
+      }
     }
     const routineByDay = new Map<string, number>();
     for (const r of routines) {
@@ -135,6 +162,7 @@ export function useAnalytics() {
         date: key,
         label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
         goals: goalDoneByDay.get(key) ?? 0,
+        gos: gosByDay.get(key)?.size ?? 0,
         routines: routineByDay.get(key) ?? 0,
       });
     }
