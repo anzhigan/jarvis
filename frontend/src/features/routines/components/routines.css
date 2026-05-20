@@ -472,6 +472,106 @@
 }
 .rt-sl-num-warn { color: var(--rust); }
 
+/* Full-period heatmap inside RoutineDetailPanel ─────────────────────────
+   Github-style grid: columns = weeks, rows = weekdays (Sun→Sat). Spans
+   from routine.start_date (or created_at) to today / end_date. Grows
+   rightward inside a horizontal scroller so long histories don't push
+   the drawer wider. */
+.rt-heatmap {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline-faint);
+}
+.rt-heatmap__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-ui);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin-bottom: 8px;
+}
+.rt-heatmap__sub {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-5);
+  font-size: 11px;
+}
+.rt-heatmap__scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  /* Default-show the newest end (today) — flexbox + flex-direction:row-reverse
+     would scroll-anchor right, but we want left-to-right order. So instead
+     we use scroll-snap and js-anchor on open via initial render position. */
+}
+.rt-heatmap__scroller::-webkit-scrollbar { height: 6px; }
+.rt-heatmap__scroller::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 3px;
+}
+.rt-heatmap__grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: 12px auto;   /* month axis + week columns */
+  gap: 3px;
+  padding-top: 0;
+  /* grid-template-columns set inline based on week count */
+}
+.rt-heatmap__months {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  display: grid;
+  position: relative;
+  height: 12px;
+}
+.rt-heatmap__month {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-5);
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.rt-heatmap__week {
+  grid-row: 2;
+  display: grid;
+  grid-template-rows: repeat(7, 11px);
+  gap: 2px;
+}
+.rt-heatmap__cell {
+  width: 11px; height: 11px;
+  border-radius: 2px;
+  background: var(--bg-hover);
+  transition: transform var(--dur-fast) var(--ease-emph, ease-out);
+  cursor: default;
+}
+.rt-heatmap__cell:hover {
+  transform: scale(1.4);
+  outline: 1px solid var(--ink-3);
+}
+.rt-heatmap__cell[data-empty] {
+  background: transparent;
+  box-shadow: none;
+}
+.rt-heatmap__cell[data-today] {
+  outline: 1px solid var(--ochre);
+  outline-offset: 0;
+}
+.rt-heatmap__legend {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 8px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--ink-5);
+}
+.rt-heatmap__legend .rt-heatmap__sw {
+  width: 11px; height: 11px;
+  border-radius: 2px;
+}
+
 /* All-entries collapsible list inside RoutineDetailPanel ───────────────── */
 .rt-entries {
   margin-top: 18px;

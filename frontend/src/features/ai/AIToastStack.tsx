@@ -258,11 +258,23 @@ export function AIToastStack() {
     }, 80);
   }, []);
 
-  const handleToastClick = useCallback(() => {
+  const handleToastClick = useCallback((jobId: string) => {
     // Always open the queue panel — even with one job the user sees full
     // status (elapsed, error message) before deciding to open it.
     if (jobs.length > 0) setPanelOpen(true);
-  }, [jobs.length]);
+    // Clicking a *terminal* toast (done / failed / cancelled) counts as
+    // acknowledging the notification — auto-dismiss the bottom plate so it
+    // doesn't reappear after the user closes the panel or drawer. The job
+    // stays in the panel's history and in the store (backend cache_key
+    // still hits, panel can be reopened from another toast bump).
+    // Working/queued toasts are NOT auto-dismissed: the user wants to see
+    // them flip to "ready" once generation finishes.
+    const s = statusMap.get(jobId);
+    if (s === 'done' || s === 'failed' || s === 'cancelled') {
+      dismissToast(jobId);
+      markHidden(jobId, 'toast');
+    }
+  }, [jobs.length, statusMap, dismissToast]);
 
   const handlePickFromPanel = useCallback((job: BgAIJob) => {
     // Opening a job clears its dismissed flags — the user is actively
@@ -272,10 +284,16 @@ export function AIToastStack() {
       bump(job.jobId);
       unmarkHidden(job.jobId);
     }
+    // Then immediately re-hide the toast: the user is opening the result
+    // drawer, so the bottom plate has served its purpose. Without this,
+    // closing the drawer would bring the plate back at the bottom-right
+    // (the job stays in store + panel for history / cache hits).
+    dismissToast(job.jobId);
+    markHidden(job.jobId, 'toast');
     reopenPanelAfterCloseRef.current = job.jobId;
     setPanelOpen(false);
     openSourceDrawer(job);
-  }, [openSourceDrawer, bump]);
+  }, [openSourceDrawer, bump, dismissToast]);
 
   /** Toast X — soft dismissal. The job stays in the AI tasks panel and in
    *  the store (so the backend cache_key keeps working: next trigger of
@@ -367,7 +385,7 @@ export function AIToastStack() {
               bumpedAt={job.bumpedAt}
               sourceTitle={job.source.noteTitle}
               extraCount={extra}
-              onOpen={handleToastClick}
+              onOpen={() => handleToastClick(job.jobId)}
               onDismiss={() => handleDismissToast(job.jobId)}
             />
           ))}
