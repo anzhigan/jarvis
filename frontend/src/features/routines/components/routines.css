@@ -291,20 +291,17 @@
   border-top: 0;
   padding: 14px 18px 16px;
 }
-/* Two-column layout: calendar on the left at its natural width, side pane
-   fills the remaining width of the row. No wrap — stats stay right of the
-   calendar across the whole table cell. Calendar size is NOT changed by
-   this layout: `.rt-month` retains its own max-width and `flex: 0 0 auto`
-   prevents flex from shrinking it. */
+/* Three-column row: [calendar] [trend] [rhythm]. Calendar column is `auto`
+   so it takes the calendar's own natural size — the `.rt-month` retains
+   `max-width: 360px` and is NOT shrunk by this grid (grid `auto` tracks
+   never compress below their content's intrinsic min). Trend + rhythm
+   split the remaining width with `minmax(0, 1fr)` so long routine titles
+   don't blow the row past the viewport. */
 .rt-row-expanded__layout {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
   gap: 28px;
-}
-.rt-row-expanded__layout > .rt-month { flex: 0 0 auto; }
-.rt-row-expanded__layout > .rt-side {
-  flex: 1 1 auto;
-  min-width: 0;
+  align-items: flex-start;
 }
 
 /* ── Side pane: trend chart + rhythm card ──────────────────────────── */

@@ -101,8 +101,11 @@ export function RoutineExpandedDetails({ routine }: Props) {
 
   const rate30 = useMemo(() => completionRate(routine, 30), [routine]);
 
+  // Returns two top-level siblings (no wrapping div) so the outer grid in
+  // RoutinesView can place them as separate columns next to the calendar:
+  //   [calendar] [trend] [rhythm]
   return (
-    <div className="rt-side">
+    <>
       {/* ── Trend ───────────────────────────────────────────────────────── */}
       <div className="rt-side__sec">
         <div className="rt-side__head">
@@ -205,6 +208,6 @@ export function RoutineExpandedDetails({ routine }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
