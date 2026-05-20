@@ -202,9 +202,9 @@
     align-items: center;
     gap: 8px;
     background: var(--cream);
-    height: 40px;
-    padding: 0 12px;
-    border-radius: 10px;
+    height: var(--tap, 44px);
+    padding: 0 14px;
+    border-radius: var(--r-button, 12px);
     color: var(--ink-4);
     margin-bottom: 14px;
   }
@@ -360,8 +360,8 @@
   .goal-card {
     position: relative;
     background: var(--paper);
-    border: 1px solid var(--hairline-strong);
-    border-radius: 10px;
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-card, 14px);
     padding: 14px;
     overflow: hidden;
     box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
@@ -1173,8 +1173,8 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     background: var(--paper);
-    border: 1px solid var(--hairline);
-    border-radius: 10px;
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-card, 14px);
     overflow: hidden;
     margin-bottom: 12px;
   }
@@ -1219,8 +1219,8 @@
   }
   .routine-card {
     background: var(--paper);
-    border: 1px solid var(--hairline-strong);
-    border-radius: 10px;
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-card, 14px);
     padding: 12px 14px;
     box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
@@ -2177,8 +2177,8 @@
   }
   .kpi-tile {
     background: var(--paper);
-    border: 1px solid var(--hairline);
-    border-radius: 10px;
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-card, 14px);
     padding: 10px 12px;
     line-height: 1.2;
   }
@@ -2217,8 +2217,8 @@
 
   .chart-card {
     background: var(--paper);
-    border: 1px solid var(--hairline);
-    border-radius: 10px;
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-card, 14px);
     padding: 14px;
     margin-bottom: 10px;
   }
@@ -2594,10 +2594,10 @@
     width: 100%;
     margin: 10px 0;
     padding: 0 14px;
-    height: 44px;
+    height: var(--tap, 44px);
     background: transparent;
     border: 1px dashed var(--hairline-strong);
-    border-radius: 10px;
+    border-radius: var(--r-button, 12px);
     color: var(--ink-4);
     font-family: var(--font-ui);
     font-size: 14px;
