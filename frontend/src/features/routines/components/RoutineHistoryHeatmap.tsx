@@ -40,12 +40,15 @@ export function RoutineHistoryHeatmap({
   const todayKey = ymd(today);
 
   // Cells for the current month. Pad leading cells with empty placeholders
-  // so the 1st sits in its real weekday column.
-  const month = useMemo(() => {
-    const { year, month } = view;
-    const first = new Date(year, month, 1);
+  // so the 1st sits in its real weekday column. Renamed `month` outer-binding
+  // to `monthCells` to avoid shadowing `view.month` inside the callback —
+  // some minifiers garble that pattern.
+  const monthCells = useMemo(() => {
+    const year = view.year;
+    const m = view.month;
+    const first = new Date(year, m, 1);
     const firstDow = first.getDay(); // 0 = Sun
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInMonth = new Date(year, m + 1, 0).getDate();
     const map = entriesByDate(routine.entries ?? []);
     const startISO = routine.start_date
       ?? (routine.created_at ? routine.created_at.slice(0, 10) : null);
@@ -68,7 +71,7 @@ export function RoutineHistoryHeatmap({
       cells.push({ kind: 'pad', key: `p-${i}` });
     }
     for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month, d);
+      const date = new Date(year, m, d);
       const k = ymd(date);
       const entry = map.get(k);
       const outBefore = startD ? date < startD : false;
@@ -157,7 +160,7 @@ export function RoutineHistoryHeatmap({
         ))}
       </div>
       <div className="rt-month__grid">
-        {month.map((cell) => {
+        {monthCells.map((cell) => {
           if (cell.kind === 'pad') {
             return <span key={cell.key} className="rt-month__pad" />;
           }

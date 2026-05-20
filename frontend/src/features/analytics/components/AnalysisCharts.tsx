@@ -884,20 +884,34 @@ function DayDetailPanel({ point, activity, idx, tasks, routines, onClose }: DayD
               </div>
             </div>
           </div>
-          {/* Routine cadence proxy: of routines scheduled today, how many
-              were logged. Gives a second axis to "rhythm" beyond just load. */}
+          {/* Two cadence proxies — routines AND gos — make the "rhythm" axis
+              honest. Earlier this card only surfaced routines-on-schedule,
+              which read as "rhythm is purely a routines metric". Gos due
+              that day get the same treatment: count due, count done. */}
           {(() => {
-            let sched = 0, hit = 0;
+            let routineSched = 0, routineHit = 0;
             for (const r of routines) {
               if (!isScheduledOn(r, dateObj)) continue;
-              sched++;
+              routineSched++;
               const e = r.entries.find((x) => x.date === point.date);
-              if (e && e.value > 0) hit++;
+              if (e && e.value > 0) routineHit++;
             }
-            if (sched === 0) return null;
+            // `work` already buckets gos by due-date for this very day.
+            const goDue = work.dueGos.length;
+            const goHit = work.dueDoneCount;
+            if (routineSched === 0 && goDue === 0) return null;
             return (
-              <div className="day-detail__rhythm-sched">
-                Routines on schedule: <strong>{hit}/{sched}</strong>
+              <div className="day-detail__rhythm-sched-list">
+                {routineSched > 0 && (
+                  <div className="day-detail__rhythm-sched">
+                    Routines on schedule: <strong>{routineHit}/{routineSched}</strong>
+                  </div>
+                )}
+                {goDue > 0 && (
+                  <div className="day-detail__rhythm-sched">
+                    Gos on schedule: <strong>{goHit}/{goDue}</strong>
+                  </div>
+                )}
               </div>
             );
           })()}
