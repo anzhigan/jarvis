@@ -10,8 +10,12 @@ import { DesktopApp } from './DesktopApp';
 import { VALID_TABS, type Tab } from './tabs';
 
 // Lazy: only loaded once the user starts an AI generation. Tiny but pulls
-// the AIGenerationToast bundle including pulse animation styles.
+// the AIGenerationToast bundle including pulse animation styles. Two
+// variants — `AIToastStack` for desktop (right-side bottom toast +
+// sidebar panel) and `MobileAIToastStack` for mobile (full-width
+// translucent capsule above the tab bar + bottom-sheet panel).
 const AIToastStack = lazy(() => import('../features/ai/AIToastStack').then((m) => ({ default: m.AIToastStack })));
+const MobileAIToastStack = lazy(() => import('../features/mobile/components/MobileAIToastStack').then((m) => ({ default: m.MobileAIToastStack })));
 
 const PublicNoteView = lazy(() => import('../features/notes/components/PublicNoteView'));
 
@@ -115,7 +119,7 @@ function AuthenticatedApp() {
       )}
       {toaster}
       <Suspense fallback={null}>
-        <AIToastStack />
+        {isMobile ? <MobileAIToastStack /> : <AIToastStack />}
       </Suspense>
     </>
   );

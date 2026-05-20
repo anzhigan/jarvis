@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  ChevronLeft, FileDown, FileUp, LogOut, Mail, Moon, Send, Sun, Target, User,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../../store/auth';
 import { useGoals } from '../../goals/hooks/useGoals';
@@ -7,6 +9,7 @@ import { useGos } from '../../goals/hooks/useGos';
 import { useRoutines } from '../../routines/hooks/useRoutines';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
+import { MobileListGroup, MobileListCell } from '../components/MobileList';
 import type { Tab } from '../../../app/tabs';
 import { confirmDialog } from '../../../components/ui';
 
@@ -78,8 +81,6 @@ export default function MobileProfileScreen({
     logout();
   };
 
-  const themeLabel = dark ? 'Dark' : 'Light';
-
   const topBar = (
     <MobileTopBar
       title="Profile"
@@ -98,6 +99,7 @@ export default function MobileProfileScreen({
 
   return (
     <MobileShell topBar={topBar} tab={tab} onTabChange={onTabChange}>
+      {/* Hero ─────────────────────────────────────────────────────────── */}
       <header className="pf-header">
         <div className="pf-avatar-big">{initial}</div>
         <div className="pf-info">
@@ -125,66 +127,81 @@ export default function MobileProfileScreen({
         </div>
       </div>
 
-      <Section label="Account">
-        <Row label="Name"  value={user?.username ?? '—'} arrow />
-        <Row label="Email" value={user?.email    ?? '—'} arrow />
-      </Section>
+      {/* Account ──────────────────────────────────────────────────────── */}
+      <MobileListGroup label="Account">
+        <MobileListCell
+          icon={<User size={15} />}
+          iconColor="indigo"
+          title="Name"
+          trailing={user?.username ?? '—'}
+          chevron
+        />
+        <MobileListCell
+          icon={<Mail size={15} />}
+          iconColor="slate"
+          title="Email"
+          trailing={user?.email ?? '—'}
+          chevron
+        />
+      </MobileListGroup>
 
-      <Section label="Appearance">
-        <Row
-          label="Theme"
-          value={themeLabel}
-          arrow
+      {/* Appearance ───────────────────────────────────────────────────── */}
+      <MobileListGroup label="Appearance">
+        <MobileListCell
+          icon={dark ? <Moon size={15} /> : <Sun size={15} />}
+          iconColor={dark ? 'slate' : 'ochre'}
+          title="Theme"
+          trailing={dark ? 'Dark' : 'Light'}
+          chevron
           onClick={onToggleTheme}
         />
-      </Section>
+      </MobileListGroup>
 
-      <Section label="Data">
-        <Row label="Export to JSON" arrow onClick={() => toast.info('Export coming soon')} />
-        <Row label="Import from CSV" arrow onClick={() => toast.info('Import coming soon')} />
-      </Section>
+      {/* Data ─────────────────────────────────────────────────────────── */}
+      <MobileListGroup label="Data">
+        <MobileListCell
+          icon={<FileDown size={15} />}
+          iconColor="moss"
+          title="Export to JSON"
+          chevron
+          onClick={() => toast.info('Export coming soon')}
+        />
+        <MobileListCell
+          icon={<FileUp size={15} />}
+          iconColor="moss"
+          title="Import from CSV"
+          chevron
+          onClick={() => toast.info('Import coming soon')}
+        />
+      </MobileListGroup>
 
-      <Section label="About">
-        <Row label="Version" value="1.0.0" />
-        <Row label="Send feedback" arrow onClick={() => window.open('mailto:support@jarvnote.ru', '_blank')} />
-        <Row label="Sign out" arrow danger onClick={handleSignOut} />
-      </Section>
+      {/* About ────────────────────────────────────────────────────────── */}
+      <MobileListGroup label="About">
+        <MobileListCell
+          icon={<Target size={15} />}
+          iconColor="slate"
+          title="Version"
+          trailing="1.0.0"
+        />
+        <MobileListCell
+          icon={<Send size={15} />}
+          iconColor="indigo"
+          title="Send feedback"
+          chevron
+          onClick={() => window.open('mailto:support@jarvnote.ru', '_blank')}
+        />
+        <MobileListCell
+          icon={<LogOut size={15} />}
+          iconColor="rust"
+          title="Sign out"
+          destructive
+          chevron
+          onClick={handleSignOut}
+        />
+      </MobileListGroup>
+
+      {/* Bottom breathing room for the tab bar */}
+      <div style={{ height: 24 }} />
     </MobileShell>
   );
 }
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <section className="pf-section">
-      <div className="pf-section-label">{label}</div>
-      <div className="pf-section-body">{children}</div>
-    </section>
-  );
-}
-
-function Row({
-  label, value, arrow, danger, onClick,
-}: {
-  label: string;
-  value?: string;
-  arrow?: boolean;
-  danger?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`pf-row${danger ? ' pf-row-danger' : ''}`}
-      onClick={onClick}
-    >
-      <span className="pf-row-label">{label}</span>
-      <span className="pf-row-right">
-        {value && <span className="pf-row-value">{value}</span>}
-        {arrow && <span className="pf-row-arrow"><ChevronRight size={14} /></span>}
-      </span>
-    </button>
-  );
-}
-

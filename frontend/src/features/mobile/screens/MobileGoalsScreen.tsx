@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, ChevronRight, Flag, Loader2, Minus, Plus } from 'lucide-react';
 import { MiniGoContent } from '../components/MiniCards';
 import { toast } from 'sonner';
@@ -13,6 +13,9 @@ import { GoalForm, GoForm, RoutineForm } from '../components/MobileAddForms';
 import { SwipeableRow } from '../components/SwipeableRow';
 import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import { MobilePickerSheet } from '../components/MobilePickerSheet';
+import { MobileGoalDetailSheet } from '../components/MobileGoalDetailSheet';
+import { MobileGoalPlanSheet } from '../components/MobileGoalPlanSheet';
+import { AI_JOB_OPEN_EVENT, type AIJobOpenDetail } from '../../../store/aiJobs';
 import type { Tab } from '../../../app/tabs';
 
 type ViewMode = 'kanban' | 'go';
@@ -66,6 +69,45 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
   const [confirmDeleteGo, setConfirmDeleteGo] = useState<Go | null>(null);
   // Picker: pick an existing orphan Go to attach to a goal.
   const [pickGoFor, setPickGoFor] = useState<string | null>(null); // taskId
+  // Goal detail sheet — opened on tap of a GoalCard; tracks the goal id
+  // (not the object) so the sheet stays in sync with refreshes.
+  const [detailGoalId, setDetailGoalId] = useState<string | null>(null);
+  const detailGoal = useMemo(
+    () => goals.tasks.find((t) => t.id === detailGoalId) ?? null,
+    [goals.tasks, detailGoalId],
+  );
+  // Goal AI plan sheet — opened either:
+  //   - immediately after the detail sheet fires `aiApi.createGoalPlan`
+  //     (in-screen flow), OR
+  //   - via the `AI_JOB_OPEN_EVENT` from MobileAIJobsPanel when the user
+  //     comes back to the result later via the toast.
+  // `planGoalId` lets us look up the live goal for positional matching in
+  // dates_only / fill_dates / rebalance_dates modes; in the toast-reopen
+  // flow it stays null until we resolve it from the job's input_json.
+  const [planJobId, setPlanJobId] = useState<string | null>(null);
+  const [planGoalId, setPlanGoalId] = useState<string | null>(null);
+  const planGoal = useMemo(
+    () => goals.tasks.find((t) => t.id === planGoalId) ?? null,
+    [goals.tasks, planGoalId],
+  );
+
+  // Reopen AI plan via the toast → panel → "Open" flow. Same protocol as
+  // desktop GoalsView — when MobileAIJobsPanel dispatches the event for a
+  // goal_plan job, we mount the plan sheet with that jobId. The sheet
+  // resolves the goal from its own job.output_json once `done`.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
+      if (detail.kind !== 'goal_plan') return;
+      setPlanJobId(detail.jobId);
+      // We don't have goal_id from the event payload directly. For an
+      // in-flight job, dates-mode matching is degraded until the user
+      // navigates here through the detail-sheet flow (which sets
+      // planGoalId explicitly).
+    };
+    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
+  }, []);
 
   const counts = useMemo(() => {
     const c: Record<TaskStatus, number> = { active: 0, backlog: 0, paused: 0, done: 0 };
@@ -109,6 +151,7 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
           statusFilter={statusFilter}
           onStatus={setStatusFilter}
           onAddGoal={handleAddTopBar}
+          onOpenDetail={setDetailGoalId}
           onToggleGoDone={(g) => {
             const next = g.is_done_today
               ? 0
@@ -181,6 +224,47 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
         editing={editGo}
       />
 
+      {/* Goal detail sheet — opened on tap of a goal card. Status flip,
+          progress, AI plan menu, delete row. */}
+      <MobileGoalDetailSheet
+        task={detailGoal}
+        open={detailGoalId !== null}
+        onOpenChange={(o) => { if (!o) setDetailGoalId(null); }}
+        onEdit={() => {
+          if (detailGoal) {
+            setDetailGoalId(null);
+            setEditGoal(detailGoal);
+          }
+        }}
+        onDelete={() => {
+          if (detailGoal) setConfirmDeleteGoal(detailGoal);
+        }}
+        onStatusChange={(next) => {
+          if (detailGoal) {
+            void goals.updateGoal(detailGoal.id, { status: next });
+          }
+        }}
+        onAIJobStarted={(jobId) => {
+          // Immediately open the plan sheet — user is right here, no need
+          // to make them tap through the toast / panel round-trip.
+          if (detailGoal) setPlanGoalId(detailGoal.id);
+          setPlanJobId(jobId);
+        }}
+      />
+
+      {/* Goal AI plan sheet — shows the proposal, lets user drop items
+          before Apply. Mounted at screen level so it survives the detail
+          sheet closing (which it does immediately after AI fires). */}
+      <MobileGoalPlanSheet
+        jobId={planJobId}
+        onJobIdChange={(id) => {
+          setPlanJobId(id);
+          if (id === null) setPlanGoalId(null);
+        }}
+        goal={planGoal}
+        onApplied={async () => { await goals.refresh(); await gos.refresh(); }}
+      />
+
       {/* Confirm-delete sheets */}
       <MobileConfirmSheet
         open={!!confirmDeleteGoal}
@@ -243,13 +327,15 @@ interface KanbanCallbacks {
 }
 
 function KanbanView({
-  tasks, counts, statusFilter, onStatus, onAddGoal, ...cb
+  tasks, counts, statusFilter, onStatus, onAddGoal, onOpenDetail, ...cb
 }: {
   tasks: Task[];
   counts: Record<TaskStatus, number>;
   statusFilter: StatusFilter;
   onStatus: (s: StatusFilter) => void;
   onAddGoal: () => void;
+  /** Tap on a card's title → goal detail sheet. */
+  onOpenDetail: (taskId: string) => void;
 } & KanbanCallbacks) {
   const [priorityFilter, setPriorityFilter] = useState<Set<TaskPriority>>(new Set());
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
@@ -365,7 +451,7 @@ function KanbanView({
               onEdit={() => cb.onEditGoal(t)}
               onDelete={() => cb.onDeleteGoal(t)}
             >
-              <GoalCard task={t} cb={cb} />
+              <GoalCard task={t} cb={cb} onOpenDetail={() => onOpenDetail(t.id)} />
             </SwipeableRow>
           ))}
         </div>
@@ -380,7 +466,16 @@ function priorityFlagColor(p: TaskPriority): { bg: string; fg: string } {
   return                     { bg: 'var(--cream)',      fg: 'var(--ink-5)' };
 }
 
-function GoalCard({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
+function GoalCard({
+  task, cb, onOpenDetail,
+}: {
+  task: Task;
+  cb: KanbanCallbacks;
+  /** Tap on the title area opens the goal detail sheet (status flip, AI
+   *  plan, full description). Inner controls — items toggle, expanded
+   *  go/routine action buttons — keep their own handlers. */
+  onOpenDetail: () => void;
+}) {
   const accent = accentForGoal(task);
   const pct = Math.round(task.progress ?? 0);
   const [expanded, setExpanded] = useState(false);
@@ -402,7 +497,18 @@ function GoalCard({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
 
   return (
     <article className="goal-card" style={{ ['--gc' as any]: accent }}>
-      <header className="gc-head" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      <button
+        type="button"
+        onClick={onOpenDetail}
+        aria-label={`Open details for ${task.title}`}
+        className="gc-head"
+        style={{
+          display: 'flex', gap: 8, alignItems: 'flex-start',
+          width: '100%', textAlign: 'left',
+          background: 'transparent', border: 0, padding: 0,
+          color: 'inherit', cursor: 'pointer',
+        }}
+      >
         <h3 className="gc-title" style={{ flex: 1, margin: 0 }}>{task.title}</h3>
         <span
           title={`Priority: ${task.priority}`}
@@ -415,7 +521,7 @@ function GoalCard({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
         >
           <Flag size={11} />
         </span>
-      </header>
+      </button>
 
       {task.description && <p className="gc-desc">{task.description}</p>}
 

@@ -1,9 +1,18 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { ChevronLeft, Loader2, MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { ChevronLeft, Loader2, MoreHorizontal, Pin, PinOff, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
+import { aiApi } from '../../../api/client';
 import type { Note } from '../../../api/types';
 import { useNoteAutoSave } from '../../notes/hooks/useNoteAutoSave';
 import type { NotesLibrary } from '../../notes/hooks/useNotesLibrary';
 import { confirmDialog } from '../../../components/ui';
+import {
+  AI_JOB_OPEN_EVENT,
+  type AIJobOpenDetail,
+  useAIJobsStore,
+} from '../../../store/aiJobs';
+import { MobileActionSheet, type ActionSheetItem } from '../components/MobileActionSheet';
+import { MobileQuizSheet } from '../components/MobileQuizSheet';
 import '../../../styles/mobile.css';
 
 const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
@@ -21,13 +30,37 @@ interface Props {
  * full viewport is dedicated to writing. The top bar is collapsed to back +
  * actions, the title is inline (doc-style), and a meta line under it shows
  * way/topic + tags. Auto-save status sits next to the back button.
+ *
+ * AI: ✨ button in the top bar → MobileActionSheet with "Generate test"
+ * (more actions to follow — tasks_extract / summarize are not wired on
+ * desktop yet either). The quiz lands in MobileQuizSheet that polls the
+ * job and presents the result.
  */
 export default function MobileNoteEditor({ note, library, onBack }: Props) {
   const save = useNoteAutoSave(() => { void library.refresh(); });
   const [localTitle, setLocalTitle] = useState(note.name);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+
+  // Active quiz job — set after fire, also restored from the AI panel's
+  // "Open" event if the user comes back via toast.
+  const [quizJobId, setQuizJobId] = useState<string | null>(null);
+  const addBgJob = useAIJobsStore((s) => s.add);
 
   useEffect(() => { setLocalTitle(note.name); }, [note.id, note.name]);
+
+  // Listen for "Open this job" dispatches from MobileAIJobsPanel. Only
+  // claim quiz jobs whose source note is the one we're currently editing.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
+      if (detail.kind !== 'quiz') return;
+      if (detail.source.noteId !== note.id) return;
+      setQuizJobId(detail.jobId);
+    };
+    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
+  }, [note.id]);
 
   // Resolve parent way / topic for the meta line.
   const located = library.findNote(note.id);
@@ -44,7 +77,7 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
   const goBack = async () => { await save.flush(); onBack(); };
 
   const handleDelete = async () => {
-    setMenuOpen(false);
+    setMoreOpen(false);
     const ok = await confirmDialog({
       title: 'Delete note?',
       body: <>«{note.name || 'Untitled'}» This cannot be undone.</>,
@@ -57,15 +90,85 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
     onBack();
   };
   const handleTogglePin = async () => {
-    setMenuOpen(false);
     await library.togglePin(note.id);
   };
+
+  // ── AI · quiz fire ──────────────────────────────────────────────────────
+  const fireQuiz = useCallback(async () => {
+    // Re-use existing in-flight / done quiz for this note if any. Same
+    // protocol as desktop NoteEditor: if there's a `done` job, open it
+    // directly; if it's in-flight, do nothing (toast shows progress); if
+    // it's terminal-but-failed, fall through to a fresh generation.
+    const existing = useAIJobsStore.getState().findSame('quiz', note.id);
+    if (existing) {
+      try {
+        const live = await aiApi.getJob(existing.jobId);
+        if (live.status === 'done') {
+          setQuizJobId(existing.jobId);
+          return;
+        }
+        if (live.status === 'queued' || live.status === 'running') {
+          toast.info('A test is already being generated — watch the bottom toast');
+          return;
+        }
+      } catch { /* ignore — fall through to fresh */ }
+    }
+    try {
+      // Same word-count → question-count buckets the desktop uses. Short
+      // notes get 5 questions; long ones up to 10.
+      const len = (note.content || '').length;
+      const count = len >= 4000 ? 10
+        : len >= 2500 ? 8
+        : len >= 1200 ? 7
+        : len >= 600  ? 6
+        : 5;
+      const job = await aiApi.createQuiz({
+        scope: { kind: 'note', id: note.id },
+        difficulty: 'medium',
+        count,
+      });
+      addBgJob({
+        jobId: job.id,
+        kind: 'quiz',
+        source: {
+          section: 'notes',
+          noteId: note.id,
+          noteTitle: note.name || 'untitled',
+        },
+      });
+      // Cache hit returned a done job? Open immediately.
+      if (job.status === 'done') {
+        setQuizJobId(job.id);
+      }
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to start quiz');
+    }
+  }, [note, addBgJob]);
+
+  // ── Top-bar actions sheet ───────────────────────────────────────────────
+  const moreActions: ActionSheetItem[] = [
+    {
+      label: note.pinned ? 'Unpin note' : 'Pin note',
+      onSelect: () => { void handleTogglePin(); },
+    },
+    {
+      label: 'Delete note',
+      destructive: true,
+      onSelect: () => { void handleDelete(); },
+    },
+  ];
+
+  const aiActions: ActionSheetItem[] = [
+    {
+      label: 'Generate test',
+      onSelect: () => { void fireQuiz(); },
+    },
+  ];
 
   return (
     <div
       className="m-shell"
       style={{
-        // Editor takes the entire viewport — no tab bar.
         height: '100dvh',
         display: 'flex',
         flexDirection: 'column',
@@ -84,7 +187,16 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
           <div className="tb-title" style={{ fontSize: 14 }}>{breadcrumb ?? 'Note'}</div>
           <div className="tb-sub">{saveLabel}</div>
         </div>
-        <div className="tb-side tb-side-right" style={{ position: 'relative' }}>
+        <div className="tb-side tb-side-right">
+          {/* AI ✨ — primary creative action on a note. Tinted-style
+              indigo button to read as a feature, not as plain icon-chrome. */}
+          <button
+            type="button"
+            className="tb-btn"
+            onClick={() => setAiOpen(true)}
+            aria-label="AI actions"
+            style={{ color: 'var(--indigo)' }}
+          ><Sparkles size={16} /></button>
           <button
             type="button"
             className="tb-btn"
@@ -95,56 +207,15 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
           <button
             type="button"
             className="tb-btn"
-            onClick={() => setMenuOpen((o) => !o)}
+            onClick={() => setMoreOpen(true)}
             aria-label="More actions"
           ><MoreHorizontal size={18} /></button>
-          {menuOpen && (
-            <>
-              <div
-                onClick={() => setMenuOpen(false)}
-                style={{ position: 'fixed', inset: 0, zIndex: 9 }}
-              />
-              <div
-                role="menu"
-                style={{
-                  position: 'absolute', right: 0, top: 'calc(100% + 4px)',
-                  background: 'var(--paper)',
-                  boxShadow: 'var(--sh-popover)',
-                  borderRadius: 8,
-                  minWidth: 180,
-                  padding: 4,
-                  zIndex: 10,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    width: '100%', padding: '10px 12px',
-                    border: 0, background: 'transparent',
-                    textAlign: 'left',
-                    fontFamily: 'var(--font-ui)',
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--rust)',
-                    cursor: 'pointer',
-                    borderRadius: 6,
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--rust-soft)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                >
-                  <Trash2 size={14} /> Delete note
-                </button>
-              </div>
-            </>
-          )}
         </div>
       </header>
 
       <main
         className="screen-content"
         style={{
-          // Override default screen-content padding for a roomier doc feel.
           padding: '16px 18px 28px',
         }}
       >
@@ -225,6 +296,29 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
           />
         </Suspense>
       </main>
+
+      {/* AI actions sheet */}
+      <MobileActionSheet
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        title="AI actions"
+        message="Generate a multi-choice test from this note. More AI tools (extract tasks, summarize) coming soon."
+        actions={aiActions}
+      />
+
+      {/* More-actions sheet — pin / delete */}
+      <MobileActionSheet
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+        actions={moreActions}
+      />
+
+      {/* Quiz result sheet — polls the AI job + presents the quiz UI */}
+      <MobileQuizSheet
+        jobId={quizJobId}
+        noteTitle={note.name || 'Untitled'}
+        onClose={() => setQuizJobId(null)}
+      />
     </div>
   );
 }

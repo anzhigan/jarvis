@@ -7,6 +7,8 @@ import { useNotesLibrary } from '../../notes/hooks/useNotesLibrary';
 import { completionRate, currentStreak } from '../../routines/lib/heatmap';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
+import { MobileDayDetailSheet } from '../components/MobileDayDetailSheet';
+import { MobilePerRoutinePulse } from '../components/MobilePerRoutinePulse';
 import type { Tab } from '../../../app/tabs';
 
 type Period = '7d' | '30d' | '90d' | '1y';
@@ -31,6 +33,10 @@ export default function MobileAnalysisScreen({ tab, onTabChange, onAvatarClick }
 
   const [period, setPeriod] = useState<Period>('30d');
   const days = DAYS[period];
+  // Click-to-inspect day on the Daily completion chart. `selectedIdx` is the
+  // index into the `dates` array; `null` = no day selected. We open the
+  // detail sheet whenever it's set and close (= null) on dismiss.
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
   // ── Date helpers ───────────────────────────────────────────────────────────
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
@@ -252,8 +258,14 @@ export default function MobileAnalysisScreen({ tab, onTabChange, onAvatarClick }
             routines={series.routinePoints}
             gos={series.goPoints}
             days={days}
+            selectedIdx={selectedIdx}
+            onPickIdx={(idx) => setSelectedIdx(idx)}
           />
         </div>
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--ink-5)',
+          marginTop: 6, textAlign: 'center',
+        }}>Tap a day to inspect</div>
       </article>
 
       {/* Goals vs plan */}
@@ -326,6 +338,22 @@ export default function MobileAnalysisScreen({ tab, onTabChange, onAvatarClick }
         </article>
       )}
 
+      {/* Per-routine pulse — small line per routine, matches desktop's
+          Analysis "Per-routine pulse" grid stacked for portrait. */}
+      {routines.routines.length > 0 && (
+        <article className="chart-card">
+          <header className="cc-head">
+            <div>
+              <h3 className="cc-title">Per-routine pulse</h3>
+              <p className="cc-sub">{routines.routines.length} routine{routines.routines.length === 1 ? '' : 's'} · 30 days</p>
+            </div>
+          </header>
+          <div className="cc-body">
+            <MobilePerRoutinePulse routines={routines.routines} />
+          </div>
+        </article>
+      )}
+
       {/* Year heatmap */}
       <article className="chart-card">
         <header className="cc-head">
@@ -361,13 +389,48 @@ export default function MobileAnalysisScreen({ tab, onTabChange, onAvatarClick }
           <span>More</span>
         </div>
       </article>
+
+      {/* Day-detail sheet — opens when the user taps a point on Daily
+          completion. We thread through the routines + gos lists and a
+          7-day trailing baseline for the rhythm verdict. */}
+      <MobileDayDetailSheet
+        date={selectedIdx !== null ? series.dates[selectedIdx] ?? null : null}
+        routines={routines.routines}
+        gos={gos.gos}
+        todayLoad={
+          selectedIdx === null ? 0 :
+          ((series.routinePoints[selectedIdx] ?? 0) + (series.goPoints[selectedIdx] ?? 0)) / 2
+        }
+        rhythmAvg7={(() => {
+          if (selectedIdx === null) return null;
+          const start = Math.max(0, selectedIdx - 7);
+          let sum = 0, n = 0;
+          for (let i = start; i < selectedIdx; i++) {
+            sum += ((series.routinePoints[i] ?? 0) + (series.goPoints[i] ?? 0)) / 2;
+            n++;
+          }
+          return n === 0 ? null : sum / n;
+        })()}
+        open={selectedIdx !== null}
+        onOpenChange={(o) => { if (!o) setSelectedIdx(null); }}
+      />
     </MobileShell>
   );
 }
 
 // ── Inline SVG charts (no recharts dependency for this screen) ───────────────
 
-function DualAreaChart({ routines, gos, days: _days }: { routines: number[]; gos: number[]; days: number }) {
+function DualAreaChart({
+  routines, gos, days: _days, selectedIdx, onPickIdx,
+}: {
+  routines: number[];
+  gos: number[];
+  days: number;
+  /** Day index with the sticky vertical guide drawn through it. */
+  selectedIdx: number | null;
+  /** Tap → resolves the nearest day index and pings the parent. */
+  onPickIdx: (idx: number) => void;
+}) {
   const W = 358, H = 140, padL = 32, padR = 10, padT = 8, padB = 22;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
@@ -385,20 +448,76 @@ function DualAreaChart({ routines, gos, days: _days }: { routines: number[]; gos
   const rPath = buildPath(routines);
   const gPath = buildPath(gos);
   const yLabels = [100, 75, 50, 25];
+  // Series length is identical for both (built from the same `dates`
+  // array). Use whichever is non-empty to anchor x() for the marker.
+  const len = Math.max(routines.length, gos.length);
+  const selectedX = selectedIdx !== null && len > 0 ? x(selectedIdx, len) : null;
+
+  /** Pointer → day index. Reads the click's local x within the SVG bounds
+   *  (accounting for browser scaling via getScreenCTM) so it works no
+   *  matter how the SVG is responsively sized. */
+  const pickIdxFromEvent = (clientX: number, svg: SVGSVGElement) => {
+    if (len === 0) return;
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = 0;
+    const local = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+    const t = Math.max(0, Math.min(1, (local.x - padL) / innerW));
+    onPickIdx(Math.round(t * Math.max(1, len - 1)));
+  };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" style={{ width: '100%', height: 'auto' }}>
-      {yLabels.map((v) => (
-        <g key={v}>
-          <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke="var(--hairline-faint)" />
-          <text x={padL - 6} y={y(v) + 3} textAnchor="end" fill="var(--ink-5)" fontSize="9" fontFamily="JetBrains Mono">{v}</text>
-        </g>
-      ))}
-      <path d={closeArea(rPath, routines.length)} fill="var(--indigo)" fillOpacity="0.10" />
-      <path d={rPath} fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={closeArea(gPath, gos.length)}      fill="var(--moss)"   fillOpacity="0.10" />
-      <path d={gPath} fill="none" stroke="var(--moss)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div className="m-cc-chart-wrap">
+      <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" style={{ width: '100%', height: 'auto' }}>
+        {yLabels.map((v) => (
+          <g key={v}>
+            <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke="var(--hairline-faint)" />
+            <text x={padL - 6} y={y(v) + 3} textAnchor="end" fill="var(--ink-5)" fontSize="9" fontFamily="JetBrains Mono">{v}</text>
+          </g>
+        ))}
+        <path d={closeArea(rPath, routines.length)} fill="var(--indigo)" fillOpacity="0.10" />
+        <path d={rPath} fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={closeArea(gPath, gos.length)}      fill="var(--moss)"   fillOpacity="0.10" />
+        <path d={gPath} fill="none" stroke="var(--moss)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        {selectedX !== null && (
+          <g pointerEvents="none">
+            <line
+              x1={selectedX} x2={selectedX}
+              y1={padT} y2={padT + innerH}
+              stroke="var(--indigo)" strokeWidth={1.2} opacity={0.55}
+              strokeDasharray="3 3"
+            />
+            {/* Series dots on the selected x — colored by series. */}
+            {routines[selectedIdx ?? 0] !== undefined && (
+              <circle
+                cx={selectedX}
+                cy={y(routines[selectedIdx ?? 0])}
+                r={3.5} fill="var(--indigo)" stroke="var(--paper)" strokeWidth={1.5}
+              />
+            )}
+            {gos[selectedIdx ?? 0] !== undefined && (
+              <circle
+                cx={selectedX}
+                cy={y(gos[selectedIdx ?? 0])}
+                r={3.5} fill="var(--moss)" stroke="var(--paper)" strokeWidth={1.5}
+              />
+            )}
+          </g>
+        )}
+        {/* Invisible tap layer on top of all paths. preserveAspectRatio
+            (default) means viewBox stretches; getScreenCTM resolves the
+            click back to viewBox-space so we don't need a manual scale. */}
+        <rect
+          x={padL} y={padT}
+          width={innerW} height={innerH}
+          fill="transparent"
+          style={{ cursor: 'pointer' }}
+          onClick={(e) => {
+            const svg = e.currentTarget.ownerSVGElement;
+            if (svg) pickIdxFromEvent(e.clientX, svg);
+          }}
+        />
+      </svg>
+    </div>
   );
 }
 

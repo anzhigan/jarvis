@@ -1231,6 +1231,22 @@
     gap: 8px;
     margin-bottom: 10px;
   }
+  /* Button variant — tap opens detail sheet. Strips browser button chrome
+     so it stays visually identical to the inert div header. Adds a subtle
+     active-state for tap feedback. */
+  .rc-head-btn {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    width: 100%;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+    margin: -4px -4px 6px;
+    padding: 4px;
+  }
+  .rc-head-btn:active { background: var(--bg-hover); }
   .rc-text { flex: 1; min-width: 0; line-height: 1.3; }
   .rc-name {
     font-family: var(--font-display);
@@ -3020,4 +3036,1176 @@
     color: var(--ink-4);
     max-width: 430px;
     line-height: 1.45;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Phase 2 · Mobile primitive components
+     ────────────────────────────────────────────────────────────────────────
+     Canonical Indigo-Editorial mobile components: button, segmented, switch,
+     stepper, action sheet, inset-grouped list. Replaces ad-hoc inline styles
+     and one-off classes across screens. Scoped to .m-shell so they never
+     interfere with desktop CSS even when both stylesheets are loaded. */
+
+  /* ── Button ──────────────────────────────────────────────────────────── */
+  .m-btn {
+    height: var(--tap, 44px);
+    padding: 0 18px;
+    border-radius: var(--r-button, 12px);
+    border: 0;
+    font-family: var(--font-ui);
+    font-size: 15.5px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: transform 140ms var(--ease-emph, ease-out),
+                background 140ms ease;
+  }
+  .m-btn:active:not(:disabled) { transform: scale(0.97); }
+  .m-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .m-btn--filled            { background: var(--indigo);      color: var(--paper); }
+  .m-btn--filled:not(:disabled):hover { background: var(--indigo-2); }
+  .m-btn--tinted            { background: var(--indigo-soft); color: var(--indigo); }
+  .m-btn--plain             { background: transparent;        color: var(--indigo); }
+  .m-btn--destructive       { background: var(--rust);        color: var(--paper); }
+  .m-btn--destructive-tinted{ background: var(--rust-soft);   color: var(--rust); }
+  .m-btn--block             { width: 100%; }
+  .m-btn--compact           { height: var(--tap-snug, 36px); padding: 0 14px; font-size: 14px; }
+  .m-btn svg                { width: 16px; height: 16px; }
+
+  /* ── Segmented control ───────────────────────────────────────────────── */
+  .m-seg {
+    background: var(--cream);
+    padding: 2px;
+    border-radius: 9px;
+    display: inline-flex;
+    width: 100%;
+    gap: 2px;
+  }
+  .m-seg__btn {
+    flex: 1;
+    height: 32px;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: all 140ms ease;
+    letter-spacing: -0.005em;
+  }
+  .m-seg__btn[data-on] {
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.10);
+  }
+
+  /* ── Switch ──────────────────────────────────────────────────────────── */
+  .m-switch {
+    width: 51px; height: 31px;
+    border-radius: 16px;
+    background: var(--hairline-strong);
+    position: relative;
+    cursor: pointer;
+    border: 0;
+    padding: 0;
+    transition: background 140ms ease;
+    flex-shrink: 0;
+  }
+  .m-switch[data-on] { background: var(--moss); }
+  .m-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 27px; height: 27px;
+    border-radius: 50%;
+    background: var(--paper);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10);
+    transition: transform 200ms var(--ease-emph, ease-out);
+  }
+  .m-switch[data-on]::after { transform: translateX(20px); }
+  .m-switch:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* ── Stepper ─────────────────────────────────────────────────────────── */
+  .m-stepper {
+    display: inline-flex;
+    background: var(--cream);
+    border-radius: 8px;
+    overflow: hidden;
+    height: 32px;
+  }
+  .m-stepper__btn {
+    width: 40px; height: 32px;
+    background: transparent;
+    border: 0;
+    color: var(--ink-2);
+    font-family: var(--font-ui);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .m-stepper__btn:active:not(:disabled) { background: var(--bg-hover); }
+  .m-stepper__btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .m-stepper__sep { width: 1px; background: var(--hairline-faint); }
+  .m-stepper__val {
+    display: inline-grid; place-items: center;
+    width: 48px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
+  /* ── Inset grouped list (Settings-style) ─────────────────────────────── */
+  .m-list-group { margin-top: 18px; }
+  .m-list-group:first-child { margin-top: 0; }
+  .m-list-group__label {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    padding: 0 6px 8px;
+  }
+  .m-list-group__body {
+    background: var(--paper);
+    border-radius: var(--r-card, 14px);
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
+    border: 1px solid var(--hairline-faint);
+  }
+  .m-list-cell {
+    display: flex; align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    min-height: var(--tap, 44px);
+    border-bottom: 1px solid var(--hairline-faint);
+    background: transparent;
+    width: 100%;
+    border-left: 0; border-right: 0; border-top: 0;
+    text-align: left;
+    font: inherit; color: inherit;
+    cursor: pointer;
+  }
+  .m-list-cell:last-child { border-bottom: 0; }
+  .m-list-cell:not(:disabled):active { background: var(--bg-hover); }
+  .m-list-cell:disabled { cursor: default; }
+  .m-list-cell__ico {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+  }
+  .m-list-cell__ico[data-color="moss"]  { background: var(--moss-soft);  color: var(--moss);  }
+  .m-list-cell__ico[data-color="ochre"] { background: var(--ochre-soft); color: var(--ochre); }
+  .m-list-cell__ico[data-color="rust"]  { background: var(--rust-soft);  color: var(--rust);  }
+  .m-list-cell__ico[data-color="slate"] { background: var(--slate-soft); color: var(--slate); }
+  .m-list-cell__ico svg { width: 15px; height: 15px; }
+  .m-list-cell__main {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    gap: 1px;
+  }
+  .m-list-cell__title {
+    font-family: var(--font-ui);
+    font-size: 15.5px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .m-list-cell--destructive .m-list-cell__title { color: var(--rust); }
+  .m-list-cell__sub {
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    color: var(--ink-4);
+  }
+  .m-list-cell__trail {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink-4);
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .m-list-cell__chev { color: var(--ink-5); display: inline-flex; }
+  .m-list-cell__chev svg { width: 14px; height: 14px; }
+
+  /* ── Action sheet (iOS-native choice menu) ───────────────────────────── */
+  .m-as-overlay {
+    position: fixed; inset: 0; z-index: 110;
+    background: rgba(15, 24, 32, 0.45);
+    animation: mBsFadeIn 200ms ease;
+  }
+  .m-as-content {
+    position: fixed; left: 8px; right: 8px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    z-index: 111;
+    display: flex; flex-direction: column;
+    gap: 8px;
+    animation: mBsSlideUp 280ms var(--ease-emph, cubic-bezier(0.32, 0.72, 0, 1));
+  }
+  .m-as-group {
+    background: var(--material, rgba(251, 250, 246, 0.95));
+    -webkit-backdrop-filter: blur(var(--blur, 20px));
+    backdrop-filter: blur(var(--blur, 20px));
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .m-as-head {
+    padding: 14px 14px 10px;
+    text-align: center;
+    border-bottom: 0.5px solid var(--hairline-faint);
+  }
+  .m-as-head__title {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .m-as-head__msg {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--ink-4);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .m-as-item {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    padding: 14px 12px;
+    font-family: var(--font-ui);
+    font-size: 17px;
+    color: var(--indigo);
+    border-bottom: 0.5px solid var(--hairline-faint);
+    text-align: center;
+    cursor: pointer;
+  }
+  .m-as-item:last-child { border-bottom: 0; }
+  .m-as-item:active:not(:disabled) { background: var(--bg-hover); }
+  .m-as-item[data-destructive] { color: var(--rust); font-weight: 500; }
+  .m-as-item:disabled { opacity: 0.45; cursor: not-allowed; }
+  .m-as-cancel {
+    background: var(--paper);
+    border-radius: 14px;
+    border: 0;
+    padding: 14px;
+    width: 100%;
+    font-family: var(--font-ui);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--indigo);
+    cursor: pointer;
+  }
+  .m-as-cancel:active { background: var(--cream); }
+
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Phase 3 · Routine detail sheet
+     ────────────────────────────────────────────────────────────────────────
+     Bottom-sheet shown on tap of a routine card. Vertical stack of:
+       stat triplet (current/best/30d) → calendar → trend → rhythm → pause/delete.
+     Mirrors the desktop expanded-row but rearranged for portrait. Uses the
+     shared `.rt-month` calendar styles (imported via routines.css) plus
+     these mobile-only section primitives. */
+
+  /* Stat triplet — same vocabulary as the routines summary at the top of
+     the list, but inside a sheet card border. */
+  .m-rsd__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--paper);
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-card, 14px);
+    overflow: hidden;
+    margin: 4px 0 6px;
+  }
+  .m-rsd__stat {
+    padding: 12px 10px;
+    text-align: center;
+    border-right: 1px solid var(--hairline-faint);
+  }
+  .m-rsd__stat:last-child { border-right: 0; }
+  .m-rsd__stat-num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  .m-rsd__stat-num em {
+    font-family: var(--font-mono);
+    font-style: normal;
+    font-size: 12px;
+    color: var(--ink-4);
+    margin-left: 1px;
+  }
+  .m-rsd__stat-lab {
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    color: var(--ink-5);
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+  }
+
+  /* Section eyebrow above calendar / trend / rhythm — matches the inset-list
+     group label so the sheet feels consistent. */
+  .m-rsd__section { margin-top: 22px; }
+  .m-rsd__sec-title {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    margin: 0 0 10px;
+  }
+
+  /* Calendar wrapper — centers the .rt-month grid in the sheet body. */
+  .m-rsd__cal-wrap {
+    display: flex;
+    justify-content: center;
+  }
+  /* Sheet-specific override — the desktop calendar caps at 320px; for the
+     sheet we let it use full body width up to ~340px so cells stay big. */
+  .m-rsd__cal-wrap > .rt-month {
+    max-width: 340px;
+  }
+
+  /* Trend chart — same path geometry as desktop's Per-routine pulse but
+     stretched wider for the portrait sheet. Color comes via data-state
+     (strong=moss / warm=ochre / slip=rust). */
+  .m-rsd__trend {
+    color: var(--moss);
+    width: 100%;
+  }
+  .m-rsd__trend[data-state="warm"] { color: var(--ochre); }
+  .m-rsd__trend[data-state="slip"] { color: var(--rust);  }
+  .m-rsd__trend-svg {
+    display: block;
+    width: 100%;
+    height: 110px;
+    overflow: visible;
+  }
+  .m-rsd__trend-axis { stroke: var(--hairline-faint); stroke-dasharray: 2 3; stroke-width: 1; }
+  .m-rsd__trend-week { stroke: var(--hairline-faint); stroke-width: 1; }
+  .m-rsd__trend-area { fill: currentColor; fill-opacity: 0.12; }
+  .m-rsd__trend-line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .m-rsd__trend-min,
+  .m-rsd__trend-max {
+    fill: var(--paper);
+    stroke: currentColor;
+    stroke-width: 1.4;
+  }
+  .m-rsd__trend-now {
+    fill: currentColor;
+    stroke: var(--paper);
+    stroke-width: 2;
+  }
+  .m-rsd__trend-axis-lab {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-5);
+    margin-top: 4px;
+  }
+
+  /* Rhythm card */
+  .m-rsd__rhythm {
+    background: var(--paper);
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-control, 8px);
+    padding: 12px 14px;
+    display: flex; align-items: center;
+    gap: 12px;
+  }
+  .m-rsd__rhythm-arrow {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    line-height: 1;
+    color: var(--ink-4);
+  }
+  .m-rsd__rhythm[data-tone="above"] .m-rsd__rhythm-arrow { color: var(--moss); }
+  .m-rsd__rhythm[data-tone="below"] .m-rsd__rhythm-arrow { color: var(--rust); }
+  .m-rsd__rhythm-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .m-rsd__rhythm-line {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .m-rsd__rhythm-line strong {
+    font-family: var(--font-mono);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .m-rsd__rhythm-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Phase 4 · Mobile AI toast + jobs panel
+     ────────────────────────────────────────────────────────────────────────
+     Bottom-pinned single toast for backgrounded AI generations + a bottom
+     sheet showing the full queue. Lives above the tab bar; uses dark
+     ink-toned material so it reads as system feedback rather than content. */
+
+  .m-ai-toast-slot {
+    position: fixed;
+    left: 12px; right: 12px;
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px) + 8px);
+    z-index: 90;
+    pointer-events: none;
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .m-ai-toast {
+    pointer-events: auto;
+    background: rgba(42, 41, 34, 0.94);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    color: var(--paper);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 8px 20px rgba(15, 24, 32, 0.22);
+    animation: mAiToastIn 280ms var(--ease-emph, cubic-bezier(0.32, 0.72, 0, 1));
+    cursor: pointer;
+    border: 0;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+  }
+  .m-ai-toast--shake { animation: mAiToastShake 500ms ease; }
+  @keyframes mAiToastIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes mAiToastShake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-3px); }
+    80%      { transform: translateX(3px); }
+  }
+  .m-ai-toast__spark {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--indigo), var(--indigo-2));
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .m-ai-toast__spark[data-pulsing]::before {
+    content: '';
+    position: absolute; inset: -4px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--indigo), var(--indigo-2));
+    opacity: 0.35;
+    filter: blur(6px);
+    z-index: -1;
+    animation: mAiSparkPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes mAiSparkPulse {
+    0%, 100% { opacity: 0.25; }
+    50%      { opacity: 0.55; }
+  }
+  .m-ai-toast__spark svg { width: 16px; height: 16px; color: var(--paper); }
+  .m-ai-toast__body { flex: 1; min-width: 0; }
+  .m-ai-toast__title {
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--paper);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-ai-toast__queue {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    background: rgba(251, 250, 246, 0.18);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--paper);
+    vertical-align: 2px;
+  }
+  .m-ai-toast__sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: rgba(251, 250, 246, 0.62);
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-ai-toast__bar {
+    height: 3px;
+    background: rgba(251, 250, 246, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .m-ai-toast__bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--indigo), var(--indigo-2));
+    transition: width 600ms ease;
+  }
+  .m-ai-toast[data-state="done"]      .m-ai-toast__bar-fill { background: var(--moss); }
+  .m-ai-toast[data-state="failed"]    .m-ai-toast__bar-fill { background: var(--rust); }
+  .m-ai-toast[data-state="cancelled"] .m-ai-toast__bar-fill { background: var(--ink-4); }
+  .m-ai-toast__close {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: rgba(251, 250, 246, 0.12);
+    color: rgba(251, 250, 246, 0.78);
+    border: 0;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .m-ai-toast__close:active { background: rgba(251, 250, 246, 0.20); }
+  .m-ai-toast__close svg { width: 14px; height: 14px; }
+
+  /* ── AI jobs panel rows ───────────────────────────────────────────── */
+  .m-ai-job {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--hairline-faint);
+    min-height: 56px;
+  }
+  .m-ai-job:last-child { border-bottom: 0; }
+  .m-ai-job__main {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    gap: 2px;
+  }
+  .m-ai-job__row {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .m-ai-job__row:active { opacity: 0.65; }
+  .m-ai-job__ico {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+  }
+  .m-ai-job__ico[data-state="done"]      { background: var(--moss-soft);  color: var(--moss);  }
+  .m-ai-job__ico[data-state="failed"]    { background: var(--rust-soft);  color: var(--rust);  }
+  .m-ai-job__ico[data-state="cancelled"] { background: var(--cream);      color: var(--ink-4); }
+  .m-ai-job__ico svg { width: 16px; height: 16px; }
+  .m-ai-job__title {
+    font-family: var(--font-ui);
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-ai-job__sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+  }
+  .m-ai-job__sub[data-state="failed"] { color: var(--rust); }
+  .m-ai-job__sub[data-state="done"]   { color: var(--moss); }
+  .m-ai-job__x {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--cream);
+    border: 0;
+    color: var(--ink-4);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .m-ai-job__x:active { background: var(--hairline); }
+  .m-ai-job__x svg { width: 13px; height: 13px; }
+
+  .m-ai-empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--ink-4);
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    font-style: italic;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Phase 5 · Analysis polish — click-inspect day + per-routine pulse grid
+     ────────────────────────────────────────────────────────────────────────
+     Day-detail sheet: surfaces what actually happened on a tapped point of
+     the Daily completion chart. Per-routine pulse: small line charts in a
+     stacked grid showing each active routine's 30-day cadence. */
+
+  /* Daily completion chart — clickable layer + sticky day marker */
+  .m-cc-chart-wrap {
+    position: relative;
+  }
+  .m-cc-tap-layer {
+    position: absolute; inset: 0;
+    cursor: pointer;
+  }
+
+  /* Day-detail sheet sections */
+  .m-day-sec { margin-top: 18px; }
+  .m-day-sec:first-child { margin-top: 0; }
+  .m-day-sec__title {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    margin: 0 0 8px;
+  }
+  .m-day-row {
+    display: flex; align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--hairline-faint);
+  }
+  .m-day-row:last-child { border-bottom: 0; }
+  .m-day-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--ink-5);
+  }
+  .m-day-row[data-state="done"]     .m-day-dot { background: var(--moss); }
+  .m-day-row[data-state="partial"]  .m-day-dot { background: var(--ochre); }
+  .m-day-row[data-state="skipped"]  .m-day-dot { background: var(--rust); }
+  .m-day-row[data-state="missed"]   .m-day-dot { background: var(--rust); opacity: 0.5; }
+  .m-day-row[data-state="pending"]  .m-day-dot { background: var(--indigo); }
+  .m-day-row__title {
+    flex: 1; min-width: 0;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-day-row__sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+    flex-shrink: 0;
+  }
+  .m-day-row[data-state="done"]    .m-day-row__sub { color: var(--moss);  }
+  .m-day-row[data-state="skipped"] .m-day-row__sub { color: var(--rust);  }
+  .m-day-row[data-state="missed"]  .m-day-row__sub { color: var(--ink-4); }
+  .m-day-empty {
+    padding: 6px 0;
+    font-family: var(--font-serif);
+    font-size: 13px;
+    font-style: italic;
+    color: var(--ink-5);
+  }
+
+  /* Rhythm "above/below avg" card — same vocabulary as routine detail */
+  .m-day-rhythm {
+    background: var(--paper);
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-control, 8px);
+    padding: 12px 14px;
+    display: flex; align-items: center;
+    gap: 12px;
+  }
+  .m-day-rhythm__arrow {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    color: var(--ink-4);
+  }
+  .m-day-rhythm[data-tone="above"] .m-day-rhythm__arrow { color: var(--moss); }
+  .m-day-rhythm[data-tone="below"] .m-day-rhythm__arrow { color: var(--rust); }
+  .m-day-rhythm__line {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .m-day-rhythm__line strong {
+    font-family: var(--font-mono);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .m-day-rhythm__sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+    margin-top: 1px;
+  }
+
+  /* ── Per-routine pulse grid ──────────────────────────────────────────── */
+  .m-prp-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .m-prp-card {
+    background: var(--paper);
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-card, 14px);
+    padding: 12px 14px;
+    color: var(--moss);                    /* default state — overridden by data-state */
+  }
+  .m-prp-card[data-state="warm"] { color: var(--ochre); }
+  .m-prp-card[data-state="slip"] { color: var(--rust);  }
+  .m-prp-card[data-state="hold"] { color: var(--ink-4); }
+  .m-prp-card__head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .m-prp-card__title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .m-prp-card__pill {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: currentColor;
+    padding: 2px 8px;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+  .m-prp-card__chart {
+    width: 100%;
+    height: 54px;
+  }
+  .m-prp-card__chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .m-prp-axis { stroke: var(--hairline-faint); stroke-dasharray: 2 3; }
+  .m-prp-area { fill: currentColor; fill-opacity: 0.12; }
+  .m-prp-line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .m-prp-now {
+    fill: currentColor;
+    stroke: var(--paper);
+    stroke-width: 1.6;
+  }
+  .m-prp-card__foot {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-4);
+    margin-top: 6px;
+  }
+  .m-prp-card__foot b { color: var(--ink-2); font-weight: 600; }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Phase 6 · AI goal plan result sheet
+     ────────────────────────────────────────────────────────────────────────
+     Bottom-sheet that shows the goal_plan AI proposal — list of steps with
+     dates + gos under each, plus orphan gos. Each step is a card with a
+     drop-toggle so the user can reject parts of the plan before Apply. */
+
+  .m-gp-loading {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 14px;
+    padding: 48px 16px;
+    color: var(--ink-4);
+    text-align: center;
+  }
+  .m-gp-loading__title {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink-2);
+    letter-spacing: -0.01em;
+  }
+  .m-gp-loading__sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+  }
+  .m-gp-failed {
+    padding: 24px 16px;
+    text-align: center;
+  }
+  .m-gp-failed__title {
+    font-family: var(--font-display);
+    font-size: 17px;
+    color: var(--rust);
+    margin-bottom: 6px;
+  }
+  .m-gp-failed__msg {
+    font-family: var(--font-serif);
+    font-size: 13px;
+    color: var(--ink-4);
+  }
+
+  /* Step / orphan-go card */
+  .m-gp-step {
+    background: var(--paper);
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-card, 14px);
+    padding: 12px 14px;
+    transition: opacity 140ms;
+  }
+  .m-gp-step + .m-gp-step { margin-top: 10px; }
+  .m-gp-step[data-dropped] {
+    opacity: 0.45;
+    background: var(--cream);
+  }
+  .m-gp-step__head {
+    display: flex; align-items: flex-start;
+    gap: 8px;
+  }
+  .m-gp-step__title {
+    flex: 1;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .m-gp-step__title[data-dropped] {
+    text-decoration: line-through;
+    color: var(--ink-4);
+  }
+  .m-gp-step__drop {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--cream);
+    border: 0;
+    color: var(--ink-3);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .m-gp-step__drop[data-on] {
+    background: var(--rust-soft);
+    color: var(--rust);
+  }
+  .m-gp-step__drop svg { width: 14px; height: 14px; }
+
+  .m-gp-step__desc {
+    font-family: var(--font-serif);
+    font-size: 13px;
+    color: var(--ink-3);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  /* Dates row — proposed [start → end] · diff against current when in
+     dates_only / fill_dates / rebalance_dates flow. */
+  .m-gp-step__dates {
+    display: flex; align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+  .m-gp-step__dates b {
+    font-family: var(--font-mono);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .m-gp-step__dates-arrow { color: var(--ink-5); }
+  .m-gp-step__date-was {
+    color: var(--ink-5);
+    text-decoration: line-through;
+  }
+  .m-gp-step__date-new {
+    color: var(--moss);
+    font-weight: 500;
+  }
+
+  /* Gos under a step — compact rows */
+  .m-gp-step__gos {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--hairline-faint);
+    display: flex; flex-direction: column;
+    gap: 6px;
+  }
+  .m-gp-go {
+    display: grid;
+    grid-template-columns: 8px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    font-size: 12.5px;
+  }
+  .m-gp-go__dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--ink-5);
+  }
+  .m-gp-go__title {
+    font-family: var(--font-ui);
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-gp-go__date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+    flex-shrink: 0;
+  }
+  .m-gp-go__date b {
+    font-family: var(--font-mono);
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Phase 7 · AI quiz sheet (notes → smart test)
+     ────────────────────────────────────────────────────────────────────────
+     Bottom-sheet quiz UI. Three view states (loading / active / result).
+     Each question is rendered one-at-a-time; user picks A-D, hits Submit,
+     sees explanation + correct answer, then Next → ... → Finish. */
+
+  /* Loading state (re-uses .m-gp-loading pattern but with checklist). */
+  .m-quiz-loading {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 18px;
+    padding: 32px 16px 16px;
+  }
+  .m-quiz-loading__steps {
+    display: flex; flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 300px;
+  }
+  .m-quiz-loading__step {
+    display: flex; align-items: center;
+    gap: 10px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--ink-4);
+    transition: color 200ms ease;
+  }
+  .m-quiz-loading__step[data-state="active"]   { color: var(--ink-2); }
+  .m-quiz-loading__step[data-state="done"]     { color: var(--moss); }
+  .m-quiz-loading__step-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--cream);
+    border: 1.5px solid var(--hairline-strong);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .m-quiz-loading__step[data-state="active"] .m-quiz-loading__step-dot {
+    border-color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+  .m-quiz-loading__step[data-state="done"] .m-quiz-loading__step-dot {
+    background: var(--moss);
+    border-color: var(--moss);
+  }
+  .m-quiz-loading__step-dot svg { width: 9px; height: 9px; color: var(--paper); }
+
+  /* Question progress bar */
+  .m-quiz-progress {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    margin: 4px 0 6px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--ink-4);
+  }
+  .m-quiz-progress b {
+    color: var(--ink-2);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .m-quiz-bar {
+    height: 3px;
+    background: var(--cream);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .m-quiz-bar__fill {
+    height: 100%;
+    background: var(--indigo);
+    transition: width 280ms var(--ease-emph, ease-out);
+  }
+
+  .m-quiz-q {
+    font-family: var(--font-serif);
+    font-size: 17px;
+    color: var(--ink);
+    line-height: 1.4;
+    margin: 0 0 16px;
+  }
+  .m-quiz-reveal {
+    width: 100%;
+    background: var(--cream);
+    border: 1px dashed var(--hairline-strong);
+    border-radius: var(--r-button, 12px);
+    padding: 14px;
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 12px;
+  }
+  .m-quiz-reveal:active { background: var(--bg-hover); }
+
+  /* Option buttons — A/B/C/D */
+  .m-quiz-opts {
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .m-quiz-opt {
+    display: flex; align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--paper);
+    border: 1.5px solid var(--hairline);
+    border-radius: var(--r-button, 12px);
+    text-align: left;
+    cursor: pointer;
+    transition: all 140ms ease;
+  }
+  .m-quiz-opt:active:not(:disabled) { transform: scale(0.98); }
+  .m-quiz-opt:disabled { cursor: default; }
+  .m-quiz-opt[data-selected] {
+    border-color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+  .m-quiz-opt[data-correct] {
+    border-color: var(--moss);
+    background: var(--moss-soft);
+  }
+  .m-quiz-opt[data-wrong] {
+    border-color: var(--rust);
+    background: var(--rust-soft);
+  }
+  .m-quiz-opt__letter {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--cream);
+    color: var(--ink-3);
+    display: grid; place-items: center;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .m-quiz-opt[data-selected] .m-quiz-opt__letter { background: var(--indigo); color: var(--paper); }
+  .m-quiz-opt[data-correct] .m-quiz-opt__letter  { background: var(--moss);   color: var(--paper); }
+  .m-quiz-opt[data-wrong] .m-quiz-opt__letter    { background: var(--rust);   color: var(--paper); }
+  .m-quiz-opt__text {
+    flex: 1;
+    font-family: var(--font-ui);
+    font-size: 14.5px;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+
+  /* Feedback after Submit */
+  .m-quiz-feedback {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: var(--r-button, 12px);
+  }
+  .m-quiz-feedback--ok { background: var(--moss-soft); }
+  .m-quiz-feedback--no { background: var(--rust-soft); }
+  .m-quiz-feedback__head {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .m-quiz-feedback--ok .m-quiz-feedback__head { color: var(--moss); }
+  .m-quiz-feedback--no .m-quiz-feedback__head { color: var(--rust); }
+  .m-quiz-feedback__body {
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin: 0;
+  }
+  .m-quiz-feedback__quote {
+    margin: 8px 0 0;
+    padding-left: 10px;
+    border-left: 2px solid var(--ink-5);
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 12.5px;
+    color: var(--ink-3);
+  }
+
+  /* Result view */
+  .m-quiz-result {
+    text-align: center;
+    padding: 16px 0 8px;
+  }
+  .m-quiz-result__score {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .m-quiz-result__score em {
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: 16px;
+    color: var(--ink-4);
+    margin-left: 2px;
+  }
+  .m-quiz-result__grade {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--ink-3);
+    margin-top: 6px;
+  }
+  .m-quiz-result__grade[data-grade="great"] { color: var(--moss); }
+  .m-quiz-result__grade[data-grade="rough"] { color: var(--rust); }
+  .m-quiz-result__insight {
+    margin: 20px auto 0;
+    max-width: 320px;
+    font-family: var(--font-serif);
+    font-size: 14px;
+    color: var(--ink-3);
+    line-height: 1.5;
+    font-style: italic;
   }

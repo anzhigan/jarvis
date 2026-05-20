@@ -14,6 +14,7 @@ import { useGoals } from '../../goals/hooks/useGoals';
 import { RoutineForm } from '../components/MobileAddForms';
 import { SwipeableRow } from '../components/SwipeableRow';
 import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
+import { MobileRoutineDetailSheet } from '../components/MobileRoutineDetailSheet';
 import { routinesApi } from '../../../api/client';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
@@ -67,6 +68,13 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Routine | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Routine | null>(null);
+  // Routine detail sheet — opened on tap of a card; tracks the routine id
+  // (not the object) so the sheet keeps showing fresh data after a refresh.
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailRoutine = useMemo(
+    () => lib.routines.find((r) => r.id === detailId) ?? null,
+    [lib.routines, detailId],
+  );
 
   const todayDate = useMemo(() => new Date(), []);
   const todayKey = ymd(todayDate);
@@ -199,6 +207,7 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
               routine={r}
               parent={r.goal_id ? goalById.get(r.goal_id) ?? null : null}
               todayKey={todayKey}
+              onOpenDetail={() => setDetailId(r.id)}
               onCheckDate={async (routine, dateKey) => {
                 const cur = routine.entries.find((e) => e.date === dateKey);
                 try {
@@ -238,6 +247,24 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
         library={lib}
         editing={editing}
       />
+      <MobileRoutineDetailSheet
+        routine={detailRoutine}
+        library={lib}
+        open={detailId !== null}
+        onOpenChange={(o) => { if (!o) setDetailId(null); }}
+        onEdit={() => {
+          // Hand off from detail sheet → edit form. Close detail first so
+          // the form slides in cleanly over the empty backdrop, then push
+          // the routine into the edit slot.
+          if (detailRoutine) {
+            setDetailId(null);
+            setEditing(detailRoutine);
+          }
+        }}
+        onDelete={() => {
+          if (detailRoutine) setConfirmDelete(detailRoutine);
+        }}
+      />
       <MobileConfirmSheet
         open={!!confirmDelete}
         onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}
@@ -254,13 +281,17 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
 }
 
 function RoutineCard({
-  routine, parent, todayKey, onCheckDate, onSkipDate,
+  routine, parent, todayKey, onCheckDate, onSkipDate, onOpenDetail,
 }: {
   routine: Routine;
   parent: Task | null;
   todayKey: string;
   onCheckDate: (routine: Routine, dateKey: string) => void | Promise<void>;
   onSkipDate:  (routine: Routine, dateKey: string) => void | Promise<void>;
+  /** Tap on the header (name + meta) opens the detail sheet. Required so
+   *  the calendar / trend / rhythm are reachable on mobile — desktop
+   *  exposes them via the in-table expand chevron. */
+  onOpenDetail: () => void;
 }) {
   const r = routine;
   // Selected date for the action buttons. Default = today; tap any cell to
@@ -292,7 +323,16 @@ function RoutineCard({
 
   return (
     <article className="routine-card">
-      <header className="rc-head">
+      {/* Header is a button — tap opens the detail sheet with calendar /
+          trend / rhythm. Day-cells and Done/Skip below have their own
+          click handlers; this button only covers the title + meta area
+          so it doesn't intercept those. */}
+      <button
+        type="button"
+        className="rc-head rc-head-btn"
+        onClick={onOpenDetail}
+        aria-label={`Open details for ${r.title}`}
+      >
         <div className="rc-text">
           <h3 className="rc-name">{r.title}</h3>
           <div className="rc-meta">
@@ -307,7 +347,7 @@ function RoutineCard({
             )}
           </div>
         </div>
-      </header>
+      </button>
 
       <div className="rc-history">
         <div className="rc-hist-cells">
