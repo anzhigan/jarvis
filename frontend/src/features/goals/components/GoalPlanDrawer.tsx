@@ -150,17 +150,17 @@ export function GoalPlanDrawer({
       const fresh = await aiApi.createGoalPlan({ goal_id: goalId, mode });
       // Mode label matches GoalsView call-sites + backend _title_for so all
       // three entry points read the same in the toast/panel.
-      const modeLabel = mode === 'full' ? 'full plan'
-        : mode === 'fill_dates' ? 'fill dates'
-        : mode === 'rebalance_dates' ? 'rebalance dates'
-        : 'fill dates';  // dates_only is the legacy alias
+      const modeLabel = mode === 'full' ? 'Full plan'
+        : mode === 'fill_dates' ? 'Fill missing dates'
+        : mode === 'rebalance_dates' ? 'Rebalance dates'
+        : 'Fill missing dates';  // dates_only is the legacy alias
       const goalTitle = existingGoal?.title;
       addBgJob({
         jobId: fresh.id,
         kind: 'goal_plan',
         source: {
           section: 'goals',
-          noteTitle: goalTitle ? `${goalTitle} · ${modeLabel}` : modeLabel,
+          noteTitle: goalTitle ? `${modeLabel} for "${goalTitle}"` : modeLabel,
         },
       });
       onJobIdChange(fresh.id);

@@ -10,6 +10,11 @@ function jobLabel(job: BgAIJob): string {
   if (job.kind === 'quiz' && job.source.noteTitle) {
     return `Quiz · ${job.source.noteTitle}`;
   }
+  // goal_plan: sourceTitle already reads "<mode_label> for \"<title>\"" —
+  // emit it directly (no "Goal plan ·" prefix). Matches the bottom toast.
+  if (job.kind === 'goal_plan' && job.source.noteTitle) {
+    return job.source.noteTitle;
+  }
   return KIND_LABELS[job.kind] ?? 'AI task';
 }
 

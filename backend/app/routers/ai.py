@@ -181,13 +181,16 @@ async def list_jobs(
         )
         goal_titles = {gid: title for (gid, title) in rows.all()}
 
-    # Mode → user-facing label. Keep these short so the toast title doesn't
-    # wrap. `dates_only` is a legacy alias for `fill_dates`.
+    # Mode → user-facing action label. Used to compose the toast/panel line
+    # as: `<Action> for "<goal title>"`, e.g. `Fill missing dates for
+    # "Изучить английский язык"`. The labels are sentence-case because they
+    # become the toast headline (no "Goal plan ·" prefix). `dates_only` is
+    # a legacy alias for `fill_dates`.
     GOAL_PLAN_MODE_LABELS = {
-        "full":            "full plan",
-        "fill_dates":      "fill dates",
-        "dates_only":      "fill dates",
-        "rebalance_dates": "rebalance dates",
+        "full":            "Full plan",
+        "fill_dates":      "Fill missing dates",
+        "dates_only":      "Fill missing dates",
+        "rebalance_dates": "Rebalance dates",
     }
 
     def _title_for(j: AIJob) -> str | None:
@@ -218,9 +221,10 @@ async def list_jobs(
                     title = goal_titles.get(gid)
                 except (ValueError, TypeError):
                     title = None
-            # Compose "<title> · <mode>" so the user sees both at a glance.
-            # Fall back to just the mode if the goal was deleted.
-            return f"{title} · {mode_label}" if title else mode_label
+            # Compose `<Action> for "<title>"` — full sentence the toast can
+            # use verbatim ("Generating Fill missing dates for \"My goal\"").
+            # Fall back to just the action when the goal was deleted.
+            return f'{mode_label} for "{title}"' if title else mode_label
         return None
 
     out: list[AIJobBrief] = []

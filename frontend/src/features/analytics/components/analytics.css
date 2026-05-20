@@ -673,6 +673,249 @@
   background: var(--hairline-faint);
 }
 
+/* ── Day-detail panel (click-to-inspect a day on Daily completion) ────────
+   Opens under the chart's pace strip. Four mini-sections in a 2×2 grid:
+   work completed, gos needed, rhythm vs 7-day avg, routines roll-up. */
+.day-detail {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline-faint);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.day-detail__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.day-detail__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 17px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.day-detail__sub {
+  margin: 3px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+}
+.day-detail__close {
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink-4);
+  cursor: pointer;
+}
+.day-detail__close:hover { background: var(--cream); color: var(--ink-2); }
+
+.day-detail__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 24px;
+}
+@media (max-width: 720px) {
+  .day-detail__grid { grid-template-columns: 1fr; }
+}
+
+.day-detail__sec {
+  display: flex; flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.day-detail__sec-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.day-detail__empty {
+  margin: 0;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-5);
+}
+
+/* Shipped goals — small badge rows above the per-goal lists */
+.day-detail__shipped {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-bottom: 4px;
+}
+.day-detail__shipped-row {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px;
+  color: var(--moss);
+}
+.day-detail__shipped-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--moss);
+}
+
+/* Per-goal grouping for done / due lists */
+.day-detail__goal-list {
+  list-style: none;
+  padding: 0; margin: 0;
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.day-detail__goal {
+  display: flex; flex-direction: column;
+  gap: 3px;
+}
+.day-detail__goal-name {
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.day-detail__go-list {
+  list-style: none;
+  padding: 0 0 0 4px;
+  margin: 0;
+  display: flex; flex-direction: column;
+  gap: 2px;
+}
+.day-detail__go-row {
+  display: grid;
+  grid-template-columns: 9px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.day-detail__go-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ink-5);
+}
+.day-detail__go-row[data-tone="done"]    .day-detail__go-dot { background: var(--moss); }
+.day-detail__go-row[data-tone="pending"] .day-detail__go-dot { background: var(--ochre); }
+.day-detail__go-title {
+  color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.day-detail__go-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+}
+.day-detail__go-row[data-tone="done"]    .day-detail__go-val { color: var(--moss); }
+.day-detail__go-row[data-tone="pending"] .day-detail__go-val { color: var(--ochre); }
+
+/* Due-today completion mini-bar */
+.day-detail__due-bar {
+  position: relative;
+  height: 6px;
+  background: var(--cream);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.day-detail__due-bar-fill {
+  position: absolute; inset: 0 auto 0 0;
+  background: var(--moss);
+  border-radius: 3px;
+}
+.day-detail__due-stat {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.day-detail__due-stat strong {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.day-detail__due-pct {
+  font-family: var(--font-mono);
+  color: var(--ink-4);
+  margin-left: 2px;
+}
+
+/* Rhythm card — arrow + text + scheduled-routines proxy */
+.day-detail__rhythm {
+  display: flex; align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--cream);
+  border-radius: var(--r-control);
+}
+.day-detail__rhythm-arrow {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+}
+.day-detail__rhythm[data-tone="above"] .day-detail__rhythm-arrow { color: var(--moss); }
+.day-detail__rhythm[data-tone="below"] .day-detail__rhythm-arrow { color: var(--rust); }
+.day-detail__rhythm-text { display: flex; flex-direction: column; gap: 2px; }
+.day-detail__rhythm-line { font-size: 13px; color: var(--ink-2); }
+.day-detail__rhythm-line strong {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.day-detail__rhythm-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+}
+.day-detail__rhythm-sub em {
+  font-style: normal;
+  color: var(--ink-3);
+}
+.day-detail__rhythm-sched {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.day-detail__rhythm-sched strong {
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+/* Routine list — same dot vocabulary as gos so the panel reads consistently */
+.day-detail__routine-list {
+  list-style: none;
+  padding: 0; margin: 0;
+  display: flex; flex-direction: column;
+  gap: 3px;
+}
+.day-detail__routine-row {
+  display: grid;
+  grid-template-columns: 9px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.day-detail__routine-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ink-5);
+}
+.day-detail__routine-row[data-tone="done"]    .day-detail__routine-dot { background: var(--moss); }
+.day-detail__routine-row[data-tone="pending"] .day-detail__routine-dot { background: var(--ochre); }
+.day-detail__routine-row[data-tone="skipped"] .day-detail__routine-dot { background: var(--rust); }
+.day-detail__routine-title {
+  color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.day-detail__routine-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.day-detail__routine-row[data-tone="done"]    .day-detail__routine-val { color: var(--moss); }
+.day-detail__routine-row[data-tone="pending"] .day-detail__routine-val { color: var(--ochre); }
+.day-detail__routine-row[data-tone="skipped"] .day-detail__routine-val { color: var(--rust); }
+
 /* Pace verdict strip */
 .pace-strip {
   display: flex; align-items: center; gap: 10px;

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Routine, Task } from '../../../api/types';
 import type { ActivityPoint, StreakRow } from '../hooks/useAnalytics';
-import { ymd } from '../../routines/lib/heatmap';
+import { isScheduledOn, ymd } from '../../routines/lib/heatmap';
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  Routine completion · 30 days                                                */
@@ -16,6 +16,9 @@ interface CompletionProps {
   /** Tasks (goals) — used to size the "goals completion" series and to
    *  compute the expected pace line / pace verdict from due dates. */
   tasks: Task[];
+  /** Routines — used by the click-to-inspect day detail panel to render
+   *  the routine roll-up for the picked day. */
+  routines: Routine[];
 }
 
 type SeriesMode = 'routines' | 'goals' | 'both';
@@ -67,10 +70,16 @@ function areaPathFor(line: string, firstX: number, lastX: number, baselineY: num
   return `M ${firstX.toFixed(1)},${baselineY.toFixed(1)} L ${line.slice(2)} L ${lastX.toFixed(1)},${baselineY.toFixed(1)} Z`;
 }
 
-export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: CompletionProps) {
+export function RoutineCompletionChart({
+  activity, activeRoutineCount, tasks, routines,
+}: CompletionProps) {
   const [mode, setMode] = useState<SeriesMode>('routines');
   // Hovered index — drives the vertical guide + tooltip. null = no hover.
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  // Selected (sticky) day — clicking a point opens a full day-detail panel
+  // below the chart with goals/gos done, gos due, rhythm vs week-avg,
+  // routines roll-up. Click the same point or X to close.
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
   // ── Series ──────────────────────────────────────────────────────────
   const routinesSeries = useMemo(() => {
@@ -421,15 +430,32 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
             </g>
           )}
 
+          {/* Sticky selected-day marker — drawn behind the hover dot so a
+              freshly-clicked point still highlights when the cursor leaves. */}
+          {selectedIdx !== null && (
+            <g pointerEvents="none">
+              <line
+                x1={xScale(selectedIdx)} x2={xScale(selectedIdx)}
+                y1={CPAD_T} y2={CH - CPAD_B}
+                stroke="var(--indigo)" strokeWidth={1.2} opacity={0.65}
+              />
+              <circle
+                cx={xScale(selectedIdx)} cy={CPAD_T - 4}
+                r={3} fill="var(--indigo)"
+              />
+            </g>
+          )}
+
           {/* Invisible overlay that captures mouse moves anywhere over the
               plot area and resolves the nearest index. Must be the LAST
               element so it sits on top of paths/areas (and doesn't get
-              hidden by them under pointer-events). */}
+              hidden by them under pointer-events). Click pins the picked
+              day; clicking the same day a second time unpins. */}
           <rect
             x={CPAD_L} y={CPAD_T}
             width={innerW} height={innerH}
             fill="transparent"
-            style={{ cursor: 'crosshair' }}
+            style={{ cursor: 'pointer' }}
             onMouseMove={(e) => {
               const svg = e.currentTarget.ownerSVGElement;
               if (!svg) return;
@@ -441,6 +467,16 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
               if (idx !== hoverIdx) setHoverIdx(idx);
             }}
             onMouseLeave={() => setHoverIdx(null)}
+            onClick={(e) => {
+              const svg = e.currentTarget.ownerSVGElement;
+              if (!svg) return;
+              const pt = svg.createSVGPoint();
+              pt.x = e.clientX; pt.y = e.clientY;
+              const local = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+              const t = Math.max(0, Math.min(1, (local.x - CPAD_L) / innerW));
+              const idx = Math.round(t * Math.max(1, N - 1));
+              setSelectedIdx((cur) => (cur === idx ? null : idx));
+            }}
           />
         </svg>
 
@@ -561,6 +597,330 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
           </span>
         </div>
       )}
+
+      {/* Click-to-inspect day panel. Lives under the pace strip so the
+          chart stays the eye anchor; the panel surfaces the underlying
+          rows for the picked day without taking you out of context. */}
+      {selectedIdx !== null && activity[selectedIdx] && (
+        <DayDetailPanel
+          point={activity[selectedIdx]}
+          activity={activity}
+          idx={selectedIdx}
+          tasks={tasks}
+          routines={routines}
+          onClose={() => setSelectedIdx(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  Day detail panel — opens under the chart on day-point click                 */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+interface DayDetailProps {
+  point: ActivityPoint;
+  /** Full activity series — used to compute the 7-day rhythm baseline. */
+  activity: ActivityPoint[];
+  /** Index of `point` inside `activity`. */
+  idx: number;
+  tasks: Task[];
+  routines: Routine[];
+  onClose: () => void;
+}
+
+/** Day-detail panel that opens below Daily completion when the user clicks
+ *  a point on the chart. Four mini-sections:
+ *
+ *    1. Work completed (gos done + goals shipped)
+ *    2. Tasks needed today (gos due that day, done vs pending)
+ *    3. Rhythm (vs. 7-day moving average + scheduled-routine completion)
+ *    4. Routines (logged that day with values)
+ *
+ *  Every list is empty-state aware so quiet days don't show empty headings.
+ */
+function DayDetailPanel({ point, activity, idx, tasks, routines, onClose }: DayDetailProps) {
+  const dateObj = new Date(point.date);
+  const niceDate = isNaN(dateObj.getTime())
+    ? point.label
+    : dateObj.toLocaleDateString(undefined, {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
+
+  // ── Section 1 + 2 data: walk all gos once, bucket by status for the day.
+  const work = useMemo(() => {
+    interface DoneGo  { goal: string; goTitle: string; value: number; unit?: string; }
+    interface DueGo   { goal: string; goTitle: string; isDone: boolean; }
+    const doneGos: DoneGo[] = [];
+    const dueGos: DueGo[] = [];
+    const goalsShipped: string[] = [];
+
+    for (const t of tasks) {
+      const goalTitle = t.title;
+      if (t.status === 'done' && t.updated_at) {
+        const upd = new Date(t.updated_at);
+        if (!isNaN(upd.getTime())) {
+          const y = upd.getFullYear();
+          const m = String(upd.getMonth() + 1).padStart(2, '0');
+          const d = String(upd.getDate()).padStart(2, '0');
+          if (`${y}-${m}-${d}` === point.date) goalsShipped.push(goalTitle);
+        }
+      }
+      for (const g of t.gos) {
+        // Done-on-the-day. Pick the first positive entry for that date —
+        // multiple numeric entries get summed for the display value.
+        let dayValue = 0;
+        for (const e of g.entries) if (e.date === point.date && e.value > 0) dayValue += e.value;
+        if (dayValue > 0) {
+          doneGos.push({ goal: goalTitle, goTitle: g.title, value: dayValue, unit: g.unit || undefined });
+        }
+        // Due on the day — separate concept. The same go can be both due
+        // and done; we still surface it under "Needed today" with its
+        // done flag so the proportion is honest.
+        if (g.due_date === point.date) {
+          dueGos.push({ goal: goalTitle, goTitle: g.title, isDone: dayValue > 0 });
+        }
+      }
+    }
+    // Group both lists by goal for tighter rendering.
+    const groupBy = <T extends { goal: string }>(arr: T[]): Map<string, T[]> => {
+      const m = new Map<string, T[]>();
+      for (const r of arr) {
+        const list = m.get(r.goal) ?? [];
+        list.push(r);
+        m.set(r.goal, list);
+      }
+      return m;
+    };
+    return {
+      doneGos, dueGos, goalsShipped,
+      doneByGoal: groupBy(doneGos),
+      dueByGoal:  groupBy(dueGos),
+      dueDoneCount: dueGos.filter((d) => d.isDone).length,
+    };
+  }, [tasks, point.date]);
+
+  // ── Section 3: rhythm — `today` vs trailing 7-day avg of (gos + routines).
+  const rhythm = useMemo(() => {
+    const todayLoad = point.gos + point.routines;
+    let sum = 0; let n = 0;
+    const start = Math.max(0, idx - 7);
+    for (let i = start; i < idx; i++) {
+      const a = activity[i];
+      if (!a) continue;
+      sum += a.gos + a.routines;
+      n++;
+    }
+    const avg = n > 0 ? sum / n : 0;
+    let pct = 0;
+    let tone: 'above' | 'below' | 'on' = 'on';
+    if (avg > 0) {
+      pct = Math.round(((todayLoad - avg) / avg) * 100);
+      if (pct > 10) tone = 'above';
+      else if (pct < -10) tone = 'below';
+    } else if (todayLoad > 0) {
+      tone = 'above';
+    }
+    return { todayLoad, avg: Math.round(avg * 10) / 10, pct, tone };
+  }, [activity, idx, point.gos, point.routines]);
+
+  // ── Section 4 data: routines table for the day.
+  const routineRows = useMemo(() => {
+    interface Row { id: string; title: string; status: 'done' | 'skipped' | 'pending' | 'off'; valueLabel: string; }
+    const out: Row[] = [];
+    for (const r of routines) {
+      const entry = r.entries.find((e) => e.date === point.date);
+      const scheduled = isScheduledOn(r, dateObj);
+      let status: Row['status'] = 'off';
+      let valueLabel = '—';
+      if (entry) {
+        if (entry.value <= 0) {
+          status = 'skipped';
+          valueLabel = 'skipped';
+        } else if (r.kind === 'numeric') {
+          status = (r.target_value && entry.value < r.target_value) ? 'pending' : 'done';
+          valueLabel = `${entry.value}${r.unit ? ' ' + r.unit : ''}`;
+        } else {
+          status = 'done';
+          valueLabel = 'done';
+        }
+      } else if (scheduled) {
+        // No entry but scheduled — counts as missed/pending for today,
+        // but for past days treat as skipped so the column isn't permanently
+        // "pending" on historical days.
+        const todayKey = ymd(new Date());
+        status = (point.date >= todayKey) ? 'pending' : 'skipped';
+        valueLabel = status === 'pending' ? '—' : 'missed';
+      } else {
+        // Not scheduled, no entry — show off-day row only when the user
+        // would otherwise wonder where this routine went. We hide them
+        // by default to keep the list short; surface via the count below.
+        continue;
+      }
+      out.push({ id: r.id, title: r.title, status, valueLabel });
+    }
+    // Stable sort: done first, then pending, then skipped/missed.
+    const rank = { done: 0, pending: 1, skipped: 2, off: 3 };
+    out.sort((a, b) => rank[a.status] - rank[b.status]);
+    return out;
+  }, [routines, dateObj, point.date]);
+
+  return (
+    <div className="day-detail">
+      <header className="day-detail__head">
+        <div>
+          <h4 className="day-detail__title">{niceDate}</h4>
+          <p className="day-detail__sub">
+            {point.gos} {point.gos === 1 ? 'go' : 'gos'} worked on
+            {' · '}{point.routines} {point.routines === 1 ? 'routine' : 'routines'} logged
+            {point.goals > 0 && <> · {point.goals} goal{point.goals === 1 ? '' : 's'} shipped</>}
+          </p>
+        </div>
+        <button type="button" className="day-detail__close" onClick={onClose} aria-label="Close">×</button>
+      </header>
+
+      <div className="day-detail__grid">
+        {/* 1. Work completed */}
+        <section className="day-detail__sec">
+          <h5 className="day-detail__sec-title">Work completed</h5>
+          {work.doneGos.length === 0 && work.goalsShipped.length === 0 ? (
+            <p className="day-detail__empty">Nothing logged.</p>
+          ) : (
+            <>
+              {work.goalsShipped.length > 0 && (
+                <div className="day-detail__shipped">
+                  {work.goalsShipped.map((title) => (
+                    <span key={title} className="day-detail__shipped-row">
+                      <span className="day-detail__shipped-dot" />
+                      <strong>{title}</strong> shipped
+                    </span>
+                  ))}
+                </div>
+              )}
+              <ul className="day-detail__goal-list">
+                {Array.from(work.doneByGoal.entries()).map(([goal, gos]) => (
+                  <li key={goal} className="day-detail__goal">
+                    <div className="day-detail__goal-name">{goal}</div>
+                    <ul className="day-detail__go-list">
+                      {gos.map((g, i) => (
+                        <li key={i} className="day-detail__go-row" data-tone="done">
+                          <span className="day-detail__go-dot" />
+                          <span className="day-detail__go-title">{g.goTitle}</span>
+                          <span className="day-detail__go-val">
+                            {g.unit
+                              ? `${g.value} ${g.unit}`
+                              : g.value > 1 ? `×${g.value}` : 'done'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+
+        {/* 2. Needed today */}
+        <section className="day-detail__sec">
+          <h5 className="day-detail__sec-title">Needed today</h5>
+          {work.dueGos.length === 0 ? (
+            <p className="day-detail__empty">No gos were due.</p>
+          ) : (
+            <>
+              <div className="day-detail__due-bar">
+                <div
+                  className="day-detail__due-bar-fill"
+                  style={{ width: `${(work.dueDoneCount / work.dueGos.length) * 100}%` }}
+                />
+              </div>
+              <div className="day-detail__due-stat">
+                <strong>{work.dueDoneCount}</strong> of {work.dueGos.length} done
+                <span className="day-detail__due-pct">
+                  · {Math.round((work.dueDoneCount / work.dueGos.length) * 100)}%
+                </span>
+              </div>
+              <ul className="day-detail__goal-list">
+                {Array.from(work.dueByGoal.entries()).map(([goal, gos]) => (
+                  <li key={goal} className="day-detail__goal">
+                    <div className="day-detail__goal-name">{goal}</div>
+                    <ul className="day-detail__go-list">
+                      {gos.map((g, i) => (
+                        <li
+                          key={i}
+                          className="day-detail__go-row"
+                          data-tone={g.isDone ? 'done' : 'pending'}
+                        >
+                          <span className="day-detail__go-dot" />
+                          <span className="day-detail__go-title">{g.goTitle}</span>
+                          <span className="day-detail__go-val">{g.isDone ? 'done' : 'not done'}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+
+        {/* 3. Rhythm */}
+        <section className="day-detail__sec">
+          <h5 className="day-detail__sec-title">Rhythm</h5>
+          <div className="day-detail__rhythm" data-tone={rhythm.tone}>
+            <div className="day-detail__rhythm-arrow">
+              {rhythm.tone === 'above' ? '▲' : rhythm.tone === 'below' ? '▼' : '='}
+            </div>
+            <div className="day-detail__rhythm-text">
+              <div className="day-detail__rhythm-line">
+                <strong>{rhythm.todayLoad}</strong> items today
+              </div>
+              <div className="day-detail__rhythm-sub">
+                7-day avg <em>{rhythm.avg}</em>
+                {rhythm.tone !== 'on' && (
+                  <> · {rhythm.pct > 0 ? '+' : ''}{rhythm.pct}%</>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* Routine cadence proxy: of routines scheduled today, how many
+              were logged. Gives a second axis to "rhythm" beyond just load. */}
+          {(() => {
+            let sched = 0, hit = 0;
+            for (const r of routines) {
+              if (!isScheduledOn(r, dateObj)) continue;
+              sched++;
+              const e = r.entries.find((x) => x.date === point.date);
+              if (e && e.value > 0) hit++;
+            }
+            if (sched === 0) return null;
+            return (
+              <div className="day-detail__rhythm-sched">
+                Routines on schedule: <strong>{hit}/{sched}</strong>
+              </div>
+            );
+          })()}
+        </section>
+
+        {/* 4. Routines */}
+        <section className="day-detail__sec">
+          <h5 className="day-detail__sec-title">Routines</h5>
+          {routineRows.length === 0 ? (
+            <p className="day-detail__empty">No routines tracked.</p>
+          ) : (
+            <ul className="day-detail__routine-list">
+              {routineRows.map((r) => (
+                <li key={r.id} className="day-detail__routine-row" data-tone={r.status}>
+                  <span className="day-detail__routine-dot" />
+                  <span className="day-detail__routine-title">{r.title}</span>
+                  <span className="day-detail__routine-val">{r.valueLabel}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

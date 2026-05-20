@@ -80,9 +80,17 @@ export function AIGenerationToast({
   const isFailed = job.status === 'failed';
 
   const kindLabel = LABELS[job.kind] ?? 'AI task';
-  // Compose "quiz · <noteTitle>" when we know the subject, else fall back to
-  // the generic kind label. Matches the AI tasks panel formatting.
-  const label = sourceTitle ? `${kindLabel} · ${sourceTitle}` : kindLabel;
+  // Compose the headline that goes after "Generating " / before " ready":
+  //
+  //   • goal_plan with sourceTitle → use sourceTitle verbatim. The producer
+  //     side already builds it in human form: `Fill missing dates for
+  //     "<title>"`. Prepending "goal plan ·" again would be redundant +
+  //     makes the toast harder to scan.
+  //   • everything else → "<kindLabel> · <sourceTitle>" (or just kindLabel
+  //     when no subject is known).
+  const label = job.kind === 'goal_plan' && sourceTitle
+    ? sourceTitle
+    : sourceTitle ? `${kindLabel} · ${sourceTitle}` : kindLabel;
   const eta = job.eta_seconds ?? 60;
 
   // Progress bar — queued sits at 0 (worker hasn't started). Running uses

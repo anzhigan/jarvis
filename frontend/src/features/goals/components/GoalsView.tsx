@@ -338,17 +338,17 @@ export default function GoalsView() {
     if (followUp === 'ai_plan') {
       try {
         const job = await aiApi.createGoalPlan({ goal_id: taskId, mode: 'full' });
-        // Compose the same "<goal title> · <mode>" shape the backend uses on
-        // rehydrate (routers/ai.py::_title_for). Doing it here too keeps the
-        // toast informative *immediately* — without waiting for the next
-        // listJobs poll to swap in a richer display_title.
+        // Compose the same `<Action> for "<title>"` headline the backend
+        // produces on rehydrate (routers/ai.py::_title_for). Doing it here
+        // too keeps the toast informative *immediately* — without waiting
+        // for the next listJobs poll to swap in display_title.
         const goalTitle = goals.tasks.find((t) => t.id === taskId)?.title;
         addBgJob({
           jobId: job.id,
           kind: 'goal_plan',
           source: {
             section: 'goals',
-            noteTitle: goalTitle ? `${goalTitle} · full plan` : 'full plan',
+            noteTitle: goalTitle ? `Full plan for "${goalTitle}"` : 'Full plan',
           },
         });
         setGoalPlanGoalId(taskId);
@@ -371,19 +371,18 @@ export default function GoalsView() {
   ) => {
     try {
       const job = await aiApi.createGoalPlan({ goal_id: taskId, mode });
-      // "<goal title> · <mode>" — matches backend's _title_for so the toast
-      // reads identically before and after the rehydrate poll. The mode
-      // label is the user-facing short form, not the raw enum value.
+      // `<Action> for "<title>"` headline — matches backend's _title_for
+      // so the toast reads identically before and after the rehydrate poll.
       const goalTitle = goals.tasks.find((t) => t.id === taskId)?.title;
-      const modeLabel = mode === 'full' ? 'full plan'
-        : mode === 'fill_dates' ? 'fill dates'
-        : 'rebalance dates';
+      const modeLabel = mode === 'full' ? 'Full plan'
+        : mode === 'fill_dates' ? 'Fill missing dates'
+        : 'Rebalance dates';
       addBgJob({
         jobId: job.id,
         kind: 'goal_plan',
         source: {
           section: 'goals',
-          noteTitle: goalTitle ? `${goalTitle} · ${modeLabel}` : modeLabel,
+          noteTitle: goalTitle ? `${modeLabel} for "${goalTitle}"` : modeLabel,
         },
       });
       setGoalPlanGoalId(taskId);

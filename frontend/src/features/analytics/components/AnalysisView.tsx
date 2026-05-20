@@ -161,6 +161,7 @@ export default function AnalysisView() {
                     activity={a.activity}
                     activeRoutineCount={activeRoutineCount}
                     tasks={a.tasks}
+                    routines={a.routines}
                   />
                 </section>
 
