@@ -479,4 +479,7 @@ export interface GoalPlanOutput {
   mode: GoalPlanMode;
   rationale: string;
   steps: GoalPlanStep[];
+  /** Gos attached to the goal but NOT to any step (step_id=null).
+   *  Populated in dates modes when such gos exist. Empty for full mode. */
+  orphan_gos: GoalPlanGo[];
 }

@@ -373,9 +373,15 @@ class GoalPlanStep(BaseModel):
 
 class GoalPlanOutput(BaseModel):
     """Server-resolved output. `mode` echoes the request so the drawer
-    knows which UI to render (plan vs date-suggestion)."""
+    knows which UI to render (plan vs date-suggestion).
+
+    `orphan_gos` lists gos attached to the goal but NOT to any step
+    (i.e. step_id=null). Populated in dates modes when such gos exist
+    so the user can place dates on them too. Empty in `full` mode.
+    """
     goal_id: str
     goal_title: str
     mode: str = "full"
     rationale: str = ""              # 1-2 sentence framing for the user
     steps: list[GoalPlanStep] = Field(default_factory=list)
+    orphan_gos: list[GoalPlanGo] = Field(default_factory=list)

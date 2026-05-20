@@ -181,15 +181,35 @@ def _build_prompt(
                 "boundaries shorter; later boundaries longer (lead-in is small, "
                 "execution is big)."
             )
+        # Standalone gos — attached to this goal but not to any step.
+        # Their due_date sits in the goal window, no step constraint.
+        orphan_gos_payload: list[dict[str, Any]] = []
+        for g in goal.gos:
+            if g.step_id is not None:
+                continue
+            orphan_gos_payload.append({
+                "title": g.title,
+                "due_date": g.due_date.isoformat() if g.due_date else None,
+            })
+
+        orphan_block = ""
+        if orphan_gos_payload:
+            orphan_block = f"""
+
+STANDALONE GOS (no step — propose due_date inside goal window):
+{json.dumps(orphan_gos_payload, ensure_ascii=False, indent=2)}"""
+
         mode_block = f"""
 MODE: {mode}
 
 EXISTING STEPS WITH THEIR GOS (preserve order, titles, descriptions —
 ONLY fill in dates):
-{json.dumps(existing_with_gos, ensure_ascii=False, indent=2)}
+{json.dumps(existing_with_gos, ensure_ascii=False, indent=2)}{orphan_block}
 
 {mode_instruction}
-DO NOT add, remove, or rename steps or gos. Output the same lengths back."""
+DO NOT add, remove, or rename steps or gos. Output the same lengths back.
+For STANDALONE GOS the response goes in the top-level "orphan_gos" array
+(NOT inside any step's gos), in the same order as the input."""
     else:
         mode_block = f"""
 MODE: full
@@ -232,12 +252,23 @@ OUTPUT SCHEMA
         }}
       ]
     }}
+  ],
+  "orphan_gos": [
+    {{
+      "title": "Standalone go (no step)",
+      "description": "",
+      "kind": "boolean",
+      "target_value": null,
+      "unit": "",
+      "due_date": "YYYY-MM-DD"
+    }}
   ]
 }}
 
 Allowed `kind`: "boolean" or "numeric". For numeric set target_value + unit.
-In dates_only mode `gos` must be []. In full mode `gos` has 2-4 items per
-step with due_date inside that step's window."""
+In dates modes `steps[].gos` and `orphan_gos` preserve order/length of input
+(same titles, only dates change). In full mode `steps[].gos` has 2-4 items
+per step; `orphan_gos` stays []."""
 
 
 def _parse_output(raw: str) -> GoalPlanOutput:
@@ -342,6 +373,30 @@ def _clamp_dates(
         cleaned.append(st)
 
     plan.steps = cleaned
+
+    # ── Standalone gos ──────────────────────────────────────────────────
+    # Only dates modes surface these. We match position-wise against the
+    # goal's existing orphan gos (preserve order from the prompt). Any
+    # mismatch in length is treated as the LLM truncating — we clip.
+    if is_fill or mode in {"dates_only", "rebalance_dates"}:
+        original_orphans = [g for g in goal.gos if g.step_id is None]
+        cleaned_orphans: list[GoalPlanGo] = []
+        for gi, g in enumerate(plan.orphan_gos):
+            original_go = original_orphans[gi] if gi < len(original_orphans) else None
+            gd_proposed = clamp(g.due_date)
+            if gd_proposed is None:
+                # Fallback: middle of the goal window
+                gd_proposed = start + (end - start) // 2
+            if is_fill and original_go and original_go.due_date:
+                g.due_date = original_go.due_date.isoformat()
+            else:
+                g.due_date = gd_proposed.isoformat()
+            cleaned_orphans.append(g)
+        plan.orphan_gos = cleaned_orphans
+    else:
+        # Full mode: don't fabricate orphan gos — they belong to steps.
+        plan.orphan_gos = []
+
     plan.goal_id = str(goal.id)
     plan.goal_title = goal.title
     plan.mode = mode
@@ -363,9 +418,17 @@ async def run_goal_plan_job(
     ctx = await _load_context(job.user_id, goal_uuid, db)
     goal: Task = ctx["goal"]
 
-    if params.mode in {"dates_only", "fill_dates", "rebalance_dates"} and len(goal.steps) == 0:
+    # Dates modes need *something* to schedule. Steps OR standalone gos
+    # (gos attached to this goal but with step_id=null) both count.
+    has_orphan_gos = any(g.step_id is None for g in goal.gos)
+    if (
+        params.mode in {"dates_only", "fill_dates", "rebalance_dates"}
+        and len(goal.steps) == 0
+        and not has_orphan_gos
+    ):
         raise ValueError(
-            f"{params.mode} mode requires existing steps — add at least one or use full mode",
+            f"{params.mode} mode requires existing steps or gos — "
+            "add at least one or use full mode",
         )
 
     start, end = _resolve_window(goal)

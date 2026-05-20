@@ -280,6 +280,18 @@ async def goal_plan_cache_key(
         ),
     )).scalar_one()
 
+    # Orphan gos = attached to this goal but with no step. Their count
+    # belongs in the fingerprint so adding/removing one invalidates the
+    # cached plan (otherwise dates_only with only orphan-gos would reuse
+    # a stale empty-steps cache entry).
+    orphan_gos_count = (await db.execute(
+        select(func.count()).select_from(Go).where(
+            Go.user_id == user_id,
+            Go.task_id == goal_id,
+            Go.step_id.is_(None),
+        ),
+    )).scalar_one()
+
     other_active = (await db.execute(
         select(func.count()).select_from(Task).where(
             Task.user_id == user_id,
@@ -288,7 +300,9 @@ async def goal_plan_cache_key(
         ),
     )).scalar_one()
 
-    fingerprint = f"{g_start}|{g_due}|{steps_count}|{other_active}|{mode}"
+    fingerprint = (
+        f"{g_start}|{g_due}|{steps_count}|{orphan_gos_count}|{other_active}|{mode}"
+    )
     return f"goal_plan:{user_id}:{goal_id}:{_short_hash(fingerprint)}"
 
 

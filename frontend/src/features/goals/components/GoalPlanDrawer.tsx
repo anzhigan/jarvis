@@ -116,6 +116,14 @@ export function GoalPlanDrawer({
     }
     return m;
   }, [existingGoal]);
+  /** Original orphan gos (no step_id) in the same order the backend used
+   *  to build the prompt — matches proposed[i] → existing[i] for the dates
+   *  flow. Goal.gos is the SQLAlchemy relationship which is created_at-
+   *  ordered server-side, so positional matching is stable. */
+  const orphanGosOriginal = useMemo(() => {
+    if (!existingGoal) return [] as Task['gos'];
+    return (existingGoal.gos ?? []).filter((g) => !g.step_id);
+  }, [existingGoal]);
 
   const toggleDropStep = (i: number) => {
     setDroppedStepIdx((cur) => {
@@ -213,6 +221,18 @@ export function GoalPlanDrawer({
               gosUpdated++;
             } catch { /* per-go failure already noisy in console */ }
           }
+        }
+        // Standalone gos (no step) — match positionally against the live
+        // goal's orphan-gos list. Backend echoes them in the same order
+        // as the prompt input (created_at-asc per SQLAlchemy default).
+        for (let oi = 0; oi < (draft.orphan_gos ?? []).length; oi++) {
+          const proposedGo = draft.orphan_gos[oi];
+          const existingGo = orphanGosOriginal[oi];
+          if (!existingGo || !proposedGo.due_date) continue;
+          try {
+            await gosApi.update(existingGo.id, { due_date: proposedGo.due_date });
+            gosUpdated++;
+          } catch { /* swallow — individual update failure shouldn't kill apply */ }
         }
         toast.success(
           `Updated · ${stepsUpdated} step${stepsUpdated === 1 ? '' : 's'}, `
@@ -315,6 +335,9 @@ export function GoalPlanDrawer({
               </div>
             )}
 
+            {/* Steps section — hidden entirely in dates mode when there
+                are no steps (orphan_gos section below covers that case). */}
+            {(draft.steps.length > 0 || draft.mode === 'full') && (
             <div className="gp-plan__section">
               <div className="gp-plan__section-head">
                 <span className="gp-plan__section-label">
@@ -431,6 +454,50 @@ export function GoalPlanDrawer({
                 </ul>
               )}
             </div>
+            )}
+
+            {/* Standalone-gos section — only in dates modes when the goal
+                actually has orphan gos. Shows the same "current → proposed"
+                diff per go; Apply patches due_date via gosApi.update. */}
+            {(draft.mode === 'dates_only'
+              || draft.mode === 'fill_dates'
+              || draft.mode === 'rebalance_dates')
+              && (draft.orphan_gos?.length ?? 0) > 0 && (
+              <div className="gp-plan__section">
+                <div className="gp-plan__section-head">
+                  <span className="gp-plan__section-label">
+                    Gos · no step
+                  </span>
+                  <span className="gp-plan__section-rule" />
+                  <span className="gp-plan__section-count">
+                    {draft.orphan_gos.length} item{draft.orphan_gos.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <ul className="gp-plan__gos gp-plan__gos--orphan">
+                  {draft.orphan_gos.map((g, gi) => {
+                    const existingGo = orphanGosOriginal[gi];
+                    return (
+                      <li key={gi} className="gp-plan__go">
+                        <Zap size={9} className="gp-plan__go-icon" />
+                        <span className="gp-plan__go-title">{g.title}</span>
+                        {existingGo ? (
+                          <DateDiff
+                            label=""
+                            current={existingGo.due_date}
+                            proposed={g.due_date}
+                            compact
+                          />
+                        ) : (
+                          g.due_date && (
+                            <time className="gp-plan__go-due">{g.due_date}</time>
+                          )
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
 
             <div className="gp-plan__footer">
               <Button
@@ -447,7 +514,13 @@ export function GoalPlanDrawer({
               <Button
                 onClick={apply}
                 variant="primary"
-                disabled={submitting || acceptedSteps.length === 0}
+                disabled={
+                  submitting
+                  // In dates mode, orphan_gos alone are enough to apply.
+                  // In full mode (creating from scratch) we still require
+                  // at least one accepted step — there are no orphan gos.
+                  || (acceptedSteps.length === 0 && (draft.orphan_gos?.length ?? 0) === 0)
+                }
               >
                 {submitting
                   ? 'Applying…'

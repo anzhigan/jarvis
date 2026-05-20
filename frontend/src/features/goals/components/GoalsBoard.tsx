@@ -152,7 +152,13 @@ function GoalCardContent({
         <h3 className="kc-title">{task.title}</h3>
         {callbacks?.onPlanGoalWithAi && (
           <GoalAiMenu
-            hasSteps={(task.steps?.length ?? 0) > 0}
+            // Dates modes are available when the goal has *something* to
+            // schedule — steps OR standalone gos (gos with no step_id).
+            // Routines are excluded: they're recurrent, not date-pinned.
+            hasSchedulables={
+              (task.steps?.length ?? 0) > 0
+              || (task.gos?.some((g) => !g.step_id) ?? false)
+            }
             onPick={(mode) => callbacks.onPlanGoalWithAi?.(task.id, mode)}
           />
         )}
@@ -911,9 +917,11 @@ export function GoalsBoard({
 type AiMode = 'full' | 'fill_dates' | 'rebalance_dates';
 
 function GoalAiMenu({
-  hasSteps, onPick,
+  hasSchedulables, onPick,
 }: {
-  hasSteps: boolean;
+  /** True when the goal has steps OR standalone gos — i.e. anything the
+   *  dates AI can place a date on. Routines are excluded (recurrent). */
+  hasSchedulables: boolean;
   onPick: (mode: AiMode) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -956,9 +964,9 @@ function GoalAiMenu({
           <button
             type="button"
             className="kc-ai-menu__item"
-            disabled={!hasSteps}
+            disabled={!hasSchedulables}
             onClick={() => choose('fill_dates')}
-            title={hasSteps ? undefined : 'No steps yet — use Generate plan first'}
+            title={hasSchedulables ? undefined : 'Nothing to date yet — add a step or go first'}
           >
             <span className="kc-ai-menu__icon"><Calendar size={13} /></span>
             <span className="kc-ai-menu__body">
@@ -971,9 +979,9 @@ function GoalAiMenu({
           <button
             type="button"
             className="kc-ai-menu__item"
-            disabled={!hasSteps}
+            disabled={!hasSchedulables}
             onClick={() => choose('rebalance_dates')}
-            title={hasSteps ? undefined : 'No steps yet — use Generate plan first'}
+            title={hasSchedulables ? undefined : 'Nothing to date yet — add a step or go first'}
           >
             <span className="kc-ai-menu__icon"><Sparkles size={13} /></span>
             <span className="kc-ai-menu__body">
