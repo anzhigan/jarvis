@@ -67,7 +67,7 @@ export function MobileTopBar({
     return (
       <header className="top-bar">
         <div className="top-bar__compact">
-          <div className="tb-side">{leftSlot ?? <div className="tb-spacer" />}</div>
+          {leftSlot && <div className="tb-side">{leftSlot}</div>}
           <div className="top-bar__heading">
             <div className="top-bar__title" style={{ fontSize: 16 }}>{title}</div>
             {subtitle && <div className="top-bar__sub">{subtitle}</div>}
@@ -79,13 +79,14 @@ export function MobileTopBar({
   }
 
   // large mode — single row, title LEFT, avatar RIGHT.
-  // Heading sits in the middle grid track between back-slot (or spacer) on
-  // the left and the avatar on the right; min-width:0 lets long titles
-  // ellipsize instead of bumping the avatar off-screen.
+  // No left slot is rendered when `leftSlot` is unspecified — that way
+  // the title sits flush against the bar's 14px padding (matching the
+  // 14px right-edge gap to the avatar). When a back button IS passed,
+  // it consumes the left slot and the title shifts right naturally.
   return (
     <header className="top-bar">
       <div className="top-bar__compact">
-        <div className="tb-side">{leftSlot ?? <div className="tb-spacer" />}</div>
+        {leftSlot && <div className="tb-side">{leftSlot}</div>}
         <div className="top-bar__heading">
           <div className="top-bar__title">{title}</div>
           {subtitle && <div className="top-bar__sub">{subtitle}</div>}

@@ -1326,6 +1326,13 @@
     flex: 1;
   }
   .m-shell .rh-cell {
+    /* Desktop routines.css ships `.rh-cell { padding: 0 24px; text-align:
+       right }` for the stats-cells (a different element using the same
+       class name). Its `:last-child { padding-right: 0 }` rule shrinks the
+       LAST day-cube (today) relative to the rest. We override every
+       inherited property here so each day-cube stays uniform. */
+    padding: 0;
+    text-align: center;
     aspect-ratio: 1;
     max-width: 32px;
     border-radius: 4px;
@@ -1334,6 +1341,9 @@
     cursor: pointer;
     transition: transform 100ms;
   }
+  /* Desktop adds a vertical hairline between stat-cells — unwanted on mobile day-cubes. */
+  .m-shell .rh-cell + .rh-cell { border-left: 1px solid var(--hairline-faint); }
+  .m-shell .rh-cell:last-child { padding-right: 0; }
   .m-shell .rh-cell:hover { transform: scale(1.05); }
   .m-shell .rh-cell-done { background: var(--moss); border-color: var(--moss); }
   .m-shell .rh-cell-partial {
