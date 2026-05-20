@@ -1191,6 +1191,10 @@
   }
 
   /* ════════ ROUTINES ════════ */
+  /* Stats plate — three KPIs (Done today / Best streak / 30d overall).
+     Each cell lays out num + label inline (single row) so the whole plate
+     is just ~40px tall instead of ~70. The grid stays 3 equal columns
+     so cells align with the day-cube grid below. */
   .m-shell .rt-summary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1201,37 +1205,46 @@
     margin-bottom: 12px;
   }
   .m-shell .rt-sum-cell {
-    padding: 12px;
-    text-align: center;
-    line-height: 1.2;
+    padding: 10px 8px;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1.1;
   }
   .m-shell .rt-sum-cell + .rt-sum-cell {
     border-left: 1px solid var(--hairline);
   }
   .m-shell .rt-sum-num {
     font-family: var(--font-display);
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 500;
     color: var(--ink);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;
     line-height: 1;
+    flex: 0 0 auto;
   }
   .m-shell .rt-sum-num em {
     font-family: var(--font-body);
     font-style: italic;
     font-weight: 400;
     color: var(--ink-4);
-    font-size: 13px;
+    font-size: 12px;
   }
   .m-shell .rt-sum-lab {
     font-family: var(--font-ui);
     font-size: 9.5px;
     color: var(--ink-4);
     text-transform: uppercase;
-    letter-spacing: 0.10em;
-    margin-top: 5px;
+    letter-spacing: 0.08em;
+    margin-top: 0;
     font-weight: 500;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .rt-list {
@@ -2714,6 +2727,7 @@
   }
   .m-bs-close:hover { background: var(--cream); color: var(--ink); }
   .m-bs-body {
+    overflow-x: hidden;
     overflow-y: auto;
     padding: 4px 20px 12px;
   }
@@ -3513,23 +3527,32 @@
   .m-ai-toast {
     pointer-events: auto;
     position: relative;
-    /* Premium AI-vibe: deep indigo gradient + iridescent edge halo via two
-       layered box-shadows. Light text reads as a "system feedback" capsule
-       rather than blending into content. */
-    background: linear-gradient(135deg,
-      rgba(46, 56, 122, 0.96) 0%,
-      rgba(76, 95, 178, 0.96) 55%,
-      rgba(102, 119, 196, 0.96) 100%);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
+    /* Design-system indigo (--indigo #2C4A60 → --indigo-2 #1B3447) as the
+       base. Three offset radial gradients layered on top produce a soft
+       "porous"/mottled wash — lighter teal-blue spots floating over the
+       deep indigo — so the capsule reads as an AI surface without going
+       garish violet. Kept muted: no neon glow, gentle drop shadow only. */
+    background:
+      radial-gradient(ellipse 65% 90% at 18% 22%,
+        rgba(110, 148, 168, 0.42) 0%,
+        rgba(110, 148, 168, 0.10) 45%,
+        transparent 72%),
+      radial-gradient(ellipse 55% 70% at 82% 80%,
+        rgba(80, 110, 135, 0.50) 0%,
+        transparent 65%),
+      radial-gradient(ellipse 45% 60% at 55% 110%,
+        rgba(140, 170, 190, 0.18) 0%,
+        transparent 60%),
+      linear-gradient(135deg, var(--indigo-2) 0%, var(--indigo) 100%);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     color: var(--paper);
     border-radius: 16px;
     padding: 12px 14px;
     display: flex; align-items: center; gap: 12px;
     box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-      0 0 22px rgba(76, 95, 178, 0.45),
-      0 10px 28px rgba(15, 24, 32, 0.28);
+      0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+      0 6px 20px rgba(15, 24, 32, 0.22);
     animation: mAiToastIn 280ms var(--ease-emph, cubic-bezier(0.32, 0.72, 0, 1));
     cursor: pointer;
     border: 0;
@@ -3538,15 +3561,15 @@
     font: inherit;
     overflow: hidden;
   }
-  /* Soft iridescent sheen — diagonal highlight across the top-left corner,
-     adds a subtle "premium" hint without animation. */
+  /* Subtle top sheen — barely-there diagonal highlight that hints at depth
+     without being a glossy "premium" sweep. */
   .m-ai-toast::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg,
-      rgba(255, 255, 255, 0.16) 0%,
-      transparent 45%);
+    background: linear-gradient(160deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      transparent 38%);
     pointer-events: none;
     border-radius: inherit;
   }
@@ -3575,15 +3598,15 @@
       0 2px 6px rgba(15, 24, 32, 0.25);
   }
   .m-ai-toast__spark[data-pulsing]::before {
-    /* Outer glow halo — bright cyan-ish bloom radiating from the sparkle
-       while AI is working. Stronger than before; the toast is over a
-       darker indigo so the halo reads clearly. */
+    /* Soft halo — gentle indigo-tinted bloom around the sparkle while
+       working. Tuned down from the old cyan-white version so it doesn't
+       look like a notification badge. */
     content: '';
     position: absolute; inset: -8px;
     border-radius: 50%;
     background: radial-gradient(closest-side,
-      rgba(220, 230, 255, 0.55) 0%,
-      transparent 70%);
+      rgba(200, 215, 230, 0.40) 0%,
+      transparent 72%);
     z-index: -1;
     animation: mAiSparkPulse 1.6s ease-in-out infinite;
   }
@@ -3594,7 +3617,7 @@
   .m-ai-toast__spark svg {
     width: 18px; height: 18px;
     color: var(--indigo);
-    filter: drop-shadow(0 0 4px rgba(102, 119, 196, 0.5));
+    filter: drop-shadow(0 0 3px rgba(110, 148, 168, 0.45));
   }
   .m-ai-toast__body { flex: 1; min-width: 0; position: relative; z-index: 1; }
   .m-ai-toast__title {
@@ -3636,9 +3659,11 @@
   }
   .m-ai-toast__bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #d7dcf0, #fbfaf6);
+    background: linear-gradient(90deg,
+      rgba(200, 215, 230, 0.85),
+      rgba(251, 250, 246, 0.95));
     transition: width 600ms ease;
-    box-shadow: 0 0 6px rgba(220, 230, 255, 0.6);
+    box-shadow: 0 0 4px rgba(200, 215, 230, 0.40);
   }
   .m-ai-toast[data-state="done"]      .m-ai-toast__bar-fill { background: var(--moss); }
   .m-ai-toast[data-state="failed"]    .m-ai-toast__bar-fill { background: var(--rust); }
@@ -3658,22 +3683,33 @@
   .m-ai-toast__close:active { background: rgba(255, 255, 255, 0.30); }
   .m-ai-toast__close svg { width: 14px; height: 14px; stroke-width: 2.2; }
 
-  /* ── AI jobs panel rows ───────────────────────────────────────────── */
+  /* ── AI jobs panel rows ─────────────────────────────────────────────
+     Each row is a uniform horizontal capsule: icon (fixed 36px), text
+     column (flex:1, min-width:0 so title can truncate), close button
+     (fixed 32px). Without `min-width:0` on the row + main, long titles
+     prevent flex from shrinking and the X button gets pushed past the
+     sheet edge — user had to scroll horizontally to reach it. Title is
+     line-clamped to 2 lines so most labels stay visible without
+     stretching the row width. */
   .m-ai-job {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 4px;
     border-bottom: 1px solid var(--hairline-faint);
     min-height: 56px;
+    width: 100%;
+    min-width: 0;
   }
   .m-ai-job:last-child { border-bottom: 0; }
   .m-ai-job__main {
-    flex: 1; min-width: 0;
+    flex: 1 1 0;
+    min-width: 0;
     display: flex; flex-direction: column;
     gap: 2px;
   }
   .m-ai-job__row {
-    display: flex; align-items: center; gap: 8px;
-    width: 100%;
+    display: flex; align-items: center; gap: 10px;
+    flex: 1 1 0;
+    min-width: 0;
     background: transparent;
     border: 0;
     padding: 0;
@@ -3696,18 +3732,28 @@
   .m-ai-job__ico svg { width: 16px; height: 16px; }
   .m-ai-job__title {
     font-family: var(--font-ui);
-    font-size: 14.5px;
+    font-size: 14px;
     font-weight: 500;
     color: var(--ink);
     letter-spacing: -0.005em;
+    /* 2-line clamp keeps the row a uniform height for short titles AND
+       gives long titles 2 lines before ellipsing — usually enough to
+       read the full label without horizontal overflow. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .m-ai-job__sub {
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-4);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .m-ai-job__sub[data-state="failed"] { color: var(--rust); }
   .m-ai-job__sub[data-state="done"]   { color: var(--moss); }
