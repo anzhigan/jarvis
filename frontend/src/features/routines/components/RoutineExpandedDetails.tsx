@@ -101,6 +101,14 @@ export function RoutineExpandedDetails({ routine }: Props) {
 
   const rate30 = useMemo(() => completionRate(routine, 30), [routine]);
 
+  // State buckets mirror Analysis PerRoutinePulse — same accent palette
+  // for the same rate ranges so the per-row chart inherits the design
+  // system's vocabulary instead of using `routine.color` (which is the
+  // user-picked routine accent, often outside the indigo/moss/ochre/rust
+  // family). Strong ≥ 80 → moss · warm ≥ 50 → ochre · slip < 50 → rust.
+  const state: 'strong' | 'warm' | 'slip' =
+    rate30 >= 80 ? 'strong' : rate30 >= 50 ? 'warm' : 'slip';
+
   // Returns two top-level siblings (no wrapping div) so the outer grid in
   // RoutinesView can place them as separate columns next to the calendar:
   //   [calendar] [trend] [rhythm]
@@ -114,7 +122,7 @@ export function RoutineExpandedDetails({ routine }: Props) {
             {rate30}<em>%</em>
           </span>
         </div>
-        <div className="rt-pulse" style={{ color: routine.color }}>
+        <div className="rt-pulse" data-state={state}>
           <svg
             className="rt-pulse__svg"
             viewBox={`0 0 ${PULSE_W} ${PULSE_H}`}

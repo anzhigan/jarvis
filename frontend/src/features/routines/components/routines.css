@@ -291,18 +291,19 @@
   border-top: 0;
   padding: 14px 18px 16px;
 }
-/* Three-column row: [calendar] [trend] [rhythm]. Calendar is the visual
-   anchor at 400px; trend + rhythm are roomier 260px columns so the chart
-   has air and the rhythm card / streak tiles aren't cramped. Default grid
-   `align-items: stretch` keeps all three columns at identical heights —
-   the trend chart + rhythm card flex-grow internally to absorb the slack
-   the calendar's intrinsic height creates. */
+/* Three-column row: [calendar] [trend] [rhythm]. Calendar is a compact
+   320px (smaller cells, shorter overall) so the row reads as three
+   peers, not "tall left + tiny right". Trend + rhythm split the
+   remaining width as `1fr 1fr` and use intrinsic heights — no flex-grow
+   stretching that would leave dead vertical space. They look natural
+   because they're WIDER (chart has horizontal room) + the SVG is taller
+   by default, not because the section was inflated to chase the
+   calendar's height. */
 .rt-row-expanded__layout {
   display: grid;
-  grid-template-columns: 400px 260px 260px;
-  gap: 24px;
-  /* align-items defaults to `stretch` — explicit for intent */
-  align-items: stretch;
+  grid-template-columns: 320px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: flex-start;
 }
 
 /* ── Side pane: trend chart + rhythm card ──────────────────────────── */
@@ -313,12 +314,6 @@
 .rt-side__sec {
   display: flex; flex-direction: column;
   gap: 8px;
-  /* The grid track stretches this section to the calendar's height. We
-     pass that on to inner content (chart canvas, rhythm card) via flex
-     grow below so the three columns visually share the same vertical
-     bound and don't leave dead space under the trend/rhythm panels. */
-  height: 100%;
-  min-height: 0;
 }
 .rt-side__head {
   display: flex; align-items: baseline; justify-content: space-between;
@@ -352,24 +347,27 @@
 
 /* Trend chart — smoothed daily-completion sparkline. Same path geometry
    as Analysis "Per-routine pulse" (PerRoutinePulse + buildPulsePaths) so
-   the two surfaces read identically. Color comes from the routine.color
-   via `currentColor` on the wrapper. */
+   the two surfaces read identically. Line + area + markers all use
+   `currentColor`; the wrapper's `data-state` sets that color to one of
+   the design-system accents (moss / ochre / rust) by completion rate. */
+.rt-pulse[data-state="strong"] { color: var(--moss);  }
+.rt-pulse[data-state="warm"]   { color: var(--ochre); }
+.rt-pulse[data-state="slip"]   { color: var(--rust);  }
+
 .rt-pulse {
   position: relative;
   width: 100%;
-  /* Grow to absorb the slack between trend-section height (defined by the
-     calendar in the grid row) and the small header/footer above/below.
-     `min-height` is the floor when the section is naturally short. */
-  flex: 1 1 auto;
-  min-height: 90px;
+  /* Intrinsic height — a real-feeling chart without flex stretching.
+     Wider grid track gives it the horizontal air; this gives the
+     vertical air. */
+  height: 140px;
   padding: 4px 0 0;
   display: flex; flex-direction: column;
 }
 .rt-pulse__svg {
   display: block;
   width: 100%;
-  flex: 1 1 auto;
-  min-height: 0;
+  height: 120px;
   overflow: visible;
 }
 .rt-pulse__axis {
@@ -412,18 +410,17 @@
   margin-top: 2px;
 }
 
-/* Rhythm card — arrow + this-week stat + 4-week avg comparison. Grows
-   vertically inside its grid-stretched section so the rhythm column ends
-   at the same y as the calendar. */
+/* Rhythm card — arrow + this-week stat + 4-week avg comparison. Natural
+   height: the section is not stretched to chase the calendar; it sits
+   at the size its content needs. The wider grid column gives the visual
+   weight the user wanted without inflating vertical space. */
 .rt-rhythm {
   display: flex; align-items: center;
   gap: 12px;
-  padding: 14px 14px;
+  padding: 12px 14px;
   background: var(--paper);
   border: 1px solid var(--hairline-faint);
   border-radius: var(--r-control);
-  flex: 1 1 auto;
-  min-height: 60px;
 }
 .rt-rhythm__arrow {
   font-size: 18px;
@@ -458,15 +455,9 @@
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-top: 2px;
-  /* Same growth treatment as .rt-rhythm — the two-tile row absorbs its
-     share of the slack from the calendar's height. Tiles center their
-     number+label so they don't read as anchored to the top. */
-  flex: 1 1 auto;
-  min-height: 56px;
 }
 .rt-rhythm__streak {
   display: flex; flex-direction: column;
-  justify-content: center;
   gap: 2px;
   padding: 10px 12px;
   background: var(--paper);
@@ -729,11 +720,11 @@
    because the grid is 7 columns wide instead of 14. Floor: Jan 2025. */
 .rt-month {
   display: flex; flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  max-width: 400px;          /* matches the calendar grid track in
+  max-width: 320px;          /* matches the calendar grid track in
                                 .rt-row-expanded__layout; cells land
-                                around 51px square at this width. */
+                                around 42px square at this width. */
 }
 .rt-month__heading {
   display: flex; align-items: baseline; justify-content: space-between;
