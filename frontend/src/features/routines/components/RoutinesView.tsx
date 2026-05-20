@@ -5,7 +5,8 @@ import { useRoutines } from '../hooks/useRoutines';
 import { useRoutinesToday } from '../hooks/useRoutinesToday';
 import { useGoals } from '../../goals/hooks/useGoals';
 import {
-  completionRate, currentStreak, scheduleLabel, ymd, addDays,
+  cellState, completionRate, currentStreak, scheduleLabel, ymd, addDays,
+  type CellState,
 } from '../lib/heatmap';
 import { RoutineDetailPanel } from './RoutineDetailPanel';
 import { RoutineCreateDialog } from './RoutineCreateDialog';
@@ -29,17 +30,6 @@ function fmtToday(): string {
 }
 
 const WD = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-type CellState = 'done' | 'partial' | 'skipped' | 'empty';
-
-function cellState(routine: Routine, entry: RoutineEntry | undefined): CellState {
-  if (!entry) return 'empty';
-  if (entry.value === 0) return 'skipped';
-  if (routine.kind === 'numeric' && routine.target_value && entry.value < routine.target_value) {
-    return 'partial';
-  }
-  return 'done';
-}
 
 /** Longest consecutive run of done days across the routine's entry history. */
 function bestStreak(routine: Routine): number {

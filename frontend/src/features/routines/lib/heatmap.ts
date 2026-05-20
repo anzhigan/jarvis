@@ -36,6 +36,20 @@ export function entriesByDate(entries: RoutineEntry[] = []): Map<string, Routine
   return m;
 }
 
+/** Cell tone for the routine grid — drives the `hg-cell-{state}` styling so
+ *  the line strip and the expanded month calendar render identically. */
+export type CellState = 'done' | 'partial' | 'skipped' | 'empty';
+export function cellState(
+  routine: Routine, entry: RoutineEntry | undefined,
+): CellState {
+  if (!entry) return 'empty';
+  if (entry.value === 0) return 'skipped';
+  if (routine.kind === 'numeric' && routine.target_value && entry.value < routine.target_value) {
+    return 'partial';
+  }
+  return 'done';
+}
+
 /** Heatmap cell color from value. Boolean: full or empty. Numeric: 4-step ramp. */
 export function cellColor(routine: Routine, value: number, baseColor: string): string {
   if (routine.kind === 'boolean') {

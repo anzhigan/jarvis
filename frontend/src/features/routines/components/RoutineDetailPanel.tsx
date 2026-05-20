@@ -158,7 +158,7 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
 
       <RoutineHistoryHeatmap
         routine={routine}
-        autoScrollEnd={open}
+        heading="Full history"
         subTitle={`${sortedEntries.length} ${sortedEntries.length === 1 ? 'entry' : 'entries'}`}
       />
 
