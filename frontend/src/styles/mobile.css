@@ -41,16 +41,27 @@
   /* Top bar — single row, title LEFT, avatar RIGHT.
      The earlier iOS-style 32px Fraunces "large title" pattern lived BELOW
      the compact bar — that pushed the avatar visually above the title and
-     ate too much vertical space. Single row reads better in this app. */
-  .top-bar {
+     ate too much vertical space. Single row reads better in this app.
+
+     NOTE: desktop index.css has `.top-bar { display: flex; height: 56px;
+     padding: 0 8px; gap: 4px }` at same (0,1,0) specificity. To guarantee
+     mobile wins regardless of Vite chunk load order, every top-bar /
+     tb-* selector is scoped with `.m-shell` ancestor (0,2,0). Without
+     this, the parent collapses to desktop's 56px flex row and the
+     `.top-bar__compact` 60px child is squashed back into the desktop
+     layout where avatar visually fuses with the title. */
+  .m-shell .top-bar {
+    display: block;
+    height: auto;
     flex-shrink: 0;
     padding: 0 14px;
+    gap: 0;
     background: var(--paper);
     border-bottom: 1px solid var(--hairline-faint);
     position: relative;
     z-index: 5;
   }
-  .top-bar__compact {
+  .m-shell .top-bar__compact {
     height: 60px;
     display: flex;
     align-items: center;
@@ -60,14 +71,14 @@
      to take all remaining space between back-slot and avatar so the title
      anchors to the left edge and the avatar to the right (not bunched
      together). min-width:0 lets long titles ellipsize cleanly. */
-  .top-bar__heading {
+  .m-shell .top-bar__heading {
     flex: 1 1 auto;
     min-width: 0;
     line-height: 1.2;
     text-align: left;
   }
-  .top-bar .tb-side { flex: 0 0 auto; }
-  .top-bar__title {
+  .m-shell .top-bar .tb-side { flex: 0 0 auto; }
+  .m-shell .top-bar__title {
     font-family: var(--font-display);
     font-size: 19px;
     font-weight: 500;
@@ -77,11 +88,11 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .top-bar__title em {
+  .m-shell .top-bar__title em {
     font-style: italic;
     color: var(--indigo);
   }
-  .top-bar__sub {
+  .m-shell .top-bar__sub {
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-4);
@@ -94,7 +105,7 @@
 
   /* Legacy single-line top-bar layout — kept for screens that haven't
      migrated to compact+large yet (e.g. Notes, Sprints). */
-  .top-bar[data-legacy] {
+  .m-shell .top-bar[data-legacy] {
     height: 56px;
     padding: 0 14px;
     display: grid;
@@ -102,25 +113,25 @@
     align-items: center;
     gap: 8px;
   }
-  .tb-side { display: inline-flex; align-items: center; gap: 4px; }
-  .tb-side-right { justify-content: flex-end; }
-  .tb-spacer { width: 36px; height: 36px; }
-  .tb-center { text-align: center; line-height: 1.1; }
-  .tb-title {
+  .m-shell .tb-side { display: inline-flex; align-items: center; gap: 4px; }
+  .m-shell .tb-side-right { justify-content: flex-end; }
+  .m-shell .tb-spacer { width: 36px; height: 36px; }
+  .m-shell .tb-center { text-align: center; line-height: 1.1; }
+  .m-shell .tb-title {
     font-family: var(--font-display);
     font-size: 17px;
     font-weight: 500;
     color: var(--ink);
     letter-spacing: -0.02em;
   }
-  .tb-sub {
+  .m-shell .tb-sub {
     font-family: var(--font-ui);
     font-size: 10.5px;
     color: var(--ink-4);
     margin-top: 2px;
     font-weight: 500;
   }
-  .tb-btn {
+  .m-shell .tb-btn {
     width: 36px; height: 36px;
     background: transparent;
     border: 0;
@@ -131,9 +142,9 @@
     justify-content: center;
     transition: background 140ms;
   }
-  .tb-btn:hover { background: var(--cream); color: var(--ink); }
-  .tb-btn svg { width: 18px; height: 18px; }
-  .tb-avatar {
+  .m-shell .tb-btn:hover { background: var(--cream); color: var(--ink); }
+  .m-shell .tb-btn svg { width: 18px; height: 18px; }
+  .m-shell .tb-avatar {
     width: 36px; height: 36px;
     aspect-ratio: 1;
     border-radius: 50%;
