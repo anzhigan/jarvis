@@ -1,11 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Flag } from 'lucide-react';
-import type { Task, TaskPriority } from '../../../api/types';
+import type { Task, TaskPriority, TaskStatus } from '../../../api/types';
 
 interface Props {
   tasks: Task[];
   onOpenDetail: (taskId: string) => void;
 }
+
+type StatusFilter = TaskStatus;
 
 const ACCENTS = ['var(--moss)', 'var(--indigo)', 'var(--ochre)', 'var(--rust)', 'var(--slate)'] as const;
 function accent(t: Task): string {
@@ -37,12 +39,26 @@ export function MobileGoalsTimeline({ tasks, onOpenDetail }: Props) {
     return d.getTime();
   }, []);
 
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+
+  // Counts per status for the pill labels — derived from raw tasks so the
+  // numbers stay stable when the user switches filter.
+  const counts = useMemo(() => {
+    const c: Record<TaskStatus, number> = { active: 0, backlog: 0, paused: 0, done: 0 };
+    for (const t of tasks) c[t.status] += 1;
+    return c;
+  }, [tasks]);
+
+  const visibleTasks = useMemo(
+    () => tasks.filter((t) => t.status === statusFilter),
+    [tasks, statusFilter],
+  );
+
   const { dated, undated, axisStart, axisEnd } = useMemo(() => {
     const dated: Task[] = [];
     const undated: Task[] = [];
     let minStart = Infinity, maxEnd = -Infinity;
-    for (const t of tasks) {
-      if (t.status === 'done') continue;
+    for (const t of visibleTasks) {
       if (t.start_date && t.due_date) {
         dated.push(t);
         const s = new Date(t.start_date).getTime();
@@ -69,7 +85,7 @@ export function MobileGoalsTimeline({ tasks, onOpenDetail }: Props) {
       axisStart: minStart - 7 * MS_DAY,
       axisEnd:   maxEnd   + 7 * MS_DAY,
     };
-  }, [tasks, today]);
+  }, [visibleTasks, today]);
 
   const axisSpan = axisEnd - axisStart;
   const pctOf = (ms: number) => ((ms - axisStart) / axisSpan) * 100;
@@ -100,6 +116,24 @@ export function MobileGoalsTimeline({ tasks, onOpenDetail }: Props) {
 
   return (
     <div className="m-tl">
+      {/* Status filter — same pattern as Kanban so the user can flip between
+          views without re-learning the filter UI. Self-contained state: a
+          choice here doesn't affect Kanban's filter. */}
+      <div className="status-pills" style={{ marginBottom: 10 }}>
+        {([
+          { k: 'active' as const,  label: `Active · ${counts.active}` },
+          { k: 'backlog' as const, label: `Backlog · ${counts.backlog}` },
+          { k: 'paused' as const,  label: `Paused · ${counts.paused}` },
+          { k: 'done' as const,    label: `Done · ${counts.done}` },
+        ]).map((p) => (
+          <button
+            key={p.k}
+            className={`sp-pill${statusFilter === p.k ? ' sp-pill-active' : ''}`}
+            onClick={() => setStatusFilter(p.k)}
+          >{p.label}</button>
+        ))}
+      </div>
+
       {/* Axis with month labels + today marker */}
       <div className="m-tl__axis">
         {months.map((m, i) => (
@@ -116,7 +150,7 @@ export function MobileGoalsTimeline({ tasks, onOpenDetail }: Props) {
 
       {dated.length === 0 && undated.length === 0 ? (
         <div className="m-day-empty" style={{ padding: 28, textAlign: 'center' }}>
-          No active goals to plot.
+          No {statusFilter} goals to plot.
         </div>
       ) : (
         <>
