@@ -4,6 +4,7 @@ import {
   addDays, completionRate, currentStreak, entriesByDate, isScheduledOn,
   scheduleLabel, startOfDay, ymd,
 } from '../lib/heatmap';
+import { buildDailySeries, buildPulsePaths } from '../lib/pulse';
 
 interface Props {
   routine: Routine;
@@ -11,6 +12,10 @@ interface Props {
 
 const TREND_DAYS = 30;
 const RHYTHM_WEEKS = 4;
+/** Match Analysis "Per-routine pulse" geometry so the line reads identically.
+ *  Width scales to the container via SVG viewBox; height is intrinsic. */
+const PULSE_W = 280;
+const PULSE_H = 70;
 
 /** Right-pane companion to the expanded calendar — a 30-day trend mini-chart
  *  + a rhythm card. Rhythm covers both routines AND gos in the Analysis day
@@ -21,33 +26,14 @@ const RHYTHM_WEEKS = 4;
  *    - schedule label for context
  */
 export function RoutineExpandedDetails({ routine }: Props) {
-  // Trend over the last 30 days. Each bar is either:
-  //   - boolean: full or empty
-  //   - numeric: scaled value/target (clamped to 1.0)
-  const trend = useMemo(() => {
-    const today = startOfDay(new Date());
-    const map = entriesByDate(routine.entries ?? []);
-    const target = routine.target_value ?? 1;
-    const points: { date: string; ratio: number; scheduled: boolean; hit: boolean }[] = [];
-    for (let i = TREND_DAYS - 1; i >= 0; i--) {
-      const d = addDays(today, -i);
-      const k = ymd(d);
-      const entry = map.get(k);
-      const scheduled = isScheduledOn(routine, d);
-      let ratio = 0;
-      let hit = false;
-      if (entry && entry.value > 0) {
-        hit = true;
-        if (routine.kind === 'numeric' && target > 0) {
-          ratio = Math.min(1, entry.value / target);
-        } else {
-          ratio = 1;
-        }
-      }
-      points.push({ date: k, ratio, scheduled, hit });
-    }
-    return points;
-  }, [routine]);
+  // Daily-completion series (0..1) over the last 30 days — same source as
+  // the Analysis "Per-routine pulse" line so the two surfaces agree on what
+  // the routine looks like. Smoothed via 3-pt Hann inside buildPulsePaths.
+  const series = useMemo(() => buildDailySeries(routine, TREND_DAYS), [routine]);
+  const pulse = useMemo(() => buildPulsePaths(series, PULSE_W, PULSE_H), [series]);
+  // For the streak calculation we keep the raw hit flags — smoothing is a
+  // chart concern, not a counting one.
+  const rawHits = useMemo(() => series.map((v) => v > 0), [series]);
 
   // Rhythm: this-week completion ratio vs trailing 4-week avg.
   // For "scheduled this week" we count days where the routine was scheduled
@@ -103,16 +89,15 @@ export function RoutineExpandedDetails({ routine }: Props) {
   }, [routine]);
 
   // Streak numbers — current vs best-in-window. We compute best from the
-  // 30-day points so a long-ago record streak doesn't dominate the rhythm
-  // narrative (the calendar nav already lets the user scroll deeper).
+  // 30-day raw hits (smoothed series would round zero-days up).
   const streaks = useMemo(() => {
     const cur = currentStreak(routine);
     let best = 0, run = 0;
-    for (const p of trend) {
-      if (p.hit) { run++; if (run > best) best = run; } else { run = 0; }
+    for (const hit of rawHits) {
+      if (hit) { run++; if (run > best) best = run; } else { run = 0; }
     }
     return { cur, best };
-  }, [routine, trend]);
+  }, [routine, rawHits]);
 
   const rate30 = useMemo(() => completionRate(routine, 30), [routine]);
 
@@ -126,26 +111,56 @@ export function RoutineExpandedDetails({ routine }: Props) {
             {rate30}<em>%</em>
           </span>
         </div>
-        <div className="rt-trend">
-          {trend.map((p) => (
-            <div
-              key={p.date}
-              className="rt-trend__col"
-              data-scheduled={p.scheduled || undefined}
-              data-hit={p.hit || undefined}
-              title={`${p.date} · ${p.hit
-                ? routine.kind === 'numeric'
-                  ? `${Math.round(p.ratio * 100)}% of target`
-                  : 'done'
-                : p.scheduled ? 'missed' : 'off-day'}`}
-            >
-              <div
-                className="rt-trend__bar"
-                style={{ height: `${Math.max(p.hit ? 8 : 2, p.ratio * 100)}%` }}
-                data-color={routine.color}
+        <div className="rt-pulse" style={{ color: routine.color }}>
+          <svg
+            className="rt-pulse__svg"
+            viewBox={`0 0 ${PULSE_W} ${PULSE_H}`}
+            preserveAspectRatio="none"
+          >
+            {/* 50%-completion reference line */}
+            <line
+              className="rt-pulse__axis"
+              x1={0} x2={PULSE_W}
+              y1={pulse.baselineY} y2={pulse.baselineY}
+            />
+            {/* Faint weekly grid ticks — same idea as in Analysis spark */}
+            {pulse.weekTicks.map((x, i) => (
+              <line
+                key={i}
+                className="rt-pulse__week"
+                x1={x} x2={x} y1={0} y2={PULSE_H}
               />
-            </div>
-          ))}
+            ))}
+            {pulse.area && <path className="rt-pulse__area" d={pulse.area} />}
+            {pulse.line && <path className="rt-pulse__line" d={pulse.line} />}
+            {/* Min / max / today markers */}
+            {pulse.pts.length > 0 && (
+              <>
+                <circle
+                  className="rt-pulse__min"
+                  cx={pulse.pts[pulse.minIdx][0]}
+                  cy={pulse.pts[pulse.minIdx][1]}
+                  r={2.4}
+                />
+                <circle
+                  className="rt-pulse__max"
+                  cx={pulse.pts[pulse.maxIdx][0]}
+                  cy={pulse.pts[pulse.maxIdx][1]}
+                  r={2.4}
+                />
+                <circle
+                  className="rt-pulse__now"
+                  cx={pulse.pts[pulse.pts.length - 1][0]}
+                  cy={pulse.pts[pulse.pts.length - 1][1]}
+                  r={3}
+                />
+              </>
+            )}
+          </svg>
+          <div className="rt-pulse__axis-lab">
+            <span>30d ago</span>
+            <span>today</span>
+          </div>
         </div>
         <div className="rt-side__foot">
           <span>{scheduleLabel(routine)}</span>

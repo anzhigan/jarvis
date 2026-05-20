@@ -29,12 +29,24 @@ const STATE_LABEL: Record<'done' | 'skipped' | 'pending' | 'unscheduled', string
 };
 
 export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Props) {
+  // IMPORTANT: every hook must be called on every render. Earlier we had
+  // `useMemo(sortedEntries)` + `useState(allOpen)` AFTER the `if (!routine)`
+  // early-return — so the first mount (routine = null) registered 3 hooks
+  // and the next render (routine = real) tried to register 5, tripping
+  // React's "Rendered more hooks than during the previous render" guard
+  // and white-screening the whole drawer subtree. All hooks now sit above
+  // the guard; the body below safely assumes `routine` is non-null.
   const [title, setTitle] = useState(routine?.title ?? '');
   const [description, setDescription] = useState(routine?.description ?? '');
+  const [allOpen, setAllOpen] = useState(false);
   useEffect(() => {
     setTitle(routine?.title ?? '');
     setDescription(routine?.description ?? '');
   }, [routine?.id]);
+  const sortedEntries = useMemo(
+    () => routine ? [...routine.entries].sort((a, b) => b.date.localeCompare(a.date)) : [],
+    [routine],
+  );
 
   if (!routine) return null;
 
@@ -62,13 +74,6 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
   const streak = currentStreak(routine);
   const rate30 = completionRate(routine, 30);
   const state = todayState(routine);
-
-  // All tracked days (newest first) — for the "All entries" expandable list.
-  const sortedEntries = useMemo(
-    () => [...routine.entries].sort((a, b) => b.date.localeCompare(a.date)),
-    [routine.entries],
-  );
-  const [allOpen, setAllOpen] = useState(false);
 
   return (
     <Drawer
