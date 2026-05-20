@@ -30,7 +30,11 @@ function deriveSource(j: AIJobBrief): AIJobSource {
   if (j.kind === 'insights')   return { section: 'analysis' };
   if (j.kind === 'coach')      return { section: 'analysis' };
   if (j.kind === 'sprint_plan') return { section: 'sprints' };
-  if (j.kind === 'goal_plan')  return { section: 'goals' };
+  // goal_plan: server resolves `<goal title> · <mode>` into display_title
+  // (see routers/ai.py::_title_for) — surface it as `noteTitle` so the
+  // toast reads "Goal plan · My goal · fill dates" instead of just "Goal plan".
+  if (j.kind === 'goal_plan')
+    return { section: 'goals', noteTitle: j.display_title ?? undefined };
   // quiz: noteId only when scope.kind='note'; noteTitle comes from
   // server-resolved display_title (real note name for single-note quizzes,
   // "all notes" / "N notes" for cross-notes ones).

@@ -4025,21 +4025,21 @@
 }
 
 /* ── View-mode crossfade ───────────────────────────────────────────────
- * Tiny wash-in on view switch. 4px y-shift in + opacity from 0.4. Short
- * enough to feel snappy, long enough to register that something happened.
+ * Tiny wash-in on view switch. Opacity-only — no transform.
+ *
+ * Earlier this animation y-shifted via translate3d + had `will-change:
+ * transform`, but that created a CSS containing block for `position: fixed`
+ * descendants. Result: dnd-kit's `DragOverlay` (which is `position: fixed`)
+ * stopped tracking the viewport whenever the user was hovering the kanban
+ * wrapper — which is exactly during a drag. Symptom: the dragged card
+ * ghost appeared at the top of the viewport when the page was scrolled.
+ *
+ * Opacity has no such side effect.
  * Respects prefers-reduced-motion via the global override in index.css. */
 @keyframes view-fade-in-kf {
-  from { opacity: 0.4; transform: translate3d(0, 4px, 0); }
-  to   { opacity: 1;   transform: translate3d(0, 0,   0); }
+  from { opacity: 0.4; }
+  to   { opacity: 1;   }
 }
 .view-fade-in {
   animation: view-fade-in-kf var(--dur-med) var(--ease) both;
-  /* GPU-friendly: declare what we'll animate before it starts so the
-     browser can lift the layer ahead of time. */
-  will-change: opacity, transform;
-}
-.view-fade-in:not(:hover):not(:focus-within) {
-  /* Drop the layer hint once interaction starts — keeps the compositor
-     from holding a layer for every long-lived view container. */
-  will-change: auto;
 }

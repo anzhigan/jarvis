@@ -338,10 +338,18 @@ export default function GoalsView() {
     if (followUp === 'ai_plan') {
       try {
         const job = await aiApi.createGoalPlan({ goal_id: taskId, mode: 'full' });
+        // Compose the same "<goal title> · <mode>" shape the backend uses on
+        // rehydrate (routers/ai.py::_title_for). Doing it here too keeps the
+        // toast informative *immediately* — without waiting for the next
+        // listJobs poll to swap in a richer display_title.
+        const goalTitle = goals.tasks.find((t) => t.id === taskId)?.title;
         addBgJob({
           jobId: job.id,
           kind: 'goal_plan',
-          source: { section: 'goals', noteTitle: 'goal plan' },
+          source: {
+            section: 'goals',
+            noteTitle: goalTitle ? `${goalTitle} · full plan` : 'full plan',
+          },
         });
         setGoalPlanGoalId(taskId);
         setGoalPlanMode('full');
@@ -350,7 +358,7 @@ export default function GoalsView() {
         toast.error(e?.detail ?? e?.message ?? 'Failed to start AI plan');
       }
     }
-  }, [addBgJob]);
+  }, [addBgJob, goals.tasks]);
 
   /** Trigger AI plan in an explicit mode. Used by:
    *   - GoalsBoard ✨ menu on each Goal card (passes a specific mode)
@@ -363,14 +371,19 @@ export default function GoalsView() {
   ) => {
     try {
       const job = await aiApi.createGoalPlan({ goal_id: taskId, mode });
+      // "<goal title> · <mode>" — matches backend's _title_for so the toast
+      // reads identically before and after the rehydrate poll. The mode
+      // label is the user-facing short form, not the raw enum value.
+      const goalTitle = goals.tasks.find((t) => t.id === taskId)?.title;
+      const modeLabel = mode === 'full' ? 'full plan'
+        : mode === 'fill_dates' ? 'fill dates'
+        : 'rebalance dates';
       addBgJob({
         jobId: job.id,
         kind: 'goal_plan',
         source: {
           section: 'goals',
-          noteTitle: mode === 'full' ? 'goal plan'
-            : mode === 'fill_dates' ? 'fill dates'
-            : 'rebalance dates',
+          noteTitle: goalTitle ? `${goalTitle} · ${modeLabel}` : modeLabel,
         },
       });
       setGoalPlanGoalId(taskId);
@@ -381,7 +394,7 @@ export default function GoalsView() {
     } catch (e: any) {
       toast.error(e?.detail ?? e?.message ?? 'Failed to start AI plan');
     }
-  }, [addBgJob]);
+  }, [addBgJob, goals.tasks]);
 
   /** Detail-panel helper — auto-picks mode based on goal state. */
   const onPlanDates = useCallback((taskId: string) => {

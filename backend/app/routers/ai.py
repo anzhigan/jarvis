@@ -25,6 +25,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.ai import AIJob, AIQuiz, AIQuizAttempt
 from app.models.notes import Note, Topic, Way
+from app.models.tasks import Task
 from app.models.user import User
 from app.schemas.ai import (
     AIJobBrief,
@@ -134,8 +135,9 @@ async def list_jobs(
     db: AsyncSession = Depends(get_db),
 ):
     """Recent jobs for the current user — used to rehydrate the AI-jobs
-    sidebar. Quiz titles are resolved here (batch SELECT on notes) so the
-    frontend doesn't have to fetch each note individually."""
+    sidebar. Quiz / goal-plan titles are resolved here (batch SELECT on
+    notes / tasks) so the frontend doesn't have to fetch each one
+    individually."""
     jobs = await list_recent_jobs(user_id=user.id, db=db, kind=kind, limit=limit)
 
     # Collect the note ids referenced by single-note quizzes — we'll
@@ -158,22 +160,67 @@ async def list_jobs(
         )
         note_titles = {nid: name for (nid, name) in rows.all()}
 
-    def _title_for(j: AIJob) -> str | None:
-        if j.kind != "quiz":
-            return None
-        scope = (j.input_json or {}).get("scope") or {}
-        skind = scope.get("kind")
-        if skind == "note":
+    # Same batch-resolution pattern for goal_plan jobs: the toast / panel
+    # need the goal's title ("Goal plan · <goal title> · <mode>") so the
+    # user can tell which goal is being planned when several are in flight.
+    goal_ids: set[uuid.UUID] = set()
+    for j in jobs:
+        if j.kind != "goal_plan":
+            continue
+        gid = (j.input_json or {}).get("goal_id")
+        if gid:
             try:
-                nid = uuid.UUID(str(scope.get("id")))
+                goal_ids.add(uuid.UUID(str(gid)))
             except (ValueError, TypeError):
-                return None
-            return note_titles.get(nid)
-        if skind == "all":
-            return "all notes"
-        if skind == "multi":
-            ids = scope.get("ids") or []
-            return f"{len(ids)} notes" if ids else "notes"
+                continue
+
+    goal_titles: dict[uuid.UUID, str] = {}
+    if goal_ids:
+        rows = await db.execute(
+            select(Task.id, Task.title).where(Task.id.in_(goal_ids)),
+        )
+        goal_titles = {gid: title for (gid, title) in rows.all()}
+
+    # Mode → user-facing label. Keep these short so the toast title doesn't
+    # wrap. `dates_only` is a legacy alias for `fill_dates`.
+    GOAL_PLAN_MODE_LABELS = {
+        "full":            "full plan",
+        "fill_dates":      "fill dates",
+        "dates_only":      "fill dates",
+        "rebalance_dates": "rebalance dates",
+    }
+
+    def _title_for(j: AIJob) -> str | None:
+        if j.kind == "quiz":
+            scope = (j.input_json or {}).get("scope") or {}
+            skind = scope.get("kind")
+            if skind == "note":
+                try:
+                    nid = uuid.UUID(str(scope.get("id")))
+                except (ValueError, TypeError):
+                    return None
+                return note_titles.get(nid)
+            if skind == "all":
+                return "all notes"
+            if skind == "multi":
+                ids = scope.get("ids") or []
+                return f"{len(ids)} notes" if ids else "notes"
+            return None
+        if j.kind == "goal_plan":
+            inp = j.input_json or {}
+            gid_raw = inp.get("goal_id")
+            mode = str(inp.get("mode") or "full")
+            mode_label = GOAL_PLAN_MODE_LABELS.get(mode, mode.replace("_", " "))
+            title = None
+            if gid_raw:
+                try:
+                    gid = uuid.UUID(str(gid_raw))
+                    title = goal_titles.get(gid)
+                except (ValueError, TypeError):
+                    title = None
+            # Compose "<title> · <mode>" so the user sees both at a glance.
+            # Fall back to just the mode if the goal was deleted.
+            return f"{title} · {mode_label}" if title else mode_label
         return None
 
     out: list[AIJobBrief] = []

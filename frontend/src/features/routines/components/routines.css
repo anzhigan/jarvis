@@ -242,11 +242,60 @@
 
 /* History grid — 14 cells */
 .rt-cell-history { line-height: 1.3; }
+/* History row holds the 14-day grid and the trailing expand chevron. */
+.rt-history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .rt-history-grid {
   display: grid;
   grid-template-columns: repeat(14, 1fr);
   gap: 4px;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Expand-history button — collapses the trailing 14-day strip into a full
+   weeks × weekdays heatmap row below. Chevron rotates 180° when open. */
+.rt-history-expand {
+  flex: 0 0 auto;
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  color: var(--ink-4);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-emph, ease-out),
+              background var(--dur-fast), color var(--dur-fast);
+}
+.rt-history-expand:hover {
+  background: var(--cream);
+  color: var(--ink-2);
+}
+.rt-history-expand svg {
+  transition: transform var(--dur-fast) var(--ease-emph, ease-out);
+}
+.rt-history-expand[data-open] svg { transform: rotate(180deg); }
+.rt-history-expand[data-open] {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  border-color: transparent;
+}
+
+/* Expanded row — full-period heatmap sitting under its parent row. The
+   parent's selection / hover styling does not propagate here. */
+.rt-row-expanded > .rt-row-expanded__cell {
+  background: var(--cream);
+  border-top: 0;
+  padding: 14px 18px 16px;
+}
+.rt-row[data-expanded] {
+  background: var(--cream);
+}
+.rt-row[data-expanded] td {
+  border-bottom-color: transparent;
 }
 .hg-cell {
   aspect-ratio: 1;

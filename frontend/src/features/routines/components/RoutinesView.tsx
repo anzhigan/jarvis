@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Check, Loader2, MoreHorizontal, Plus, X } from 'lucide-react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Check, ChevronDown, Loader2, MoreHorizontal, Plus, X } from 'lucide-react';
 import type { Routine, RoutineEntry } from '../../../api/types';
 import { useRoutines } from '../hooks/useRoutines';
 import { useRoutinesToday } from '../hooks/useRoutinesToday';
@@ -9,6 +9,7 @@ import {
 } from '../lib/heatmap';
 import { RoutineDetailPanel } from './RoutineDetailPanel';
 import { RoutineCreateDialog } from './RoutineCreateDialog';
+import { RoutineHistoryHeatmap } from './RoutineHistoryHeatmap';
 import './routines.css';
 
 const HISTORY_DAYS = 14;
@@ -81,6 +82,20 @@ export default function RoutinesView() {
   // one row clears any previous selection elsewhere. `null` means "no past
   // square picked"; action buttons fall back to today's column for that row.
   const [selectedCell, setSelectedCell] = useState<{ id: string; date: string } | null>(null);
+
+  // Per-row expand state: when a row's id is in this set, an extra <tr>
+  // renders below it with the full-period heatmap (weeks × weekdays). The
+  // 14-day line in the row stays — it's a quick last-fortnight glance; the
+  // expanded grid is the long-history view, two clicks shorter than opening
+  // the detail drawer.
+  const [expandedHeatmapIds, setExpandedHeatmapIds] = useState<Set<string>>(new Set());
+  const toggleExpandHeatmap = useCallback((id: string) => {
+    setExpandedHeatmapIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
 
   const onCheckDate = useCallback((r: Routine, date: string) => {
     void library.toggleDoneOn(r, date);
@@ -263,11 +278,13 @@ export default function RoutinesView() {
                       const linkedGoal = r.goal_id ? goalById.get(r.goal_id) : null;
                       const goalAccent = r.goal_id ? accentFor(r.goal_id) : null;
 
+                      const isExpanded = expandedHeatmapIds.has(r.id);
                       return (
+                        <Fragment key={r.id}>
                         <tr
-                          key={r.id}
                           className="rt-row"
                           data-selected={r.id === detailRoutineId || undefined}
+                          data-expanded={isExpanded || undefined}
                           onClick={() => setDetailRoutineId(r.id)}
                         >
                           <td className="rt-cell-name">
@@ -295,29 +312,42 @@ export default function RoutinesView() {
                           </td>
 
                           <td className="rt-cell-history" onClick={(e) => e.stopPropagation()}>
-                            <div className="rt-history-grid">
-                              {historyDays.map((d) => {
-                                const s = cellState(r, entryByDate.get(d.ymd));
-                                const active =
-                                  selectedCell?.id === r.id && selectedCell.date === d.ymd;
-                                return (
-                                  <button
-                                    key={d.ymd}
-                                    type="button"
-                                    className={`hg-cell hg-cell-${s}`}
-                                    data-today={d.isToday || undefined}
-                                    data-active={active || undefined}
-                                    title={`${d.ymd} · ${s} · click to edit`}
-                                    onClick={() =>
-                                      setSelectedCell((cur) =>
-                                        cur?.id === r.id && cur.date === d.ymd
-                                          ? null
-                                          : { id: r.id, date: d.ymd },
-                                      )
-                                    }
-                                  />
-                                );
-                              })}
+                            <div className="rt-history-row">
+                              <div className="rt-history-grid">
+                                {historyDays.map((d) => {
+                                  const s = cellState(r, entryByDate.get(d.ymd));
+                                  const active =
+                                    selectedCell?.id === r.id && selectedCell.date === d.ymd;
+                                  return (
+                                    <button
+                                      key={d.ymd}
+                                      type="button"
+                                      className={`hg-cell hg-cell-${s}`}
+                                      data-today={d.isToday || undefined}
+                                      data-active={active || undefined}
+                                      title={`${d.ymd} · ${s} · click to edit`}
+                                      onClick={() =>
+                                        setSelectedCell((cur) =>
+                                          cur?.id === r.id && cur.date === d.ymd
+                                            ? null
+                                            : { id: r.id, date: d.ymd },
+                                        )
+                                      }
+                                    />
+                                  );
+                                })}
+                              </div>
+                              <button
+                                type="button"
+                                className="rt-history-expand"
+                                data-open={isExpanded || undefined}
+                                onClick={() => toggleExpandHeatmap(r.id)}
+                                aria-expanded={isExpanded}
+                                aria-label={isExpanded ? 'Collapse full history' : 'Expand full history'}
+                                title={isExpanded ? 'Hide full history' : 'Show full history'}
+                              >
+                                <ChevronDown size={13} />
+                              </button>
                             </div>
                           </td>
 
@@ -372,6 +402,17 @@ export default function RoutinesView() {
                             })()}
                           </td>
                         </tr>
+                        {isExpanded && (
+                          <tr
+                            className="rt-row-expanded"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <td colSpan={5} className="rt-row-expanded__cell">
+                              <RoutineHistoryHeatmap routine={r} heading={null} />
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     })}
                   </tbody>
