@@ -100,9 +100,11 @@
   --sh-focus:      0 0 0 3px var(--indigo-tint);
 
   /* ── Motion ──────────────────────────────────────────────────────────── */
-  --ease:     cubic-bezier(0.32, 0.72, 0.30, 1);
-  --dur-fast: 140ms;
-  --dur-med:  220ms;
+  --ease:       cubic-bezier(0.32, 0.72, 0.30, 1);   /* deliberate, settles */
+  --ease-emph:  cubic-bezier(0.20, 0.90, 0.20, 1);   /* snappier — for hovers */
+  --dur-fast:   120ms;                                /* hover, fades, ticks */
+  --dur-med:    220ms;                                /* drawer/popover settle */
+  --dur-snap:    80ms;                                /* near-instant nudges */
 
   /* ── Heatmap (routine streaks) ───────────────────────────────────────── */
   --heat-0: rgba(15, 24, 32, 0.06);

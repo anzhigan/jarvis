@@ -98,6 +98,25 @@ export function GoalPlanDrawer({
     return draft.steps.filter((_, i) => !droppedStepIdx.has(i));
   }, [draft, droppedStepIdx]);
 
+  // Pre-computed lookups for the dates-mode diff render — avoids O(steps × gos)
+  // re-filtering inside the steps.map callback. existingSteps sorted by
+  // position once; gos bucketed by step_id once.
+  const existingStepsSorted = useMemo(() => {
+    if (!existingGoal) return [] as Task['steps'];
+    return [...(existingGoal.steps ?? [])].sort((a, b) => a.position - b.position);
+  }, [existingGoal]);
+  const gosByStepId = useMemo(() => {
+    const m = new Map<string, Task['gos']>();
+    if (!existingGoal) return m;
+    for (const g of existingGoal.gos ?? []) {
+      if (!g.step_id) continue;
+      const arr = m.get(g.step_id) ?? [];
+      arr.push(g);
+      m.set(g.step_id, arr);
+    }
+    return m;
+  }, [existingGoal]);
+
   const toggleDropStep = (i: number) => {
     setDroppedStepIdx((cur) => {
       const next = new Set(cur);
@@ -159,19 +178,9 @@ export function GoalPlanDrawer({
         setSubmitting(false);
         return;
       }
-      // Sort existing steps by position so the index-match aligns with
-      // the prompt's "preserve order" instruction.
-      const existingSteps = [...(existingGoal.steps ?? [])].sort(
-        (a, b) => a.position - b.position,
-      );
-      // Bucket existing gos by step_id so we can pluck the i-th go per step.
-      const gosByStepId = new Map<string, typeof existingGoal.gos>();
-      for (const g of existingGoal.gos ?? []) {
-        if (!g.step_id) continue;
-        const arr = gosByStepId.get(g.step_id) ?? [];
-        arr.push(g);
-        gosByStepId.set(g.step_id, arr);
-      }
+      // Reuse the memoised lookups from the render block — same goal,
+      // same indexing rules, no need to rebuild.
+      const existingSteps = existingStepsSorted;
 
       let stepsUpdated = 0;
       let gosUpdated = 0;
@@ -329,14 +338,11 @@ export function GoalPlanDrawer({
                     const isDatesOnly = draft.mode === 'dates_only'
                       || draft.mode === 'fill_dates'
                       || draft.mode === 'rebalance_dates';
-                    // Pull the original step + gos from the live goal so we
-                    // can render the "current → proposed" diff inline.
-                    const existingSteps = existingGoal
-                      ? [...(existingGoal.steps ?? [])].sort((a, b) => a.position - b.position)
-                      : [];
-                    const existingStep = existingSteps[i];
-                    const existingGos = existingGoal && existingStep
-                      ? (existingGoal.gos ?? []).filter((g) => g.step_id === existingStep.id)
+                    // Use the pre-computed lookups instead of re-sorting +
+                    // filtering inside the map callback.
+                    const existingStep = existingStepsSorted[i];
+                    const existingGos = existingStep
+                      ? (gosByStepId.get(existingStep.id) ?? [])
                       : [];
                     return (
                       <li

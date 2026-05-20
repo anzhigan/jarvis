@@ -175,7 +175,7 @@
   box-sizing: content-box;
 }
 .gt-bar {
-  position: absolute; top: 50%; transform: translateY(-50%);
+  position: absolute; top: 50%;
   height: 28px; border-radius: 4px;
   background: var(--cream);
   border: 1px solid var(--hairline);
@@ -186,14 +186,22 @@
   font: inherit; color: inherit;
   text-align: left;
   z-index: 2;
+  /* GPU-friendly: translate3d hints the compositor to lift this layer so
+     the position-y centre offset + hover transform compose without paint. */
+  transform: translate3d(0, -50%, 0);
   /* Subtle outer ring on top of background ensures bars don't visually
      merge when stacked at the same x position. */
   box-shadow: 0 0 0 1px var(--paper);
-  transition: filter var(--dur-fast), box-shadow var(--dur-fast);
+  transition:
+    transform   var(--dur-fast) var(--ease-emph),
+    filter      var(--dur-fast) var(--ease),
+    box-shadow  var(--dur-fast) var(--ease);
 }
 .gt-bar:hover {
   filter: brightness(0.96);
   box-shadow: 0 0 0 2px var(--indigo-tint);
+  /* Subtle lift, no shift in x position (only y nudge from center). */
+  transform: translate3d(0, calc(-50% - 1px), 0);
 }
 .gt-bar:focus-visible {
   outline: 0;

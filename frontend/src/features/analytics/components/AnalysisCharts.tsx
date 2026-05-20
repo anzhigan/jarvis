@@ -157,31 +157,63 @@ export function RoutineCompletionChart({ activity, activeRoutineCount, tasks }: 
   const N = activity.length;
   const xScale = (i: number) => CPAD_L + (i / Math.max(1, N - 1)) * innerW;
 
-  const yTicks = [0, 25, 50, 75, 100].map((v) => ({ v, y: yScale(v) }));
+  const yTicks = useMemo(
+    () => [0, 25, 50, 75, 100].map((v) => ({ v, y: yScale(v) })),
+    // yScale is pure on minY/maxY/innerH which are constants in this render
+    // — recomputing is cheap but caching avoids 5 object allocations / hover.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   // X ticks every ~5 days, label = real calendar date ("May 14"), so a glance
   // at the bottom tells the user when they actually were active.
-  const fmtTick = (iso: string) => {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-  };
-  const tickEvery = N > 60 ? 14 : N > 30 ? 7 : 5;
-  const xTicks = Array.from({ length: N }, (_, i) => i)
-    .filter((i) => i === 0 || i === N - 1 || i % tickEvery === 0)
-    .map((i) => ({ x: xScale(i), label: fmtTick(activity[i].date) }));
+  const xTicks = useMemo(() => {
+    const fmtTick = (iso: string) => {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    };
+    const tickEvery = N > 60 ? 14 : N > 30 ? 7 : 5;
+    return Array.from({ length: N }, (_, i) => i)
+      .filter((i) => i === 0 || i === N - 1 || i % tickEvery === 0)
+      .map((i) => ({ x: xScale(i), label: fmtTick(activity[i].date) }));
+    // xScale closes over N + innerW, both stable per render of this branch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activity, N]);
 
   const showRoutines = mode === 'routines' || mode === 'both';
   const showGoals    = mode === 'goals'    || mode === 'both';
   const showPace     = (mode === 'goals' || mode === 'both') && pace.available;
 
-  const routinesLine = showRoutines && routinesSeries.length > 0
-    ? linePathFor(routinesSeries, xScale, yScale) : '';
-  const goalsLine = showGoals && goalsSeries.length > 0
-    ? linePathFor(goalsSeries, xScale, yScale) : '';
-
+  // Path strings are pure derivations from the series + scales — memoise so
+  // hovering the chart (which bumps `hoverIdx` on every mousemove) doesn't
+  // rebuild N-point Bezier strings on every tick.
   const baseY = yScale(0);
-  const routinesArea = routinesLine ? areaPathFor(routinesLine, xScale(0), xScale(routinesSeries.length - 1), baseY) : '';
-  const goalsArea    = goalsLine    ? areaPathFor(goalsLine,    xScale(0), xScale(goalsSeries.length - 1),    baseY) : '';
+  const routinesLine = useMemo(
+    () => (showRoutines && routinesSeries.length > 0
+      ? linePathFor(routinesSeries, xScale, yScale) : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showRoutines, routinesSeries, N],
+  );
+  const goalsLine = useMemo(
+    () => (showGoals && goalsSeries.length > 0
+      ? linePathFor(goalsSeries, xScale, yScale) : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showGoals, goalsSeries, N],
+  );
+  const routinesArea = useMemo(
+    () => (routinesLine
+      ? areaPathFor(routinesLine, xScale(0), xScale(routinesSeries.length - 1), baseY)
+      : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [routinesLine, routinesSeries.length, N],
+  );
+  const goalsArea = useMemo(
+    () => (goalsLine
+      ? areaPathFor(goalsLine, xScale(0), xScale(goalsSeries.length - 1), baseY)
+      : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [goalsLine, goalsSeries.length, N],
+  );
 
   // Pace line — straight reference at "expected pct" so the user reads
   // it as "where you should be on average right now". Slight band for

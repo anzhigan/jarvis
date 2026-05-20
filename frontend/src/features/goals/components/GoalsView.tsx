@@ -529,11 +529,15 @@ export default function GoalsView() {
         </div>
 
         {view.mode === 'timeline' ? (
-          <div className="content-scroll">
+          // `key` on view-mode container → React remounts on switch and our
+          // .view-fade-in keyframe runs each time, giving a subtle wash-in
+          // instead of a hard cut between Kanban / Timeline / Go.
+          <div key="view-timeline" className="content-scroll view-fade-in">
             <GoalsTimelineView tasks={goals.tasks} onSelectGoal={onSelectGoal} />
           </div>
         ) : view.mode === 'go' ? (
           <GoView
+            key="view-go"
             gos={gos.gos}
             goals={goals.tasks}
             mode={goMode}
@@ -546,7 +550,11 @@ export default function GoalsView() {
             onEditGo={onEditGo}
           />
         ) : (
-          <div className="content-scroll" style={{ overflowX: 'auto' }}>
+          <div
+            key="view-kanban"
+            className="content-scroll view-fade-in"
+            style={{ overflowX: 'auto' }}
+          >
             {/* Filter row above kanban — single-select status + multi-select tags. */}
             <div className="kanban-filters">
               <div className="kanban-filters-group">

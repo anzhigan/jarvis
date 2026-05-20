@@ -4023,3 +4023,23 @@
   font-size: 11.5px; line-height: 1.4;
   color: var(--ink-4);
 }
+
+/* ── View-mode crossfade ───────────────────────────────────────────────
+ * Tiny wash-in on view switch. 4px y-shift in + opacity from 0.4. Short
+ * enough to feel snappy, long enough to register that something happened.
+ * Respects prefers-reduced-motion via the global override in index.css. */
+@keyframes view-fade-in-kf {
+  from { opacity: 0.4; transform: translate3d(0, 4px, 0); }
+  to   { opacity: 1;   transform: translate3d(0, 0,   0); }
+}
+.view-fade-in {
+  animation: view-fade-in-kf var(--dur-med) var(--ease) both;
+  /* GPU-friendly: declare what we'll animate before it starts so the
+     browser can lift the layer ahead of time. */
+  will-change: opacity, transform;
+}
+.view-fade-in:not(:hover):not(:focus-within) {
+  /* Drop the layer hint once interaction starts — keeps the compositor
+     from holding a layer for every long-lived view container. */
+  will-change: auto;
+}
