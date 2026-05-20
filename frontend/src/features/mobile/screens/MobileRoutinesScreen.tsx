@@ -45,22 +45,6 @@ function cellStateOf(r: Routine, entry: RoutineEntry | undefined): CellState {
   return 'done';
 }
 
-/** Best streak ever — pure helper. */
-function bestStreak(r: Routine): number {
-  if (r.entries.length === 0) return 0;
-  const sorted = [...r.entries].filter((e) => e.value > 0).map((e) => e.date).sort();
-  if (sorted.length === 0) return 0;
-  let best = 1, cur = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(sorted[i - 1]);
-    const here = new Date(sorted[i]);
-    const diff = Math.round((here.getTime() - prev.getTime()) / 86_400_000);
-    if (diff === 1) { cur++; if (cur > best) best = cur; }
-    else cur = 1;
-  }
-  return best;
-}
-
 export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }: Props) {
   const lib = useRoutines();
   const goalsLib = useGoals();
@@ -108,28 +92,21 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
     });
   }, [lib.routines, filter, todayDate]);
 
-  // Header summary.
-  const summary = useMemo(() => {
-    let doneToday = 0, scheduledToday = 0, bestEver = 0, sumPct = 0, denom = 0;
+  // Header subtitle — "N of M done today" so the user gets the only stat
+  // they actually look at without occupying a separate plate below.
+  const todayProgress = useMemo(() => {
+    let doneToday = 0, scheduledToday = 0;
     for (const r of lib.routines) {
       const state = routineTodayState(r, todayDate);
       if (state === 'pending' || state === 'done') scheduledToday++;
       if (state === 'done') doneToday++;
-      bestEver = Math.max(bestEver, bestStreak(r));
-      sumPct += completionRate(r, 30);
-      denom++;
     }
-    return {
-      doneToday,
-      scheduledToday,
-      bestEver,
-      overall: denom === 0 ? 0 : Math.round(sumPct / denom),
-    };
+    return { doneToday, scheduledToday };
   }, [lib.routines, todayDate]);
 
   const subtitle = lib.routines.length === 0
     ? 'No routines yet'
-    : `${summary.doneToday} of ${summary.scheduledToday} done today`;
+    : `${todayProgress.doneToday} of ${todayProgress.scheduledToday} done today`;
   const topBar = (
     <MobileTopBar
       title="Routines"
@@ -154,21 +131,6 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
       tab={tab}
       onTabChange={onTabChange}
     >
-      <div className="rt-summary">
-        <div className="rt-sum-cell">
-          <div className="rt-sum-num">{summary.doneToday}<em>/{summary.scheduledToday}</em></div>
-          <div className="rt-sum-lab">Done today</div>
-        </div>
-        <div className="rt-sum-cell">
-          <div className="rt-sum-num">{summary.bestEver}<em>d</em></div>
-          <div className="rt-sum-lab">Best streak</div>
-        </div>
-        <div className="rt-sum-cell">
-          <div className="rt-sum-num">{summary.overall}<em>%</em></div>
-          <div className="rt-sum-lab">30d overall</div>
-        </div>
-      </div>
-
       <div className="status-pills">
         {([
           { k: 'all' as const,      label: `All · ${counts.total}` },

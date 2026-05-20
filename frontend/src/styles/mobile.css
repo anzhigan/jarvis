@@ -1191,62 +1191,6 @@
   }
 
   /* ════════ ROUTINES ════════ */
-  /* Stats plate — three KPIs (Done today / Best streak / 30d overall).
-     Each cell lays out num + label inline (single row) so the whole plate
-     is just ~40px tall instead of ~70. The grid stays 3 equal columns
-     so cells align with the day-cube grid below. */
-  .m-shell .rt-summary {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    background: var(--paper);
-    border: 1px solid var(--hairline-faint);
-    border-radius: var(--r-card, 14px);
-    overflow: hidden;
-    margin-bottom: 12px;
-  }
-  .m-shell .rt-sum-cell {
-    padding: 10px 8px;
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 6px;
-    line-height: 1.1;
-  }
-  .m-shell .rt-sum-cell + .rt-sum-cell {
-    border-left: 1px solid var(--hairline);
-  }
-  .m-shell .rt-sum-num {
-    font-family: var(--font-display);
-    font-size: 18px;
-    font-weight: 500;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
-    line-height: 1;
-    flex: 0 0 auto;
-  }
-  .m-shell .rt-sum-num em {
-    font-family: var(--font-body);
-    font-style: italic;
-    font-weight: 400;
-    color: var(--ink-4);
-    font-size: 12px;
-  }
-  .m-shell .rt-sum-lab {
-    font-family: var(--font-ui);
-    font-size: 9.5px;
-    color: var(--ink-4);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 0;
-    font-weight: 500;
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .rt-list {
     display: flex;
     flex-direction: column;
