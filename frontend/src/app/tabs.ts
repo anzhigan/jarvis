@@ -11,3 +11,14 @@ export function sectionForTab(tab: Tab): string {
   if (tab === 'tasks') return 'goals';
   return tab;
 }
+
+/** Inverse of `sectionForTab`. Used by AI toast/job nav: AI jobs carry a
+ *  `source.section` payload ("goals", "notes", "analysis", "sprints"); we
+ *  must translate that back to a Tab value when programmatically switching
+ *  tabs. Passing 'goals' to setTab directly produces an unrenderable tab
+ *  state (no switch arm matches) — the user sees a white screen. */
+export function tabForSection(section: string): Tab | null {
+  if (section === 'goals') return 'tasks';
+  if (VALID_TABS.includes(section as Tab)) return section as Tab;
+  return null;
+}

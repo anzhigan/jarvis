@@ -51,6 +51,20 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
   const [level, setLevel] = useState<CurrentLevel>({ kind: 'root' });
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
 
+  // AI toast/panel re-open protocol: when user picks a quiz job, the toast
+  // stack navigates to "notes" + dispatches an openNote event with the
+  // target note id. MobileNoteEditor then catches the AI_JOB_OPEN_EVENT
+  // for itself. Without this listener the user would land on the notes
+  // list instead of the editor where the quiz sheet renders.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id) setOpenNoteId(id);
+    };
+    window.addEventListener('jarvnote:openNote', handler);
+    return () => window.removeEventListener('jarvnote:openNote', handler);
+  }, []);
+
   // Bottom-sheet add forms
   const [wayFormOpen, setWayFormOpen] = useState(false);
   const [topicFormOpen, setTopicFormOpen] = useState<{ wayId: string; wayName: string } | null>(null);

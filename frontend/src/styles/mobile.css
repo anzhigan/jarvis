@@ -52,18 +52,21 @@
   }
   .top-bar__compact {
     height: 60px;
-    display: grid;
-    grid-template-columns: minmax(36px, auto) 1fr minmax(36px, auto);
+    display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
-  /* Heading slot — title left, subtitle stacked under it. min-width: 0 so
-     long titles ellipsize instead of pushing the avatar off-screen. */
+  /* Heading slot — title LEFT, subtitle stacked under it. flex:1 forces it
+     to take all remaining space between back-slot and avatar so the title
+     anchors to the left edge and the avatar to the right (not bunched
+     together). min-width:0 lets long titles ellipsize cleanly. */
   .top-bar__heading {
+    flex: 1 1 auto;
     min-width: 0;
     line-height: 1.2;
     text-align: left;
   }
+  .top-bar .tb-side { flex: 0 0 auto; }
   .top-bar__title {
     font-family: var(--font-display);
     font-size: 19px;
@@ -1602,13 +1605,15 @@
   }
   .sprint-disc {
     background: var(--paper);
-    border: 1px solid var(--hairline-strong);
-    border-radius: 14px;
-    padding: 18px;
+    border: 1px solid var(--hairline-faint);
+    border-radius: var(--r-card, 14px);
+    padding: 14px;
     box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
     position: relative;
     overflow: hidden;
   }
+  .sd-title { font-size: 16px !important; }
+  .sd-period { font-size: 10.5px !important; margin-bottom: 10px !important; }
   /* Top accent strip — paints the sprint's chosen color (--gc). */
   .sd-accent {
     position: absolute;
@@ -1618,16 +1623,16 @@
   }
   .sd-disc-row {
     display: grid;
-    grid-template-columns: 130px 1fr;
+    grid-template-columns: 92px 1fr;
     gap: 14px;
     align-items: center;
   }
   .sd-disc-svg-wrap {
     position: relative;
-    width: 130px;
-    height: 130px;
+    width: 92px;
+    height: 92px;
   }
-  .sd-disc-svg { width: 130px; height: 130px; display: block; }
+  .sd-disc-svg { width: 92px; height: 92px; display: block; }
   .sd-ring-bg    { stroke: var(--cream); }
   /* Outer ring (time) takes the sprint's chosen color. */
   .sd-ring-time  { stroke: var(--gc, var(--indigo)); transition: stroke-dashoffset 320ms ease; }
@@ -1643,19 +1648,19 @@
   }
   .sd-disc-num {
     font-family: var(--font-display);
-    font-size: 34px;
+    font-size: 24px;
     font-weight: 500;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.03em;
     line-height: 1;
     color: var(--ink);
   }
   .sd-disc-cap {
     font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 0.14em;
+    font-size: 8.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--ink-4);
-    margin-top: 4px;
+    margin-top: 3px;
   }
   .sd-pre-title {
     font-family: var(--font-mono);
@@ -1994,9 +1999,13 @@
     margin-top: 8px;
   }
   .m-shell .m-mc-cell {
-    flex: 1;
+    /* Fixed compact cubes — not stretched. Matches the day-cell vocabulary
+       on the Routines list (uniform across all cells, no "today is small,
+       rest are big" inconsistency). */
+    flex: 0 0 12px;
+    width: 12px;
     height: 12px;
-    border-radius: 3px;
+    border-radius: 2px;
     background: var(--cream);
   }
   .m-shell .m-mc[data-done] .m-mc-cell { background: var(--paper); }
@@ -3482,20 +3491,43 @@
   }
   .m-ai-toast {
     pointer-events: auto;
-    background: rgba(42, 41, 34, 0.94);
+    position: relative;
+    /* Premium AI-vibe: deep indigo gradient + iridescent edge halo via two
+       layered box-shadows. Light text reads as a "system feedback" capsule
+       rather than blending into content. */
+    background: linear-gradient(135deg,
+      rgba(46, 56, 122, 0.96) 0%,
+      rgba(76, 95, 178, 0.96) 55%,
+      rgba(102, 119, 196, 0.96) 100%);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     color: var(--paper);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 12px 14px;
     display: flex; align-items: center; gap: 12px;
-    box-shadow: 0 8px 20px rgba(15, 24, 32, 0.22);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+      0 0 22px rgba(76, 95, 178, 0.45),
+      0 10px 28px rgba(15, 24, 32, 0.28);
     animation: mAiToastIn 280ms var(--ease-emph, cubic-bezier(0.32, 0.72, 0, 1));
     cursor: pointer;
     border: 0;
     width: 100%;
     text-align: left;
     font: inherit;
+    overflow: hidden;
+  }
+  /* Soft iridescent sheen — diagonal highlight across the top-left corner,
+     adds a subtle "premium" hint without animation. */
+  .m-ai-toast::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      transparent 45%);
+    pointer-events: none;
+    border-radius: inherit;
   }
   .m-ai-toast--shake { animation: mAiToastShake 500ms ease; }
   @keyframes mAiToastIn {
@@ -3510,29 +3542,40 @@
     80%      { transform: translateX(3px); }
   }
   .m-ai-toast__spark {
-    width: 34px; height: 34px;
+    width: 36px; height: 36px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--indigo), var(--indigo-2));
+    background: linear-gradient(135deg, #fbfaf6 0%, #d7dcf0 100%);
     display: grid; place-items: center;
     flex-shrink: 0;
     position: relative;
+    z-index: 1;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.35) inset,
+      0 2px 6px rgba(15, 24, 32, 0.25);
   }
   .m-ai-toast__spark[data-pulsing]::before {
+    /* Outer glow halo — bright cyan-ish bloom radiating from the sparkle
+       while AI is working. Stronger than before; the toast is over a
+       darker indigo so the halo reads clearly. */
     content: '';
-    position: absolute; inset: -4px;
+    position: absolute; inset: -8px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--indigo), var(--indigo-2));
-    opacity: 0.35;
-    filter: blur(6px);
+    background: radial-gradient(closest-side,
+      rgba(220, 230, 255, 0.55) 0%,
+      transparent 70%);
     z-index: -1;
-    animation: mAiSparkPulse 1.8s ease-in-out infinite;
+    animation: mAiSparkPulse 1.6s ease-in-out infinite;
   }
   @keyframes mAiSparkPulse {
-    0%, 100% { opacity: 0.25; }
-    50%      { opacity: 0.55; }
+    0%, 100% { opacity: 0.45; transform: scale(0.95); }
+    50%      { opacity: 0.90; transform: scale(1.10); }
   }
-  .m-ai-toast__spark svg { width: 16px; height: 16px; color: var(--paper); }
-  .m-ai-toast__body { flex: 1; min-width: 0; }
+  .m-ai-toast__spark svg {
+    width: 18px; height: 18px;
+    color: var(--indigo);
+    filter: drop-shadow(0 0 4px rgba(102, 119, 196, 0.5));
+  }
+  .m-ai-toast__body { flex: 1; min-width: 0; position: relative; z-index: 1; }
   .m-ai-toast__title {
     font-family: var(--font-ui);
     font-size: 13.5px;
@@ -3541,12 +3584,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(15, 24, 32, 0.15);
   }
   .m-ai-toast__queue {
     display: inline-block;
     margin-left: 6px;
     padding: 1px 7px;
-    background: rgba(251, 250, 246, 0.18);
+    background: rgba(255, 255, 255, 0.22);
     border-radius: 8px;
     font-family: var(--font-mono);
     font-size: 10.5px;
@@ -3556,7 +3600,7 @@
   .m-ai-toast__sub {
     font-family: var(--font-mono);
     font-size: 11px;
-    color: rgba(251, 250, 246, 0.62);
+    color: rgba(251, 250, 246, 0.78);
     margin-top: 1px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3564,31 +3608,34 @@
   }
   .m-ai-toast__bar {
     height: 3px;
-    background: rgba(251, 250, 246, 0.15);
+    background: rgba(15, 24, 32, 0.25);
     border-radius: 2px;
     overflow: hidden;
     margin-top: 6px;
   }
   .m-ai-toast__bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--indigo), var(--indigo-2));
+    background: linear-gradient(90deg, #d7dcf0, #fbfaf6);
     transition: width 600ms ease;
+    box-shadow: 0 0 6px rgba(220, 230, 255, 0.6);
   }
   .m-ai-toast[data-state="done"]      .m-ai-toast__bar-fill { background: var(--moss); }
   .m-ai-toast[data-state="failed"]    .m-ai-toast__bar-fill { background: var(--rust); }
   .m-ai-toast[data-state="cancelled"] .m-ai-toast__bar-fill { background: var(--ink-4); }
   .m-ai-toast__close {
-    width: 26px; height: 26px;
+    width: 28px; height: 28px;
     border-radius: 50%;
-    background: rgba(251, 250, 246, 0.12);
-    color: rgba(251, 250, 246, 0.78);
+    background: rgba(255, 255, 255, 0.18);
+    color: var(--paper);
     border: 0;
     display: grid; place-items: center;
     flex-shrink: 0;
     cursor: pointer;
+    position: relative;
+    z-index: 1;
   }
-  .m-ai-toast__close:active { background: rgba(251, 250, 246, 0.20); }
-  .m-ai-toast__close svg { width: 14px; height: 14px; }
+  .m-ai-toast__close:active { background: rgba(255, 255, 255, 0.30); }
+  .m-ai-toast__close svg { width: 14px; height: 14px; stroke-width: 2.2; }
 
   /* ── AI jobs panel rows ───────────────────────────────────────────── */
   .m-ai-job {
@@ -3644,17 +3691,17 @@
   .m-ai-job__sub[data-state="failed"] { color: var(--rust); }
   .m-ai-job__sub[data-state="done"]   { color: var(--moss); }
   .m-ai-job__x {
-    width: 30px; height: 30px;
+    width: 32px; height: 32px;
     border-radius: 50%;
     background: var(--cream);
-    border: 0;
-    color: var(--ink-4);
+    border: 1px solid var(--hairline);
+    color: var(--ink-2);
     display: grid; place-items: center;
     flex-shrink: 0;
     cursor: pointer;
   }
-  .m-ai-job__x:active { background: var(--hairline); }
-  .m-ai-job__x svg { width: 13px; height: 13px; }
+  .m-ai-job__x:active { background: var(--hairline); color: var(--ink); }
+  .m-ai-job__x svg { width: 15px; height: 15px; stroke-width: 2.2; }
 
   .m-ai-empty {
     padding: 32px 16px;

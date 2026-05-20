@@ -7,7 +7,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { applyTheme, getStoredTheme, resolveTheme, watchSystemTheme } from '../lib/theme';
 import { MobileApp } from './MobileApp';
 import { DesktopApp } from './DesktopApp';
-import { VALID_TABS, type Tab } from './tabs';
+import { VALID_TABS, tabForSection, type Tab } from './tabs';
 
 // Lazy: only loaded once the user starts an AI generation. Tiny but pulls
 // the AIGenerationToast bundle including pulse animation styles. Two
@@ -68,7 +68,15 @@ function AuthenticatedApp() {
   }, []);
 
   useEffect(() => {
-    const handler = (e: Event) => setTab((e as CustomEvent<Tab>).detail);
+    // AI toast / panel dispatches navigate events with `section` values
+    // ("goals", "notes", etc.) — not Tab values. Map them through
+    // tabForSection so we never set tab to an unrenderable string
+    // (which previously produced a white-screen on AI ready click).
+    const handler = (e: Event) => {
+      const raw = (e as CustomEvent<string>).detail;
+      const next = tabForSection(raw);
+      if (next) setTab(next);
+    };
     window.addEventListener('jarvnote:navigate', handler);
     return () => window.removeEventListener('jarvnote:navigate', handler);
   }, []);
