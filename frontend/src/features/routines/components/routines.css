@@ -301,7 +301,7 @@
    calendar's height. */
 .rt-row-expanded__layout {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 260px) minmax(0, 260px);
   gap: 20px;
   align-items: flex-start;
 }
