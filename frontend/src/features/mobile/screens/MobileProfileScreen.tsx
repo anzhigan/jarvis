@@ -83,6 +83,7 @@ export default function MobileProfileScreen({
   const topBar = (
     <MobileTopBar
       title="Profile"
+      mode="compact"
       leftSlot={
         <button
           type="button"

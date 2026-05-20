@@ -3,19 +3,93 @@
    etc.) was stripped — those wrap the static mockups in the HTML preview, not
    the live app. The live app fills the viewport via .m-shell. */
 
-  /* Top bar */
+  /* ═══ Mobile-specific design tokens ═══════════════════════════════════════
+     Tuned for iOS 17/18 over the shared Jarvnote token base (tokens.css).
+     Specifies tap-target floors, sheet radii, translucent materials with
+     backdrop blur, and Apple-style spring easings. Apply via `.m-shell` so
+     the desktop stays unaffected even when both stylesheets are loaded. */
+  .m-shell {
+    /* Touch surface min (Apple HIG: 44pt) */
+    --tap:        44px;
+    --tap-snug:   36px;
+
+    /* iOS-tuned radii */
+    --r-button:   12px;
+    --r-cell:     10px;
+    --r-card:     14px;
+    --r-sheet:    24px;
+    --r-pill:     999px;
+
+    /* Material — translucent over content with backdrop blur */
+    --material-thin:  rgba(251, 250, 246, 0.72);
+    --material:       rgba(251, 250, 246, 0.85);
+    --material-thick: rgba(251, 250, 246, 0.95);
+    --blur:           20px;
+
+    /* Shadows + motion (Apple spring-feel for sheets / sliders) */
+    --sh-fab:    0 6px 16px rgba(76, 95, 178, 0.30);
+    --sh-sheet:  0 -8px 24px rgba(15, 24, 32, 0.10);
+    --ease-emph: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  /* Dark theme equivalents for materials — body has data-theme="dark". */
+  [data-theme="dark"] .m-shell {
+    --material-thin:  rgba(20, 18, 16, 0.65);
+    --material:       rgba(20, 18, 16, 0.80);
+    --material-thick: rgba(20, 18, 16, 0.92);
+  }
+
+  /* Top bar — compact slot (always rendered) + optional large-title block
+     below. The compact slot is the bar the screen always shows; large-title
+     is below it for sectional screens (Notes / Routines / Goals home).
+     When scrolled the large block collapses (handled per-screen via
+     data-collapsed if needed). */
   .top-bar {
     flex-shrink: 0;
+    padding: 0 16px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--hairline-faint);
+    position: relative;
+    z-index: 5;
+  }
+  .top-bar__compact {
+    height: 52px;
+    display: grid;
+    grid-template-columns: minmax(36px, auto) 1fr minmax(36px, auto);
+    align-items: center;
+    gap: 8px;
+  }
+  .top-bar__large {
+    padding: 2px 2px 12px;
+  }
+  .top-bar__large-title {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    color: var(--ink);
+  }
+  .top-bar__large-title em {
+    font-style: italic;
+    color: var(--indigo);
+  }
+  .top-bar__large-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
+    margin-top: 4px;
+    letter-spacing: 0.02em;
+  }
+
+  /* Legacy single-line top-bar layout — kept for screens that haven't
+     migrated to compact+large yet (e.g. Notes, Sprints). */
+  .top-bar[data-legacy] {
     height: 56px;
     padding: 0 14px;
     display: grid;
     grid-template-columns: minmax(56px, auto) 1fr minmax(56px, auto);
     align-items: center;
     gap: 8px;
-    border-bottom: 1px solid var(--hairline-faint);
-    background: var(--paper);
-    position: relative;
-    z-index: 5;
   }
   .tb-side { display: inline-flex; align-items: center; gap: 4px; }
   .tb-side-right { justify-content: flex-end; }
@@ -76,15 +150,20 @@
     background: var(--paper);
   }
 
-  /* Bottom tab bar */
+  /* Bottom tab bar — translucent material with backdrop blur, iOS-style.
+     Sits above the scrollable content; the blur lets the user feel that
+     content is sliding underneath. Safe-area padding keeps icons clear of
+     the home-indicator. */
   .tab-bar {
     flex-shrink: 0;
-    height: 70px;
-    padding: 6px 8px 0;
+    height: 78px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    border-top: 1px solid var(--hairline);
-    background: var(--paper);
+    border-top: 1px solid var(--hairline-faint);
+    background: var(--material, var(--paper));
+    -webkit-backdrop-filter: blur(var(--blur, 20px));
+    backdrop-filter: blur(var(--blur, 20px));
     position: relative;
     z-index: 5;
   }
@@ -95,7 +174,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 4px;
+    gap: 3px;
     padding: 6px 4px;
     color: var(--ink-4);
     cursor: pointer;
@@ -2533,19 +2612,24 @@
     position: fixed; left: 0; right: 0; bottom: 0;
     z-index: 101;
     background: var(--paper);
-    border-radius: 18px 18px 0 0;
+    border-radius: var(--r-sheet, 24px) var(--r-sheet, 24px) 0 0;
     max-height: 88dvh;
     display: flex; flex-direction: column;
-    box-shadow: 0 -10px 30px rgba(15, 24, 32, 0.18);
-    animation: mBsSlideUp 240ms cubic-bezier(0.32, 0.72, 0.30, 1);
+    box-shadow: var(--sh-sheet, 0 -8px 24px rgba(15, 24, 32, 0.10));
+    /* iOS spring-like ease — keeps the sheet feeling tactile rather than
+       linear. Same curve we use for the trans-detent drag in production. */
+    animation: mBsSlideUp 280ms var(--ease-emph, cubic-bezier(0.32, 0.72, 0, 1));
   }
   .m-bs-content::before {
+    /* Grabber pill — apple's standard cue that the sheet is draggable.
+       38×5pt at 40% opacity matches iOS native presentation modals. */
     content: '';
     display: block;
-    width: 36px; height: 4px;
-    background: var(--hairline-strong);
-    border-radius: 2px;
-    margin: 8px auto 0;
+    width: 38px; height: 5px;
+    background: var(--ink-5);
+    opacity: 0.4;
+    border-radius: 3px;
+    margin: 6px auto 0;
   }
   .m-bs-head {
     display: flex; align-items: flex-start; justify-content: space-between;

@@ -71,7 +71,7 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
         flexDirection: 'column',
       }}
     >
-      <header className="top-bar">
+      <header className="top-bar" data-legacy>
         <div className="tb-side">
           <button
             type="button"

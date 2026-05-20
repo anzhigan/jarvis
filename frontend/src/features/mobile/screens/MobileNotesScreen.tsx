@@ -153,7 +153,18 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
       </button>
     );
   }
-  const topBar = <MobileTopBar title={title} subtitle={subtitle} leftSlot={leftSlot} onAvatarClick={onAvatarClick} />;
+  // Compact bar for nested levels (way / topic — they carry a back arrow
+   // already); large-title for the root. Keeps vertical space tight when
+   // the user is deep in the tree.
+  const topBar = (
+    <MobileTopBar
+      title={title}
+      subtitle={subtitle}
+      leftSlot={leftSlot}
+      onAvatarClick={onAvatarClick}
+      mode={level.kind === 'root' ? 'large' : 'compact'}
+    />
+  );
 
   // ── Body ──────────────────────────────────────────────────────────────────
   const q = search.trim().toLowerCase();
