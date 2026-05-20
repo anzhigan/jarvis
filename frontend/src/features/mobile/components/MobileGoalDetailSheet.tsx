@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Flag, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { aiApi } from '../../../api/client';
@@ -69,6 +69,13 @@ export function MobileGoalDetailSheet({
 }: Props) {
   const addBgJob = useAIJobsStore((s) => s.add);
   const [aiOpen, setAiOpen] = useState(false);
+
+  // Optimistic status — segmented control reflects the user's pick
+  // immediately, even before `onStatusChange` round-trips through the
+  // server. Falls back to `task.status` once a fresh prop lands (the
+  // useEffect resets local state whenever the task object changes).
+  const [optimisticStatus, setOptimisticStatus] = useState<TaskStatus | null>(null);
+  useEffect(() => { setOptimisticStatus(null); }, [task?.id, task?.status]);
 
   // Memo schedules → don't recompute on every parent re-render while the
   // sheet is open. Safe to call when task is null — produces empty/zero
@@ -159,8 +166,14 @@ export function MobileGoalDetailSheet({
           }}>Status</div>
           <MobileSegmented
             options={STATUS_OPTIONS}
-            value={task.status}
-            onChange={onStatusChange}
+            value={optimisticStatus ?? task.status}
+            onChange={(next) => {
+              // Optimistic — flip the segmented immediately, then fire the
+              // network call. The local state resets when a refreshed task
+              // prop lands (useEffect on task.id/task.status).
+              setOptimisticStatus(next);
+              onStatusChange(next);
+            }}
             ariaLabel="Goal status"
           />
         </div>

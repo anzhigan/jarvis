@@ -105,12 +105,19 @@ export function MobileAIToast({
   else if (isFailed) pct = 100;
   else if (isRunning && eta > 0) pct = Math.min(95, (elapsed / eta) * 100);
 
+  // Outer is a div with role=button so the inner Dismiss <button> stays
+  // semantically valid (HTML forbids nested buttons). Tab-focusable via
+  // tabIndex=0; same protocol as desktop AIGenerationToast.
   return (
-    <button
-      type="button"
+    <div
       className={`m-ai-toast${shake ? ' m-ai-toast--shake' : ''}`}
       data-state={job.status}
       onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); }
+      }}
+      role="button"
+      tabIndex={0}
       aria-label="Open AI jobs"
     >
       <span className="m-ai-toast__spark" data-pulsing={isWorking || undefined}>
@@ -147,14 +154,14 @@ export function MobileAIToast({
           </>
         )}
       </div>
-      <span
+      <button
+        type="button"
         className="m-ai-toast__close"
-        role="button"
         aria-label="Dismiss"
         onClick={(e) => { e.stopPropagation(); onDismiss(); }}
       >
         <X size={14} />
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useGoals } from '../../goals/hooks/useGoals';
 import { useGos } from '../../goals/hooks/useGos';
@@ -37,6 +37,9 @@ export default function MobileAnalysisScreen({ tab, onTabChange, onAvatarClick }
   // index into the `dates` array; `null` = no day selected. We open the
   // detail sheet whenever it's set and close (= null) on dismiss.
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  // Reset on period change — otherwise a `selectedIdx` from 30d view stays
+  // pinned when the user switches to 7d, pointing past the new array end.
+  useEffect(() => { setSelectedIdx(null); }, [period]);
 
   // ── Date helpers ───────────────────────────────────────────────────────────
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
