@@ -291,6 +291,163 @@
   border-top: 0;
   padding: 14px 18px 16px;
 }
+/* Two-column layout: calendar on the left, trend + rhythm stacked on the
+   right. Calendar caps at 360px (rt-month max-width), the side pane fills
+   the remainder. Wraps to a single column under ~720px so the calendar
+   doesn't compress past its 7-col grid threshold. */
+.rt-row-expanded__layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.rt-row-expanded__layout > .rt-month { flex: 0 0 auto; }
+.rt-row-expanded__layout > .rt-side {
+  flex: 1 1 280px;
+  min-width: 240px;
+  max-width: 460px;
+}
+
+/* ── Side pane: trend chart + rhythm card ──────────────────────────── */
+.rt-side {
+  display: flex; flex-direction: column;
+  gap: 14px;
+}
+.rt-side__sec {
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+.rt-side__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-ui);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.rt-side__head-stat {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.rt-side__head-stat em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-left: 1px;
+}
+.rt-side__foot {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-5);
+}
+
+/* Trend chart — 30 daily columns, bar height = value/target ratio. Boolean
+   routines render full-height bars on done days and a thin baseline tick
+   on missed-scheduled days. */
+.rt-trend {
+  display: grid;
+  grid-template-columns: repeat(30, 1fr);
+  align-items: end;
+  gap: 2px;
+  height: 60px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--hairline-faint);
+}
+.rt-trend__col {
+  display: flex; align-items: flex-end;
+  height: 100%;
+  min-width: 0;
+}
+.rt-trend__bar {
+  width: 100%;
+  border-radius: 1.5px 1.5px 0 0;
+  background: var(--hairline);
+  min-height: 2px;
+  transition: opacity var(--dur-fast);
+}
+.rt-trend__col[data-hit] .rt-trend__bar { background: var(--moss); }
+.rt-trend__col[data-scheduled]:not([data-hit]) .rt-trend__bar {
+  background: var(--rust);
+  opacity: 0.55;
+}
+
+/* Rhythm card — arrow + this-week stat + 4-week avg comparison */
+.rt-rhythm {
+  display: flex; align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-faint);
+  border-radius: var(--r-control);
+}
+.rt-rhythm__arrow {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+}
+.rt-rhythm[data-tone="above"] .rt-rhythm__arrow { color: var(--moss); }
+.rt-rhythm[data-tone="below"] .rt-rhythm__arrow { color: var(--rust); }
+.rt-rhythm__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rt-rhythm__line {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.rt-rhythm__line strong {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.rt-rhythm__sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+}
+.rt-rhythm__sub em {
+  font-style: normal;
+  color: var(--ink-3);
+}
+.rt-rhythm__streaks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 2px;
+}
+.rt-rhythm__streak {
+  display: flex; flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-faint);
+  border-radius: var(--r-control);
+}
+.rt-rhythm__streak-num {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1;
+}
+.rt-rhythm__streak-num em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-left: 1px;
+}
+.rt-rhythm__streak-lbl {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--ink-5);
+  letter-spacing: 0.02em;
+}
 .rt-row[data-expanded] {
   background: var(--cream);
 }

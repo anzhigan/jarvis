@@ -11,6 +11,7 @@ import {
 import { RoutineDetailPanel } from './RoutineDetailPanel';
 import { RoutineCreateDialog } from './RoutineCreateDialog';
 import { RoutineHistoryHeatmap } from './RoutineHistoryHeatmap';
+import { RoutineExpandedDetails } from './RoutineExpandedDetails';
 import './routines.css';
 
 const HISTORY_DAYS = 14;
@@ -398,7 +399,10 @@ export default function RoutinesView() {
                             onClick={(e) => e.stopPropagation()}
                           >
                             <td colSpan={5} className="rt-row-expanded__cell">
-                              <RoutineHistoryHeatmap routine={r} heading={null} />
+                              <div className="rt-row-expanded__layout">
+                                <RoutineHistoryHeatmap routine={r} heading={null} />
+                                <RoutineExpandedDetails routine={r} />
+                              </div>
                             </td>
                           </tr>
                         )}
