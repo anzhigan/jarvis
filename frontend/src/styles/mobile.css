@@ -38,47 +38,55 @@
     --material-thick: rgba(20, 18, 16, 0.92);
   }
 
-  /* Top bar — compact slot (always rendered) + optional large-title block
-     below. The compact slot is the bar the screen always shows; large-title
-     is below it for sectional screens (Notes / Routines / Goals home).
-     When scrolled the large block collapses (handled per-screen via
-     data-collapsed if needed). */
+  /* Top bar — single row, title LEFT, avatar RIGHT.
+     The earlier iOS-style 32px Fraunces "large title" pattern lived BELOW
+     the compact bar — that pushed the avatar visually above the title and
+     ate too much vertical space. Single row reads better in this app. */
   .top-bar {
     flex-shrink: 0;
-    padding: 0 16px;
+    padding: 0 14px;
     background: var(--paper);
     border-bottom: 1px solid var(--hairline-faint);
     position: relative;
     z-index: 5;
   }
   .top-bar__compact {
-    height: 52px;
+    height: 60px;
     display: grid;
     grid-template-columns: minmax(36px, auto) 1fr minmax(36px, auto);
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
-  .top-bar__large {
-    padding: 2px 2px 12px;
+  /* Heading slot — title left, subtitle stacked under it. min-width: 0 so
+     long titles ellipsize instead of pushing the avatar off-screen. */
+  .top-bar__heading {
+    min-width: 0;
+    line-height: 1.2;
+    text-align: left;
   }
-  .top-bar__large-title {
+  .top-bar__title {
     font-family: var(--font-display);
-    font-size: 32px;
+    font-size: 19px;
     font-weight: 500;
-    letter-spacing: -0.02em;
-    line-height: 1.05;
+    letter-spacing: -0.01em;
     color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .top-bar__large-title em {
+  .top-bar__title em {
     font-style: italic;
     color: var(--indigo);
   }
-  .top-bar__large-sub {
+  .top-bar__sub {
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-4);
-    margin-top: 4px;
+    margin-top: 2px;
     letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Legacy single-line top-bar layout — kept for screens that haven't
@@ -287,7 +295,7 @@
     flex-direction: column;
     gap: 10px;
   }
-  .note-card {
+  .m-shell .note-card {
     background: var(--paper);
     border: 1px solid var(--hairline-faint);
     border-radius: var(--r-card, 14px);
@@ -357,7 +365,7 @@
     flex-direction: column;
     gap: 10px;
   }
-  .goal-card {
+  .m-shell .goal-card {
     position: relative;
     background: var(--paper);
     border: 1px solid var(--hairline-faint);
@@ -369,7 +377,7 @@
   /* Step card — Constellation variant. Each go is a node on a dotted path
      between start/finish; done = filled with --gc, current = haloed,
      pending = outlined. Tap a node to toggle the go done. */
-  .goal-card-step { background: var(--paper); }
+  .m-shell .goal-card-step { background: var(--paper); }
   .step-cn-head {
     display: flex;
     justify-content: space-between;
@@ -716,7 +724,7 @@
   .fp-pill svg { width: 10px; height: 10px; }
 
   /* ════════ GO ════════ */
-  .go-summary {
+  .m-shell .go-summary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     background: var(--paper);
@@ -763,7 +771,7 @@
     flex-direction: column;
     gap: 10px;
   }
-  .tg-card {
+  .m-shell .tg-card {
     background: var(--paper);
     border: 1px solid var(--hairline-faint);
     border-radius: var(--r-card, 14px);
@@ -773,15 +781,15 @@
   /* Tinted backgrounds use color-mix instead of rgba(*-soft) so they stay
      opaque — translucent fills bleed swipe-action buttons through the card
      during gestures. */
-  .tg-card[data-done] {
+  .m-shell .tg-card[data-done] {
     background: color-mix(in srgb, var(--moss) 16%, var(--paper));
     border-color: rgba(107,122,79,0.3);
   }
-  .tg-card[data-partial] {
+  .m-shell .tg-card[data-partial] {
     background: color-mix(in srgb, var(--ochre) 14%, var(--paper));
     border-color: var(--ochre);
   }
-  .tg-card-head {
+  .m-shell .tg-card-head {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -851,7 +859,7 @@
     line-height: 1.2;
     margin: 0 0 12px;
   }
-  .tg-card[data-done] .tg-title { color: var(--ink-3); }
+  .m-shell .tg-card[data-done] .tg-title { color: var(--ink-3); }
 
   .tg-numeric-block {
     display: flex;
@@ -874,8 +882,8 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.025em;
   }
-  .tg-card[data-done] .tg-num-logged { color: var(--moss); }
-  .tg-card[data-partial] .tg-num-logged { color: var(--ochre); }
+  .m-shell .tg-card[data-done] .tg-num-logged { color: var(--moss); }
+  .m-shell .tg-card[data-partial] .tg-num-logged { color: var(--ochre); }
   .tg-num-divider {
     font-family: var(--font-display);
     font-size: 20px;
@@ -928,8 +936,8 @@
     overflow: hidden;
   }
   .tg-progress-fill { height: 100%; background: var(--indigo); }
-  .tg-card[data-done] .tg-progress-fill { background: var(--moss); }
-  .tg-card[data-partial] .tg-progress-fill { background: var(--ochre); }
+  .m-shell .tg-card[data-done] .tg-progress-fill { background: var(--moss); }
+  .m-shell .tg-card[data-partial] .tg-progress-fill { background: var(--ochre); }
   .tg-progress-pct {
     font-family: var(--font-mono);
     font-size: 11px;
@@ -1007,7 +1015,7 @@
   }
 
   /* ════════ STEP ════════ */
-  .step-summary {
+  .m-shell .step-summary {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     background: var(--paper);
@@ -1057,37 +1065,37 @@
     flex-direction: column;
     gap: 8px;
   }
-  .step-card {
+  .m-shell .step-card {
     background: var(--paper);
     border: 1px solid var(--hairline-faint);
     border-radius: var(--r-card, 14px);
     padding: 12px;
     box-shadow: 0 1px 2px rgba(15, 24, 32, 0.04);
   }
-  .step-card[data-status="done"] {
+  .m-shell .step-card[data-status="done"] {
     background: color-mix(in srgb, var(--moss) 16%, var(--paper));
     border-color: rgba(107,122,79,0.3);
     opacity: 0.85;
   }
-  .step-card[data-status="at-risk"] {
+  .m-shell .step-card[data-status="at-risk"] {
     border-color: var(--rust);
     border-width: 1.5px;
   }
-  .step-card[data-status="upcoming"] {
+  .m-shell .step-card[data-status="upcoming"] {
     background: transparent;
     border-style: dashed;
   }
-  .step-card[data-selected] {
+  .m-shell .step-card[data-selected] {
     box-shadow: 0 0 0 2px var(--indigo);
   }
-  .step-card-head {
+  .m-shell .step-card-head {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 8px;
     margin-bottom: 4px;
   }
-  .step-card-title {
+  .m-shell .step-card-title {
     font-family: var(--font-display);
     font-size: 14px;
     font-weight: 500;
@@ -1097,7 +1105,7 @@
     margin: 0;
     flex: 1;
   }
-  .step-card-edit {
+  .m-shell .step-card-edit {
     width: 24px; height: 24px;
     background: transparent;
     border: 0;
@@ -1105,8 +1113,8 @@
     color: var(--ink-4);
     display: inline-flex; align-items: center; justify-content: center;
   }
-  .step-card-edit svg { width: 12px; height: 12px; }
-  .step-card-meta {
+  .m-shell .step-card-edit svg { width: 12px; height: 12px; }
+  .m-shell .step-card-meta {
     display: flex;
     gap: 8px;
     align-items: center;
@@ -1120,32 +1128,32 @@
     color: var(--ink-3);
     font-weight: 500;
   }
-  .step-card-prog {
+  .m-shell .step-card-prog {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
   }
-  .step-card-bar {
+  .m-shell .step-card-bar {
     flex: 1;
     height: 4px;
     background: var(--cream);
     border-radius: 2px;
     overflow: hidden;
   }
-  .step-card-bar-fill {
+  .m-shell .step-card-bar-fill {
     height: 100%;
     background: var(--gc);
   }
-  .step-card[data-status="done"] .step-card-bar-fill { background: var(--moss); }
-  .step-card-pct {
+  .m-shell .step-card[data-status="done"] .step-card-bar-fill { background: var(--moss); }
+  .m-shell .step-card-pct {
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-2);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
   }
-  .step-card-foot {
+  .m-shell .step-card-foot {
     display: flex;
     gap: 8px;
     align-items: center;
@@ -1169,7 +1177,7 @@
   }
 
   /* ════════ ROUTINES ════════ */
-  .rt-summary {
+  .m-shell .rt-summary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     background: var(--paper);
@@ -1178,15 +1186,15 @@
     overflow: hidden;
     margin-bottom: 12px;
   }
-  .rt-sum-cell {
+  .m-shell .rt-sum-cell {
     padding: 12px;
     text-align: center;
     line-height: 1.2;
   }
-  .rt-sum-cell + .rt-sum-cell {
+  .m-shell .rt-sum-cell + .rt-sum-cell {
     border-left: 1px solid var(--hairline);
   }
-  .rt-sum-num {
+  .m-shell .rt-sum-num {
     font-family: var(--font-display);
     font-size: 22px;
     font-weight: 500;
@@ -1195,14 +1203,14 @@
     letter-spacing: -0.02em;
     line-height: 1;
   }
-  .rt-sum-num em {
+  .m-shell .rt-sum-num em {
     font-family: var(--font-body);
     font-style: italic;
     font-weight: 400;
     color: var(--ink-4);
     font-size: 13px;
   }
-  .rt-sum-lab {
+  .m-shell .rt-sum-lab {
     font-family: var(--font-ui);
     font-size: 9.5px;
     color: var(--ink-4);
@@ -1217,7 +1225,7 @@
     flex-direction: column;
     gap: 10px;
   }
-  .routine-card {
+  .m-shell .routine-card {
     background: var(--paper);
     border: 1px solid var(--hairline-faint);
     border-radius: var(--r-card, 14px);
@@ -1303,7 +1311,7 @@
     gap: 2px;
     flex: 1;
   }
-  .rh-cell {
+  .m-shell .rh-cell {
     aspect-ratio: 1;
     max-width: 32px;
     border-radius: 4px;
@@ -1312,16 +1320,16 @@
     cursor: pointer;
     transition: transform 100ms;
   }
-  .rh-cell:hover { transform: scale(1.05); }
-  .rh-cell-done { background: var(--moss); border-color: var(--moss); }
-  .rh-cell-partial {
+  .m-shell .rh-cell:hover { transform: scale(1.05); }
+  .m-shell .rh-cell-done { background: var(--moss); border-color: var(--moss); }
+  .m-shell .rh-cell-partial {
     background: linear-gradient(180deg, var(--moss) 50%, var(--cream) 50%);
     border-color: var(--moss);
   }
-  .rh-cell-skipped { background: var(--rust); border-color: var(--rust); }
-  .rh-cell-empty { background: var(--cream); border: 1px dashed var(--hairline-strong); }
-  .rh-cell[data-today]    { box-shadow: 0 0 0 1.5px var(--indigo); }
-  .rh-cell[data-selected] { box-shadow: 0 0 0 2px var(--indigo); transform: scale(1.08); }
+  .m-shell .rh-cell-skipped { background: var(--rust); border-color: var(--rust); }
+  .m-shell .rh-cell-empty { background: var(--cream); border: 1px dashed var(--hairline-strong); }
+  .m-shell .rh-cell[data-today]    { box-shadow: 0 0 0 1.5px var(--indigo); }
+  .m-shell .rh-cell[data-selected] { box-shadow: 0 0 0 2px var(--indigo); transform: scale(1.08); }
   .rc-hist-stats {
     display: inline-flex;
     align-items: baseline;
@@ -1772,7 +1780,7 @@
   }
 
   /* ════════ Mini-card — used inside Sprint disc items list ════════ */
-  .m-mc {
+  .m-shell .m-mc {
     --gc: var(--moss);
     position: relative;
     background: var(--paper);
@@ -1784,17 +1792,17 @@
   }
   /* Done items: opaque gold tint (color-mix keeps it opaque so swipe-action
      buttons don't bleed through the card during gestures), title strikethrough. */
-  .m-mc[data-done] {
+  .m-shell .m-mc[data-done] {
     background: color-mix(in srgb, var(--ochre) 14%, var(--paper));
     border-color: transparent;
   }
-  .m-mc[data-done] .m-mc-title {
+  .m-shell .m-mc[data-done] .m-mc-title {
     text-decoration: line-through;
     text-decoration-color: var(--ochre);
     text-decoration-thickness: 1.5px;
     color: var(--ink-3);
   }
-  .m-mc-kind {
+  .m-shell .m-mc-kind {
     position: absolute;
     top: 8px;
     right: 10px;
@@ -1805,14 +1813,14 @@
     text-transform: uppercase;
     color: var(--ink-5);
   }
-  .m-mc[data-done] .m-mc-kind { color: var(--ochre); }
-  .m-mc-head {
+  .m-shell .m-mc[data-done] .m-mc-kind { color: var(--ochre); }
+  .m-shell .m-mc-head {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     padding-right: 56px;
   }
-  .m-mc-title {
+  .m-shell .m-mc-title {
     flex: 1;
     margin: 0;
     font-family: var(--font-display);
@@ -1825,7 +1833,7 @@
     text-overflow: ellipsis;
     word-break: break-word;
   }
-  .m-mc-flag {
+  .m-shell .m-mc-flag {
     width: 18px; height: 18px;
     border-radius: 999px;
     display: inline-flex;
@@ -1833,8 +1841,8 @@
     justify-content: center;
     flex-shrink: 0;
   }
-  .m-mc-flag svg { width: 9px; height: 9px; }
-  .m-mc-period {
+  .m-shell .m-mc-flag svg { width: 9px; height: 9px; }
+  .m-shell .m-mc-period {
     font-family: var(--font-mono);
     font-size: 10px;
     color: var(--ink-4);
@@ -1843,33 +1851,33 @@
     flex-shrink: 0;
     padding-top: 2px;
   }
-  .m-mc-bar-row {
+  .m-shell .m-mc-bar-row {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-top: 8px;
   }
-  .m-mc-bar {
+  .m-shell .m-mc-bar {
     flex: 1;
     height: 4px;
     background: var(--cream);
     border-radius: 999px;
     overflow: hidden;
   }
-  .m-mc[data-done] .m-mc-bar { background: var(--paper); }
-  .m-mc-bar > i {
+  .m-shell .m-mc[data-done] .m-mc-bar { background: var(--paper); }
+  .m-shell .m-mc-bar > i {
     display: block;
     height: 100%;
     background: var(--indigo);
   }
-  .m-mc[data-done] .m-mc-bar > i { background: var(--ochre); }
-  .m-mc-pct {
+  .m-shell .m-mc[data-done] .m-mc-bar > i { background: var(--ochre); }
+  .m-shell .m-mc-pct {
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink);
     font-weight: 500;
   }
-  .m-mc-meta {
+  .m-shell .m-mc-meta {
     margin-top: 6px;
     font-family: var(--font-mono);
     font-size: 10.5px;
@@ -1877,7 +1885,7 @@
     letter-spacing: 0.04em;
   }
   /* Mini step constellation row. */
-  .m-mc-nodes {
+  .m-shell .m-mc-nodes {
     position: relative;
     display: flex;
     justify-content: space-between;
@@ -1886,7 +1894,7 @@
     padding: 0 2px;
     height: 18px;
   }
-  .m-mc-nodes::before {
+  .m-shell .m-mc-nodes::before {
     content: '';
     position: absolute;
     top: 50%;
@@ -1901,7 +1909,7 @@
     );
     z-index: 0;
   }
-  .m-mc-node {
+  .m-shell .m-mc-node {
     position: relative;
     z-index: 1;
     width: 14px; height: 14px;
@@ -1909,23 +1917,23 @@
     background: var(--paper);
     border: 2px solid var(--hairline-strong);
   }
-  .m-mc-node.done {
+  .m-shell .m-mc-node.done {
     background: var(--ochre);
     border-color: var(--ochre);
   }
-  .m-mc-node.cur {
+  .m-shell .m-mc-node.cur {
     border-color: var(--ochre);
     box-shadow: 0 0 0 3px var(--ochre-soft);
   }
   /* Mini Go: pill row + bool/numeric block. */
-  .m-mc-meta-row {
+  .m-shell .m-mc-meta-row {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
     padding-right: 56px;
     margin-bottom: 6px;
   }
-  .m-mc-pill {
+  .m-shell .m-mc-pill {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -1938,7 +1946,7 @@
     color: var(--ink-3);
     font-weight: 500;
   }
-  .m-mc-bool {
+  .m-shell .m-mc-bool {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1951,22 +1959,22 @@
     font-size: 11.5px;
     font-weight: 500;
   }
-  .m-mc-bool-done {
+  .m-shell .m-mc-bool-done {
     background: var(--ochre);
     color: var(--paper);
   }
-  .m-mc-bool .check {
+  .m-shell .m-mc-bool .check {
     width: 12px; height: 12px;
     border-radius: 999px;
     border: 1.5px solid currentColor;
     display: inline-flex; align-items: center; justify-content: center;
   }
-  .m-mc-bool-done .check {
+  .m-shell .m-mc-bool-done .check {
     background: var(--paper);
     color: var(--ochre);
     border-color: var(--paper);
   }
-  .m-mc-num {
+  .m-shell .m-mc-num {
     display: inline-flex;
     align-items: baseline;
     gap: 4px;
@@ -1977,24 +1985,24 @@
     font-weight: 500;
     letter-spacing: -0.01em;
   }
-  .m-mc-num .div { color: var(--ink-5); }
-  .m-mc-num .unit { font-family: var(--font-ui); font-size: 11px; color: var(--ink-4); }
+  .m-shell .m-mc-num .div { color: var(--ink-5); }
+  .m-shell .m-mc-num .unit { font-family: var(--font-ui); font-size: 11px; color: var(--ink-4); }
   /* Mini Routine: schedule + history strip. */
-  .m-mc-hist {
+  .m-shell .m-mc-hist {
     display: flex;
     gap: 3px;
     margin-top: 8px;
   }
-  .m-mc-cell {
+  .m-shell .m-mc-cell {
     flex: 1;
     height: 12px;
     border-radius: 3px;
     background: var(--cream);
   }
-  .m-mc[data-done] .m-mc-cell { background: var(--paper); }
-  .m-mc-cell.on { background: var(--ochre); }
+  .m-shell .m-mc[data-done] .m-mc-cell { background: var(--paper); }
+  .m-shell .m-mc-cell.on { background: var(--ochre); }
   /* Per-card expand toggle (Goal/Step children). */
-  .m-mc-toggle {
+  .m-shell .m-mc-toggle {
     margin-top: 10px;
     width: 100%;
     height: 32px;
@@ -2011,10 +2019,10 @@
     justify-content: center;
     gap: 6px;
   }
-  .m-mc-toggle svg { transition: transform 140ms; }
-  .m-mc-toggle[data-open] svg { transform: rotate(90deg); }
+  .m-shell .m-mc-toggle svg { transition: transform 140ms; }
+  .m-shell .m-mc-toggle[data-open] svg { transform: rotate(90deg); }
   /* Children container — golden left rail signals "inside this parent". */
-  .m-mc-children {
+  .m-shell .m-mc-children {
     margin-top: 10px;
     padding-top: 10px;
     padding-left: 12px;
@@ -2024,11 +2032,11 @@
     flex-direction: column;
     gap: 6px;
   }
-  .m-mc-children .m-mc {
+  .m-shell .m-mc-children .m-mc {
     padding: 9px 10px;
     border-radius: 8px;
   }
-  .m-mc-children .m-mc-kind { font-size: 8.5px; top: 7px; right: 9px; }
+  .m-shell .m-mc-children .m-mc-kind { font-size: 8.5px; top: 7px; right: 9px; }
 
   /* Goal-card expanded section — uses the same mini-card layout as Sprint
      items list but lives inline at the bottom of a full-size GoalCard. */
@@ -2043,14 +2051,14 @@
   /* Footer row inside mini-cards — status pill on the left, secondary meta
      on the right. Mirrors the gc-foot / step-card-foot layout of the
      full-size cards in their tabs. */
-  .m-mc-foot {
+  .m-shell .m-mc-foot {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 8px;
     margin-top: 8px;
   }
-  .m-mc-foot-meta {
+  .m-shell .m-mc-foot-meta {
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-4);
@@ -2062,7 +2070,7 @@
     flex-direction: column;
     gap: 10px;
   }
-  .other-sprint {
+  .m-shell .other-sprint {
     background: var(--paper);
     border: 1px solid var(--hairline-faint);
     border-radius: var(--r-card, 14px);
@@ -2175,7 +2183,7 @@
     gap: 8px;
     margin-bottom: 14px;
   }
-  .kpi-tile {
+  .m-shell .kpi-tile {
     background: var(--paper);
     border: 1px solid var(--hairline-faint);
     border-radius: var(--r-card, 14px);
@@ -2215,7 +2223,7 @@
   .kpi-up { color: var(--moss); }
   .kpi-down { color: var(--rust); }
 
-  .chart-card {
+  .m-shell .chart-card {
     background: var(--paper);
     border: 1px solid var(--hairline-faint);
     border-radius: var(--r-card, 14px);
@@ -4208,4 +4216,145 @@
     color: var(--ink-3);
     line-height: 1.5;
     font-style: italic;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Goals · Timeline mode (mobile)
+     ────────────────────────────────────────────────────────────────────────
+     Horizontal bars laid out against a shared date axis. Today marker
+     vertical line crosses every lane. Compact for portrait. */
+  .m-shell .m-tl {
+    display: flex; flex-direction: column;
+    gap: 4px;
+    padding-top: 4px;
+  }
+  .m-shell .m-tl__axis {
+    position: relative;
+    height: 18px;
+    margin-left: 124px; /* leaves room for title + flag cells of each lane */
+    margin-right: 36px; /* leaves room for trailing % */
+    border-bottom: 1px solid var(--hairline-faint);
+  }
+  .m-shell .m-tl__axis-mo {
+    position: absolute;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--ink-5);
+    letter-spacing: 0.02em;
+    bottom: 2px;
+  }
+  .m-shell .m-tl__axis-today {
+    position: absolute;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--ochre);
+    bottom: 2px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .m-shell .m-tl__lanes {
+    display: flex; flex-direction: column;
+    gap: 4px;
+  }
+  .m-shell .m-tl__lane {
+    display: grid;
+    grid-template-columns: 100px 18px 1fr 32px;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 0;
+    padding: 6px 0;
+    width: 100%;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  .m-shell .m-tl__lane:active { background: var(--bg-hover); }
+  .m-shell .m-tl__lane-title {
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-2);
+    letter-spacing: -0.005em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-shell .m-tl__lane-flag {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+  }
+  .m-shell .m-tl__lane-track {
+    position: relative;
+    height: 18px;
+    background: var(--cream);
+    border-radius: 4px;
+  }
+  .m-shell .m-tl__lane-bar {
+    position: absolute;
+    top: 0; bottom: 0;
+    border-radius: 4px;
+    border: 1px solid;
+    overflow: hidden;
+  }
+  .m-shell .m-tl__lane-fill {
+    height: 100%;
+    opacity: 0.85;
+    transition: width 220ms var(--ease-emph, ease-out);
+  }
+  .m-shell .m-tl__lane-today {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    width: 1.5px;
+    background: var(--ochre);
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .m-shell .m-tl__lane-pct {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+    text-align: right;
+  }
+  .m-shell .m-tl__undated {
+    margin-top: 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline-faint);
+  }
+  .m-shell .m-tl__undated-row {
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    background: transparent;
+    border: 0;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    border-bottom: 1px solid var(--hairline-faint);
+  }
+  .m-shell .m-tl__undated-row:last-child { border-bottom: 0; }
+  .m-shell .m-tl__undated-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+  .m-shell .m-tl__undated-title {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-shell .m-tl__undated-pct {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-4);
   }

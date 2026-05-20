@@ -15,10 +15,11 @@ import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import { MobilePickerSheet } from '../components/MobilePickerSheet';
 import { MobileGoalDetailSheet } from '../components/MobileGoalDetailSheet';
 import { MobileGoalPlanSheet } from '../components/MobileGoalPlanSheet';
+import { MobileGoalsTimeline } from '../components/MobileGoalsTimeline';
 import { AI_JOB_OPEN_EVENT, type AIJobOpenDetail } from '../../../store/aiJobs';
 import type { Tab } from '../../../app/tabs';
 
-type ViewMode = 'kanban' | 'go';
+type ViewMode = 'kanban' | 'go' | 'timeline';
 type DayFilter = 'past' | 'today' | 'future';
 type StatusFilter = 'all' | TaskStatus;
 
@@ -140,8 +141,9 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
   return (
     <MobileShell topBar={topBar} tab={tab} onTabChange={onTabChange}>
       <div className="goals-segmented">
-        <button className="seg-btn" data-active={mode === 'kanban' || undefined} onClick={() => setMode('kanban')}>Kanban</button>
-        <button className="seg-btn" data-active={mode === 'go'     || undefined} onClick={() => setMode('go')}>Go</button>
+        <button className="seg-btn" data-active={mode === 'kanban'   || undefined} onClick={() => setMode('kanban')}>Kanban</button>
+        <button className="seg-btn" data-active={mode === 'go'       || undefined} onClick={() => setMode('go')}>Go</button>
+        <button className="seg-btn" data-active={mode === 'timeline' || undefined} onClick={() => setMode('timeline')}>Timeline</button>
       </div>
 
       {mode === 'kanban' && (
@@ -173,6 +175,12 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
               await goals.refresh();
             } catch (e: any) { toast.error(e?.detail ?? 'Failed'); }
           }}
+        />
+      )}
+      {mode === 'timeline' && (
+        <MobileGoalsTimeline
+          tasks={goals.tasks}
+          onOpenDetail={setDetailGoalId}
         />
       )}
       {mode === 'go' && (

@@ -61,13 +61,16 @@ export function MobileTopBar({
   }
 
   if (mode === 'compact') {
+    // Compact = same layout as large, but with smaller title font
+    // (matches detail screens where the title is contextual rather than
+    // a section header — e.g. Profile, nested Notes).
     return (
       <header className="top-bar">
         <div className="top-bar__compact">
           <div className="tb-side">{leftSlot ?? <div className="tb-spacer" />}</div>
-          <div className="tb-center">
-            <div className="tb-title">{title}</div>
-            {subtitle && <div className="tb-sub">{subtitle}</div>}
+          <div className="top-bar__heading">
+            <div className="top-bar__title" style={{ fontSize: 16 }}>{title}</div>
+            {subtitle && <div className="top-bar__sub">{subtitle}</div>}
           </div>
           <div className="tb-side tb-side-right">{right}</div>
         </div>
@@ -75,17 +78,19 @@ export function MobileTopBar({
     );
   }
 
-  // large mode — empty compact row + large title block below
+  // large mode — single row, title LEFT, avatar RIGHT.
+  // Heading sits in the middle grid track between back-slot (or spacer) on
+  // the left and the avatar on the right; min-width:0 lets long titles
+  // ellipsize instead of bumping the avatar off-screen.
   return (
     <header className="top-bar">
       <div className="top-bar__compact">
         <div className="tb-side">{leftSlot ?? <div className="tb-spacer" />}</div>
-        <div className="tb-center"></div>
+        <div className="top-bar__heading">
+          <div className="top-bar__title">{title}</div>
+          {subtitle && <div className="top-bar__sub">{subtitle}</div>}
+        </div>
         <div className="tb-side tb-side-right">{right}</div>
-      </div>
-      <div className="top-bar__large">
-        <div className="top-bar__large-title">{title}</div>
-        {subtitle && <div className="top-bar__large-sub">{subtitle}</div>}
       </div>
     </header>
   );
