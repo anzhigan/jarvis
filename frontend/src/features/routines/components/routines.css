@@ -291,16 +291,15 @@
   border-top: 0;
   padding: 14px 18px 16px;
 }
-/* Three-column row: [calendar] [trend] [rhythm]. Calendar column is `auto`
-   so it takes the calendar's own natural size — the `.rt-month` retains
-   `max-width: 360px` and is NOT shrunk by this grid (grid `auto` tracks
-   never compress below their content's intrinsic min). Trend + rhythm
-   split the remaining width with `minmax(0, 1fr)` so long routine titles
-   don't blow the row past the viewport. */
+/* Three-column row: [calendar] [trend] [rhythm]. Calendar gets the wide
+   track (440px) — bigger cells, easier to scan. Trend + rhythm are tight
+   200px columns: PerRoutinePulse's SVG scales via viewBox so 200px is
+   plenty for the spark, and the rhythm card fits its arrow + 2 streak
+   tiles at that width. */
 .rt-row-expanded__layout {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
-  gap: 28px;
+  grid-template-columns: 440px 200px 200px;
+  gap: 24px;
   align-items: flex-start;
 }
 
@@ -707,7 +706,10 @@
 .rt-month {
   display: flex; flex-direction: column;
   gap: 8px;
-  max-width: 360px;          /* keeps cells compact + readable */
+  width: 100%;
+  max-width: 440px;          /* matches the calendar grid track in
+                                .rt-row-expanded__layout; cells land
+                                around 56px square at this width. */
 }
 .rt-month__heading {
   display: flex; align-items: baseline; justify-content: space-between;
