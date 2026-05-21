@@ -40,18 +40,24 @@ export function GoalProgressTrack({ task, compact = false }: Props) {
   const pct = Math.round(task.progress ?? 0);
   const doneCount = steps.filter((s) => s.status === 'done').length;
 
-  // Today marker — % time elapsed in [start_date, due_date]. Null when we
-  // don't have both ends; "before start" → 0; "after due" → 100.
+  // Today marker — shown on every card so the visual vocabulary is the
+  // same everywhere. With both start_date and due_date set, the caret
+  // is positioned by % time elapsed in the window (calendar-relative).
+  // Without dates, it falls back to current progress % so the caret
+  // sits exactly above where the fill ends — "you are here" semantics.
   const todayPct = useMemo(() => {
-    if (!task.start_date || !task.due_date) return null;
-    const start = new Date(task.start_date).getTime();
-    const end   = new Date(task.due_date).getTime();
-    if (isNaN(start) || isNaN(end) || end <= start) return null;
-    const now = Date.now();
-    if (now <= start) return 0;
-    if (now >= end)   return 100;
-    return Math.round(((now - start) / (end - start)) * 100);
-  }, [task.start_date, task.due_date]);
+    if (task.start_date && task.due_date) {
+      const start = new Date(task.start_date).getTime();
+      const end   = new Date(task.due_date).getTime();
+      if (!isNaN(start) && !isNaN(end) && end > start) {
+        const now = Date.now();
+        if (now <= start) return 0;
+        if (now >= end)   return 100;
+        return Math.round(((now - start) / (end - start)) * 100);
+      }
+    }
+    return Math.max(0, Math.min(100, Math.round(task.progress ?? 0)));
+  }, [task.start_date, task.due_date, task.progress]);
 
   // Grid-template-columns for segmented variant. Proportional to date span
   // when available, fallback to equal widths.
@@ -69,17 +75,15 @@ export function GoalProgressTrack({ task, compact = false }: Props) {
 
   return (
     <div className={`gpt${compact ? ' gpt--compact' : ''}`}>
-      {todayPct !== null && (
-        <div className="gpt__marker-row">
-          <div
-            className="gpt__today"
-            style={{ left: `clamp(8px, ${todayPct}%, calc(100% - 8px))` }}
-          >
-            {!compact && <span className="gpt__today-label">today</span>}
-            <span className="gpt__today-caret" />
-          </div>
+      <div className="gpt__marker-row">
+        <div
+          className="gpt__today"
+          style={{ left: `clamp(8px, ${todayPct}%, calc(100% - 8px))` }}
+        >
+          {!compact && <span className="gpt__today-label">today</span>}
+          <span className="gpt__today-caret" />
         </div>
-      )}
+      </div>
 
       {N > 0 ? (
         <div

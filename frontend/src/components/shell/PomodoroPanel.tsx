@@ -95,7 +95,7 @@ function playDing() {
 }
 
 /** Tomato icon — round rust body, moss-green crown. Used on the rail trigger. */
-function TomatoIcon({ size = 26 }: { size?: number }) {
+function TomatoIcon({ size = 34 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
       {/* Body */}

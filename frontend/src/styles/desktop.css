@@ -725,7 +725,7 @@
 /* Tomato icon is a coloured asset (not currentColor) — sized via svg
    width/height (set in component) but we make sure the global 17px rule
    on .rail-btn svg can't shrink it. */
-.pomo-rail-btn svg { width: 26px; height: 26px; }
+.pomo-rail-btn svg { width: 34px; height: 34px; }
 .pomo-rail-btn[data-active] {
   background: var(--paper);
   box-shadow: var(--sh-card);

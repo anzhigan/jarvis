@@ -1182,8 +1182,11 @@
 }
 .gpt--compact .gpt__track { height: 6px; }
 .gpt__fill {
+  /* Matches the `done` segment colour on goals with Steps — so the
+     fallback bar (used when a goal has no Steps) reads in the same
+     visual vocabulary instead of jumping to a different accent. */
   height: 100%;
-  background: var(--indigo);
+  background: var(--moss);
   border-radius: 2px;
   transition: width var(--dur-med);
 }
