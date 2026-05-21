@@ -3779,6 +3779,33 @@
   .m-shell .m-ai-trigger:disabled { opacity: 0.55; cursor: progress; }
   .m-shell .m-ai-trigger svg { width: 13px; height: 13px; }
 
+  /* ── Note editor floating controls ──────────────────────────────────
+     Two circular FABs replace the old top-bar in MobileNoteEditor.
+     position: fixed so they stay anchored to the viewport corner while
+     the note body scrolls underneath. Translucent paper-tinted material
+     lets text show faintly behind the buttons — feels native iOS. */
+  .m-shell .m-note-fab {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline);
+    background: var(--material, var(--paper));
+    -webkit-backdrop-filter: blur(var(--blur, 20px));
+    backdrop-filter: blur(var(--blur, 20px));
+    color: var(--ink-2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(15, 24, 32, 0.10);
+    transition: background 140ms, transform 80ms;
+  }
+  .m-shell .m-note-fab:active { transform: scale(0.95); }
+  .m-shell .m-note-fab-back { left: 14px; }
+  .m-shell .m-note-fab-ai   { right: 14px; color: var(--indigo); }
+
   /* Simple text input used inside add-step sheet (and similar minimal forms). */
   .m-shell .m-step-input {
     width: 100%;

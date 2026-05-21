@@ -1,11 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, Loader2, MoreHorizontal, Pin, PinOff, Sparkles } from 'lucide-react';
+import { ChevronLeft, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { aiApi } from '../../../api/client';
 import type { Note } from '../../../api/types';
 import { useNoteAutoSave } from '../../notes/hooks/useNoteAutoSave';
 import type { NotesLibrary } from '../../notes/hooks/useNotesLibrary';
-import { confirmDialog } from '../../../components/ui';
 import { useAIJobsStore } from '../../../store/aiJobs';
 import { MobileActionSheet, type ActionSheetItem } from '../components/MobileActionSheet';
 import { MobileQuizSheet } from '../components/MobileQuizSheet';
@@ -35,7 +34,6 @@ interface Props {
 export default function MobileNoteEditor({ note, library, onBack }: Props) {
   const save = useNoteAutoSave(() => { void library.refresh(); });
   const [localTitle, setLocalTitle] = useState(note.name);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
 
   // Active quiz job — set after fire, also restored from the AI panel's
@@ -52,36 +50,7 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
   // MobileQuizSheet still opens in-flow when the user creates / reuses a
   // quiz from this editor (see the AI button handler below).
 
-  // Resolve parent way / topic for the meta line.
-  const located = library.findNote(note.id);
-  const wayName   = located?.way.name ?? null;
-  const topicName = located?.topic?.name ?? null;
-  const breadcrumb = topicName ? `${wayName} · ${topicName}` : wayName;
-
-  const saveLabel = save.saving
-    ? 'Saving…'
-    : save.savedAt
-      ? `Saved ${new Date(save.savedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
-      : 'Auto-save';
-
   const goBack = async () => { await save.flush(); onBack(); };
-
-  const handleDelete = async () => {
-    setMoreOpen(false);
-    const ok = await confirmDialog({
-      title: 'Delete note?',
-      body: <>«{note.name || 'Untitled'}» This cannot be undone.</>,
-      confirmLabel: 'Delete',
-      danger: true,
-    });
-    if (!ok) return;
-    await save.flush();
-    await library.deleteNote(note.id);
-    onBack();
-  };
-  const handleTogglePin = async () => {
-    await library.togglePin(note.id);
-  };
 
   // ── AI · quiz fire ──────────────────────────────────────────────────────
   const fireQuiz = useCallback(async () => {
@@ -136,18 +105,6 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
   }, [note, addBgJob]);
 
   // ── Top-bar actions sheet ───────────────────────────────────────────────
-  const moreActions: ActionSheetItem[] = [
-    {
-      label: note.pinned ? 'Unpin note' : 'Pin note',
-      onSelect: () => { void handleTogglePin(); },
-    },
-    {
-      label: 'Delete note',
-      destructive: true,
-      onSelect: () => { void handleDelete(); },
-    },
-  ];
-
   const aiActions: ActionSheetItem[] = [
     {
       label: 'Generate test',
@@ -164,49 +121,27 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
         flexDirection: 'column',
       }}
     >
-      <header className="top-bar" data-legacy>
-        <div className="tb-side">
-          <button
-            type="button"
-            className="tb-btn"
-            onClick={goBack}
-            aria-label="Back to notes"
-          ><ChevronLeft size={18} /></button>
-        </div>
-        <div className="tb-center">
-          <div className="tb-title" style={{ fontSize: 14 }}>{breadcrumb ?? 'Note'}</div>
-          <div className="tb-sub">{saveLabel}</div>
-        </div>
-        <div className="tb-side tb-side-right">
-          {/* AI ✨ — primary creative action on a note. Tinted-style
-              indigo button to read as a feature, not as plain icon-chrome. */}
-          <button
-            type="button"
-            className="tb-btn"
-            onClick={() => setAiOpen(true)}
-            aria-label="AI actions"
-            style={{ color: 'var(--indigo)' }}
-          ><Sparkles size={16} /></button>
-          <button
-            type="button"
-            className="tb-btn"
-            onClick={handleTogglePin}
-            aria-label={note.pinned ? 'Unpin' : 'Pin'}
-            title={note.pinned ? 'Unpin' : 'Pin'}
-          >{note.pinned ? <PinOff size={16} /> : <Pin size={16} />}</button>
-          <button
-            type="button"
-            className="tb-btn"
-            onClick={() => setMoreOpen(true)}
-            aria-label="More actions"
-          ><MoreHorizontal size={18} /></button>
-        </div>
-      </header>
+      {/* Floating circular controls — only Back (left) and AI (right).
+          Both `position: fixed` so they stay anchored at the top while
+          the editor body scrolls. Pin / more-menu were removed per the
+          design call to declutter the note view. */}
+      <button
+        type="button"
+        className="m-note-fab m-note-fab-back"
+        onClick={goBack}
+        aria-label="Back to notes"
+      ><ChevronLeft size={18} /></button>
+      <button
+        type="button"
+        className="m-note-fab m-note-fab-ai"
+        onClick={() => setAiOpen(true)}
+        aria-label="AI actions"
+      ><Sparkles size={16} /></button>
 
       <main
         className="screen-content"
         style={{
-          padding: '16px 18px 28px',
+          padding: '64px 18px 28px',
         }}
       >
         <input
@@ -294,13 +229,6 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
         title="AI actions"
         message="Generate a multi-choice test from this note. More AI tools (extract tasks, summarize) coming soon."
         actions={aiActions}
-      />
-
-      {/* More-actions sheet — pin / delete */}
-      <MobileActionSheet
-        open={moreOpen}
-        onOpenChange={setMoreOpen}
-        actions={moreActions}
       />
 
       {/* Quiz result sheet — polls the AI job + presents the quiz UI */}
