@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, Loader2, Sparkles } from 'lucide-react';
+import { ChevronLeft, Loader2, Share2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { aiApi } from '../../../api/client';
 import type { Note } from '../../../api/types';
@@ -11,6 +11,7 @@ import { MobileQuizSheet } from '../components/MobileQuizSheet';
 import '../../../styles/mobile.css';
 
 const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
+const ShareDialog = lazy(() => import('../../notes/components/ShareDialog'));
 
 interface Props {
   note: Note;
@@ -35,6 +36,7 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
   const save = useNoteAutoSave(() => { void library.refresh(); });
   const [localTitle, setLocalTitle] = useState(note.name);
   const [aiOpen, setAiOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Active quiz job — set after fire, also restored from the AI panel's
   // "Open" event if the user comes back via toast.
@@ -121,27 +123,35 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
         flexDirection: 'column',
       }}
     >
-      {/* Floating circular controls — only Back (left) and AI (right).
-          Both `position: fixed` so they stay anchored at the top while
-          the editor body scrolls. Pin / more-menu were removed per the
-          design call to declutter the note view. */}
+      {/* Floating controls — Back (left, single circle) + AI/Share
+          (right, two-button capsule). Both `position: fixed` so they
+          stay anchored to the top while the note body scrolls under.
+          44px tap targets per Apple HIG. */}
       <button
         type="button"
         className="m-note-fab m-note-fab-back"
         onClick={goBack}
         aria-label="Back to notes"
-      ><ChevronLeft size={18} /></button>
-      <button
-        type="button"
-        className="m-note-fab m-note-fab-ai"
-        onClick={() => setAiOpen(true)}
-        aria-label="AI actions"
-      ><Sparkles size={16} /></button>
+      ><ChevronLeft size={22} /></button>
+      <div className="m-note-cap" role="group">
+        <button
+          type="button"
+          className="m-note-cap-btn m-note-cap-btn-ai"
+          onClick={() => setAiOpen(true)}
+          aria-label="AI actions"
+        ><Sparkles size={20} /></button>
+        <button
+          type="button"
+          className="m-note-cap-btn"
+          onClick={() => setShareOpen(true)}
+          aria-label="Share"
+        ><Share2 size={20} /></button>
+      </div>
 
       <main
         className="screen-content"
         style={{
-          padding: '64px 18px 28px',
+          padding: 'calc(env(safe-area-inset-top, 0px) + 72px) 18px 28px',
         }}
       >
         <input
@@ -230,6 +240,12 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
         message="Generate a multi-choice test from this note. More AI tools (extract tasks, summarize) coming soon."
         actions={aiActions}
       />
+
+      {/* Share dialog — reused from desktop notes feature. Renders into a
+          Radix portal so it floats above the editor. */}
+      <Suspense fallback={null}>
+        <ShareDialog noteId={note.id} open={shareOpen} onOpenChange={setShareOpen} />
+      </Suspense>
 
       {/* Quiz result sheet — polls the AI job + presents the quiz UI */}
       <MobileQuizSheet

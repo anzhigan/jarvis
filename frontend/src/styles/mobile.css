@@ -3780,14 +3780,16 @@
   .m-shell .m-ai-trigger svg { width: 13px; height: 13px; }
 
   /* ── Note editor floating controls ──────────────────────────────────
-     Two circular FABs replace the old top-bar in MobileNoteEditor.
-     position: fixed so they stay anchored to the viewport corner while
-     the note body scrolls underneath. Translucent paper-tinted material
-     lets text show faintly behind the buttons — feels native iOS. */
+     Back is a 44px round FAB at top-left. Right side is a pill capsule
+     containing AI (sparkles) + Share, each ~44px, separated by a
+     hairline divider. All position: fixed so they stay anchored to the
+     viewport corner while the note body scrolls underneath. Translucent
+     paper-tinted material lets text show faintly behind. 44px = Apple HIG
+     min tap target. */
   .m-shell .m-note-fab {
     position: fixed;
     top: calc(env(safe-area-inset-top, 0px) + 12px);
-    width: 36px; height: 36px;
+    width: 44px; height: 44px;
     border-radius: 50%;
     border: 1px solid var(--hairline);
     background: var(--material, var(--paper));
@@ -3802,9 +3804,44 @@
     box-shadow: 0 1px 4px rgba(15, 24, 32, 0.10);
     transition: background 140ms, transform 80ms;
   }
-  .m-shell .m-note-fab:active { transform: scale(0.95); }
+  .m-shell .m-note-fab:active { transform: scale(0.94); }
   .m-shell .m-note-fab-back { left: 14px; }
-  .m-shell .m-note-fab-ai   { right: 14px; color: var(--indigo); }
+
+  /* Right-side capsule — pill containing AI + Share. Same translucent
+     material + hairline border as the Back FAB so they read as one set. */
+  .m-shell .m-note-cap {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    right: 14px;
+    height: 44px;
+    display: inline-flex;
+    align-items: stretch;
+    background: var(--material, var(--paper));
+    -webkit-backdrop-filter: blur(var(--blur, 20px));
+    backdrop-filter: blur(var(--blur, 20px));
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    overflow: hidden;
+    z-index: 10;
+    box-shadow: 0 1px 4px rgba(15, 24, 32, 0.10);
+  }
+  .m-shell .m-note-cap-btn {
+    width: 44px; height: 44px;
+    border: 0;
+    background: transparent;
+    color: var(--ink-2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 140ms, transform 80ms;
+  }
+  .m-shell .m-note-cap-btn:active { transform: scale(0.94); }
+  /* Hairline divider between the two buttons inside the capsule. */
+  .m-shell .m-note-cap-btn + .m-note-cap-btn {
+    border-left: 1px solid var(--hairline);
+  }
+  .m-shell .m-note-cap-btn-ai { color: var(--indigo); }
 
   /* Simple text input used inside add-step sheet (and similar minimal forms). */
   .m-shell .m-step-input {
