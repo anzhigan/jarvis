@@ -8,6 +8,7 @@ import { MobileBottomSheet } from './MobileBottomSheet';
 import { MobileButton } from './MobileButton';
 import { MobileSegmented } from './MobileSegmented';
 import { MobileActionSheet, type ActionSheetItem } from './MobileActionSheet';
+import { GoalProgressTrack } from '../../goals/components/GoalProgressTrack';
 import { MobileListGroup, MobileListCell } from './MobileList';
 
 interface Props {
@@ -108,7 +109,6 @@ export function MobileGoalDetailSheet({
   // Memo schedules → don't recompute on every parent re-render while the
   // sheet is open. Safe to call when task is null — produces empty/zero
   // values that the early-return below discards anyway.
-  const pct = useMemo(() => Math.round(task?.progress ?? 0), [task]);
   const todayItems = useMemo(() => {
     if (!task) return { total: 0, done: 0 };
     const today = new Date().toISOString().slice(0, 10);
@@ -206,31 +206,12 @@ export function MobileGoalDetailSheet({
           />
         </div>
 
-        {/* ── Progress ────────────────────────────────────────────── */}
-        <div style={{ marginBottom: 18 }}>
-          <div style={{
-            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-            marginBottom: 8,
-          }}>
-            <span style={{
-              fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600,
-              letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--ink-4)',
-            }}>Progress</span>
-            <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500,
-              color: 'var(--ink)', fontVariantNumeric: 'tabular-nums',
-            }}>{pct}%</span>
-          </div>
-          <div style={{
-            height: 8, background: 'var(--cream)', borderRadius: 999, overflow: 'hidden',
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${pct}%`,
-              background: 'var(--indigo)',
-              transition: 'width 280ms var(--ease-emph, ease-out)',
-            }} />
-          </div>
+        {/* ── Progress ──────────────────────────────────────────────
+            Same segmented track + today caret + step counter as on the
+            kanban card. GoalProgressTrack already shows pct in its own
+            footer, so no separate header is needed here. */}
+        <div className="kc-progress" style={{ marginBottom: 18 }}>
+          <GoalProgressTrack task={task} />
         </div>
 
         {/* ── Stat cells ──────────────────────────────────────────── */}

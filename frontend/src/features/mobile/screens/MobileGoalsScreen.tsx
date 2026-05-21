@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import type { Go, GoalRoutineLink, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { useGoals } from '../../goals/hooks/useGoals';
 import { useGos } from '../../goals/hooks/useGos';
-import { aiApi, gosApi, routinesApi } from '../../../api/client';
+import { aiApi, gosApi, routinesApi, stepsApi } from '../../../api/client';
 import { useAIJobsStore } from '../../../store/aiJobs';
 import { useRoutines } from '../../routines/hooks/useRoutines';
 import { MobileTopBar } from '../components/MobileTopBar';
@@ -15,6 +15,8 @@ import { GoalForm, GoForm, RoutineForm } from '../components/MobileAddForms';
 import { SwipeableRow } from '../components/SwipeableRow';
 import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import { MobilePickerSheet } from '../components/MobilePickerSheet';
+import { MobileBottomSheet } from '../components/MobileBottomSheet';
+import { MobileButton } from '../components/MobileButton';
 import { MobileGoalDetailSheet } from '../components/MobileGoalDetailSheet';
 import { MobileGoalPlanSheet } from '../components/MobileGoalPlanSheet';
 import { MobileGoalsTimeline } from '../components/MobileGoalsTimeline';
@@ -73,6 +75,10 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
   const [confirmDeleteGo, setConfirmDeleteGo] = useState<Go | null>(null);
   // Picker: pick an existing orphan Go to attach to a goal.
   const [pickGoFor, setPickGoFor] = useState<string | null>(null); // taskId
+  // Quick "Add step" sheet — title-only inline form. taskId = which goal.
+  const [addStepForTask, setAddStepForTask] = useState<{ id: string; title: string } | null>(null);
+  const [stepTitle, setStepTitle] = useState('');
+  const [stepBusy, setStepBusy] = useState(false);
   // Goal detail sheet — opened on tap of a GoalCard; tracks the goal id
   // (not the object) so the sheet stays in sync with refreshes.
   const [detailGoalId, setDetailGoalId] = useState<string | null>(null);
@@ -180,6 +186,10 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
               ? 0
               : (g.kind === 'numeric' ? (g.target_value ?? 1) : 1);
             void gos.logToday(g.id, next);
+          }}
+          onAddStep={(taskId) => {
+            const t = goals.tasks.find((x) => x.id === taskId);
+            if (t) setAddStepForTask({ id: t.id, title: t.title });
           }}
           onAddGo={(taskId) => setPickGoFor(taskId)}
           onAddRoutine={(taskId) => setRoutineFormOpen({ goalId: taskId })}
@@ -339,6 +349,52 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
           render={(g) => g.title}
         />
       )}
+
+      {/* Quick "Add step" sheet — title-only, opens from the kanban card
+          "+ Step" button. Same shape as the one in MobileGoalDetailSheet. */}
+      <MobileBottomSheet
+        open={addStepForTask !== null}
+        onOpenChange={(o) => {
+          if (!o) { setAddStepForTask(null); setStepTitle(''); }
+        }}
+        title="Add step"
+        description={addStepForTask ? `To "${addStepForTask.title}"` : undefined}
+        footer={
+          <>
+            <MobileButton variant="plain" block onClick={() => {
+              setAddStepForTask(null); setStepTitle('');
+            }}>Cancel</MobileButton>
+            <MobileButton
+              variant="filled" block
+              disabled={!stepTitle.trim() || stepBusy}
+              onClick={async () => {
+                if (!addStepForTask) return;
+                const title = stepTitle.trim();
+                if (!title) return;
+                setStepBusy(true);
+                try {
+                  await stepsApi.create(addStepForTask.id, { title });
+                  toast.success('Step added');
+                  await goals.refresh();
+                  setAddStepForTask(null);
+                  setStepTitle('');
+                } catch (e: any) {
+                  toast.error(e?.detail ?? e?.message ?? 'Failed to add step');
+                } finally { setStepBusy(false); }
+              }}
+            >{stepBusy ? 'Adding…' : 'Add step'}</MobileButton>
+          </>
+        }
+      >
+        <input
+          autoFocus
+          type="text"
+          className="m-step-input"
+          placeholder="Step title…"
+          value={stepTitle}
+          onChange={(e) => setStepTitle(e.target.value)}
+        />
+      </MobileBottomSheet>
     </MobileShell>
   );
 }
@@ -347,6 +403,7 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
 
 interface KanbanCallbacks {
   onToggleGoDone: (go: Go) => void;
+  onAddStep: (taskId: string) => void;
   onAddGo: (taskId: string) => void;
   onAddRoutine: (taskId: string) => void;
   onToggleRoutineDone: (link: GoalRoutineLink) => void;
@@ -655,6 +712,9 @@ function ExpandedSection({ task, cb }: { task: Task; cb: KanbanCallbacks }) {
       ))}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" className="lane-add-btn" onClick={() => cb.onAddStep(task.id)}>
+          <Plus size={11} /> Step
+        </button>
         <button type="button" className="lane-add-btn" onClick={() => cb.onAddGo(task.id)}>
           <Plus size={11} /> Add go
         </button>
