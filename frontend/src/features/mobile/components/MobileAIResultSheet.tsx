@@ -115,7 +115,7 @@ function ResultBody({ job }: { job: AIJob }) {
   if (job.kind === 'sprint_plan') return <SprintPlanView out={out as SprintPlanOutput} />;
   if (job.kind === 'insights')    return <InsightsView   out={out as InsightsOutput} />;
   if (job.kind === 'coach')       return <CoachView      out={out as CoachOutput} />;
-  if (job.kind === 'quiz')        return <QuizView       out={out as AIQuiz} />;
+  if (job.kind === 'quiz')        return <QuizView       jobOut={out as { quiz_id?: string }} />;
   if (job.kind === 'goal_plan')   return <GoalPlanView   out={out as GoalPlanOutput} />;
   return <JsonFallback out={out} />;
 }
@@ -257,15 +257,40 @@ function CoachView({ out }: { out: CoachOutput }) {
   );
 }
 
-function QuizView({ out }: { out: AIQuiz }) {
+/**
+ * Quiz read-only view. The job's output_json is just `{ quiz_id }` —
+ * the actual questions live behind a separate `/ai/quizzes/<id>` endpoint
+ * (same pattern as the desktop QuizDrawer). We fetch on mount.
+ */
+function QuizView({ jobOut }: { jobOut: { quiz_id?: string } }) {
+  const [quiz, setQuiz] = useState<AIQuiz | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    const id = jobOut?.quiz_id;
+    if (!id) { setErr('Quiz id missing in job output'); return; }
+    let cancelled = false;
+    aiApi.getQuiz(id)
+      .then((q) => { if (!cancelled) setQuiz(q); })
+      .catch((e) => { if (!cancelled) setErr(e?.detail ?? e?.message ?? 'Failed to load quiz'); });
+    return () => { cancelled = true; };
+  }, [jobOut?.quiz_id]);
+  if (err) return <div className="m-ai-empty" style={{ color: 'var(--rust)' }}>{err}</div>;
+  if (!quiz) {
+    return (
+      <div className="m-ai-result-pending">
+        <Loader2 size={18} className="animate-spin" />
+        <span>Loading quiz…</span>
+      </div>
+    );
+  }
   return (
     <div className="m-ai-result">
-      <div className="m-ai-result-title">{out.title}</div>
+      <div className="m-ai-result-title">{quiz.title}</div>
       <div className="m-ai-result-date">
-        {out.questions.length} question{out.questions.length === 1 ? '' : 's'} · {out.difficulty}
+        {quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'} · {quiz.difficulty}
       </div>
       <div className="m-ai-quiz-list">
-        {out.questions.map((q, i) => (
+        {quiz.questions.map((q, i) => (
           <div key={i} className="m-ai-quiz-q">
             <div className="m-ai-quiz-q-text">
               <span className="m-ai-quiz-q-num">{i + 1}.</span> {q.question}
