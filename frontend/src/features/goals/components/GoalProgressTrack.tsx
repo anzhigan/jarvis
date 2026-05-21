@@ -25,6 +25,11 @@
  */
 import { useMemo } from 'react';
 import type { Task } from '../../../api/types';
+// Self-contained CSS dependency — the `.gpt__*` rules live in goals.css,
+// which used to be imported only by the desktop GoalsView. The mobile
+// kanban renders this component too; without this import the bar would
+// fall through to its unstyled markup on mobile.
+import './goals.css';
 
 interface Props {
   task: Task;

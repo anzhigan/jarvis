@@ -554,9 +554,9 @@ function GoalCard({
 
       {task.description && <p className="gc-desc">{task.description}</p>}
 
-      {/* Segmented progress with today-marker + steps count — same component
-          as desktop so the visual vocabulary matches across surfaces. */}
-      <div style={{ margin: '12px 0 4px' }}>
+      {/* Segmented progress + today-marker + steps count. Same wrapper
+          class as desktop so the spacing matches 1:1. */}
+      <div className="kc-progress">
         <GoalProgressTrack task={task} />
       </div>
 
