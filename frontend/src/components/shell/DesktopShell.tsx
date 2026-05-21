@@ -6,6 +6,7 @@ import { resolveUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { useT } from '../../store/i18n';
 import { Tooltip } from '../ui';
+import { PomodoroPanel } from './PomodoroPanel';
 import type { Tab } from '../../app/tabs';
 import { sectionForTab } from '../../app/tabs';
 
@@ -120,6 +121,7 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
         </div>
 
         <div className="rail-foot">
+          <PomodoroPanel />
           <Tooltip content={dark ? 'Light theme' : 'Dark theme'} side="right">
             <button className="rail-btn" onClick={onToggleTheme} aria-label="Toggle theme">
               {dark ? <Sun /> : <Moon />}
