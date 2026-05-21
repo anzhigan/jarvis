@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Timer, Pause, Play, RotateCcw, Plus, Minus } from 'lucide-react';
+import { Pause, Play, RotateCcw, Plus, Minus, X, ChevronDown, Check } from 'lucide-react';
 import { Tooltip } from '../ui';
+import { tasksApi } from '../../api/client';
+import type { Task } from '../../api/types';
 
 type Mode = 'focus' | 'break';
 
@@ -14,6 +16,9 @@ interface Persisted {
   startedAt: number | null;
   /** When paused, the remaining seconds at pause time. null when running/idle. */
   pausedRemainingSec: number | null;
+  /** Task the user is focusing on. Cached title so we don't need the API just to render. */
+  taskId: string | null;
+  taskTitle: string | null;
 }
 
 const FOCUS_PRESETS = [15, 25, 45, 60];
@@ -29,13 +34,22 @@ function loadState(): Persisted {
     if (typeof p.totalSec !== 'number' || (p.mode !== 'focus' && p.mode !== 'break')) {
       throw new Error('shape');
     }
-    return p;
+    return {
+      mode: p.mode,
+      totalSec: p.totalSec,
+      startedAt: p.startedAt ?? null,
+      pausedRemainingSec: p.pausedRemainingSec ?? null,
+      taskId: p.taskId ?? null,
+      taskTitle: p.taskTitle ?? null,
+    };
   } catch {
     return {
       mode: 'focus',
       totalSec: DEFAULT_FOCUS_MIN * 60,
       startedAt: null,
       pausedRemainingSec: null,
+      taskId: null,
+      taskTitle: null,
     };
   }
 }
@@ -52,8 +66,8 @@ function fmt(sec: number): string {
 }
 
 /**
- * Beep on completion. Pure Web Audio so we don't ship an mp3.
- * Two short notes — gentle, not jarring.
+ * Two-note "ding" via Web Audio — no asset shipped.
+ * Gentle bell, drops a fifth.
  */
 function playDing() {
   try {
@@ -61,7 +75,7 @@ function playDing() {
     if (!Ctor) return;
     const ctx = new Ctor();
     const now = ctx.currentTime;
-    const playNote = (freq: number, start: number, dur: number) => {
+    const note = (freq: number, start: number, dur: number) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
@@ -73,46 +87,102 @@ function playDing() {
       osc.start(now + start);
       osc.stop(now + start + dur + 0.05);
     };
-    playNote(880, 0,    0.35);  // A5
-    playNote(660, 0.18, 0.45);  // E5
+    note(880, 0,    0.35);
+    note(660, 0.18, 0.45);
     setTimeout(() => { void ctx.close(); }, 1200);
   } catch { /* audio unavailable */ }
+}
+
+/** Tomato icon — round rust body, moss-green crown. Used on the rail trigger. */
+function TomatoIcon({ size = 17 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      {/* Body */}
+      <ellipse cx="12" cy="14.5" rx="7" ry="6.5" fill="var(--rust)" />
+      {/* Soft highlight, top-left */}
+      <ellipse cx="9.2" cy="12" rx="1.2" ry="1.7" fill="rgba(255, 255, 255, 0.32)" />
+      {/* Crown — five leaves */}
+      <path
+        d="M5.8 8.3 C 8 7, 10 7.5, 12 8 C 14 7.5, 16 7, 18.2 8.3
+           C 17.2 9.5, 15.5 10.2, 13.5 9.8
+           C 13 10.4, 12.5 10.6, 12 10.6
+           C 11.5 10.6, 11 10.4, 10.5 9.8
+           C 8.5 10.2, 6.8 9.5, 5.8 8.3 Z"
+        fill="var(--moss)"
+      />
+      {/* Stem */}
+      <line
+        x1="12" y1="8" x2="12" y2="5.5"
+        stroke="var(--moss)" strokeWidth="1.4" strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 export function PomodoroPanel() {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<Persisted>(loadState);
-  // Tick state — drives re-render every second when running. We don't store
-  // remaining in state; it's derived from startedAt + totalSec.
-  const [, setNow] = useState(Date.now());
+  // Tick — re-renders the panel every second while running. Storing `now`
+  // in state (rather than computing remaining via useMemo on `state` only)
+  // is what actually makes the countdown move; with useMemo on [state] the
+  // memoized value would freeze at the value computed at click time.
+  const [now, setNow] = useState(() => Date.now());
   const dingPlayedFor = useRef<number | null>(null);
+
+  // Picker
+  const [activeTasks, setActiveTasks] = useState<Task[] | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => { saveState(state); }, [state]);
 
-  // 1Hz tick while running; idle interval when not. Cheap enough to keep
-  // always-on so the user sees the countdown jump to live values when
-  // they reopen the panel.
+  // 1Hz tick while running. We don't keep the interval alive when idle so
+  // we're not waking the event loop for no reason.
   useEffect(() => {
     if (state.startedAt === null) return;
+    setNow(Date.now()); // sync immediately
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [state.startedAt]);
 
-  const remainingSec = useMemo(() => {
-    if (state.startedAt !== null) {
-      return state.totalSec - (Date.now() - state.startedAt) / 1000;
-    }
-    if (state.pausedRemainingSec !== null) return state.pausedRemainingSec;
-    return state.totalSec;
-  }, [state]);
+  // Load active tasks the first time the panel opens. The list is small and
+  // refreshes per-open so a goal created/closed elsewhere shows up next time.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const tasks = await tasksApi.list();
+        if (cancelled) return;
+        setActiveTasks(tasks.filter((t) => t.status === 'active'));
+      } catch {
+        if (!cancelled) setActiveTasks([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  let remainingSec: number;
+  if (state.startedAt !== null) {
+    remainingSec = state.totalSec - (now - state.startedAt) / 1000;
+  } else if (state.pausedRemainingSec !== null) {
+    remainingSec = state.pausedRemainingSec;
+  } else {
+    remainingSec = state.totalSec;
+  }
 
   const isRunning = state.startedAt !== null;
   const isPaused = state.pausedRemainingSec !== null;
   const isIdle = !isRunning && !isPaused;
 
-  // Completion: fire ding once per session run, then auto-reset to idle so
-  // the panel is ready for the next round (don't auto-switch mode — keeps
-  // the user in control).
+  // Suggest the first active task when none is selected (purely informational
+  // — doesn't write to state until the user actually picks).
+  const suggested = !state.taskId && activeTasks && activeTasks.length > 0
+    ? activeTasks[0]
+    : null;
+  const selectedTitle = state.taskTitle ?? suggested?.title ?? null;
+
+  // Completion — fires once per run; auto-resets to a fresh idle of the
+  // same mode so the panel is ready for the next round.
   useEffect(() => {
     if (!isRunning) return;
     if (remainingSec > 0) return;
@@ -128,28 +198,28 @@ export function PomodoroPanel() {
   }, [remainingSec, isRunning, state.startedAt]);
 
   const setMode = useCallback((mode: Mode) => {
-    setState({
+    setState((s) => ({
+      ...s,
       mode,
       totalSec: (mode === 'focus' ? DEFAULT_FOCUS_MIN : DEFAULT_BREAK_MIN) * 60,
       startedAt: null,
       pausedRemainingSec: null,
-    });
+    }));
   }, []);
 
   const setMinutes = useCallback((min: number) => {
     const clamped = Math.max(1, Math.min(180, Math.round(min)));
-    setState({
-      mode: state.mode,
+    setState((s) => ({
+      ...s,
       totalSec: clamped * 60,
       startedAt: null,
       pausedRemainingSec: null,
-    });
-  }, [state.mode]);
+    }));
+  }, []);
 
   const start = useCallback(() => {
     setState((s) => {
       if (s.pausedRemainingSec !== null) {
-        // Resume — adjust startedAt so the remaining time matches.
         return {
           ...s,
           startedAt: Date.now() - (s.totalSec - s.pausedRemainingSec) * 1000,
@@ -173,11 +243,16 @@ export function PomodoroPanel() {
   }, []);
 
   const reset = useCallback(() => {
+    setState((s) => ({ ...s, startedAt: null, pausedRemainingSec: null }));
+  }, []);
+
+  const pickTask = useCallback((t: Task | null) => {
     setState((s) => ({
       ...s,
-      startedAt: null,
-      pausedRemainingSec: null,
+      taskId: t?.id ?? null,
+      taskTitle: t?.title ?? null,
     }));
+    setPickerOpen(false);
   }, []);
 
   const progressPct = state.totalSec > 0
@@ -189,16 +264,18 @@ export function PomodoroPanel() {
     ? Math.round(state.totalSec / 60)
     : Math.ceil(remainingSec / 60);
 
+  const ringDash = 2 * Math.PI * 54;
+
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Tooltip content="Pomodoro" side="right">
         <Popover.Trigger asChild>
           <button
-            className="rail-btn"
+            className="rail-btn pomo-rail-btn"
             aria-label="Pomodoro timer"
             data-active={isRunning || undefined}
           >
-            <Timer />
+            <TomatoIcon />
             {isRunning && <span className="pomo-rail-dot" aria-hidden="true" />}
           </button>
         </Popover.Trigger>
@@ -228,17 +305,82 @@ export function PomodoroPanel() {
                 onClick={() => setMode('break')}
               >Break</button>
             </div>
+            <button
+              type="button"
+              className="pomo-close"
+              aria-label="Hide"
+              onClick={() => setOpen(false)}
+            ><X size={14} /></button>
           </header>
+
+          {/* Task picker — what you're focusing on. Suggests the first active
+              goal when nothing's selected; opens an inline list to choose. */}
+          <div className="pomo-task">
+            <button
+              type="button"
+              className="pomo-task-trigger"
+              onClick={() => setPickerOpen((v) => !v)}
+              data-empty={selectedTitle === null || undefined}
+              data-suggested={!state.taskId && suggested !== null || undefined}
+            >
+              <span className="pomo-task-label">
+                {selectedTitle
+                  ? (state.taskId ? 'Working on' : 'Suggested')
+                  : 'Pick a task'}
+              </span>
+              <span className="pomo-task-title">
+                {selectedTitle ?? 'No active goals'}
+              </span>
+              <ChevronDown size={13} className="pomo-task-chev" data-open={pickerOpen || undefined} />
+            </button>
+            {pickerOpen && (
+              <div className="pomo-task-list" role="listbox" aria-label="Active goals">
+                {activeTasks === null ? (
+                  <div className="pomo-task-empty">Loading…</div>
+                ) : activeTasks.length === 0 ? (
+                  <div className="pomo-task-empty">No active goals.</div>
+                ) : (
+                  <>
+                    {activeTasks.map((t) => {
+                      const selected = state.taskId === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          className="pomo-task-item"
+                          data-selected={selected || undefined}
+                          onClick={() => pickTask(t)}
+                        >
+                          <span className="pomo-task-item-title">{t.title}</span>
+                          {selected && <Check size={12} className="pomo-task-item-check" />}
+                        </button>
+                      );
+                    })}
+                    {state.taskId && (
+                      <button
+                        type="button"
+                        className="pomo-task-item pomo-task-clear"
+                        onClick={() => pickTask(null)}
+                      >Clear selection</button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="pomo-display">
             <svg className="pomo-ring" viewBox="0 0 120 120" aria-hidden="true">
-              <circle className="pomo-ring-bg"  cx="60" cy="60" r="54" fill="none" strokeWidth="6" />
+              <circle className="pomo-ring-bg" cx="60" cy="60" r="54"
+                      fill="none" strokeWidth="6" />
               <circle
                 className="pomo-ring-fg"
                 cx="60" cy="60" r="54" fill="none" strokeWidth="6"
                 strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 54}
-                strokeDashoffset={(2 * Math.PI * 54) * (1 - progressPct / 100)}
+                strokeDasharray={ringDash}
+                strokeDashoffset={ringDash * (1 - progressPct / 100)}
                 transform="rotate(-90 60 60)"
               />
             </svg>
@@ -250,7 +392,7 @@ export function PomodoroPanel() {
               <button
                 key={m}
                 className="pomo-chip"
-                data-active={!isRunning && !isPaused && state.totalSec === m * 60 || undefined}
+                data-active={(!isRunning && !isPaused && state.totalSec === m * 60) || undefined}
                 onClick={() => setMinutes(m)}
                 disabled={isRunning}
               >{m}m</button>

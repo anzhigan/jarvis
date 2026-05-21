@@ -717,17 +717,27 @@
 
 /* ──────────────────────────────────────────────────────────────────────
    Pomodoro panel
-   Small popover anchored to the left-rail Timer button. Mirrors the
-   editorial token system: paper background, hairline borders, indigo
-   accent, mono countdown. Two modes (Focus / Break) with presets and
-   a custom-minute stepper.
+   Small popover anchored to the left-rail tomato button. Editorial
+   tokens: paper background, hairline borders, --rust accent (tomato
+   red, matches the icon), mono countdown. Focus/Break modes, custom
+   minutes, suggested-task picker.
    ────────────────────────────────────────────────────────────────────── */
+.pomo-rail-btn svg { width: 18px; height: 18px; }
+.pomo-rail-btn[data-active] {
+  background: var(--paper);
+  box-shadow: var(--sh-card);
+}
+.pomo-rail-btn[data-active]::before {
+  /* Override the indigo nav-marker pill with rust so the running state
+     visually reads as the same red as the tomato itself. */
+  background: var(--rust);
+}
 .pomo-rail-dot {
   position: absolute;
   top: 6px; right: 6px;
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: var(--indigo);
+  background: var(--rust);
   box-shadow: 0 0 0 2px var(--paper);
   animation: pomoDotPulse 1.6s ease-in-out infinite;
   pointer-events: none;
@@ -738,7 +748,7 @@
 }
 
 .pomo-popover {
-  width: 260px;
+  width: 280px;
   background: var(--paper);
   border-radius: var(--r-card);
   box-shadow: var(--sh-popover);
@@ -755,7 +765,12 @@
   to   { opacity: 1; transform: translateX(0)    scale(1); }
 }
 
-.pomo-head { display: flex; align-items: center; justify-content: center; }
+.pomo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .pomo-seg {
   display: inline-flex;
   background: var(--cream);
@@ -782,6 +797,126 @@
   box-shadow: 0 0 0 1px var(--hairline-strong);
 }
 
+.pomo-close {
+  width: 26px; height: 26px;
+  border: 0; background: transparent;
+  border-radius: 50%;
+  color: var(--ink-4);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.pomo-close:hover { background: var(--cream); color: var(--ink); }
+
+/* ── Task picker ────────────────────────────────────────────────────── */
+.pomo-task { position: relative; }
+.pomo-task-trigger {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--cream);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  transition: background var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
+}
+.pomo-task-trigger:hover { border-color: var(--hairline-strong); }
+.pomo-task-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  font-weight: 500;
+}
+.pomo-task-trigger[data-suggested] .pomo-task-label { color: var(--rust); }
+.pomo-task-trigger[data-empty] .pomo-task-label { color: var(--ink-4); }
+.pomo-task-title {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pomo-task-trigger[data-empty] .pomo-task-title {
+  color: var(--ink-4);
+  font-style: italic;
+  font-weight: 400;
+}
+.pomo-task-chev {
+  color: var(--ink-4);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.pomo-task-chev[data-open] { transform: rotate(180deg); }
+
+.pomo-task-list {
+  margin-top: 4px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-control);
+  max-height: 180px;
+  overflow-y: auto;
+  box-shadow: var(--sh-card);
+  padding: 4px;
+  display: flex; flex-direction: column;
+  gap: 2px;
+}
+.pomo-task-empty {
+  padding: 12px;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-4);
+}
+.pomo-task-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink-2);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.pomo-task-item:hover { background: var(--cream); color: var(--ink); }
+.pomo-task-item[data-selected] {
+  background: var(--rust-soft);
+  color: var(--rust);
+}
+.pomo-task-item-title {
+  flex: 1; min-width: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pomo-task-item-check { flex-shrink: 0; color: var(--rust); }
+.pomo-task-clear {
+  margin-top: 2px;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0 0 4px 4px;
+  font-size: 11px;
+  color: var(--ink-4);
+  justify-content: center;
+}
+.pomo-task-clear:hover { color: var(--rust); background: var(--rust-soft); }
+
+/* ── Display ────────────────────────────────────────────────────────── */
 .pomo-display {
   position: relative;
   width: 144px; height: 144px;
@@ -794,7 +929,7 @@
 }
 .pomo-ring-bg { stroke: var(--hairline); }
 .pomo-ring-fg {
-  stroke: var(--indigo);
+  stroke: var(--rust);
   transition: stroke-dashoffset 950ms linear;
 }
 .pomo-time {
@@ -808,6 +943,7 @@
   line-height: 1;
 }
 
+/* ── Presets + stepper ──────────────────────────────────────────────── */
 .pomo-presets {
   display: flex;
   flex-wrap: wrap;
@@ -832,8 +968,8 @@
   color: var(--ink);
 }
 .pomo-chip[data-active] {
-  background: var(--indigo);
-  border-color: var(--indigo);
+  background: var(--rust);
+  border-color: var(--rust);
   color: var(--paper);
 }
 .pomo-chip:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -867,6 +1003,7 @@
   letter-spacing: 0.01em;
 }
 
+/* ── Actions ────────────────────────────────────────────────────────── */
 .pomo-actions {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -890,10 +1027,12 @@
               color var(--dur-fast) var(--ease);
 }
 .pomo-btn-primary {
-  background: var(--indigo);
+  background: var(--rust);
   color: var(--paper);
 }
-.pomo-btn-primary:hover { background: var(--indigo-2); }
+.pomo-btn-primary:hover {
+  background: color-mix(in srgb, var(--rust) 86%, black);
+}
 .pomo-btn-plain {
   background: var(--paper);
   border-color: var(--hairline);
