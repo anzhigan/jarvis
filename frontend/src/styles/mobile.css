@@ -186,7 +186,8 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 14px 16px 12px;
+    /* Bottom padding clears the floating tab bar (64px) + 8px gap + safe-area. */
+    padding: 14px 16px calc(64px + 8px + env(safe-area-inset-bottom, 0px) + 12px);
     background: var(--paper);
   }
 
@@ -194,18 +195,29 @@
      Sits above the scrollable content; the blur lets the user feel that
      content is sliding underneath. Safe-area padding keeps icons clear of
      the home-indicator. */
+  /* iOS-18 style floating tab bar — detached pill that sits above the
+     home-indicator with margins on every side, rounded heavily, drop
+     shadow for elevation. Content scrolls under it (mostly hidden by
+     the translucent material + blur). `position: fixed` so it never
+     scrolls with content; `.screen-content` reserves bottom space. */
   .tab-bar {
-    flex-shrink: 0;
-    height: 78px;
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    position: fixed;
+    left: 10px; right: 10px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+    height: 64px;
+    padding: 4px 6px;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    border-top: 1px solid var(--hairline-faint);
+    border: 1px solid var(--hairline);
+    border-radius: 28px;
     background: var(--material, var(--paper));
-    -webkit-backdrop-filter: blur(var(--blur, 20px));
-    backdrop-filter: blur(var(--blur, 20px));
-    position: relative;
-    z-index: 5;
+    -webkit-backdrop-filter: blur(var(--blur, 22px)) saturate(180%);
+    backdrop-filter: blur(var(--blur, 22px)) saturate(180%);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.30) inset,
+      0 8px 24px rgba(15, 24, 32, 0.14),
+      0 2px 8px rgba(15, 24, 32, 0.06);
+    z-index: 50;
   }
   .tab-btn {
     background: transparent;
@@ -213,14 +225,19 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
-    gap: 3px;
-    padding: 6px 4px;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px;
     color: var(--ink-4);
     cursor: pointer;
-    transition: color 140ms;
+    border-radius: 22px;
+    transition: color 140ms, background 160ms, transform 80ms;
   }
-  .tab-btn[data-active] { color: var(--indigo); }
+  .tab-btn:active { transform: scale(0.92); }
+  .tab-btn[data-active] {
+    color: var(--indigo);
+    background: var(--indigo-soft);
+  }
   .tab-ico {
     display: inline-flex;
     align-items: center;
@@ -229,7 +246,7 @@
   .tab-ico svg { width: 22px; height: 22px; }
   .tab-label {
     font-family: var(--font-ui);
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 500;
     letter-spacing: 0.01em;
   }
@@ -2596,7 +2613,12 @@
     font-family: var(--font-ui);
     overflow: hidden;
   }
-  .m-shell .screen-content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 16px 12px; }
+  .m-shell .screen-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 16px calc(64px + 8px + env(safe-area-inset-bottom, 0px) + 12px);
+  }
 
   /* Full-width dashed "Add …" button — sits between section filters and the
      list/cards. Same body-text size as the surrounding cards / pills, dashed
@@ -3490,7 +3512,8 @@
   .m-ai-toast-slot {
     position: fixed;
     left: 12px; right: 12px;
-    bottom: calc(78px + env(safe-area-inset-bottom, 0px) + 8px);
+    /* Float ABOVE the floating tab bar (64px + 8px gap + safe-area + 8px gap). */
+    bottom: calc(64px + 8px + env(safe-area-inset-bottom, 0px) + 12px);
     z-index: 90;
     pointer-events: none;
     display: flex; flex-direction: column;
