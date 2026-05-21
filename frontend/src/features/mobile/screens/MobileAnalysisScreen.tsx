@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Loader2, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
+import { aiApi } from '../../../api/client';
+import { useAIJobsStore } from '../../../store/aiJobs';
 import { useGoals } from '../../goals/hooks/useGoals';
 import { useGos } from '../../goals/hooks/useGos';
 import { useRoutines } from '../../routines/hooks/useRoutines';
@@ -180,8 +183,43 @@ export default function MobileAnalysisScreen({ tab, onTabChange, onAvatarClick }
     return { weeks, totalEntries, pctActive };
   }, [routines.routines, gos.gos, today]);
 
-  const subtitle = `${kpi.advancing} goals advancing · ${kpi.onTrackPct}% on track`;
-  const topBar = <MobileTopBar title="Analysis" subtitle={subtitle} onAvatarClick={onAvatarClick} />;
+  const subtitle = `${kpi.advancing} adv · ${kpi.onTrackPct}% on track`;
+
+  // AI "Coach" — action-oriented period review. Result rendered via the
+  // universal AI result sheet when the user taps the toast/panel row.
+  const addBgJob = useAIJobsStore((s) => s.add);
+  const [coachBusy, setCoachBusy] = useState(false);
+  const handleCoach = useCallback(async () => {
+    if (coachBusy) return;
+    setCoachBusy(true);
+    try {
+      const job = await aiApi.createCoach({ range_days: days });
+      addBgJob({
+        jobId: job.id,
+        kind: 'coach',
+        source: { section: 'analysis', noteTitle: `${days}d window` },
+      });
+      toast.success('Coach thinking…');
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to start coach');
+    } finally {
+      setCoachBusy(false);
+    }
+  }, [addBgJob, coachBusy, days]);
+
+  const topBar = (
+    <MobileTopBar
+      title="Analysis"
+      subtitle={subtitle}
+      onAvatarClick={onAvatarClick}
+      aiAction={{
+        icon: <Sparkles size={13} />,
+        label: 'Coach',
+        onClick: handleCoach,
+        busy: coachBusy,
+      }}
+    />
+  );
 
   if (goals.loading || routines.loading || notes.loading) {
     return (

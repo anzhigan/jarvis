@@ -58,14 +58,7 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
   }, [lib.decorated]);
   const totalCount = sections.active.length + sections.upcoming.length + sections.past.length;
 
-  const subtitle = `${lib.counts.active} active · ${lib.counts.upcoming} in queue`;
-  const topBar = (
-    <MobileTopBar
-      title="Sprints"
-      subtitle={subtitle}
-      onAvatarClick={onAvatarClick}
-    />
-  );
+  const subtitle = `${lib.counts.active} active · ${lib.counts.upcoming} queued`;
 
   // AI "Sprint plan" — picks the next-7-days window and asks the AI to
   // propose a title + items. Result viewing happens through the
@@ -86,6 +79,20 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
     }
   }, [addBgJob, aiSubmitting]);
 
+  const topBar = (
+    <MobileTopBar
+      title="Sprints"
+      subtitle={subtitle}
+      onAvatarClick={onAvatarClick}
+      aiAction={{
+        icon: <Sparkles size={13} />,
+        label: 'AI sprint',
+        onClick: handleAISprint,
+        busy: aiSubmitting,
+      }}
+    />
+  );
+
   if (lib.loading) {
     return (
       <MobileShell topBar={topBar} tab={tab} onTabChange={onTabChange}>
@@ -102,17 +109,6 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
       tab={tab}
       onTabChange={onTabChange}
     >
-      <div className="sprints-ai-row">
-        <button
-          type="button"
-          className="m-ai-trigger"
-          onClick={handleAISprint}
-          disabled={aiSubmitting}
-        >
-          <Sparkles size={13} />
-          <span>{aiSubmitting ? 'Drafting…' : 'AI sprint'}</span>
-        </button>
-      </div>
       <button type="button" className="m-add-btn" onClick={() => setCreateOpen(true)}>
         <Plus /> Sprint
       </button>

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Check, ChevronRight, Flag, Loader2, Minus, Plus, Sparkles } from 'lucide-react';
 import { MiniGoContent } from '../components/MiniCards';
+import { GoalProgressTrack } from '../../goals/components/GoalProgressTrack';
 import { toast } from 'sonner';
 import type { Go, GoalRoutineLink, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { useGoals } from '../../goals/hooks/useGoals';
@@ -107,7 +108,7 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
     return c;
   }, [goals.tasks]);
 
-  const subtitle = `${counts.active} active · ${counts.backlog} in backlog`;
+  const subtitle = `${counts.active} active · ${counts.backlog} backlog`;
 
   const handleAddTopBar = useCallback(() => setGoalFormOpen(true), []);
 
@@ -139,6 +140,12 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
       title="Goals"
       subtitle={subtitle}
       onAvatarClick={onAvatarClick}
+      aiAction={{
+        icon: <Sparkles size={13} />,
+        label: 'Plan day',
+        onClick: handlePlanDay,
+        busy: planSubmitting,
+      }}
     />
   );
 
@@ -154,17 +161,6 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
 
   return (
     <MobileShell topBar={topBar} tab={tab} onTabChange={onTabChange}>
-      <div className="goals-ai-row">
-        <button
-          type="button"
-          className="m-ai-trigger"
-          onClick={handlePlanDay}
-          disabled={planSubmitting}
-        >
-          <Sparkles size={13} />
-          <span>{planSubmitting ? 'Planning…' : 'Plan today'}</span>
-        </button>
-      </div>
       <div className="goals-segmented">
         <button className="seg-btn" data-active={mode === 'kanban'   || undefined} onClick={() => setMode('kanban')}>Kanban</button>
         <button className="seg-btn" data-active={mode === 'go'       || undefined} onClick={() => setMode('go')}>Go</button>
@@ -511,7 +507,6 @@ function GoalCard({
   onOpenDetail: () => void;
 }) {
   const accent = accentForGoal(task);
-  const pct = Math.round(task.progress ?? 0);
   const [expanded, setExpanded] = useState(false);
 
   const todayItems = task.gos.filter((g) => !g.due_date || g.due_date === ymd(new Date()) || g.is_done_today);
@@ -559,23 +554,10 @@ function GoalCard({
 
       {task.description && <p className="gc-desc">{task.description}</p>}
 
-      {/* Progress as a single horizontal bar — no separate "0% complete" text. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0 4px' }}>
-        <div style={{
-          flex: 1, height: 6,
-          background: 'var(--cream)', borderRadius: 999, overflow: 'hidden',
-        }}>
-          <div style={{
-            height: '100%',
-            width: `${pct}%`,
-            background: 'var(--indigo)',
-            transition: 'width 220ms ease',
-          }} />
-        </div>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500,
-          color: 'var(--ink)', flexShrink: 0,
-        }}>{pct}%</span>
+      {/* Segmented progress with today-marker + steps count — same component
+          as desktop so the visual vocabulary matches across surfaces. */}
+      <div style={{ margin: '12px 0 4px' }}>
+        <GoalProgressTrack task={task} />
       </div>
 
       {task.tags.length > 0 && (

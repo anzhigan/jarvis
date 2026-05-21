@@ -162,6 +162,33 @@
   .m-shell .tb-ai:hover { background: var(--indigo-tint); }
   .m-shell .tb-ai svg { width: 16px; height: 16px; }
 
+  /* Contextual AI action pill (Plan day / AI sprint / Coach) — sits to
+     the left of the bell in the top-bar right slot. Compact tinted
+     capsule with an icon + label so it reads as a single creative
+     trigger, not as plain icon-chrome. */
+  .m-shell .tb-ai-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 32px;
+    padding: 0 10px;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    border: 0;
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: background 140ms;
+  }
+  .m-shell .tb-ai-action:hover:not(:disabled) { background: var(--indigo-tint); }
+  .m-shell .tb-ai-action:disabled { opacity: 0.55; cursor: progress; }
+  .m-shell .tb-ai-action svg { width: 13px; height: 13px; }
+
   .m-shell .tb-avatar {
     width: 36px; height: 36px;
     aspect-ratio: 1;

@@ -1,5 +1,15 @@
-import { Sparkles } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useAuthStore } from '../../../store/auth';
+
+/** A contextual AI generation trigger that screens can plant in the
+ *  top-bar (e.g. "Plan day" on Goals, "AI sprint" on Sprints, "Coach" on
+ *  Analysis). Renders as a tinted pill to the LEFT of the bell. */
+export interface AIActionProp {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  busy?: boolean;
+}
 
 interface Props {
   title: string;
@@ -12,10 +22,13 @@ interface Props {
   rightSlot?: React.ReactNode;
   /** Avatar click handler — defaults to navigating to the profile screen. */
   onAvatarClick?: () => void;
-  /** Show the AI shortcut button next to the avatar (opens the AI jobs
+  /** Show the AI/notifications bell next to the avatar (opens the AI jobs
    *  bottom-sheet). Default true; pass false on screens that take over
    *  the right slot entirely (e.g. a note editor with action buttons). */
   aiButton?: boolean;
+  /** Contextual AI generation action (Plan day / AI sprint / Coach …)
+   *  shown to the left of the bell. */
+  aiAction?: AIActionProp;
   /** Display mode:
    *    - `large` (default): iOS large-title pattern — compact bar at the
    *      top with empty centre, large display-font title + sub-line below.
@@ -42,24 +55,39 @@ export const OPEN_AI_PANEL_EVENT = 'jarvnote:openAIPanel';
  * ~108pt.
  */
 export function MobileTopBar({
-  title, subtitle, leftSlot, rightSlot, onAvatarClick, aiButton = true, mode = 'large',
+  title, subtitle, leftSlot, rightSlot, onAvatarClick, aiButton = true,
+  aiAction, mode = 'large',
 }: Props) {
   const user = useAuthStore((s) => s.user);
   const initial = (user?.username?.[0] ?? user?.email?.[0] ?? 'A').toUpperCase();
+
+  const aiActionBtn = aiAction ? (
+    <button
+      type="button"
+      className="tb-ai-action"
+      onClick={aiAction.onClick}
+      disabled={aiAction.busy}
+      aria-label={aiAction.label}
+    >
+      {aiAction.icon}
+      <span>{aiAction.busy ? '…' : aiAction.label}</span>
+    </button>
+  ) : null;
 
   const aiBtn = aiButton ? (
     <button
       type="button"
       className="tb-ai"
-      aria-label="AI tasks"
+      aria-label="AI notifications"
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_AI_PANEL_EVENT))}
     >
-      <Sparkles size={16} />
+      <Bell size={16} />
     </button>
   ) : null;
 
   const right = rightSlot ?? (
     <>
+      {aiActionBtn}
       {aiBtn}
       <button
         type="button"
