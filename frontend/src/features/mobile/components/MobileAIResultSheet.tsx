@@ -4,6 +4,8 @@ import { aiApi } from '../../../api/client';
 import type {
   AIJob,
   AIJobKind,
+  AIQuiz,
+  GoalPlanOutput,
   ScheduleOutput,
   SprintPlanOutput,
   InsightsOutput,
@@ -113,6 +115,8 @@ function ResultBody({ job }: { job: AIJob }) {
   if (job.kind === 'sprint_plan') return <SprintPlanView out={out as SprintPlanOutput} />;
   if (job.kind === 'insights')    return <InsightsView   out={out as InsightsOutput} />;
   if (job.kind === 'coach')       return <CoachView      out={out as CoachOutput} />;
+  if (job.kind === 'quiz')        return <QuizView       out={out as AIQuiz} />;
+  if (job.kind === 'goal_plan')   return <GoalPlanView   out={out as GoalPlanOutput} />;
   return <JsonFallback out={out} />;
 }
 
@@ -249,6 +253,101 @@ function CoachView({ out }: { out: CoachOutput }) {
           accent="moss"
         />
       )}
+    </div>
+  );
+}
+
+function QuizView({ out }: { out: AIQuiz }) {
+  return (
+    <div className="m-ai-result">
+      <div className="m-ai-result-title">{out.title}</div>
+      <div className="m-ai-result-date">
+        {out.questions.length} question{out.questions.length === 1 ? '' : 's'} · {out.difficulty}
+      </div>
+      <div className="m-ai-quiz-list">
+        {out.questions.map((q, i) => (
+          <div key={i} className="m-ai-quiz-q">
+            <div className="m-ai-quiz-q-text">
+              <span className="m-ai-quiz-q-num">{i + 1}.</span> {q.question}
+            </div>
+            <div className="m-ai-quiz-opts">
+              {(['A', 'B', 'C', 'D'] as const).map((letter) => {
+                const isCorrect = q.correct === letter;
+                return (
+                  <div
+                    key={letter}
+                    className="m-ai-quiz-opt"
+                    data-correct={isCorrect || undefined}
+                  >
+                    <span className="m-ai-quiz-opt-letter">{letter}</span>
+                    <span className="m-ai-quiz-opt-text">{q.options[letter]}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {q.explanation && (
+              <div className="m-ai-quiz-expl">{q.explanation}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GoalPlanView({ out }: { out: GoalPlanOutput }) {
+  return (
+    <div className="m-ai-result">
+      <div className="m-ai-result-title">{out.goal_title}</div>
+      <div className="m-ai-result-date">
+        {out.mode.replace('_', ' ')} · {out.steps.length} step{out.steps.length === 1 ? '' : 's'}
+      </div>
+      {out.rationale && (
+        <SummaryRow label="Rationale" value={out.rationale} accent="indigo" />
+      )}
+      <div className="m-ai-items">
+        {out.steps.map((s, i) => (
+          <div key={i} className="m-ai-item" data-severity="step">
+            <span className="m-ai-item-kind">Step</span>
+            <div className="m-ai-item-body">
+              <div className="m-ai-item-title">{s.title}</div>
+              {(s.start_date || s.end_date) && (
+                <div className="m-ai-item-reason">
+                  {fmtDate(s.start_date)} → {fmtDate(s.end_date)}
+                </div>
+              )}
+              {s.description && (
+                <div className="m-ai-item-reason">{s.description}</div>
+              )}
+              {s.gos.length > 0 && (
+                <div className="m-ai-quiz-expl">
+                  {s.gos.map((g, gi) => (
+                    <div key={gi}>• {g.title}{g.due_date ? ` (${fmtDate(g.due_date)})` : ''}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        {out.orphan_gos.length > 0 && (
+          <>
+            <div className="m-ai-result-section-title">
+              Orphan gos · {out.orphan_gos.length}
+            </div>
+            {out.orphan_gos.map((g, gi) => (
+              <div key={gi} className="m-ai-item">
+                <span className="m-ai-item-kind">Go</span>
+                <div className="m-ai-item-body">
+                  <div className="m-ai-item-title">{g.title}</div>
+                  {g.due_date && (
+                    <div className="m-ai-item-reason">{fmtDate(g.due_date)}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }

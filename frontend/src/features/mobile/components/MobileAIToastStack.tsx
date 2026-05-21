@@ -262,18 +262,15 @@ export function MobileAIToastStack() {
     return () => window.removeEventListener(OPEN_AI_PANEL_EVENT, handler);
   }, []);
 
-  // Universal result sheet — catches AI_JOB_OPEN_EVENT for kinds that
-  // don't have a dedicated mobile viewer. Without this, taps on
-  // schedule/insights/coach/sprint_plan results just navigated to the
-  // section and showed nothing (the "white screen" the user reported).
+  // Universal result sheet — catches AI_JOB_OPEN_EVENT for EVERY kind so
+  // every tap on a toast/panel row opens the same bottom-sheet result
+  // viewer (per the design system). Bespoke screens (MobileGoalPlanSheet,
+  // MobileQuizSheet) stay wired for in-flow opens only — their event
+  // listeners were removed to avoid double-opening sheets.
   useEffect(() => {
     const handler = (e: Event) => {
       const d = (e as CustomEvent<AIJobOpenDetail>).detail;
       if (!d) return;
-      // Skip kinds that have a screen-local viewer:
-      //  - goal_plan: MobileGoalPlanSheet inside MobileGoalsScreen
-      //  - quiz:     MobileQuizSheet inside MobileNoteEditor
-      if (d.kind === 'goal_plan' || d.kind === 'quiz') return;
       setResultJobId(d.jobId);
       setResultOpen(true);
     };

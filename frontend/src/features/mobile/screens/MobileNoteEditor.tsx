@@ -6,11 +6,7 @@ import type { Note } from '../../../api/types';
 import { useNoteAutoSave } from '../../notes/hooks/useNoteAutoSave';
 import type { NotesLibrary } from '../../notes/hooks/useNotesLibrary';
 import { confirmDialog } from '../../../components/ui';
-import {
-  AI_JOB_OPEN_EVENT,
-  type AIJobOpenDetail,
-  useAIJobsStore,
-} from '../../../store/aiJobs';
+import { useAIJobsStore } from '../../../store/aiJobs';
 import { MobileActionSheet, type ActionSheetItem } from '../components/MobileActionSheet';
 import { MobileQuizSheet } from '../components/MobileQuizSheet';
 import '../../../styles/mobile.css';
@@ -49,18 +45,12 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
 
   useEffect(() => { setLocalTitle(note.name); }, [note.id, note.name]);
 
-  // Listen for "Open this job" dispatches from MobileAIJobsPanel. Only
-  // claim quiz jobs whose source note is the one we're currently editing.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
-      if (detail.kind !== 'quiz') return;
-      if (detail.source.noteId !== note.id) return;
-      setQuizJobId(detail.jobId);
-    };
-    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
-    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
-  }, [note.id]);
+  // The AI_JOB_OPEN_EVENT listener for quiz used to live here so a panel
+  // re-tap could relaunch MobileQuizSheet. Removed — MobileAIToastStack
+  // now opens the universal MobileAIResultSheet for every kind, so panel/
+  // toast taps always land on the same design-system bottom sheet.
+  // MobileQuizSheet still opens in-flow when the user creates / reuses a
+  // quiz from this editor (see the AI button handler below).
 
   // Resolve parent way / topic for the meta line.
   const located = library.findNote(note.id);

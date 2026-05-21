@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Check, ChevronRight, Flag, Loader2, Minus, Plus, Sparkles } from 'lucide-react';
 import { MiniGoContent } from '../components/MiniCards';
 import { toast } from 'sonner';
@@ -17,7 +17,8 @@ import { MobilePickerSheet } from '../components/MobilePickerSheet';
 import { MobileGoalDetailSheet } from '../components/MobileGoalDetailSheet';
 import { MobileGoalPlanSheet } from '../components/MobileGoalPlanSheet';
 import { MobileGoalsTimeline } from '../components/MobileGoalsTimeline';
-import { AI_JOB_OPEN_EVENT, type AIJobOpenDetail } from '../../../store/aiJobs';
+// AI_JOB_OPEN_EVENT listener moved to MobileAIToastStack — universal sheet
+// handles all toast/panel reopens.
 import type { Tab } from '../../../app/tabs';
 
 type ViewMode = 'kanban' | 'go' | 'timeline';
@@ -93,23 +94,12 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
     [goals.tasks, planGoalId],
   );
 
-  // Reopen AI plan via the toast → panel → "Open" flow. Same protocol as
-  // desktop GoalsView — when MobileAIJobsPanel dispatches the event for a
-  // goal_plan job, we mount the plan sheet with that jobId. The sheet
-  // resolves the goal from its own job.output_json once `done`.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<AIJobOpenDetail>).detail;
-      if (detail.kind !== 'goal_plan') return;
-      setPlanJobId(detail.jobId);
-      // We don't have goal_id from the event payload directly. For an
-      // in-flight job, dates-mode matching is degraded until the user
-      // navigates here through the detail-sheet flow (which sets
-      // planGoalId explicitly).
-    };
-    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
-    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
-  }, []);
+  // Note: the AI_JOB_OPEN_EVENT listener for goal_plan used to live here
+  // and open MobileGoalPlanSheet. Removed — MobileAIToastStack now opens
+  // the universal MobileAIResultSheet for every kind (matching the
+  // "every tap opens the same bottom sheet" design). MobileGoalPlanSheet
+  // still opens in-flow via onAIJobStarted (right after the user fires
+  // a plan from the goal detail sheet).
 
   const counts = useMemo(() => {
     const c: Record<TaskStatus, number> = { active: 0, backlog: 0, paused: 0, done: 0 };
