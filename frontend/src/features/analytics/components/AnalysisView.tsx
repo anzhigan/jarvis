@@ -9,6 +9,7 @@ import {
 import { BreakdownDonut } from './BreakdownDonut';
 import { WeekdayRadar } from './WeekdayRadar';
 import { PerRoutinePulse } from './PerRoutinePulse';
+import { PomodoroTimePerTask } from './PomodoroTimePerTask';
 import { CoachCard } from './CoachCard';
 import './analytics.css';
 
@@ -175,6 +176,11 @@ export default function AnalysisView() {
                 {/* Row 3.5 — Per-routine pulse grid (one mini line per routine). */}
                 <section className="ana-row">
                   <PerRoutinePulse routines={a.routines} windowDays={PERIOD_DAYS[a.period]} />
+                </section>
+
+                {/* Row 3.7 — Pomodoro focus time per task (local-only data). */}
+                <section className="ana-row">
+                  <PomodoroTimePerTask periodDays={PERIOD_DAYS[a.period]} />
                 </section>
 
                 {/* Row 4 — Year heatmap full width */}

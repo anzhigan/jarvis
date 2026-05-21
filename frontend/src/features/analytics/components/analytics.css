@@ -367,6 +367,124 @@
   text-align: center;
 }
 
+/* ── Pomodoro · Focus time per task ─────────────────────────────────────
+   Horizontal-bar chart, one row per task sorted by total minutes desc.
+   Rust accent matches the Pomodoro panel. Unassigned focus time shows
+   muted so it doesn't compete with named-task rows for attention. */
+.pomo-tpt-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+.pomo-tpt-total-num {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--rust);
+  font-variant-numeric: tabular-nums;
+}
+.pomo-tpt-total-cap {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  margin-top: 4px;
+}
+
+.pomo-tpt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pomo-tpt-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 2.2fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+.pomo-tpt-label {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pomo-tpt-row[data-unassigned] .pomo-tpt-label,
+.pomo-tpt-row[data-other] .pomo-tpt-label {
+  color: var(--ink-4);
+  font-style: italic;
+}
+
+.pomo-tpt-track {
+  position: relative;
+  height: 8px;
+  background: var(--cream);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.pomo-tpt-bar {
+  height: 100%;
+  background: var(--rust);
+  border-radius: var(--r-pill);
+  transition: width 320ms var(--ease);
+}
+.pomo-tpt-row[data-unassigned] .pomo-tpt-bar {
+  background: color-mix(in srgb, var(--rust) 50%, var(--cream));
+}
+.pomo-tpt-row[data-other] .pomo-tpt-bar {
+  background: color-mix(in srgb, var(--rust) 35%, var(--cream));
+}
+
+.pomo-tpt-val {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+.pomo-tpt-min {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.pomo-tpt-sess {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.pomo-tpt-empty {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-4);
+  padding: 28px 4px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.pomo-tpt-foot {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  text-align: right;
+  letter-spacing: 0.02em;
+}
+
 /* ── InsightsCard — AI narrative review at the top of Analysis ───────────── */
 .ana-insights-card {
   background: linear-gradient(165deg, var(--indigo-soft), transparent 60%);

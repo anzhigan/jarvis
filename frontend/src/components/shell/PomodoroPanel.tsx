@@ -4,6 +4,7 @@ import { Pause, Play, RotateCcw, Plus, Minus, X, ChevronDown, Check } from 'luci
 import { Tooltip } from '../ui';
 import { tasksApi } from '../../api/client';
 import type { Task } from '../../api/types';
+import { recordSession } from '../../features/analytics/lib/pomodoroLog';
 
 type Mode = 'focus' | 'break';
 
@@ -94,7 +95,7 @@ function playDing() {
 }
 
 /** Tomato icon — round rust body, moss-green crown. Used on the rail trigger. */
-function TomatoIcon({ size = 22 }: { size?: number }) {
+function TomatoIcon({ size = 26 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
       {/* Body */}
@@ -182,20 +183,31 @@ export function PomodoroPanel() {
   const selectedTitle = state.taskTitle ?? suggested?.title ?? null;
 
   // Completion — fires once per run; auto-resets to a fresh idle of the
-  // same mode so the panel is ready for the next round.
+  // same mode so the panel is ready for the next round. We also log the
+  // finished session (focus mode only; break sessions aren't interesting
+  // for time-per-task analytics) so the Analysis chart can plot it.
   useEffect(() => {
     if (!isRunning) return;
     if (remainingSec > 0) return;
     if (dingPlayedFor.current === state.startedAt) return;
     dingPlayedFor.current = state.startedAt;
     playDing();
+    if (state.mode === 'focus') {
+      recordSession({
+        taskId: state.taskId,
+        taskTitle: state.taskTitle,
+        mode: 'focus',
+        durationSec: state.totalSec,
+        completedAt: Date.now(),
+      });
+    }
     setState((s) => ({
       ...s,
       startedAt: null,
       pausedRemainingSec: null,
       totalSec: s.mode === 'focus' ? DEFAULT_FOCUS_MIN * 60 : DEFAULT_BREAK_MIN * 60,
     }));
-  }, [remainingSec, isRunning, state.startedAt]);
+  }, [remainingSec, isRunning, state.startedAt, state.mode, state.taskId, state.taskTitle, state.totalSec]);
 
   const setMode = useCallback((mode: Mode) => {
     setState((s) => ({
