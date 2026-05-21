@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, ChevronRight, Flag, Loader2, Minus, Plus } from 'lucide-react';
+import { Check, ChevronRight, Flag, Loader2, Minus, Plus, Sparkles } from 'lucide-react';
 import { MiniGoContent } from '../components/MiniCards';
 import { toast } from 'sonner';
 import type { Go, GoalRoutineLink, Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { useGoals } from '../../goals/hooks/useGoals';
 import { useGos } from '../../goals/hooks/useGos';
-import { gosApi, routinesApi } from '../../../api/client';
+import { aiApi, gosApi, routinesApi } from '../../../api/client';
+import { useAIJobsStore } from '../../../store/aiJobs';
 import { useRoutines } from '../../routines/hooks/useRoutines';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
@@ -120,6 +121,29 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
 
   const handleAddTopBar = useCallback(() => setGoalFormOpen(true), []);
 
+  // AI "Plan today" — kicks off a schedule generation in the background.
+  // Result viewing happens through the universal AI toast/panel → result
+  // sheet flow; we don't need a screen-local viewer here.
+  const addBgJob = useAIJobsStore((s) => s.add);
+  const [planSubmitting, setPlanSubmitting] = useState(false);
+  const handlePlanDay = useCallback(async () => {
+    if (planSubmitting) return;
+    setPlanSubmitting(true);
+    try {
+      const job = await aiApi.createSchedule({
+        date: '',
+        hours: { start_h: 9, end_h: 18 },
+        time_blocked: true,
+      });
+      addBgJob({ jobId: job.id, kind: 'schedule', source: { section: 'goals' } });
+      toast.success('Planning your day…');
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to start planning');
+    } finally {
+      setPlanSubmitting(false);
+    }
+  }, [addBgJob, planSubmitting]);
+
   const topBar = (
     <MobileTopBar
       title="Goals"
@@ -140,6 +164,17 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
 
   return (
     <MobileShell topBar={topBar} tab={tab} onTabChange={onTabChange}>
+      <div className="goals-ai-row">
+        <button
+          type="button"
+          className="m-ai-trigger"
+          onClick={handlePlanDay}
+          disabled={planSubmitting}
+        >
+          <Sparkles size={13} />
+          <span>{planSubmitting ? 'Planning…' : 'Plan today'}</span>
+        </button>
+      </div>
       <div className="goals-segmented">
         <button className="seg-btn" data-active={mode === 'kanban'   || undefined} onClick={() => setMode('kanban')}>Kanban</button>
         <button className="seg-btn" data-active={mode === 'go'       || undefined} onClick={() => setMode('go')}>Go</button>
@@ -258,6 +293,7 @@ export default function MobileGoalsScreen({ tab, onTabChange, onAvatarClick }: P
           if (detailGoal) setPlanGoalId(detailGoal.id);
           setPlanJobId(jobId);
         }}
+        onStepCreated={() => { void goals.refresh(); }}
       />
 
       {/* Goal AI plan sheet — shows the proposal, lets user drop items

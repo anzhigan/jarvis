@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Loader2, Plus, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronRight, Loader2, Plus, Sparkles, X } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Go, Routine, Sprint, Task } from '../../../api/types';
+import { aiApi } from '../../../api/client';
+import { useAIJobsStore } from '../../../store/aiJobs';
 import { useSprints, type SprintWithProgress, type SprintsLibrary } from '../../sprints/hooks/useSprints';
 import { SprintForm } from '../components/MobileAddForms';
 import { SwipeableRow } from '../components/SwipeableRow';
@@ -64,6 +67,25 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
     />
   );
 
+  // AI "Sprint plan" — picks the next-7-days window and asks the AI to
+  // propose a title + items. Result viewing happens through the
+  // universal AI toast/panel → result sheet flow.
+  const addBgJob = useAIJobsStore((s) => s.add);
+  const [aiSubmitting, setAiSubmitting] = useState(false);
+  const handleAISprint = useCallback(async () => {
+    if (aiSubmitting) return;
+    setAiSubmitting(true);
+    try {
+      const job = await aiApi.createSprintPlan({ days: 7 });
+      addBgJob({ jobId: job.id, kind: 'sprint_plan', source: { section: 'sprints' } });
+      toast.success('Drafting a sprint…');
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to start AI sprint plan');
+    } finally {
+      setAiSubmitting(false);
+    }
+  }, [addBgJob, aiSubmitting]);
+
   if (lib.loading) {
     return (
       <MobileShell topBar={topBar} tab={tab} onTabChange={onTabChange}>
@@ -80,6 +102,17 @@ export default function MobileSprintsScreen({ tab, onTabChange, onAvatarClick }:
       tab={tab}
       onTabChange={onTabChange}
     >
+      <div className="sprints-ai-row">
+        <button
+          type="button"
+          className="m-ai-trigger"
+          onClick={handleAISprint}
+          disabled={aiSubmitting}
+        >
+          <Sparkles size={13} />
+          <span>{aiSubmitting ? 'Drafting…' : 'AI sprint'}</span>
+        </button>
+      </div>
       <button type="button" className="m-add-btn" onClick={() => setCreateOpen(true)}>
         <Plus /> Sprint
       </button>

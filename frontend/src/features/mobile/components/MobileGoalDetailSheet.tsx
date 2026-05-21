@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Flag, Sparkles, Trash2 } from 'lucide-react';
+import { Flag, ListPlus, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { aiApi } from '../../../api/client';
+import { aiApi, stepsApi } from '../../../api/client';
 import type { Task, TaskPriority, TaskStatus } from '../../../api/types';
 import { useAIJobsStore } from '../../../store/aiJobs';
 import { MobileBottomSheet } from './MobileBottomSheet';
@@ -24,6 +24,9 @@ interface Props {
    *  sees progress + result without going through the toast/panel
    *  round-trip. */
   onAIJobStarted?: (jobId: string) => void;
+  /** Called after a Step is created — parent refreshes its goals query
+   *  so the new step shows up in lists / counts. */
+  onStepCreated?: () => void;
 }
 
 const STATUS_OPTIONS = [
@@ -66,9 +69,34 @@ function fmtDate(iso: string | null): string {
  */
 export function MobileGoalDetailSheet({
   task, open, onOpenChange, onEdit, onDelete, onStatusChange, onAIJobStarted,
+  onStepCreated,
 }: Props) {
   const addBgJob = useAIJobsStore((s) => s.add);
   const [aiOpen, setAiOpen] = useState(false);
+
+  // Add-step inline sheet — title-only quick create. After submit we
+  // notify the parent (via onStepCreated) so its goals query refreshes
+  // and the step count/list updates.
+  const [addStepOpen, setAddStepOpen] = useState(false);
+  const [stepTitle, setStepTitle] = useState('');
+  const [stepBusy, setStepBusy] = useState(false);
+  const handleAddStepSubmit = async () => {
+    if (!task) return;
+    const title = stepTitle.trim();
+    if (!title || stepBusy) return;
+    setStepBusy(true);
+    try {
+      await stepsApi.create(task.id, { title });
+      setStepTitle('');
+      setAddStepOpen(false);
+      onStepCreated?.();
+      toast.success('Step added');
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to add step');
+    } finally {
+      setStepBusy(false);
+    }
+  };
 
   // Optimistic status — segmented control reflects the user's pick
   // immediately, even before `onStatusChange` round-trips through the
@@ -285,6 +313,16 @@ export function MobileGoalDetailSheet({
           {task.gos.length} go{task.gos.length === 1 ? '' : 's'}
         </div>
 
+        {/* ── Add step ─────────────────────────────────────────────── */}
+        <div style={{ marginTop: 10 }}>
+          <MobileButton
+            variant="plain"
+            block
+            icon={<ListPlus size={15} />}
+            onClick={() => setAddStepOpen(true)}
+          >Add step</MobileButton>
+        </div>
+
         {/* ── Delete ──────────────────────────────────────────────── */}
         <div style={{ marginTop: 18 }}>
           <MobileListGroup>
@@ -311,6 +349,48 @@ export function MobileGoalDetailSheet({
           : 'Add a step or a go first to use the dates modes.'}
         actions={aiActions}
       />
+
+      {/* Add-step sheet — title-only quick form. Keeps the goal detail
+          context: the new step belongs to the currently-open goal. */}
+      <MobileBottomSheet
+        open={addStepOpen}
+        onOpenChange={(o) => {
+          setAddStepOpen(o);
+          if (!o) setStepTitle('');
+        }}
+        title="Add step"
+        description={`To "${task.title}"`}
+        footer={
+          <>
+            <MobileButton
+              variant="plain"
+              block
+              onClick={() => { setAddStepOpen(false); setStepTitle(''); }}
+            >Cancel</MobileButton>
+            <MobileButton
+              variant="filled"
+              block
+              disabled={!stepTitle.trim() || stepBusy}
+              onClick={handleAddStepSubmit}
+            >{stepBusy ? 'Adding…' : 'Add step'}</MobileButton>
+          </>
+        }
+      >
+        <input
+          autoFocus
+          type="text"
+          value={stepTitle}
+          onChange={(e) => setStepTitle(e.target.value)}
+          placeholder="Step title…"
+          className="m-step-input"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && stepTitle.trim()) {
+              e.preventDefault();
+              void handleAddStepSubmit();
+            }
+          }}
+        />
+      </MobileBottomSheet>
     </>
   );
 }

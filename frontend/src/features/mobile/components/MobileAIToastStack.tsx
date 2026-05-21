@@ -6,13 +6,16 @@ import type { AIJobBrief, AIJobKind, AIJobStatus } from '../../../api/types';
 import {
   AI_JOB_DRAWER_CLOSED_EVENT,
   AI_JOB_DRAWER_OPENED_EVENT,
+  AI_JOB_OPEN_EVENT,
   dispatchOpenAIJob,
   useAIJobsStore,
+  type AIJobOpenDetail,
   type AIJobSource,
   type BgAIJob,
 } from '../../../store/aiJobs';
 import { MobileAIToast } from './MobileAIToast';
 import { MobileAIJobsPanel } from './MobileAIJobsPanel';
+import { MobileAIResultSheet } from './MobileAIResultSheet';
 import { OPEN_AI_PANEL_EVENT } from './MobileTopBar';
 
 /** Map a server job into the lightweight bg shape (same as desktop's
@@ -91,6 +94,12 @@ export function MobileAIToastStack() {
   const [statusMap, setStatusMap] = useState<Map<string, AIJobStatus>>(new Map());
   const reopenPanelAfterCloseRef = useRef<string | null>(null);
   const [openDrawerIds, setOpenDrawerIds] = useState<ReadonlySet<string>>(new Set());
+
+  // Universal result sheet — handles AI kinds without a dedicated mobile
+  // viewer (schedule, insights, coach, sprint_plan). goal_plan + quiz have
+  // bespoke screens (MobileGoalPlanSheet, MobileQuizSheet) and are skipped.
+  const [resultJobId, setResultJobId] = useState<string | null>(null);
+  const [resultOpen, setResultOpen] = useState(false);
 
   // Hydrate from backend on mount + reapply persisted dismiss flags.
   useEffect(() => {
@@ -253,6 +262,25 @@ export function MobileAIToastStack() {
     return () => window.removeEventListener(OPEN_AI_PANEL_EVENT, handler);
   }, []);
 
+  // Universal result sheet — catches AI_JOB_OPEN_EVENT for kinds that
+  // don't have a dedicated mobile viewer. Without this, taps on
+  // schedule/insights/coach/sprint_plan results just navigated to the
+  // section and showed nothing (the "white screen" the user reported).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent<AIJobOpenDetail>).detail;
+      if (!d) return;
+      // Skip kinds that have a screen-local viewer:
+      //  - goal_plan: MobileGoalPlanSheet inside MobileGoalsScreen
+      //  - quiz:     MobileQuizSheet inside MobileNoteEditor
+      if (d.kind === 'goal_plan' || d.kind === 'quiz') return;
+      setResultJobId(d.jobId);
+      setResultOpen(true);
+    };
+    window.addEventListener(AI_JOB_OPEN_EVENT, handler);
+    return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
+  }, []);
+
   const handlePanelX = useCallback(async (job: BgAIJob) => {
     const s = statusMap.get(job.jobId) ?? 'queued';
     const isActive = s === 'running' || s === 'queued';
@@ -321,6 +349,11 @@ export function MobileAIToastStack() {
         onPickJob={handlePickFromPanel}
         onJobX={handlePanelX}
         onClearCompleted={handleClearCompleted}
+      />
+      <MobileAIResultSheet
+        open={resultOpen}
+        onOpenChange={setResultOpen}
+        jobId={resultJobId}
       />
     </>
   );

@@ -3751,6 +3751,288 @@
     font-style: italic;
   }
 
+  /* Inline AI generation trigger (Plan today / AI sprint). Tinted indigo
+     capsule that sits in a section header row. Same vocabulary as the
+     desktop "Plan day" button. */
+  .m-shell .goals-ai-row,
+  .m-shell .sprints-ai-row {
+    display: flex;
+    justify-content: flex-start;
+    padding: 4px 0 8px;
+  }
+  .m-shell .m-ai-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    border: 1px solid transparent;
+    border-radius: var(--r-pill);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 140ms;
+  }
+  .m-shell .m-ai-trigger:hover:not(:disabled) { background: var(--indigo-tint); }
+  .m-shell .m-ai-trigger:disabled { opacity: 0.55; cursor: progress; }
+  .m-shell .m-ai-trigger svg { width: 13px; height: 13px; }
+
+  /* Simple text input used inside add-step sheet (and similar minimal forms). */
+  .m-shell .m-step-input {
+    width: 100%;
+    background: var(--cream);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-family: var(--font-ui);
+    font-size: 15px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 120ms;
+  }
+  .m-shell .m-step-input:focus {
+    border-color: var(--indigo);
+    background: var(--paper);
+  }
+  .m-shell .m-step-input::placeholder { color: var(--ink-5); }
+
+  /* ── AI result sheet (universal viewer) ─────────────────────────────
+     Used for schedule / sprint_plan / insights / coach jobs reopened
+     from the toast or the AI panel. Shared visual vocab: a date strip
+     at the top, accent-coded summary rows, then kind-specific lists. */
+  .m-shell .m-ai-result {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .m-shell .m-ai-result-pending {
+    display: flex; align-items: center; gap: 8px;
+    padding: 20px 4px;
+    color: var(--ink-4);
+    font-family: var(--font-ui);
+    font-size: 13px;
+  }
+  .m-shell .m-ai-result-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+  }
+  .m-shell .m-ai-result-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .m-shell .m-ai-result-lede {
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin: 0;
+  }
+  .m-shell .m-ai-result-section-title {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--ink-4);
+  }
+
+  .m-shell .m-ai-summary-row {
+    border-left: 3px solid var(--indigo);
+    padding: 8px 12px;
+    background: var(--cream);
+    border-radius: 0 8px 8px 0;
+  }
+  .m-shell .m-ai-summary-row[data-accent="moss"]   { border-left-color: var(--moss); }
+  .m-shell .m-ai-summary-row[data-accent="ochre"]  { border-left-color: var(--ochre); }
+  .m-shell .m-ai-summary-row[data-accent="rust"]   { border-left-color: var(--rust); }
+  .m-shell .m-ai-summary-label {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--ink-4);
+    margin-bottom: 2px;
+  }
+  .m-shell .m-ai-summary-value {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.45;
+  }
+
+  /* Schedule slots */
+  .m-shell .m-ai-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .m-shell .m-ai-slot {
+    padding: 10px 12px;
+    background: var(--paper);
+    border: 1px solid var(--hairline-faint);
+    border-left: 3px solid var(--ink-4);
+    border-radius: 8px;
+  }
+  .m-shell .m-ai-slot[data-kind="goal"]      { border-left-color: var(--indigo); }
+  .m-shell .m-ai-slot[data-kind="routine"]   { border-left-color: var(--moss); }
+  .m-shell .m-ai-slot[data-kind="deep_work"] { border-left-color: var(--rust); }
+  .m-shell .m-ai-slot[data-kind="admin"]     { border-left-color: var(--ochre); }
+  .m-shell .m-ai-slot[data-kind="break"],
+  .m-shell .m-ai-slot[data-kind="lunch"]     { border-left-color: var(--ink-5); background: var(--cream); }
+  .m-shell .m-ai-slot-time {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-4);
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .m-shell .m-ai-slot-title {
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .m-shell .m-ai-slot-note {
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    color: var(--ink-4);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+
+  /* Sprint plan / generic items */
+  .m-shell .m-ai-items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .m-shell .m-ai-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--paper);
+    border: 1px solid var(--hairline-faint);
+    border-radius: 8px;
+  }
+  .m-shell .m-ai-item-kind {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--ink-4);
+    background: var(--cream);
+    padding: 4px 8px;
+    border-radius: 999px;
+    align-self: flex-start;
+  }
+  .m-shell .m-ai-item[data-severity="high"] .m-ai-item-kind { background: var(--rust-soft); color: var(--rust); }
+  .m-shell .m-ai-item[data-severity="warn"] .m-ai-item-kind { background: var(--ochre-soft); color: var(--ochre); }
+  .m-shell .m-ai-item-body { min-width: 0; }
+  .m-shell .m-ai-item-title {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .m-shell .m-ai-item-reason {
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    color: var(--ink-4);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+
+  /* Insights metrics */
+  .m-shell .m-ai-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .m-shell .m-ai-metric {
+    background: var(--cream);
+    border-radius: 8px;
+    padding: 10px 12px;
+    line-height: 1.1;
+  }
+  .m-shell .m-ai-metric-num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .m-shell .m-ai-metric-lab {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-4);
+    margin-top: 4px;
+  }
+
+  /* Coach */
+  .m-shell .m-ai-coach-play {
+    padding: 12px 14px;
+    background: var(--indigo-soft);
+    border-radius: 10px;
+    border: 1px solid var(--hairline-faint);
+  }
+  .m-shell .m-ai-coach-play-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+  .m-shell .m-ai-coach-play-why {
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    color: var(--ink-3);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .m-shell .m-ai-coach-play-est {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--indigo);
+    letter-spacing: 0.05em;
+    margin-top: 6px;
+  }
+  .m-shell .m-ai-capacity {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--cream);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+  .m-shell .m-ai-capacity > div:last-child {
+    grid-column: 1 / -1;
+    font-family: var(--font-body);
+    font-style: italic;
+    color: var(--ink-4);
+  }
+
   /* ════════════════════════════════════════════════════════════════════════
      Phase 5 · Analysis polish — click-inspect day + per-routine pulse grid
      ────────────────────────────────────────────────────────────────────────
