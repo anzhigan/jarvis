@@ -16,6 +16,7 @@ import {
 import { MobileAIToast } from './MobileAIToast';
 import { MobileAIJobsPanel } from './MobileAIJobsPanel';
 import { MobileAIResultSheet } from './MobileAIResultSheet';
+import { MobileQuizSheet } from './MobileQuizSheet';
 import { OPEN_AI_PANEL_EVENT } from './MobileTopBar';
 
 /** Map a server job into the lightweight bg shape (same as desktop's
@@ -96,10 +97,15 @@ export function MobileAIToastStack() {
   const [openDrawerIds, setOpenDrawerIds] = useState<ReadonlySet<string>>(new Set());
 
   // Universal result sheet — handles AI kinds without a dedicated mobile
-  // viewer (schedule, insights, coach, sprint_plan). goal_plan + quiz have
-  // bespoke screens (MobileGoalPlanSheet, MobileQuizSheet) and are skipped.
+  // viewer (schedule, insights, coach, sprint_plan, goal_plan).
   const [resultJobId, setResultJobId] = useState<string | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
+
+  // Quiz needs interactive UI (answer questions, submit, see results) —
+  // it lives in its own MobileQuizSheet. We track quiz title here so the
+  // sheet header can show "Quiz · <note>".
+  const [quizJobId, setQuizJobId] = useState<string | null>(null);
+  const [quizNoteTitle, setQuizNoteTitle] = useState<string>('');
 
   // Hydrate from backend on mount + reapply persisted dismiss flags.
   useEffect(() => {
@@ -262,17 +268,23 @@ export function MobileAIToastStack() {
     return () => window.removeEventListener(OPEN_AI_PANEL_EVENT, handler);
   }, []);
 
-  // Universal result sheet — catches AI_JOB_OPEN_EVENT for EVERY kind so
-  // every tap on a toast/panel row opens the same bottom-sheet result
-  // viewer (per the design system). Bespoke screens (MobileGoalPlanSheet,
-  // MobileQuizSheet) stay wired for in-flow opens only — their event
-  // listeners were removed to avoid double-opening sheets.
+  // Route AI_JOB_OPEN_EVENT to the right bottom sheet:
+  //  - quiz → MobileQuizSheet (interactive: take the test, submit, see results)
+  //  - everything else → MobileAIResultSheet (read-only formatted viewer)
+  // Both sheets are mounted at this App-level component so any tap on a
+  // toast / panel row reliably lands in the design-system bottom sheet,
+  // regardless of which screen is currently active.
   useEffect(() => {
     const handler = (e: Event) => {
       const d = (e as CustomEvent<AIJobOpenDetail>).detail;
       if (!d) return;
-      setResultJobId(d.jobId);
-      setResultOpen(true);
+      if (d.kind === 'quiz') {
+        setQuizJobId(d.jobId);
+        setQuizNoteTitle(d.source.noteTitle ?? '');
+      } else {
+        setResultJobId(d.jobId);
+        setResultOpen(true);
+      }
     };
     window.addEventListener(AI_JOB_OPEN_EVENT, handler);
     return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
@@ -351,6 +363,11 @@ export function MobileAIToastStack() {
         open={resultOpen}
         onOpenChange={setResultOpen}
         jobId={resultJobId}
+      />
+      <MobileQuizSheet
+        jobId={quizJobId}
+        noteTitle={quizNoteTitle}
+        onClose={() => setQuizJobId(null)}
       />
     </>
   );
