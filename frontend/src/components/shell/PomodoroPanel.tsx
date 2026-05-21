@@ -10,13 +10,19 @@ type Mode = 'focus' | 'break';
 
 const STORAGE_KEY = 'jarvnote:pomodoro';
 
-interface Persisted {
-  mode: Mode;
+interface SlotState {
   totalSec: number;
   /** Epoch ms when the current run started. null = idle or paused. */
   startedAt: number | null;
   /** When paused, the remaining seconds at pause time. null when running/idle. */
   pausedRemainingSec: number | null;
+}
+
+interface Persisted {
+  mode: Mode;
+  /** Independent state per mode — switching Focus↔Break preserves the
+      other slot's elapsed time. Previously a mode switch wiped everything. */
+  slots: { focus: SlotState; break: SlotState };
   /** Task the user is focusing on. Cached title so we don't need the API just to render. */
   taskId: string | null;
   taskTitle: string | null;
@@ -27,28 +33,57 @@ const BREAK_PRESETS = [5, 10, 15];
 const DEFAULT_FOCUS_MIN = 25;
 const DEFAULT_BREAK_MIN = 5;
 
+const FRESH_FOCUS_SLOT: SlotState = {
+  totalSec: DEFAULT_FOCUS_MIN * 60, startedAt: null, pausedRemainingSec: null,
+};
+const FRESH_BREAK_SLOT: SlotState = {
+  totalSec: DEFAULT_BREAK_MIN * 60, startedAt: null, pausedRemainingSec: null,
+};
+
 function loadState(): Persisted {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) throw new Error('empty');
-    const p = JSON.parse(raw) as Persisted;
-    if (typeof p.totalSec !== 'number' || (p.mode !== 'focus' && p.mode !== 'break')) {
-      throw new Error('shape');
+    const p = JSON.parse(raw) as Partial<Persisted> & {
+      // Old single-slot shape, kept for one-time migration.
+      totalSec?: number;
+      startedAt?: number | null;
+      pausedRemainingSec?: number | null;
+    };
+    if (p.mode !== 'focus' && p.mode !== 'break') throw new Error('mode');
+
+    // Migration: old shape had {mode, totalSec, startedAt, pausedRemainingSec}
+    // at top level. Promote that into the matching slot, leave the other slot fresh.
+    if (!p.slots && typeof p.totalSec === 'number') {
+      const slot: SlotState = {
+        totalSec: p.totalSec,
+        startedAt: p.startedAt ?? null,
+        pausedRemainingSec: p.pausedRemainingSec ?? null,
+      };
+      return {
+        mode: p.mode,
+        slots: p.mode === 'focus'
+          ? { focus: slot, break: FRESH_BREAK_SLOT }
+          : { focus: FRESH_FOCUS_SLOT, break: slot },
+        taskId: p.taskId ?? null,
+        taskTitle: p.taskTitle ?? null,
+      };
     }
+
+    if (!p.slots || !p.slots.focus || !p.slots.break) throw new Error('slots');
     return {
       mode: p.mode,
-      totalSec: p.totalSec,
-      startedAt: p.startedAt ?? null,
-      pausedRemainingSec: p.pausedRemainingSec ?? null,
+      slots: {
+        focus: { ...FRESH_FOCUS_SLOT, ...p.slots.focus },
+        break: { ...FRESH_BREAK_SLOT, ...p.slots.break },
+      },
       taskId: p.taskId ?? null,
       taskTitle: p.taskTitle ?? null,
     };
   } catch {
     return {
       mode: 'focus',
-      totalSec: DEFAULT_FOCUS_MIN * 60,
-      startedAt: null,
-      pausedRemainingSec: null,
+      slots: { focus: FRESH_FOCUS_SLOT, break: FRESH_BREAK_SLOT },
       taskId: null,
       taskTitle: null,
     };
@@ -136,14 +171,18 @@ export function PomodoroPanel() {
 
   useEffect(() => { saveState(state); }, [state]);
 
-  // 1Hz tick while running. We don't keep the interval alive when idle so
-  // we're not waking the event loop for no reason.
+  // Active slot — single read used throughout. Switching mode swaps which
+  // slot is "active" without touching the other (so elapsed time of a
+  // paused focus survives a peek at Break).
+  const slot = state.slots[state.mode];
+
+  // 1Hz tick while the active slot is running. Idle slot = no interval.
   useEffect(() => {
-    if (state.startedAt === null) return;
+    if (slot.startedAt === null) return;
     setNow(Date.now()); // sync immediately
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [state.startedAt]);
+  }, [slot.startedAt]);
 
   // Load active tasks the first time the panel opens. The list is small and
   // refreshes per-open so a goal created/closed elsewhere shows up next time.
@@ -163,17 +202,29 @@ export function PomodoroPanel() {
   }, [open]);
 
   let remainingSec: number;
-  if (state.startedAt !== null) {
-    remainingSec = state.totalSec - (now - state.startedAt) / 1000;
-  } else if (state.pausedRemainingSec !== null) {
-    remainingSec = state.pausedRemainingSec;
+  if (slot.startedAt !== null) {
+    remainingSec = slot.totalSec - (now - slot.startedAt) / 1000;
+  } else if (slot.pausedRemainingSec !== null) {
+    remainingSec = slot.pausedRemainingSec;
   } else {
-    remainingSec = state.totalSec;
+    remainingSec = slot.totalSec;
   }
 
-  const isRunning = state.startedAt !== null;
-  const isPaused = state.pausedRemainingSec !== null;
+  const isRunning = slot.startedAt !== null;
+  const isPaused = slot.pausedRemainingSec !== null;
   const isIdle = !isRunning && !isPaused;
+
+  // Mutate just the active slot — leaves the other slot alone so mode-switches
+  // don't reset elapsed time.
+  const updateSlot = useCallback(
+    (mut: (s: SlotState) => SlotState) => {
+      setState((s) => ({
+        ...s,
+        slots: { ...s.slots, [s.mode]: mut(s.slots[s.mode]) },
+      }));
+    },
+    [],
+  );
 
   // Suggest the first active task when none is selected (purely informational
   // — doesn't write to state until the user actually picks).
@@ -182,81 +233,67 @@ export function PomodoroPanel() {
     : null;
   const selectedTitle = state.taskTitle ?? suggested?.title ?? null;
 
-  // Completion — fires once per run; auto-resets to a fresh idle of the
-  // same mode so the panel is ready for the next round. We also log the
-  // finished session (focus mode only; break sessions aren't interesting
-  // for time-per-task analytics) so the Analysis chart can plot it.
+  // Completion — fires once per run; auto-resets the active slot to fresh
+  // idle. Logs focus sessions for the Analysis time-per-task chart.
   useEffect(() => {
     if (!isRunning) return;
     if (remainingSec > 0) return;
-    if (dingPlayedFor.current === state.startedAt) return;
-    dingPlayedFor.current = state.startedAt;
+    if (dingPlayedFor.current === slot.startedAt) return;
+    dingPlayedFor.current = slot.startedAt;
     playDing();
     if (state.mode === 'focus') {
       recordSession({
         taskId: state.taskId,
         taskTitle: state.taskTitle,
         mode: 'focus',
-        durationSec: state.totalSec,
+        durationSec: slot.totalSec,
         completedAt: Date.now(),
       });
     }
-    setState((s) => ({
-      ...s,
-      startedAt: null,
-      pausedRemainingSec: null,
-      totalSec: s.mode === 'focus' ? DEFAULT_FOCUS_MIN * 60 : DEFAULT_BREAK_MIN * 60,
-    }));
-  }, [remainingSec, isRunning, state.startedAt, state.mode, state.taskId, state.taskTitle, state.totalSec]);
+    updateSlot(() =>
+      state.mode === 'focus' ? { ...FRESH_FOCUS_SLOT } : { ...FRESH_BREAK_SLOT });
+  }, [remainingSec, isRunning, slot.startedAt, slot.totalSec, state.mode,
+      state.taskId, state.taskTitle, updateSlot]);
 
+  // Mode switch — just change which slot is active. No reset.
   const setMode = useCallback((mode: Mode) => {
-    setState((s) => ({
-      ...s,
-      mode,
-      totalSec: (mode === 'focus' ? DEFAULT_FOCUS_MIN : DEFAULT_BREAK_MIN) * 60,
-      startedAt: null,
-      pausedRemainingSec: null,
-    }));
+    setState((s) => ({ ...s, mode }));
   }, []);
 
   const setMinutes = useCallback((min: number) => {
     const clamped = Math.max(1, Math.min(180, Math.round(min)));
-    setState((s) => ({
-      ...s,
-      totalSec: clamped * 60,
-      startedAt: null,
-      pausedRemainingSec: null,
+    updateSlot(() => ({
+      totalSec: clamped * 60, startedAt: null, pausedRemainingSec: null,
     }));
-  }, []);
+  }, [updateSlot]);
 
   const start = useCallback(() => {
-    setState((s) => {
-      if (s.pausedRemainingSec !== null) {
+    updateSlot((sl) => {
+      if (sl.pausedRemainingSec !== null) {
         return {
-          ...s,
-          startedAt: Date.now() - (s.totalSec - s.pausedRemainingSec) * 1000,
+          ...sl,
+          startedAt: Date.now() - (sl.totalSec - sl.pausedRemainingSec) * 1000,
           pausedRemainingSec: null,
         };
       }
-      return { ...s, startedAt: Date.now() };
+      return { ...sl, startedAt: Date.now() };
     });
-  }, []);
+  }, [updateSlot]);
 
   const pause = useCallback(() => {
-    setState((s) => {
-      if (s.startedAt === null) return s;
-      const elapsed = (Date.now() - s.startedAt) / 1000;
+    updateSlot((sl) => {
+      if (sl.startedAt === null) return sl;
+      const elapsed = (Date.now() - sl.startedAt) / 1000;
       return {
-        ...s,
-        startedAt: null,
-        pausedRemainingSec: Math.max(0, s.totalSec - elapsed),
+        ...sl, startedAt: null,
+        pausedRemainingSec: Math.max(0, sl.totalSec - elapsed),
       };
     });
-  }, []);
+  }, [updateSlot]);
 
   const reset = useCallback(() => {
-    setState((s) => ({ ...s, startedAt: null, pausedRemainingSec: null }));
-  }, []);
+    updateSlot((sl) => ({ ...sl, startedAt: null, pausedRemainingSec: null }));
+  }, [updateSlot]);
 
   const pickTask = useCallback((t: Task | null) => {
     setState((s) => ({
@@ -267,13 +304,13 @@ export function PomodoroPanel() {
     setPickerOpen(false);
   }, []);
 
-  const progressPct = state.totalSec > 0
-    ? Math.max(0, Math.min(100, (1 - remainingSec / state.totalSec) * 100))
+  const progressPct = slot.totalSec > 0
+    ? Math.max(0, Math.min(100, (1 - remainingSec / slot.totalSec) * 100))
     : 0;
 
   const presets = state.mode === 'focus' ? FOCUS_PRESETS : BREAK_PRESETS;
   const minutesField = isIdle
-    ? Math.round(state.totalSec / 60)
+    ? Math.round(slot.totalSec / 60)
     : Math.ceil(remainingSec / 60);
 
   const ringDash = 2 * Math.PI * 54;
@@ -419,7 +456,7 @@ export function PomodoroPanel() {
               <button
                 key={m}
                 className="pomo-chip"
-                data-active={(!isRunning && !isPaused && state.totalSec === m * 60) || undefined}
+                data-active={(!isRunning && !isPaused && slot.totalSec === m * 60) || undefined}
                 onClick={() => setMinutes(m)}
                 disabled={isRunning}
               >{m}m</button>
