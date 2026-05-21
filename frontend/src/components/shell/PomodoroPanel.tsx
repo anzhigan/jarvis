@@ -94,7 +94,7 @@ function playDing() {
 }
 
 /** Tomato icon — round rust body, moss-green crown. Used on the rail trigger. */
-function TomatoIcon({ size = 17 }: { size?: number }) {
+function TomatoIcon({ size = 22 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
       {/* Body */}
@@ -268,15 +268,27 @@ export function PomodoroPanel() {
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Tooltip content="Pomodoro" side="right">
+      <Tooltip
+        content={isRunning ? `${fmt(remainingSec)} left` : 'Pomodoro'}
+        side="right"
+      >
         <Popover.Trigger asChild>
           <button
             className="rail-btn pomo-rail-btn"
             aria-label="Pomodoro timer"
             data-active={isRunning || undefined}
+            data-running={isRunning || undefined}
           >
-            <TomatoIcon />
-            {isRunning && <span className="pomo-rail-dot" aria-hidden="true" />}
+            {isRunning ? (
+              /* When the panel is hidden the user still needs to see how
+                 long is left. Showing the remaining minutes in place of
+                 the tomato is more useful than the icon + a pulse dot. */
+              <span className="pomo-rail-mins">
+                {Math.max(1, Math.ceil(remainingSec / 60))}<em>m</em>
+              </span>
+            ) : (
+              <TomatoIcon />
+            )}
           </button>
         </Popover.Trigger>
       </Tooltip>
@@ -387,6 +399,9 @@ export function PomodoroPanel() {
             <div className="pomo-time">{fmt(remainingSec)}</div>
           </div>
 
+          {/* Presets row — fixed single line, height stable across modes.
+              Break has fewer presets than Focus; previously they wrapped
+              differently and the panel jumped in size. */}
           <div className="pomo-presets">
             {presets.map((m) => (
               <button
@@ -397,6 +412,10 @@ export function PomodoroPanel() {
                 disabled={isRunning}
               >{m}m</button>
             ))}
+          </div>
+          {/* Stepper sits on its own row — guaranteed not to wrap and not
+              to push presets onto a second line. */}
+          <div className="pomo-stepper-row">
             <div className="pomo-stepper" aria-label="Custom minutes">
               <button
                 type="button"

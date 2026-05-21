@@ -722,7 +722,10 @@
    red, matches the icon), mono countdown. Focus/Break modes, custom
    minutes, suggested-task picker.
    ────────────────────────────────────────────────────────────────────── */
-.pomo-rail-btn svg { width: 18px; height: 18px; }
+/* Tomato icon is a coloured asset (not currentColor) — sized via svg
+   width/height (set in component) but we make sure the global 17px rule
+   on .rail-btn svg can't shrink it. */
+.pomo-rail-btn svg { width: 22px; height: 22px; }
 .pomo-rail-btn[data-active] {
   background: var(--paper);
   box-shadow: var(--sh-card);
@@ -732,19 +735,26 @@
      visually reads as the same red as the tomato itself. */
   background: var(--rust);
 }
-.pomo-rail-dot {
-  position: absolute;
-  top: 6px; right: 6px;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--rust);
-  box-shadow: 0 0 0 2px var(--paper);
-  animation: pomoDotPulse 1.6s ease-in-out infinite;
-  pointer-events: none;
+/* Remaining-minutes badge that replaces the tomato while the timer runs.
+   Centred inside the same 40px rail-btn slot; mono font for tabular feel. */
+.pomo-rail-mins {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--rust);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
 }
-@keyframes pomoDotPulse {
-  0%, 100% { opacity: 0.55; }
-  50%      { opacity: 1; }
+.pomo-rail-mins em {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 500;
+  margin-left: 1px;
+  opacity: 0.75;
+  letter-spacing: 0;
 }
 
 .pomo-popover {
@@ -944,17 +954,22 @@
 }
 
 /* ── Presets + stepper ──────────────────────────────────────────────── */
+/* Single-line row, no wrap. Each chip flexes equally so 3-chip Break and
+   4-chip Focus rows occupy the same height (was wrapping to 2 lines for
+   Focus before, which made the panel jump on mode switch). */
 .pomo-presets {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   justify-content: center;
 }
 .pomo-chip {
+  flex: 1 1 0;
+  min-width: 0;
   font-family: var(--font-ui);
   font-size: 11.5px;
   font-weight: 500;
-  padding: 5px 10px;
+  padding: 5px 8px;
   border-radius: var(--r-pill);
   border: 1px solid var(--hairline);
   background: var(--paper);
@@ -962,6 +977,7 @@
   cursor: pointer;
   letter-spacing: 0.02em;
   transition: all var(--dur-fast) var(--ease);
+  text-align: center;
 }
 .pomo-chip:hover:not(:disabled) {
   border-color: var(--hairline-strong);
@@ -974,6 +990,8 @@
 }
 .pomo-chip:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* Stepper centred on its own row so layout doesn't depend on chip count. */
+.pomo-stepper-row { display: flex; justify-content: center; }
 .pomo-stepper {
   display: inline-flex; align-items: center;
   border: 1px solid var(--hairline);
