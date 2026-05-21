@@ -38,6 +38,15 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
   const horizLocked = useRef(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
+  /** Minimum horizontal distance before we commit to a swipe. Until the
+   *  finger has travelled this far AND clearly more horizontally than
+   *  vertically, the card stays still and the browser handles the touch
+   *  as a vertical scroll. iOS Mail/Messages use a similar gate. */
+  const SWIPE_ACTIVATE_PX = 14;
+  /** Horizontal must beat vertical by this ratio for the gesture to read
+   *  as a swipe (vs. a vertical scroll with incidental horizontal jitter). */
+  const HORIZ_OVER_VERT = 1.6;
+
   const onTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
     if (e.touches.length !== 1) return;
     startX.current = e.touches[0].clientX;
@@ -48,6 +57,10 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
   };
   const onTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
     if (startX.current == null) return;
+    // Don't move the card visually until the native non-passive listener
+    // has decided this is a swipe — otherwise the card jitters on every
+    // vertical scroll, exactly the behaviour the user complained about.
+    if (!horizLocked.current) return;
     const dx = e.touches[0].clientX - startX.current;
     const base = startedFromOpen.current ? -OPEN_OFFSET : 0;
     // Clamp so right-swipe never overshoots (closes only).
@@ -66,11 +79,11 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
     setOpen(target !== 0);
   };
 
-  // React's touchmove is passive by default (preventDefault would silently
-  // fail), so we attach a *non-passive* listener directly to the element.
-  // The listener decides the gesture direction the first time it sees a
-  // meaningful delta and, if it's horizontal, locks vertical scroll for
-  // the rest of the gesture by calling preventDefault on every move.
+  // Non-passive touchmove listener. Decides on the *first* meaningful
+  // delta whether this is a horizontal swipe (lock + preventDefault) or
+  // a vertical scroll (release the gesture — startX nulled so onTouchMove
+  // ignores the rest). A pure jitter (both dx and dy small) is ignored
+  // until enough motion accumulates to judge.
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
@@ -80,12 +93,21 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
       const dx = e.touches[0].clientX - startX.current;
       const dy = e.touches[0].clientY - startY.current;
       if (!horizLocked.current) {
-        // Wait until we have enough motion to judge direction. Horizontal
-        // wins when |dx| > |dy| + 6px (the +6 keeps small jitter from
-        // hijacking a vertical scroll).
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        if (Math.abs(dx) > Math.abs(dy) + 6) horizLocked.current = true;
-        else return;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+        // Vertical wins decisively → release the gesture so subsequent
+        // moves are ignored; user is scrolling.
+        if (absY >= SWIPE_ACTIVATE_PX && absY > absX) {
+          startX.current = null;
+          startY.current = null;
+          return;
+        }
+        // Horizontal wins decisively → lock; commit to swipe.
+        if (absX >= SWIPE_ACTIVATE_PX && absX > absY * HORIZ_OVER_VERT) {
+          horizLocked.current = true;
+        } else {
+          return; // not enough motion yet, keep watching
+        }
       }
       e.preventDefault();
     };
