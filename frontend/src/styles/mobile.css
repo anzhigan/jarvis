@@ -3843,6 +3843,65 @@
   }
   .m-shell .m-note-cap-btn-ai { color: var(--indigo); }
 
+  /* ── Share sheet contents ───────────────────────────────────────────
+     Lives in MobileBottomSheet portal — outside .m-shell — so all rules
+     here are unscoped. URL row: read-only input + Copy chip. Below: a
+     destructive list cell to revoke. */
+  .m-share { display: flex; flex-direction: column; }
+  .m-share-empty {
+    display: flex; flex-direction: column;
+    align-items: stretch; gap: 14px;
+    padding: 4px 0 8px;
+  }
+  .m-share-empty p {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    color: var(--ink-3);
+    text-align: center;
+  }
+  .m-share-url-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .m-share-url {
+    flex: 1; min-width: 0;
+    background: var(--cream);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    outline: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .m-share-url:focus {
+    border-color: var(--indigo);
+    background: var(--paper);
+  }
+  .m-share-copy {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 14px;
+    background: var(--indigo);
+    color: var(--paper);
+    border: 0;
+    border-radius: 10px;
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 140ms;
+  }
+  .m-share-copy:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--indigo) 86%, black);
+  }
+  .m-share-copy:disabled { opacity: 0.55; cursor: progress; }
+
   /* Simple text input used inside add-step sheet (and similar minimal forms). */
   .m-shell .m-step-input {
     width: 100%;

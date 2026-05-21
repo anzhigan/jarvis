@@ -430,14 +430,11 @@ function RootLevel({
               type="button"
               className="m-add-btn"
               onClick={() => {
-                if (ways.length === 1) {
-                  onAddNote({ way_id: ways[0].id }, ways[0].name);
-                  return;
-                }
-                const labels = ways.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
-                const idx = window.prompt(`Note in which way?\n\n${labels}\n\nEnter number:`);
-                const n = idx ? parseInt(idx, 10) - 1 : -1;
-                if (ways[n]) onAddNote({ way_id: ways[n].id }, ways[n].name);
+                // Pick the topmost way silently — the user explicitly asked
+                // not to be prompted to choose. Browser prompt() looked
+                // foreign anyway. If they wanted a different way, they can
+                // drill into it and tap + Note from there.
+                onAddNote({ way_id: ways[0].id }, ways[0].name);
               }}
             >
               <Plus /> Note

@@ -11,7 +11,7 @@ import { MobileQuizSheet } from '../components/MobileQuizSheet';
 import '../../../styles/mobile.css';
 
 const RichTextEditor = lazy(() => import('../../../components/RichTextEditor'));
-const ShareDialog = lazy(() => import('../../notes/components/ShareDialog'));
+const MobileShareSheet = lazy(() => import('../components/MobileShareSheet').then((m) => ({ default: m.MobileShareSheet })));
 
 interface Props {
   note: Note;
@@ -241,10 +241,10 @@ export default function MobileNoteEditor({ note, library, onBack }: Props) {
         actions={aiActions}
       />
 
-      {/* Share dialog — reused from desktop notes feature. Renders into a
-          Radix portal so it floats above the editor. */}
+      {/* Mobile share sheet — bottom-sheet variant of desktop ShareDialog,
+          uses MobileBottomSheet + design-system list cells. */}
       <Suspense fallback={null}>
-        <ShareDialog noteId={note.id} open={shareOpen} onOpenChange={setShareOpen} />
+        <MobileShareSheet noteId={note.id} open={shareOpen} onOpenChange={setShareOpen} />
       </Suspense>
 
       {/* Quiz result sheet — polls the AI job + presents the quiz UI */}
