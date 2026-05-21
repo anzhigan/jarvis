@@ -144,6 +144,24 @@
   }
   .m-shell .tb-btn:hover { background: var(--cream); color: var(--ink); }
   .m-shell .tb-btn svg { width: 18px; height: 18px; }
+  /* AI shortcut next to the avatar. Subtle indigo wash; opens the AI
+     jobs bottom-sheet (same one as tapping the AI toast). */
+  .m-shell .tb-ai {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    border: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 140ms;
+  }
+  .m-shell .tb-ai:hover { background: var(--indigo-tint); }
+  .m-shell .tb-ai svg { width: 16px; height: 16px; }
+
   .m-shell .tb-avatar {
     width: 36px; height: 36px;
     aspect-ratio: 1;
@@ -2839,7 +2857,17 @@
   }
   .m-swipe-content {
     position: relative;
+    /* Solid paper background so the card stays opaque while the user
+       swipes left to reveal Edit/Delete — without this the moving layer
+       composites over whatever's behind it and reads as translucent
+       against contrasting page backgrounds. */
+    background: var(--paper);
+    border-radius: inherit;
     will-change: transform;
+    /* `pan-y` lets the browser keep the natural vertical list scroll
+       working until our touchmove listener decides the gesture is
+       actually a horizontal swipe and locks it via preventDefault. */
+    touch-action: pan-y;
   }
   .m-swipe-actions {
     position: absolute;

@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../../store/auth';
 
 interface Props {
@@ -11,6 +12,10 @@ interface Props {
   rightSlot?: React.ReactNode;
   /** Avatar click handler — defaults to navigating to the profile screen. */
   onAvatarClick?: () => void;
+  /** Show the AI shortcut button next to the avatar (opens the AI jobs
+   *  bottom-sheet). Default true; pass false on screens that take over
+   *  the right slot entirely (e.g. a note editor with action buttons). */
+  aiButton?: boolean;
   /** Display mode:
    *    - `large` (default): iOS large-title pattern — compact bar at the
    *      top with empty centre, large display-font title + sub-line below.
@@ -24,6 +29,10 @@ interface Props {
   mode?: 'large' | 'compact' | 'legacy';
 }
 
+/** Event name that triggers the mobile AI jobs bottom-sheet to open.
+ *  Dispatched by the header AI button; listened to by MobileAIToastStack. */
+export const OPEN_AI_PANEL_EVENT = 'jarvnote:openAIPanel';
+
 /**
  * iOS-style mobile top bar. The `large` mode mirrors UIKit's
  * `prefersLargeTitles` collapsed-at-rest variant: a 52pt compact bar with
@@ -33,18 +42,32 @@ interface Props {
  * ~108pt.
  */
 export function MobileTopBar({
-  title, subtitle, leftSlot, rightSlot, onAvatarClick, mode = 'large',
+  title, subtitle, leftSlot, rightSlot, onAvatarClick, aiButton = true, mode = 'large',
 }: Props) {
   const user = useAuthStore((s) => s.user);
   const initial = (user?.username?.[0] ?? user?.email?.[0] ?? 'A').toUpperCase();
 
-  const right = rightSlot ?? (
+  const aiBtn = aiButton ? (
     <button
       type="button"
-      className="tb-avatar"
-      onClick={onAvatarClick}
-      aria-label="Open profile"
-    >{initial}</button>
+      className="tb-ai"
+      aria-label="AI tasks"
+      onClick={() => window.dispatchEvent(new CustomEvent(OPEN_AI_PANEL_EVENT))}
+    >
+      <Sparkles size={16} />
+    </button>
+  ) : null;
+
+  const right = rightSlot ?? (
+    <>
+      {aiBtn}
+      <button
+        type="button"
+        className="tb-avatar"
+        onClick={onAvatarClick}
+        aria-label="Open profile"
+      >{initial}</button>
+    </>
   );
 
   if (mode === 'legacy') {

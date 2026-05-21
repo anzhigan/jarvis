@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode, type TouchEvent } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 
 interface Props {
@@ -29,16 +29,24 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
   const [open, setOpen] = useState(false);
   const [dragX, setDragX] = useState(0);
   const startX = useRef<number | null>(null);
+  const startY = useRef<number | null>(null);
   const startedFromOpen = useRef(false);
   const moved = useRef(false);
+  /** Once we decide a gesture is a horizontal swipe (dx dominates dy by a
+   *  margin) we lock the row to it: subsequent touchmoves preventDefault
+   *  so the vertical list scroll doesn't fight the swipe. Released on end. */
+  const horizLocked = useRef(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
-  const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+  const onTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
     if (e.touches.length !== 1) return;
     startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
     startedFromOpen.current = open;
     moved.current = false;
+    horizLocked.current = open;  // rows that start open are already in swipe mode
   };
-  const onTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+  const onTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
     if (startX.current == null) return;
     const dx = e.touches[0].clientX - startX.current;
     const base = startedFromOpen.current ? -OPEN_OFFSET : 0;
@@ -50,11 +58,40 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
   const onTouchEnd = () => {
     if (startX.current == null) return;
     startX.current = null;
+    startY.current = null;
+    horizLocked.current = false;
     // If past threshold → snap open; otherwise snap closed.
     const target = dragX < -OPEN_THRESHOLD ? -OPEN_OFFSET : 0;
     setDragX(target);
     setOpen(target !== 0);
   };
+
+  // React's touchmove is passive by default (preventDefault would silently
+  // fail), so we attach a *non-passive* listener directly to the element.
+  // The listener decides the gesture direction the first time it sees a
+  // meaningful delta and, if it's horizontal, locks vertical scroll for
+  // the rest of the gesture by calling preventDefault on every move.
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const handler = (e: TouchEvent) => {
+      if (startX.current == null || startY.current == null) return;
+      if (e.touches.length !== 1) return;
+      const dx = e.touches[0].clientX - startX.current;
+      const dy = e.touches[0].clientY - startY.current;
+      if (!horizLocked.current) {
+        // Wait until we have enough motion to judge direction. Horizontal
+        // wins when |dx| > |dy| + 6px (the +6 keeps small jitter from
+        // hijacking a vertical scroll).
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        if (Math.abs(dx) > Math.abs(dy) + 6) horizLocked.current = true;
+        else return;
+      }
+      e.preventDefault();
+    };
+    el.addEventListener('touchmove', handler, { passive: false });
+    return () => el.removeEventListener('touchmove', handler);
+  }, []);
 
   const visibleX = startX.current != null ? dragX : (open ? -OPEN_OFFSET : 0);
 
@@ -81,6 +118,7 @@ export function SwipeableRow({ children, onClick, onEdit, onDelete, editLabel = 
   return (
     <div className="m-swipe" data-open={open || undefined}>
       <div
+        ref={contentRef}
         className="m-swipe-content"
         style={{
           transform: `translateX(${visibleX}px)`,

@@ -13,6 +13,7 @@ import {
 } from '../../../store/aiJobs';
 import { MobileAIToast } from './MobileAIToast';
 import { MobileAIJobsPanel } from './MobileAIJobsPanel';
+import { OPEN_AI_PANEL_EVENT } from './MobileTopBar';
 
 /** Map a server job into the lightweight bg shape (same as desktop's
  *  AIToastStack.deriveBgJob). Keep in sync — both surfaces read from the
@@ -231,10 +232,26 @@ export function MobileAIToastStack() {
     openSourceDrawer(job);
   }, [openSourceDrawer, bump, dismissToast]);
 
-  const handleDismissToast = useCallback((jobId: string) => {
-    dismissToast(jobId);
-    markHidden(jobId, 'toast');
-  }, [dismissToast]);
+  // Tapping the × on any single toast dismisses ALL currently visible
+  // toasts at once — matches the "tap the toast → open the panel and the
+  // toasts disappear" pattern. The user shouldn't have to dismiss 3 in
+  // a row to clear the bottom of the screen.
+  const handleDismissAllToasts = useCallback(() => {
+    const visible = [...workingJobs, ...completedJobs].filter((j) => !j.hideFromToast);
+    for (const j of visible) {
+      dismissToast(j.jobId);
+      markHidden(j.jobId, 'toast');
+    }
+  }, [workingJobs, completedJobs, dismissToast]);
+
+  // Open the AI panel when the header's AI button (or anything else)
+  // dispatches OPEN_AI_PANEL_EVENT. Lets external surfaces drive the
+  // sheet without needing direct state access.
+  useEffect(() => {
+    const handler = () => setPanelOpen(true);
+    window.addEventListener(OPEN_AI_PANEL_EVENT, handler);
+    return () => window.removeEventListener(OPEN_AI_PANEL_EVENT, handler);
+  }, []);
 
   const handlePanelX = useCallback(async (job: BgAIJob) => {
     const s = statusMap.get(job.jobId) ?? 'queued';
@@ -291,7 +308,7 @@ export function MobileAIToastStack() {
               sourceTitle={job.source.noteTitle}
               extraCount={extra}
               onOpen={() => handleToastClick(job.jobId)}
-              onDismiss={() => handleDismissToast(job.jobId)}
+              onDismiss={handleDismissAllToasts}
             />
           ))}
         </div>
