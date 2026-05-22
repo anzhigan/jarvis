@@ -13,6 +13,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
+import GlobalDragHandle from 'tiptap-extension-global-drag-handle';
 import { findParentNode, mergeAttributes, Node } from '@tiptap/core';
 import type { Editor } from '@tiptap/react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -627,6 +628,14 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       InlineMath,
       FileAttachment,
       ...ToggleListBundle,
+      // Drag handle in the left gutter for reordering top-level blocks
+      // (paragraphs, headings, lists, etc.). Appears on hover, disappears
+      // when the pointer leaves. CSS knob: `.drag-handle` in editor.css.
+      GlobalDragHandle.configure({
+        dragHandleWidth: 20,
+        scrollTreshold: 100,
+        excludedTags: [],
+      }),
     ].filter(Boolean) as any[],
     content: injectImageToken(content),
     onUpdate: ({ editor }) => onChange(stripImageToken(editor.getHTML())),

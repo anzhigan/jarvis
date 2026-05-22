@@ -519,7 +519,10 @@
   padding: 0 0 0 32px;
   border-left: 3px solid var(--rust);
   font-style: italic;
-  font-size: 21px;
+  /* Inherit body size — was 21px, which made quotes feel like a hero
+     stylistic block. User asked for the same reading size as surrounding
+     paragraphs. */
+  font-size: inherit;
   line-height: 1.55;
   color: var(--ink-2);
 }

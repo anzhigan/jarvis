@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight,
-  Bold, Check, ChevronRight, Image as ImageIcon, Italic, Link as LinkIcon, Loader2,
+  Bold, Check, ChevronRight, Code as CodeIcon, Image as ImageIcon, Italic, Link as LinkIcon, Loader2,
   Paperclip, Plus, Share2, Sigma, Sparkles, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
@@ -408,6 +408,11 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
           active={editor.isActive('strike')}
           onClick={cmd((c) => c.toggleStrike())}
         ><Strikethrough /></Btn>
+        <Btn
+          title="Inline code"
+          active={editor.isActive('code')}
+          onClick={cmd((c) => c.toggleCode())}
+        ><CodeIcon /></Btn>
       </div>
       <div className="ntb-sep" />
 
