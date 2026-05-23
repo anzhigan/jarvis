@@ -235,6 +235,10 @@
   text-decoration: underline;
   text-decoration-color: rgba(91, 83, 201, 0.4);
   text-underline-offset: 2px;
+  /* Pointer cursor so links read as clickable while editing — without
+     this Tiptap's `openOnClick: false` left the default text cursor and
+     the affordance was invisible. */
+  cursor: pointer;
   transition: text-decoration-color var(--dur-fast);
 }
 .ProseMirror a:hover { text-decoration-color: var(--indigo); }

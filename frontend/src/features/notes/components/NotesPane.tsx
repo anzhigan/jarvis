@@ -203,13 +203,24 @@ export function NotesPane({
     ways.reduce((acc, w) => acc + w.topics.length, 0), [ways]);
 
   const handleNewWay = async () => {
-    const name = window.prompt('Way name')?.trim();
+    // Was `window.prompt(...)` — native browser dialog clashed with the
+    // editorial design system. `promptDialog` is a Radix-backed equivalent
+    // styled like the rest of the app.
+    const name = (await promptDialog({
+      title: 'New way',
+      placeholder: 'Way name',
+      confirmLabel: 'Create',
+    }))?.trim();
     if (!name) return;
     await createWay(name);
   };
 
   const handleNewTopic = async (wayId: string) => {
-    const name = window.prompt('Topic name')?.trim();
+    const name = (await promptDialog({
+      title: 'New topic',
+      placeholder: 'Topic name',
+      confirmLabel: 'Create',
+    }))?.trim();
     if (!name) return;
     await createTopic(wayId, name);
     setExpandedWays((p) => p.has(wayId) ? p : new Set([...p, wayId]));

@@ -141,6 +141,32 @@ const NTB_COLOR_GROUPS: { label: string; colors: ColorSwatch[] }[] = [
     ],
   },
 ];
+/**
+ * Highlights are BACKGROUNDS behind text. The text-color palette above
+ * uses the deep saturated tokens (--indigo, --moss, …) which crush black
+ * text into invisibility when used as a fill. The `*-soft` variants are
+ * alpha-blended (~10-18 % opacity over paper) so the text stays readable.
+ * Walnut has no soft variant in tokens.css — we substitute a soft cream
+ * as the "neutral" highlight option.
+ */
+const NTB_HIGHLIGHT_GROUPS: { label: string; colors: ColorSwatch[] }[] = [
+  {
+    label: 'Editorial accents',
+    colors: [
+      { name: 'Indigo',  token: '--indigo-soft' },
+      { name: 'Moss',    token: '--moss-soft'   },
+      { name: 'Ochre',   token: '--ochre-soft'  },
+      { name: 'Slate',   token: '--slate-soft'  },
+    ],
+  },
+  {
+    label: 'Semantic',
+    colors: [
+      { name: 'Danger',  token: '--rust-soft'  },
+      { name: 'Cream',   token: '--cream'      },
+    ],
+  },
+];
 const colorValue = (token: string) => `var(${token})`;
 
 function NoteColorPicker({ editor }: { editor: Editor }) {
@@ -267,7 +293,7 @@ function NoteHighlightPicker({ editor }: { editor: Editor }) {
       {open && (
         <div className="rt-popover" role="menu" style={{ left: 0, top: 'calc(100% + 6px)' }}>
           <div className="rt-popover-label">Highlight</div>
-          {NTB_COLOR_GROUPS.map((group) => (
+          {NTB_HIGHLIGHT_GROUPS.map((group) => (
             <div key={group.label} className="rt-color-group">
               <div className="rt-color-group-label">{group.label}</div>
               <div className="rt-color-grid">

@@ -659,19 +659,27 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         }
         return false;
       },
-      // Handle clicks on links; external open in new tab, internal (#note:<id>) scroll/navigate
+      // Link clicks inside the editor. Two rules:
+      //  - Internal `#note:<id>` link → always open the target note (plain
+      //    click or modifier — there's no edit-vs-navigate ambiguity for
+      //    these, you'd never want a #note: fragment to land in the URL).
+      //    Dispatches `jarvnote:openNote` with the bare id string — same
+      //    contract NotesView / MobileNotesScreen are already listening on.
+      //  - External link → opened in a new tab only with Cmd/Ctrl-click;
+      //    plain click during editing places the caret as expected.
       handleClickOn: (_view, _pos, _node, _nodePos, event) => {
         const target = event.target as HTMLElement | null;
         const anchor = target?.closest('a') as HTMLAnchorElement | null;
         if (!anchor || !anchor.href) return false;
         const href = anchor.getAttribute('href') || '';
+        if (href.startsWith('#note:')) {
+          const noteId = href.slice('#note:'.length);
+          window.dispatchEvent(new CustomEvent('jarvnote:openNote', { detail: noteId }));
+          event.preventDefault();
+          return true;
+        }
         if (event.ctrlKey || event.metaKey) {
-          if (href.startsWith('#note:')) {
-            const noteId = href.slice('#note:'.length);
-            window.dispatchEvent(new CustomEvent('open-note', { detail: { noteId } }));
-          } else {
-            window.open(anchor.href, '_blank', 'noopener,noreferrer');
-          }
+          window.open(anchor.href, '_blank', 'noopener,noreferrer');
           event.preventDefault();
           return true;
         }
