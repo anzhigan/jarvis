@@ -834,16 +834,20 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     return () => window.removeEventListener(AI_JOB_OPEN_EVENT, handler);
   }, [note]);
 
-  // Just sync localTitle when the note id changes — DON'T touch editor/helpers
-  // here. Two reasons:
-  //   1. RichTextEditor's `key={note.id}` already triggers a full remount, so
-  //      the new editor instance arrives via onEditorReady automatically.
-  //   2. If we manually setEditor(null) in this effect, it can race with the
-  //      child's onEditorReady call (child effects fire BEFORE parent effects),
-  //      leaving us with a permanently-null editor after a note switch.
+  // Sync localTitle ONLY when the note id changes (i.e. user switches to a
+  // different note). Previously this also fired on `note.name` change —
+  // which the autosave round-trip itself triggers (server responds → library
+  // refresh → new note.name → effect overwrites whatever the user has typed
+  // SINCE the save started). That produced the "каша из части старого и
+  // части нового" bug: type "Hello World", first 7 chars get autosaved as
+  // "Hello W", server echo lands while the user is still typing, localTitle
+  // snaps back to "Hello W", later keystrokes append onto that → garbled.
+  // Two-way sync on id only — never on name — means the user's in-progress
+  // text is never clobbered by a server echo of an earlier save.
   useEffect(() => {
     setLocalTitle(note?.name ?? '');
-  }, [note?.id, note?.name]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [note?.id]);
 
   // Switching notes — just clear local drawer state. The job itself is
   // already in the global bg-store with the CORRECT noteId (added in

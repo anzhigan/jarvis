@@ -28,6 +28,16 @@ export default function NotesView() {
   const editor  = useNoteEditor(library);
   const save    = useNoteAutoSave(() => { void library.refresh(); });
 
+  // Flush pending autosaves the moment the user switches notes. Without
+  // this, the previous note's debounced rename/content edit fires AFTER
+  // the switch — racing with the new note's mount + Tiptap editor
+  // remount, producing the heavy jank when "switching notes mid-rename".
+  // Awaiting flush() before the switch settles also guarantees the next
+  // library.refresh() returns the committed value, so nothing snaps back.
+  useEffect(() => {
+    return () => { void save.flush(); };
+  }, [editor.selectedNoteId, save]);
+
   const [paneCollapsed, setPaneCollapsed] = useState(
     () => localStorage.getItem(PANE_COLLAPSED_KEY) === '1',
   );
