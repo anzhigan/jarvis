@@ -409,11 +409,13 @@
   background: transparent;
   font-family: var(--font-display);
   font-size: var(--text-5xl);
-  /* 600 instead of 500 — Fraunces' Cyrillic glyphs render visibly lighter
-     than Latin at the same weight, so a Russian title at 500 reads as
-     "regular" while the English title beside it reads as "medium". 600
-     makes both scripts look equally emphasised. */
-  font-weight: 600;
+  /* 700 — truly bold. Fraunces is Latin-only, so a Russian title falls
+     through to Source Serif 4; both fonts are now loaded with weight 700
+     in index.html so Cyrillic and Latin titles look equally heavy. The
+     font-synthesis fallback keeps it bold even if the network request
+     for the 700 file fails (browser synthesises the weight). */
+  font-weight: 700;
+  font-synthesis-weight: auto;
   line-height: 1.0;
   letter-spacing: var(--tracking-display);
   color: var(--ink);
@@ -439,7 +441,8 @@
 /* Static <h1> variant of the title used on the public share page — same
    typography as the editable <input.doc-title-input>, no input behavior. */
 .doc-title-static {
-  font-weight: 600;
+  font-weight: 700;
+  font-synthesis-weight: auto;
   line-height: 1.0;
   letter-spacing: var(--tracking-display);
   margin: 0 0 24px;
