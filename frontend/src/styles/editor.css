@@ -146,39 +146,41 @@
 @media (max-width: 900px) { .drag-handle { display: none; } }
 
 /* ── Drop indicator while dragging a block ─────────────────────────
-   ProseMirror's built-in dropcursor draws a thin line at the drop
-   position. We turn that into a chunky gray pill-bar that pulses
-   gently — clearly tells the user "if you drop here, the block lands
-   right between these two neighbours". Plus a small scale-in so it
-   doesn't pop in jarringly. */
-.ProseMirror-dropcursor,
-.prosemirror-dropcursor-block {
-  background: var(--ink-4) !important;
-  border-radius: 999px !important;
-  height: 4px !important;
-  margin: 2px 0 !important;
-  opacity: 0.6;
-  box-shadow:
-    0 0 0 4px rgba(15, 24, 32, 0.04),
-    0 2px 6px rgba(15, 24, 32, 0.12);
-  animation: dropcursorIn 140ms ease-out, dropcursorPulse 1.6s ease-in-out infinite 140ms;
-  transform-origin: center;
+   Rendered by the custom DropIndicator extension as a widget Decoration:
+   a real `<div class="pm-drop-target" />` inserted into the document
+   between the two candidate blocks. Because it's in flow (no absolute
+   positioning), the block BELOW the indicator is naturally pushed down
+   by the widget's height — that's the "neighbour makes room" feel.
+   Soft expand-in animation keeps it from popping abruptly. */
+.pm-drop-target {
+  display: block;
+  height: 48px;
+  margin: 6px 0;
+  background: var(--cream);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transform-origin: center top;
+  animation: pmDropTargetIn 160ms cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
 }
-@keyframes dropcursorIn {
-  from { opacity: 0; transform: scaleY(0.2); }
-  to   { opacity: 0.6; transform: scaleY(1); }
-}
-@keyframes dropcursorPulse {
-  0%, 100% { opacity: 0.55; }
-  50%      { opacity: 0.85; }
+@keyframes pmDropTargetIn {
+  from { opacity: 0; transform: scaleY(0.0); margin-top: 0; margin-bottom: 0; }
+  to   { opacity: 1; transform: scaleY(1.0); margin-top: 6px; margin-bottom: 6px; }
 }
 
-/* Body styling while a drag is in progress — soft fade on every block
-   so the moving block + drop bar feel like the focus. Driven by the
-   tiptap-extension-global-drag-handle (it sets `dragging` on the parent).
-   Adjacent blocks get a subtle margin to suggest "make room". */
-.ProseMirror.dragging > * { transition: transform 160ms ease, opacity 160ms ease; }
-.ProseMirror.dragging > *.ProseMirror-selectednode { opacity: 0.4; }
+/* While a drag is in progress, give every top-level block a transition
+   so the push-down on widget insertion feels animated rather than a
+   sudden jump. `tiptap-extension-global-drag-handle` toggles
+   `data-dragging` (or the .dragging class) on the editor while a drag
+   is active. */
+.ProseMirror.dragging > *,
+.ProseMirror[data-dragging] > * {
+  transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.ProseMirror.dragging > *.ProseMirror-selectednode,
+.ProseMirror[data-dragging] > *.ProseMirror-selectednode {
+  opacity: 0.35;
+}
 
 .ProseMirror pre {
   background: var(--bg-input);

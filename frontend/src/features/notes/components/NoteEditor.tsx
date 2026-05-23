@@ -409,16 +409,32 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
           onClick={cmd((c) => c.toggleStrike())}
         ><Strikethrough /></Btn>
         <Btn
-          title="Inline code"
+          title="Inline code (select first)"
           active={editor.isActive('code')}
-          /* `extendEmptyMarkRange: false` prevents Tiptap from extending
-             the code mark to adjacent text-nodes that share the same mark
-             — without it, toggling on a 1-char selection could visually
-             "spread" the highlight if there was already inline code next
-             to the selection. */
-          onClick={() => editor.chain().focus().toggleMark('code', undefined, {
-            extendEmptyMarkRange: false,
-          }).run()}
+          onClick={() => {
+            const { state } = editor;
+            const { from, to, empty } = state.selection;
+            // Refuse to act on a collapsed caret — that's when Tiptap
+            // would otherwise toggle the mark "for future typing" which
+            // visually looks like nothing happens until the user types
+            // more, and after a few words it seems like the whole block
+            // became code. Forcing a selection keeps the result strictly
+            // on the picked characters.
+            if (empty) return;
+            // Use a low-level transaction (addMark / removeMark with an
+            // explicit { from, to } range). chain().toggleMark() in v3
+            // can still expand to adjacent inline-code marks even with
+            // extendEmptyMarkRange:false. Range-pinned mutation never
+            // touches anything outside the selection.
+            const codeType = state.schema.marks.code;
+            if (!codeType) return;
+            const tr = state.tr;
+            const alreadyMarked = state.doc.rangeHasMark(from, to, codeType);
+            if (alreadyMarked) tr.removeMark(from, to, codeType);
+            else               tr.addMark(from, to, codeType.create());
+            editor.view.dispatch(tr);
+            editor.view.focus();
+          }}
         ><CodeIcon /></Btn>
       </div>
       <div className="ntb-sep" />

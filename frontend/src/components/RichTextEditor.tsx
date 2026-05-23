@@ -14,6 +14,7 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle';
+import { DropIndicator } from './editor/DropIndicator';
 import { findParentNode, mergeAttributes, Node } from '@tiptap/core';
 import type { Editor } from '@tiptap/react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -592,6 +593,10 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         heading: { levels: [1, 2, 3] },
         underline: false,
         codeBlock: false, // we use CodeBlockLowlight instead
+        // Disable the built-in line-style dropcursor — DropIndicator below
+        // renders a real block widget instead (light-grey rectangle that
+        // pushes the following block down by its own height).
+        dropcursor: false,
       }),
       Underline,
       TextStyle,
@@ -636,6 +641,9 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         scrollTreshold: 100,
         excludedTags: [],
       }),
+      // Light-grey block-shaped drop indicator that occupies real layout
+      // space (so neighbours visibly shift to make room).
+      DropIndicator,
     ].filter(Boolean) as any[],
     content: injectImageToken(content),
     onUpdate: ({ editor }) => onChange(stripImageToken(editor.getHTML())),
