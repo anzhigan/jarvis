@@ -1019,7 +1019,24 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
             onChange={(e) => {
               const v = e.target.value;
               setLocalTitle(v);
+              // Only persist non-empty titles. The backend rejects an
+              // empty `name` (it's required), and forwarding an empty
+              // string into the autosave pipeline previously crashed the
+              // app (whole viewport went white when the user stripped
+              // the title down to one character and pressed Backspace
+              // again). Keep the local-edit "feel empty" experience —
+              // placeholder shows "Untitled" — but the persisted title
+              // stays at whatever was last saved until the user types
+              // at least one non-whitespace character.
+              if (v.trim().length === 0) return;
               onTitleChange(note.id, v);
+            }}
+            onBlur={() => {
+              // If the user left the input empty, restore the persisted
+              // title locally so the displayed input matches what the
+              // server actually has. Avoids the user thinking they
+              // "renamed to nothing" while the backend kept the old name.
+              if (localTitle.trim().length === 0) setLocalTitle(note.name);
             }}
             placeholder="Untitled"
             aria-label="Note title"
