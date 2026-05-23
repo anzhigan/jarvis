@@ -114,30 +114,16 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
     }
   }, [level, currentWay, currentTopic, lib.loading]);
 
-  // ── Note editor (full-screen overlay) ─────────────────────────────────────
-  const openedNote = openNoteId ? lib.findNote(openNoteId)?.note ?? null : null;
-  if (openedNote) {
-    return (
-      <Suspense fallback={null}>
-        <MobileNoteEditor
-          note={openedNote}
-          library={lib}
-          onBack={() => setOpenNoteId(null)}
-        />
-      </Suspense>
-    );
-  }
-
   // ── AI test on all notes — same flow as desktop NotesView. Tap pill →
   // AITestPicker (Radix dialog, works on mobile too) → user picks notes →
   // create quiz with scope `multi` → pushed as bg job. When done, the
   // universal AI toast appears; tapping it opens MobileQuizSheet.
   //
-  // Declared BEFORE the loading-state early return — React hooks must
-  // run in the same order on every render; previously these sat below
-  // the `if (lib.loading) return …` and crashed the whole tree on first
-  // successful load (hook count went 0 → N, "Rendered more hooks than
-  // during the previous render").
+  // These hooks must run BEFORE every early return in this component —
+  // both the `openedNote` overlay below and the `lib.loading` shell
+  // further down — otherwise the React hook count flips between
+  // renders ("Rendered fewer/more hooks than during the previous
+  // render") and the whole tree white-screens.
   const addBgJob = useAIJobsStore((s) => s.add);
   const [aiTestPickerOpen, setAiTestPickerOpen] = useState(false);
   const [aiTestSubmitting, setAiTestSubmitting] = useState(false);
@@ -182,6 +168,20 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
       setAiTestSubmitting(false);
     }
   }, [allNotesFlat, addBgJob]);
+
+  // ── Note editor (full-screen overlay) ─────────────────────────────────────
+  const openedNote = openNoteId ? lib.findNote(openNoteId)?.note ?? null : null;
+  if (openedNote) {
+    return (
+      <Suspense fallback={null}>
+        <MobileNoteEditor
+          note={openedNote}
+          library={lib}
+          onBack={() => setOpenNoteId(null)}
+        />
+      </Suspense>
+    );
+  }
 
   if (lib.loading) {
     return (
