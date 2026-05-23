@@ -129,7 +129,26 @@ function MobileBar(props: EditorToolbarProps) {
         <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} active={s.taskList} label="Task list">
           <ListChecks size={18} />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} active={s.code} label="Inline code">
+        <ToolbarButton
+          onClick={() => {
+            // Range-pinned addMark / removeMark — guarantees the code mark
+            // is applied ONLY to the explicitly selected characters and
+            // never extends to the rest of the block (Tiptap's
+            // chain().toggleCode() can spread to adjacent code-marked runs).
+            const { state } = editor;
+            const { from, to, empty } = state.selection;
+            if (empty) return;
+            const codeType = state.schema.marks.code;
+            if (!codeType) return;
+            const tr = state.tr;
+            if (state.doc.rangeHasMark(from, to, codeType)) tr.removeMark(from, to, codeType);
+            else                                            tr.addMark(from, to, codeType.create());
+            editor.view.dispatch(tr);
+            editor.view.focus();
+          }}
+          active={s.code}
+          label="Inline code"
+        >
           <Code size={18} />
         </ToolbarButton>
       </Group>
