@@ -128,6 +128,61 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
     );
   }
 
+  // ── AI test on all notes — same flow as desktop NotesView. Tap pill →
+  // AITestPicker (Radix dialog, works on mobile too) → user picks notes →
+  // create quiz with scope `multi` → pushed as bg job. When done, the
+  // universal AI toast appears; tapping it opens MobileQuizSheet.
+  //
+  // Declared BEFORE the loading-state early return — React hooks must
+  // run in the same order on every render; previously these sat below
+  // the `if (lib.loading) return …` and crashed the whole tree on first
+  // successful load (hook count went 0 → N, "Rendered more hooks than
+  // during the previous render").
+  const addBgJob = useAIJobsStore((s) => s.add);
+  const [aiTestPickerOpen, setAiTestPickerOpen] = useState(false);
+  const [aiTestSubmitting, setAiTestSubmitting] = useState(false);
+  const allNotesFlat = useMemo<Note[]>(() => {
+    const out: Note[] = [];
+    for (const way of lib.ways) {
+      out.push(...way.notes);
+      for (const topic of way.topics) out.push(...topic.notes);
+    }
+    return out;
+  }, [lib.ways]);
+  const handleAiTestConfirm = useCallback(async (ids: string[]) => {
+    setAiTestPickerOpen(false);
+    if (ids.length === 0) return;
+    const inBg = useAIJobsStore.getState().findSame('quiz', undefined);
+    if (inBg) {
+      toast.message('A test is already running — check the AI tasks panel.');
+      return;
+    }
+    setAiTestSubmitting(true);
+    try {
+      const count = ids.length === 1 ? 5
+                  : ids.length <= 3  ? 7
+                                     : 10;
+      const job = await aiApi.createQuiz({
+        scope: { kind: 'multi', ids },
+        difficulty: 'medium',
+        count,
+      });
+      const noteTitle = ids.length === 1
+        ? (allNotesFlat.find((n) => n.id === ids[0])?.name || 'note')
+        : `${ids.length} notes`;
+      addBgJob({
+        jobId: job.id,
+        kind: 'quiz',
+        source: { section: 'notes', noteTitle },
+      });
+      toast.success('Test is generating…');
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to start test');
+    } finally {
+      setAiTestSubmitting(false);
+    }
+  }, [allNotesFlat, addBgJob]);
+
   if (lib.loading) {
     return (
       <MobileShell
@@ -175,57 +230,6 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
       </button>
     );
   }
-  // ── AI test on all notes — same flow as desktop NotesView. Tap pill →
-  // AITestPicker (Radix dialog, works on mobile too) → user picks notes →
-  // create quiz with scope `multi` → pushed as bg job. When done, the
-  // universal AI toast appears; tapping it opens MobileQuizSheet.
-  const addBgJob = useAIJobsStore((s) => s.add);
-  const [aiTestPickerOpen, setAiTestPickerOpen] = useState(false);
-  const [aiTestSubmitting, setAiTestSubmitting] = useState(false);
-  const allNotesFlat = useMemo<Note[]>(() => {
-    const out: Note[] = [];
-    for (const way of lib.ways) {
-      out.push(...way.notes);
-      for (const topic of way.topics) out.push(...topic.notes);
-    }
-    return out;
-  }, [lib.ways]);
-  const handleAiTestConfirm = useCallback(async (ids: string[]) => {
-    setAiTestPickerOpen(false);
-    if (ids.length === 0) return;
-    // Same-task guard mirrors desktop: if a multi-quiz already exists in
-    // the bg store, don't start a duplicate — the user will see the
-    // existing toast / panel row.
-    const inBg = useAIJobsStore.getState().findSame('quiz', undefined);
-    if (inBg) {
-      toast.message('A test is already running — check the AI tasks panel.');
-      return;
-    }
-    setAiTestSubmitting(true);
-    try {
-      const count = ids.length === 1 ? 5
-                  : ids.length <= 3  ? 7
-                                     : 10;
-      const job = await aiApi.createQuiz({
-        scope: { kind: 'multi', ids },
-        difficulty: 'medium',
-        count,
-      });
-      const noteTitle = ids.length === 1
-        ? (allNotesFlat.find((n) => n.id === ids[0])?.name || 'note')
-        : `${ids.length} notes`;
-      addBgJob({
-        jobId: job.id,
-        kind: 'quiz',
-        source: { section: 'notes', noteTitle },
-      });
-      toast.success('Test is generating…');
-    } catch (e: any) {
-      toast.error(e?.detail ?? e?.message ?? 'Failed to start test');
-    } finally {
-      setAiTestSubmitting(false);
-    }
-  }, [allNotesFlat, addBgJob]);
 
   // Compact bar for nested levels (way / topic — they carry a back arrow
    // already); large-title for the root. Keeps vertical space tight when
