@@ -115,11 +115,43 @@
   color: var(--ink-2);
 }
 
-.ProseMirror code {
+/* Inline code mark — STRICTLY inline. Tailwind Typography's `.prose code`
+   adds `::before/::after` backticks and weight: 600; we override both so
+   the styling matches the rest of the design system and so the code mark
+   can't visually "spread" beyond its actual text range. The display:
+   inline rule is paranoid but keeps a stray .prose-pre or container
+   override from collapsing the mark into a block. */
+.ProseMirror code,
+.doc-body code,
+.prose code {
+  display: inline !important;
   background: var(--indigo-soft);
-  padding: 1px 5px; border-radius: 4px;
-  font-family: var(--font-mono); font-size: 0.88em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  font-weight: inherit;
   color: var(--indigo);
+}
+/* Kill Tailwind's prose backtick decorations — they make a 1-char code
+   mark visually read as `x`-with-quotes, which the user can mistake for
+   a wider quoted area. */
+.ProseMirror code::before,
+.ProseMirror code::after,
+.doc-body code::before,
+.doc-body code::after,
+.prose code::before,
+.prose code::after {
+  content: none !important;
+}
+.ProseMirror pre code,
+.doc-body pre code,
+.prose pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  display: inline;
 }
 
 /* Global drag handle (tiptap-extension-global-drag-handle) — appears
