@@ -409,7 +409,11 @@
   background: transparent;
   font-family: var(--font-display);
   font-size: var(--text-5xl);
-  font-weight: 500;
+  /* 600 instead of 500 — Fraunces' Cyrillic glyphs render visibly lighter
+     than Latin at the same weight, so a Russian title at 500 reads as
+     "regular" while the English title beside it reads as "medium". 600
+     makes both scripts look equally emphasised. */
+  font-weight: 600;
   line-height: 1.0;
   letter-spacing: var(--tracking-display);
   color: var(--ink);
@@ -435,7 +439,7 @@
 /* Static <h1> variant of the title used on the public share page — same
    typography as the editable <input.doc-title-input>, no input behavior. */
 .doc-title-static {
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.0;
   letter-spacing: var(--tracking-display);
   margin: 0 0 24px;

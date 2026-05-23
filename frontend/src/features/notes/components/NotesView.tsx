@@ -12,6 +12,7 @@ import { useNoteEditor } from '../hooks/useNoteEditor';
 import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
 import { NotesPane } from './NotesPane';
 import { NoteEditor } from './NoteEditor';
+import { ErrorBoundary } from '../../../components/ErrorBoundary';
 import './notes.css';
 
 // Lazy-load the QuizDrawer used for the multi-note ("all notes") variant —
@@ -168,14 +169,21 @@ export default function NotesView() {
         onSmartTestAll={handleSmartTestAll}
       />
 
-      <NoteEditor
-        note={editor.note}
-        breadcrumbs={editor.breadcrumbs}
-        saving={save.saving}
-        savedAt={save.savedAt}
-        onTitleChange={(id, name) => save.queueSave(id, { name })}
-        onContentChange={(id, html) => save.queueSave(id, { content: html })}
-      />
+      {/* Wrap in ErrorBoundary keyed by the selected note id — without this,
+          a render-time exception (e.g. while debounced autosave + library
+          refresh race during a title edit) would silently bubble up to the
+          root and leave the user staring at a blank white surface. The
+          boundary card surfaces the error so we can act on it. */}
+      <ErrorBoundary key={editor.note?.id ?? 'no-note'} label="Note editor">
+        <NoteEditor
+          note={editor.note}
+          breadcrumbs={editor.breadcrumbs}
+          saving={save.saving}
+          savedAt={save.savedAt}
+          onTitleChange={(id, name) => save.queueSave(id, { name })}
+          onContentChange={(id, html) => save.queueSave(id, { content: html })}
+        />
+      </ErrorBoundary>
 
       {multiQuizJobId !== null && multiQuizDrawerOpen && (
         <Suspense fallback={null}>
