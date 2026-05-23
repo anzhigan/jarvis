@@ -26,17 +26,25 @@ const PANE_COLLAPSED_KEY = 'jarvnote:notes:libCollapsed';
 export default function NotesView() {
   const library = useNotesLibrary();
   const editor  = useNoteEditor(library);
-  const save    = useNoteAutoSave(() => { void library.refresh(); });
 
-  // Flush pending autosaves the moment the user switches notes. Without
-  // this, the previous note's debounced rename/content edit fires AFTER
-  // the switch — racing with the new note's mount + Tiptap editor
-  // remount, producing the heavy jank when "switching notes mid-rename".
-  // Awaiting flush() before the switch settles also guarantees the next
-  // library.refresh() returns the committed value, so nothing snaps back.
+  // Stable `onSaved` so useNoteAutoSave's `useCallback` doesn't refresh
+  // `flush` on every render. Without this, `save.flush` is a brand-new
+  // function each render, the cleanup-on-switch effect below treated it
+  // as a dep change every render, and the cleanup body — which calls
+  // `flush()` — fired on EVERY render. That meant the autosave network
+  // PATCH ran continuously while the user typed, causing the lag and
+  // "rename keeps reverting / cuts off" symptoms.
+  const handleAutoSaved = useCallback(() => {
+    void library.refresh();
+  }, [library.refresh]);
+  const save = useNoteAutoSave(handleAutoSaved);
+
+  // Flush pending autosaves the moment the user switches notes. Deps are
+  // `save.flush` (now stable thanks to the memoised `handleAutoSaved`),
+  // so this only re-runs on real note-id changes — NOT on every render.
   useEffect(() => {
     return () => { void save.flush(); };
-  }, [editor.selectedNoteId, save]);
+  }, [editor.selectedNoteId, save.flush]);
 
   const [paneCollapsed, setPaneCollapsed] = useState(
     () => localStorage.getItem(PANE_COLLAPSED_KEY) === '1',
