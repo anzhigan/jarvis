@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight,
-  Bold, Check, ChevronRight, Code as CodeIcon, Image as ImageIcon, Italic, Link as LinkIcon, Loader2,
+  Bold, Braces, Check, ChevronRight, Image as ImageIcon, Italic, Link as LinkIcon, Loader2,
   Paperclip, Plus, Share2, Sigma, Sparkles, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
@@ -435,7 +435,7 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
             editor.view.dispatch(tr);
             editor.view.focus();
           }}
-        ><CodeIcon /></Btn>
+        ><Braces /></Btn>
       </div>
       <div className="ntb-sep" />
 
@@ -465,12 +465,11 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
       </div>
       <div className="ntb-sep" />
 
-      {/* Blocks: quote / divider. The old "Code block" button used to live
-          here too — its `</>` SVG was visually identical to the inline-code
-          button up in the inline-marks group, so users routinely clicked
-          this one expecting inline code and got a whole-paragraph code
-          block instead. Code block stays accessible via the "+" insert
-          menu on empty lines (BlockInsertMenu → Blocks → Code block). */}
+      {/* Blocks: quote / code block / divider. Code Block is back here
+          (it converts the whole paragraph to a `<pre>` — different from
+          the inline-code `{ }` button up in the inline-marks group; the
+          two now have visually distinct icons so they can't be mistaken
+          for each other. */}
       <div className="ntb-group">
         <Btn
           title="Quote"
@@ -479,6 +478,16 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
             <path d="M3 21c3 0 7-1 7-8V5H3v8h4M14 21c3 0 7-1 7-8V5h-7v8h4" />
+          </svg>
+        </Btn>
+        <Btn
+          title="Code block"
+          active={editor.isActive('codeBlock')}
+          onClick={cmd((c) => c.toggleCodeBlock())}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
           </svg>
         </Btn>
         <Btn

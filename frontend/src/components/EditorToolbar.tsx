@@ -20,7 +20,7 @@ import { createPortal } from 'react-dom';
 import { useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import {
-  Bold, Italic, Underline, Code, Heading2,
+  Bold, Italic, Underline, Braces, Heading2,
   List, ListChecks, Link as LinkIcon,
 } from 'lucide-react';
 
@@ -149,7 +149,7 @@ function MobileBar(props: EditorToolbarProps) {
           active={s.code}
           label="Inline code"
         >
-          <Code size={18} />
+          <Braces size={18} />
         </ToolbarButton>
       </Group>
 
