@@ -1,13 +1,21 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, FolderOpen, Loader2, Plus, Search } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, FolderOpen, Loader2, Plus, Search, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Note, Topic, Way } from '../../../api/types';
 import { useNotesLibrary } from '../../notes/hooks/useNotesLibrary';
+import { aiApi } from '../../../api/client';
+import { useAIJobsStore } from '../../../store/aiJobs';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
 import { WayForm, TopicForm, NoteForm } from '../components/MobileAddForms';
 import { SwipeableRow } from '../components/SwipeableRow';
 import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import type { Tab } from '../../../app/tabs';
+
+// AITestPicker is the same Radix-dialog used on desktop — it works on
+// mobile too (full-width with safe-area). Lazy-loaded so its bundle is
+// only fetched when the user actually taps "AI test".
+const AITestPicker = lazy(() => import('../../ai/AITestPicker').then((m) => ({ default: m.AITestPicker })));
 
 // Full-screen note editor — opened when a card is tapped.
 const MobileNoteEditor = lazy(() => import('./MobileNoteEditor'));
@@ -167,6 +175,58 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
       </button>
     );
   }
+  // ── AI test on all notes — same flow as desktop NotesView. Tap pill →
+  // AITestPicker (Radix dialog, works on mobile too) → user picks notes →
+  // create quiz with scope `multi` → pushed as bg job. When done, the
+  // universal AI toast appears; tapping it opens MobileQuizSheet.
+  const addBgJob = useAIJobsStore((s) => s.add);
+  const [aiTestPickerOpen, setAiTestPickerOpen] = useState(false);
+  const [aiTestSubmitting, setAiTestSubmitting] = useState(false);
+  const allNotesFlat = useMemo<Note[]>(() => {
+    const out: Note[] = [];
+    for (const way of lib.ways) {
+      out.push(...way.notes);
+      for (const topic of way.topics) out.push(...topic.notes);
+    }
+    return out;
+  }, [lib.ways]);
+  const handleAiTestConfirm = useCallback(async (ids: string[]) => {
+    setAiTestPickerOpen(false);
+    if (ids.length === 0) return;
+    // Same-task guard mirrors desktop: if a multi-quiz already exists in
+    // the bg store, don't start a duplicate — the user will see the
+    // existing toast / panel row.
+    const inBg = useAIJobsStore.getState().findSame('quiz', undefined);
+    if (inBg) {
+      toast.message('A test is already running — check the AI tasks panel.');
+      return;
+    }
+    setAiTestSubmitting(true);
+    try {
+      const count = ids.length === 1 ? 5
+                  : ids.length <= 3  ? 7
+                                     : 10;
+      const job = await aiApi.createQuiz({
+        scope: { kind: 'multi', ids },
+        difficulty: 'medium',
+        count,
+      });
+      const noteTitle = ids.length === 1
+        ? (allNotesFlat.find((n) => n.id === ids[0])?.name || 'note')
+        : `${ids.length} notes`;
+      addBgJob({
+        jobId: job.id,
+        kind: 'quiz',
+        source: { section: 'notes', noteTitle },
+      });
+      toast.success('Test is generating…');
+    } catch (e: any) {
+      toast.error(e?.detail ?? e?.message ?? 'Failed to start test');
+    } finally {
+      setAiTestSubmitting(false);
+    }
+  }, [allNotesFlat, addBgJob]);
+
   // Compact bar for nested levels (way / topic — they carry a back arrow
    // already); large-title for the root. Keeps vertical space tight when
    // the user is deep in the tree.
@@ -177,6 +237,12 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
       leftSlot={leftSlot}
       onAvatarClick={onAvatarClick}
       mode={level.kind === 'root' ? 'large' : 'compact'}
+      aiAction={{
+        icon: <Sparkles size={14} />,
+        label: 'AI test',
+        onClick: () => setAiTestPickerOpen(true),
+        busy: aiTestSubmitting,
+      }}
     />
   );
 
@@ -318,6 +384,19 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
         destructive
         onConfirm={async () => { if (confirmNote) await lib.deleteNote(confirmNote.id); }}
       />
+
+      {/* AI test picker — same Radix dialog the desktop uses. Suspense
+          fallback is null so opening doesn't flash a loader. */}
+      {aiTestPickerOpen && (
+        <Suspense fallback={null}>
+          <AITestPicker
+            open={aiTestPickerOpen}
+            onOpenChange={setAiTestPickerOpen}
+            notes={allNotesFlat}
+            onConfirm={handleAiTestConfirm}
+          />
+        </Suspense>
+      )}
     </MobileShell>
   );
 }

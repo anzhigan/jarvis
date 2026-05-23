@@ -113,7 +113,7 @@
     align-items: center;
     gap: 8px;
   }
-  .m-shell .tb-side { display: inline-flex; align-items: center; gap: 4px; }
+  .m-shell .tb-side { display: inline-flex; align-items: center; gap: 8px; }
   .m-shell .tb-side-right { justify-content: flex-end; }
   .m-shell .tb-spacer { width: 36px; height: 36px; }
   .m-shell .tb-center { text-align: center; line-height: 1.1; }
@@ -145,9 +145,11 @@
   .m-shell .tb-btn:hover { background: var(--cream); color: var(--ink); }
   .m-shell .tb-btn svg { width: 18px; height: 18px; }
   /* AI shortcut next to the avatar. Subtle indigo wash; opens the AI
-     jobs bottom-sheet (same one as tapping the AI toast). */
+     jobs bottom-sheet (same one as tapping the AI toast). Sized at 36px
+     (was 32) so it doesn't feel cramped next to the avatar and matches
+     the 36px height of the action pill below. */
   .m-shell .tb-ai {
-    width: 32px; height: 32px;
+    width: 36px; height: 36px;
     border-radius: 50%;
     background: var(--indigo-soft);
     color: var(--indigo);
@@ -160,24 +162,23 @@
     transition: background 140ms;
   }
   .m-shell .tb-ai:hover { background: var(--indigo-tint); }
-  .m-shell .tb-ai svg { width: 16px; height: 16px; }
+  .m-shell .tb-ai svg { width: 18px; height: 18px; }
 
-  /* Contextual AI action pill (Plan day / AI sprint / Coach) — sits to
-     the left of the bell in the top-bar right slot. Compact tinted
-     capsule with an icon + label so it reads as a single creative
-     trigger, not as plain icon-chrome. */
+  /* Contextual AI action pill (Plan day / AI sprint / Coach / AI test) —
+     sits to the left of the bell in the top-bar right slot. 36px height
+     to match the bell — and the bigger size keeps the icon legible. */
   .m-shell .tb-ai-action {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    height: 32px;
-    padding: 0 10px;
+    gap: 5px;
+    height: 36px;
+    padding: 0 12px;
     background: var(--indigo-soft);
     color: var(--indigo);
     border: 0;
     border-radius: 999px;
     font-family: var(--font-ui);
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 500;
     letter-spacing: 0.01em;
     cursor: pointer;
@@ -187,7 +188,7 @@
   }
   .m-shell .tb-ai-action:hover:not(:disabled) { background: var(--indigo-tint); }
   .m-shell .tb-ai-action:disabled { opacity: 0.55; cursor: progress; }
-  .m-shell .tb-ai-action svg { width: 13px; height: 13px; }
+  .m-shell .tb-ai-action svg { width: 14px; height: 14px; }
 
   .m-shell .tb-avatar {
     width: 36px; height: 36px;
