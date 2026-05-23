@@ -411,7 +411,14 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
         <Btn
           title="Inline code"
           active={editor.isActive('code')}
-          onClick={cmd((c) => c.toggleCode())}
+          /* `extendEmptyMarkRange: false` prevents Tiptap from extending
+             the code mark to adjacent text-nodes that share the same mark
+             — without it, toggling on a 1-char selection could visually
+             "spread" the highlight if there was already inline code next
+             to the selection. */
+          onClick={() => editor.chain().focus().toggleMark('code', undefined, {
+            extendEmptyMarkRange: false,
+          }).run()}
         ><CodeIcon /></Btn>
       </div>
       <div className="ntb-sep" />
