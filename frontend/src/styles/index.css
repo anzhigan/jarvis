@@ -2626,3 +2626,90 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
   .mobile-tab { gap: 2px; }
   .mobile-tab svg { width: 22px; height: 22px; stroke-width: 1.6; }
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Sonner toaster — design-system override.
+   Sonner ships its own vivid red/green palette (via `richColors`). We
+   strip those, replace background/text/border with our editorial tokens,
+   and add card-radius / popover shadow to match the rest of the app.
+   On mobile (≤900px) the toast widens to use most of the screen and
+   slides down from the safe-area inset so it doesn't crash into the
+   status bar / notch.
+   ────────────────────────────────────────────────────────────────────── */
+[data-sonner-toaster] {
+  --normal-bg:        var(--paper);
+  --normal-text:      var(--ink);
+  --normal-border:    var(--hairline);
+  --success-bg:       var(--moss-soft);
+  --success-text:     var(--moss);
+  --success-border:   var(--moss);
+  --error-bg:         var(--rust-soft);
+  --error-text:       var(--rust);
+  --error-border:     var(--rust);
+  --warning-bg:       var(--ochre-soft);
+  --warning-text:     var(--ochre);
+  --warning-border:   var(--ochre);
+  --info-bg:          var(--indigo-soft);
+  --info-text:        var(--indigo);
+  --info-border:      var(--indigo);
+  font-family: var(--font-ui) !important;
+}
+[data-sonner-toast] {
+  border-radius: var(--r-card, 14px) !important;
+  box-shadow: var(--sh-popover) !important;
+  border: 1px solid var(--normal-border) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 13.5px !important;
+  letter-spacing: 0.005em;
+  padding: 12px 14px !important;
+}
+[data-sonner-toast] [data-title] {
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+}
+[data-sonner-toast] [data-description] {
+  font-family: var(--font-body) !important;
+  font-size: 12.5px !important;
+  color: var(--ink-3) !important;
+  line-height: 1.45 !important;
+  margin-top: 2px;
+}
+/* Accent the LEFT edge per toast type instead of fully tinting the surface
+   — keeps the toast readable against varied page backgrounds. */
+[data-sonner-toast][data-type="error"] {
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+  border-left: 3px solid var(--rust) !important;
+}
+[data-sonner-toast][data-type="success"] {
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+  border-left: 3px solid var(--moss) !important;
+}
+[data-sonner-toast][data-type="warning"] {
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+  border-left: 3px solid var(--ochre) !important;
+}
+[data-sonner-toast][data-type="info"] {
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+  border-left: 3px solid var(--indigo) !important;
+}
+/* Match the icon colour to the accent. */
+[data-sonner-toast][data-type="error"]   [data-icon] { color: var(--rust); }
+[data-sonner-toast][data-type="success"] [data-icon] { color: var(--moss); }
+[data-sonner-toast][data-type="warning"] [data-icon] { color: var(--ochre); }
+[data-sonner-toast][data-type="info"]    [data-icon] { color: var(--indigo); }
+
+/* Mobile — wider toast, slides down from safe-area inset top. */
+@media (max-width: 900px) {
+  [data-sonner-toaster] {
+    width: calc(100vw - 24px) !important;
+    max-width: 480px !important;
+  }
+  [data-sonner-toast] {
+    padding: 14px 16px !important;
+    border-radius: 14px !important;
+  }
+}

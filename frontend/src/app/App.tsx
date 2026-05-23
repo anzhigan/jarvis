@@ -88,15 +88,17 @@ function AuthenticatedApp() {
   };
 
   const toaster = (
+    /* `richColors` removed — it forces Sonner's vivid red/green which
+       clashes with the editorial palette. We instead override the Sonner
+       CSS variables in index.css using `--rust / --moss / --ochre /
+       --indigo` soft tokens so error/success/info/warning toasts read
+       as part of the design system. */
     <Toaster
-      richColors
       position="top-center"
+      offset={isMobile ? 'calc(env(safe-area-inset-top, 0px) + 12px)' : undefined}
       toastOptions={{
-        style: {
-          fontFamily: 'var(--font-ui)',
-          borderRadius: 'var(--r-control)',
-          boxShadow: 'var(--sh-popover)',
-        },
+        className: 'jrv-toast',
+        style: { fontFamily: 'var(--font-ui)' },
       }}
     />
   );

@@ -881,13 +881,22 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
   };
 
   // Stable callbacks so the memoised <EditorToolbar /> doesn't re-render
-  // on every parent state change.
+  // on every parent state change. Mobile's mounted bar uses these to
+  // surface the same insert surface as the desktop BlockInsertMenu.
   const openLink = useCallback(() => {
     if (!editor) return;
     const prev = editor.getAttributes('link').href as string | undefined;
     setDialogExtra({ prevUrl: prev });
     setDialog('link');
   }, [editor]);
+  const openTable = useCallback(() => {
+    if (!editor) return;
+    if (editor.isActive('table')) editor.chain().focus().deleteTable().run();
+    else setDialog('table');
+  }, [editor]);
+  const openMath = useCallback(() => setDialog('math'), []);
+  const openImage = useCallback(() => fileInputRef.current?.click(), []);
+  const openFile = useCallback(() => attachmentInputRef.current?.click(), []);
 
   if (!editor) return null;
 
@@ -951,6 +960,10 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       <EditorToolbar
         editor={editor}
         onInsertLink={openLink}
+        onInsertTable={openTable}
+        onInsertMath={openMath}
+        onInsertImage={openImage}
+        onInsertFile={openFile}
         bottomOffset={kbHeight}
       />
     )}
