@@ -26,7 +26,6 @@ import TableInsertSheet from './editor/TableInsertSheet';
 import { FileAttachment, FILE_ACCEPT, KNOWN_EXTENSIONS } from './editor/FileAttachment';
 import { ToggleListBundle } from './editor/ToggleList';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { loadEditorHeavy, getKatex, type EditorHeavy } from './editor/editorHeavy';
 
 /**
@@ -564,7 +563,6 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
   // Mobile keyboard detection — toolbar shows ONLY when editor is focused AND keyboard is up
   const isMobile = useIsMobile();
   const [editorFocused, setEditorFocused] = useState(false);
-  const kbHeight = useKeyboardHeight();
   const blurTimerRef = useRef<number | null>(null);
 
   // Refocus editor on toolbar tap; blur is debounced so toolbar doesn't flicker
@@ -972,7 +970,6 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         onInsertMath={openMath}
         onInsertImage={openImage}
         onInsertFile={openFile}
-        bottomOffset={kbHeight}
       />
     )}
 

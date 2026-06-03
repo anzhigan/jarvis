@@ -952,19 +952,30 @@ input, textarea, select { font: inherit; color: inherit; background: transparent
 }
 .rt-toolbar::-webkit-scrollbar { display: none; }
 
-.rt-toolbar--mobile {
-  position: fixed; left: 0; right: 0; top: auto; z-index: 50;
-  padding: 5px 8px calc(5px + env(safe-area-inset-bottom, 0px));
-  gap: 3px;
-  box-shadow: 0 -0.5px 0 var(--hairline), var(--sh-popover);
+/* Floating mobile pill — anchored to selection / caret by Tiptap's
+   BubbleMenu / FloatingMenu (Floating UI under the hood). Not fixed
+   to the keyboard; renders right under the cursor on the text canvas. */
+.rt-toolbar--floating {
+  position: static; /* override sticky from .rt-toolbar base */
+  display: inline-flex; width: auto;
+  padding: 4px 6px;
+  gap: 2px;
+  border-radius: var(--r-button, 12px);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--sh-popover);
+  overflow-x: auto;
+  max-width: min(calc(100vw - 16px), 460px);
+  scrollbar-width: none;
 }
-.rt-toolbar--mobile .rt-btn {
-  height: 38px; min-width: 38px;
+.rt-toolbar--floating::-webkit-scrollbar { display: none; }
+.rt-toolbar--floating .rt-btn {
+  height: 34px; min-width: 34px;
   border-radius: 8px;
   font-size: 13px;
 }
-.rt-toolbar--mobile .rt-divider {
-  height: 20px; margin: 0 3px;
+.rt-toolbar--floating .rt-divider {
+  height: 18px; margin: 0 2px;
 }
 
 .rt-group {
