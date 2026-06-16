@@ -272,10 +272,10 @@
     justify-content: center;
   }
   .tab-ico svg { width: 22px; height: 22px; }
-  /* Coloured section illustrations are sized like the desktop pomodoro icon
-     so they feel like real objects, not glyphs. The 64px tab-bar leaves
-     room for the label below at 30px. */
-  .tab-ico svg.illu-icon { width: 30px; height: 30px; }
+  /* Coloured section illustrations are sized up from the 22px line glyphs
+     so the colour reads at thumbnail size, but kept smaller than the
+     desktop tomato (34px) so the label below stays roomy. */
+  .tab-ico svg.illu-icon { width: 26px; height: 26px; }
   .tab-label {
     font-family: var(--font-ui);
     font-size: 10px;

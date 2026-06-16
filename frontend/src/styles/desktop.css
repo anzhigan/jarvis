@@ -683,9 +683,10 @@
   background: var(--indigo);
 }
 .rail-btn svg { width: 17px; height: 17px; }
-/* Hand-drawn section illustrations (SectionIcons.tsx) — sized to match the
-   pomodoro tomato so they read as the same visual class of object icons. */
-.rail-btn svg.illu-icon { width: 34px; height: 34px; }
+/* Hand-drawn section illustrations (SectionIcons.tsx) — a touch smaller
+   than the pomodoro tomato (34px) since they pack more internal detail
+   and read fuller at the same physical size. */
+.rail-btn svg.illu-icon { width: 28px; height: 28px; }
 
 /* Section-specific rail buttons (Hide-sidebar appears only in Notes) reserve
    their slot through this placeholder when inactive — so the nav buttons
@@ -1109,15 +1110,14 @@
   border-bottom: 1px solid var(--hairline-faint);
   display: flex; flex-direction: column; align-items: stretch; gap: 8px;
 }
-/* Override the base .field 32px height — in the Notes pane the search row
-   sits next to the ai-test CTA and the two should read as one toolset.
-   Bump both to --h-lg so the search field is no longer the thinnest
-   element on the pane. */
+/* Search field gets bumped to --h-lg so it stops feeling skinnier than
+   the ai-test CTA next to it. The CTA itself stays at its original 28px
+   compact size. */
 .pane-tools .field { flex: 1; height: var(--h-lg); }
 .pane-ai-cta {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: var(--h-lg);
-  padding: 0 12px;
+  height: 28px;
+  padding: 0 10px;
   background: var(--indigo-soft);
   color: var(--indigo);
   border: 1px solid var(--hairline-faint);
