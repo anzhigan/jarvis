@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react';
-import {
-  Search, BookOpen, Target, Repeat, Zap, BarChart3, Moon, PanelLeft, Sun,
-} from 'lucide-react';
+import { Search, PanelLeft } from 'lucide-react';
 import { resolveUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { useT } from '../../store/i18n';
 import { Tooltip } from '../ui';
 import { PomodoroPanel } from './PomodoroPanel';
+import {
+  AnalysisIcon, GoalsIcon, MoonIcon, NotesIcon, RoutinesIcon, SprintsIcon, SunIcon,
+} from '../SectionIcons';
 import type { Tab } from '../../app/tabs';
 import { sectionForTab } from '../../app/tabs';
 
 const NAV: { key: Tab; labelKey: string; icon: React.ElementType; acc: string }[] = [
-  { key: 'notes',    labelKey: 'nav.notes',    icon: BookOpen,  acc: 'notes' },
-  { key: 'tasks',    labelKey: 'nav.tasks',    icon: Target,    acc: 'goals' },
-  { key: 'routines', labelKey: 'nav.routines', icon: Repeat,    acc: 'routines' },
-  { key: 'sprints',  labelKey: 'nav.sprints',  icon: Zap,       acc: 'sprints' },
-  { key: 'analysis', labelKey: 'nav.analysis', icon: BarChart3, acc: 'analysis' },
+  { key: 'notes',    labelKey: 'nav.notes',    icon: NotesIcon,    acc: 'notes' },
+  { key: 'tasks',    labelKey: 'nav.tasks',    icon: GoalsIcon,    acc: 'goals' },
+  { key: 'routines', labelKey: 'nav.routines', icon: RoutinesIcon, acc: 'routines' },
+  { key: 'sprints',  labelKey: 'nav.sprints',  icon: SprintsIcon,  acc: 'sprints' },
+  { key: 'analysis', labelKey: 'nav.analysis', icon: AnalysisIcon, acc: 'analysis' },
 ];
 
 interface Props {
@@ -124,7 +125,7 @@ export function DesktopShell({ tab, onTabChange, dark, onToggleTheme, onOpenSear
           <PomodoroPanel />
           <Tooltip content={dark ? 'Light theme' : 'Dark theme'} side="right">
             <button className="rail-btn" onClick={onToggleTheme} aria-label="Toggle theme">
-              {dark ? <Sun /> : <Moon />}
+              {dark ? <SunIcon /> : <MoonIcon />}
             </button>
           </Tooltip>
           <Tooltip content={user.username} side="right">
