@@ -1,4 +1,6 @@
-import { BookOpen, Repeat, Target, Zap, BarChart3 } from 'lucide-react';
+import {
+  AnalysisIcon, GoalsIcon, NotesIcon, RoutinesIcon, SprintsIcon,
+} from '../../../components/SectionIcons';
 import type { Tab } from '../../../app/tabs';
 
 interface Props {
@@ -9,11 +11,11 @@ interface Props {
 /** 5-tab bottom navigation matching jarvnote-mobile.html.
  *  Profile is reachable via the avatar in MobileTopBar — not via a tab. */
 const TABS: { key: Tab; label: string; Icon: React.ElementType }[] = [
-  { key: 'notes',    label: 'Notes',    Icon: BookOpen },
-  { key: 'routines', label: 'Routines', Icon: Repeat   },
-  { key: 'tasks',    label: 'Goals',    Icon: Target   },
-  { key: 'sprints',  label: 'Sprints',  Icon: Zap      },
-  { key: 'analysis', label: 'Analysis', Icon: BarChart3 },
+  { key: 'notes',    label: 'Notes',    Icon: NotesIcon    },
+  { key: 'routines', label: 'Routines', Icon: RoutinesIcon },
+  { key: 'tasks',    label: 'Goals',    Icon: GoalsIcon    },
+  { key: 'sprints',  label: 'Sprints',  Icon: SprintsIcon  },
+  { key: 'analysis', label: 'Analysis', Icon: AnalysisIcon },
 ];
 
 export function MobileTabBar({ active, onChange }: Props) {
@@ -32,7 +34,7 @@ export function MobileTabBar({ active, onChange }: Props) {
             role="tab"
           >
             <span className="tab-ico">
-              <Icon size={22} strokeWidth={on ? 2 : 1.7} />
+              <Icon />
             </span>
             <span className="tab-label">{label}</span>
           </button>
