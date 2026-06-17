@@ -537,3 +537,54 @@ export const aiApi = {
   }) =>
     request<AIJob>('/ai/goal-plan', { method: 'POST', body: JSON.stringify(body) }),
 };
+
+// ─── Admin dashboard ────────────────────────────────────────────────────────
+// Gated by User.is_admin server-side. Frontend reads `currentUser.is_admin`
+// to decide whether to even attempt the call and to render the AdminView at
+// the `/admin` path. Non-admins get 403, which the auth client surfaces as
+// an error toast.
+
+export interface AdminOverview {
+  total_users: number;
+  active_users_7d: number;
+  signups_7d: number;
+  signups_30d: number;
+  total_notes: number;
+  total_tasks: number;
+  total_routines: number;
+  total_ai_jobs: number;
+}
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  username: string;
+  is_active: boolean;
+  is_admin: boolean;
+  avatar_url: string | null;
+  created_at: string;
+  last_seen_at: string | null;
+  note_count: number;
+  task_count: number;
+  routine_count: number;
+  ai_job_count: number;
+}
+
+export interface AdminUsersResponse {
+  items: AdminUserRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export const adminApi = {
+  overview: () => request<AdminOverview>('/admin/overview'),
+  listUsers: (params: { limit?: number; offset?: number; q?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.limit  !== undefined) qs.set('limit', String(params.limit));
+    if (params.offset !== undefined) qs.set('offset', String(params.offset));
+    if (params.q)                    qs.set('q', params.q);
+    const tail = qs.toString();
+    return request<AdminUsersResponse>(`/admin/users${tail ? `?${tail}` : ''}`);
+  },
+};

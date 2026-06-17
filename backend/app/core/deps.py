@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -11,6 +12,11 @@ from app.core.security import decode_token
 from app.models.user import User
 
 bearer = HTTPBearer()
+
+# Throttle: don't write last_seen_at on every request — once per 5 minutes is
+# enough granularity for the "active in last N days" admin metric, and avoids
+# a write per request on chatty clients.
+LAST_SEEN_THROTTLE = timedelta(minutes=5)
 
 
 async def get_current_user(
@@ -41,4 +47,30 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+
+    # Bump last_seen_at — throttled so chatty clients don't write on every
+    # request. Failures here are non-fatal: the admin metric is a
+    # nice-to-have, not a hard contract.
+    now = datetime.now(UTC)
+    if user.last_seen_at is None or now - user.last_seen_at >= LAST_SEEN_THROTTLE:
+        user.last_seen_at = now
+        try:
+            await db.commit()
+            await db.refresh(user)
+        except Exception:
+            await db.rollback()
+
+    return user
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Dependency for admin-only routes. Returns the same user but 403s for
+    non-admins. Always layered on top of get_current_user — never use this
+    in place of it for non-admin endpoints, since the activity bump should
+    happen for everyone."""
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
     return user

@@ -18,11 +18,16 @@ const AIToastStack = lazy(() => import('../features/ai/AIToastStack').then((m) =
 const MobileAIToastStack = lazy(() => import('../features/mobile/components/MobileAIToastStack').then((m) => ({ default: m.MobileAIToastStack })));
 
 const PublicNoteView = lazy(() => import('../features/notes/components/PublicNoteView'));
+const AdminView = lazy(() => import('../features/admin/AdminView'));
 
 /** Match /share/<token> at any depth — returns the token or null. */
 function publicShareToken(): string | null {
   const m = window.location.pathname.match(/^\/share\/([A-Za-z0-9_-]+)\/?$/);
   return m ? m[1] : null;
+}
+
+function isAdminRoute(): boolean {
+  return /^\/admin\/?$/.test(window.location.pathname);
 }
 
 export default function App() {
@@ -46,6 +51,16 @@ export default function App() {
 function AuthenticatedApp() {
   const { user, isReady, init } = useAuthStore();
   const isMobile = useIsMobile();
+
+  // Admin-only route. Detected via pathname so it stays out of the regular
+  // tab switcher; popstate keeps us reactive when the user hits "Back" or
+  // clicks the "App" button inside AdminView.
+  const [adminRoute, setAdminRoute] = useState(() => isAdminRoute());
+  useEffect(() => {
+    const handler = () => setAdminRoute(isAdminRoute());
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []);
 
   const [tab, setTab] = useState<Tab>(() => {
     const saved = localStorage.getItem('jarvnote:tab');
@@ -115,6 +130,21 @@ function AuthenticatedApp() {
     return (
       <>
         <AuthPage />
+        {toaster}
+      </>
+    );
+  }
+
+  if (adminRoute) {
+    return (
+      <>
+        <Suspense fallback={
+          <div className="h-full flex items-center justify-center" style={{ background: 'var(--paper)' }}>
+            <Loader2 size={28} className="animate-spin" style={{ color: 'var(--ink-4)' }} />
+          </div>
+        }>
+          <AdminView />
+        </Suspense>
         {toaster}
       </>
     );
