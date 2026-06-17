@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import require_admin
 from app.models.ai import AIJob
-from app.models.notes import Note
+from app.models.notes import Note, Way
 from app.models.tasks import Routine, Task
 from app.models.user import User
 from app.schemas.admin import AdminOverview, AdminUserRow, AdminUsersResponse
@@ -44,6 +44,9 @@ async def get_overview(db: AsyncSession = Depends(get_db)) -> AdminOverview:
         select(func.count(User.id)).where(User.created_at >= cutoff_30d),
     ) or 0
 
+    # Note has no direct user_id — it's owned via Way → Topic → Note. The
+    # overall count is just COUNT(*); per-user counts (in /admin/users) need
+    # the JOIN through Way.
     total_notes = await db.scalar(select(func.count(Note.id))) or 0
     total_tasks = await db.scalar(select(func.count(Task.id))) or 0
     total_routines = await db.scalar(select(func.count(Routine.id))) or 0
@@ -83,9 +86,15 @@ async def list_users(
 
     total = await db.scalar(select(func.count()).select_from(base.subquery())) or 0
 
+    # Notes are anchored to a user via Way.user_id (Note → Way → user) or
+    # via Note.topic_inline_id → Topic → Way → user. For the count it's
+    # enough to count every Note whose owning Way belongs to the user; the
+    # topic/inline-topic routes both terminate at the same Way, so we don't
+    # double-count by going through Way alone.
     note_count = (
         select(func.count(Note.id))
-        .where(Note.user_id == User.id)
+        .join(Way, Way.id == Note.way_id)
+        .where(Way.user_id == User.id)
         .correlate(User)
         .scalar_subquery()
         .label("note_count")
