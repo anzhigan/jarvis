@@ -729,7 +729,27 @@
 /* Tomato icon is a coloured asset (not currentColor) — sized via svg
    width/height (set in component) but we make sure the global 17px rule
    on .rail-btn svg can't shrink it. */
+.pomo-rail-btn { position: relative; }
 .pomo-rail-btn svg { width: 34px; height: 34px; }
+/* Today-counter badge — small rust pill in the top-right corner of the
+   tomato. Only shown while the timer is idle (during a run the slot is
+   occupied by the remaining-minutes badge). */
+.pomo-rail-badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  min-width: 16px; height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--rust);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  letter-spacing: -0.02em;
+  border: 1px solid var(--rail-bg);
+}
 .pomo-rail-btn[data-active] {
   background: var(--paper);
   box-shadow: var(--sh-card);
@@ -929,6 +949,51 @@
   justify-content: center;
 }
 .pomo-task-clear:hover { color: var(--rust); background: var(--rust-soft); }
+
+/* ── Today counter ─────────────────────────────────────────────────────
+   A row of small rust dots, one per completed focus session today. The
+   panel resets at midnight (loadState checks the stored date against
+   the current one). Caps at 8 visible + "+N" so the row stays one line. */
+.pomo-today {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 4px;
+  min-height: 16px;
+}
+.pomo-today-label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-4);
+}
+.pomo-today-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1; min-width: 0;
+  flex-wrap: nowrap;
+}
+.pomo-today-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--rust);
+  box-shadow: 0 0 0 1px rgba(160, 74, 57, 0.18);
+  flex-shrink: 0;
+}
+.pomo-today-more {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--rust);
+  letter-spacing: -0.02em;
+  margin-left: 2px;
+}
+.pomo-today-empty {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-5);
+}
 
 /* ── Display ────────────────────────────────────────────────────────── */
 .pomo-display {

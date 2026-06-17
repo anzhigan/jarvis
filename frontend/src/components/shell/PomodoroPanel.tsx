@@ -26,12 +26,24 @@ interface Persisted {
   /** Task the user is focusing on. Cached title so we don't need the API just to render. */
   taskId: string | null;
   taskTitle: string | null;
+  /** Completed-focus counter, scoped to a calendar day. Date is YYYY-MM-DD
+      in local time; when it doesn't match today we reset count to 0 on next
+      read. */
+  pomosToday: { count: number; date: string };
 }
 
-const FOCUS_PRESETS = [15, 25, 45, 60];
+const FOCUS_PRESETS = [25, 45, 50, 60];
 const BREAK_PRESETS = [5, 10, 15];
-const DEFAULT_FOCUS_MIN = 25;
+const DEFAULT_FOCUS_MIN = 50;
 const DEFAULT_BREAK_MIN = 5;
+
+function todayISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 const FRESH_FOCUS_SLOT: SlotState = {
   totalSec: DEFAULT_FOCUS_MIN * 60, startedAt: null, pausedRemainingSec: null,
@@ -54,6 +66,11 @@ function loadState(): Persisted {
 
     // Migration: old shape had {mode, totalSec, startedAt, pausedRemainingSec}
     // at top level. Promote that into the matching slot, leave the other slot fresh.
+    const today = todayISO();
+    const normalizedPomos = p.pomosToday && p.pomosToday.date === today
+      ? p.pomosToday
+      : { count: 0, date: today };
+
     if (!p.slots && typeof p.totalSec === 'number') {
       const slot: SlotState = {
         totalSec: p.totalSec,
@@ -67,6 +84,7 @@ function loadState(): Persisted {
           : { focus: FRESH_FOCUS_SLOT, break: slot },
         taskId: p.taskId ?? null,
         taskTitle: p.taskTitle ?? null,
+        pomosToday: normalizedPomos,
       };
     }
 
@@ -79,6 +97,7 @@ function loadState(): Persisted {
       },
       taskId: p.taskId ?? null,
       taskTitle: p.taskTitle ?? null,
+      pomosToday: normalizedPomos,
     };
   } catch {
     return {
@@ -86,6 +105,7 @@ function loadState(): Persisted {
       slots: { focus: FRESH_FOCUS_SLOT, break: FRESH_BREAK_SLOT },
       taskId: null,
       taskTitle: null,
+      pomosToday: { count: 0, date: todayISO() },
     };
   }
 }
@@ -233,14 +253,19 @@ export function PomodoroPanel() {
     : null;
   const selectedTitle = state.taskTitle ?? suggested?.title ?? null;
 
-  // Completion — fires once per run; auto-resets the active slot to fresh
-  // idle. Logs focus sessions for the Analysis time-per-task chart.
+  // Completion — fires once per run. Auto-flips Focus↔Break (focus ends
+  // → user expected to start a break next; break ends → next pomodoro).
+  // Preserves the duration the user set so the next session of the same
+  // mode comes back at the same length, not the factory default.
+  // Logs focus sessions for the Analysis time-per-task chart, and bumps
+  // the today-counter on focus completion.
   useEffect(() => {
     if (!isRunning) return;
     if (remainingSec > 0) return;
     if (dingPlayedFor.current === slot.startedAt) return;
     dingPlayedFor.current = slot.startedAt;
     playDing();
+
     if (state.mode === 'focus') {
       recordSession({
         taskId: state.taskId,
@@ -249,11 +274,33 @@ export function PomodoroPanel() {
         durationSec: slot.totalSec,
         completedAt: Date.now(),
       });
+      setState((s) => {
+        const today = todayISO();
+        const nextCount = s.pomosToday.date === today ? s.pomosToday.count + 1 : 1;
+        return {
+          ...s,
+          mode: 'break',
+          slots: {
+            ...s.slots,
+            // Clear the focus run state but KEEP its totalSec so the next
+            // focus session resumes at the same length the user chose.
+            focus: { ...s.slots.focus, startedAt: null, pausedRemainingSec: null },
+          },
+          pomosToday: { count: nextCount, date: today },
+        };
+      });
+    } else {
+      setState((s) => ({
+        ...s,
+        mode: 'focus',
+        slots: {
+          ...s.slots,
+          break: { ...s.slots.break, startedAt: null, pausedRemainingSec: null },
+        },
+      }));
     }
-    updateSlot(() =>
-      state.mode === 'focus' ? { ...FRESH_FOCUS_SLOT } : { ...FRESH_BREAK_SLOT });
   }, [remainingSec, isRunning, slot.startedAt, slot.totalSec, state.mode,
-      state.taskId, state.taskTitle, updateSlot]);
+      state.taskId, state.taskTitle]);
 
   // Mode switch — just change which slot is active. No reset.
   const setMode = useCallback((mode: Mode) => {
@@ -337,6 +384,11 @@ export function PomodoroPanel() {
               </span>
             ) : (
               <TomatoIcon />
+            )}
+            {state.pomosToday.count > 0 && !isRunning && (
+              <span className="pomo-rail-badge" aria-label={`${state.pomosToday.count} pomodoros today`}>
+                {state.pomosToday.count}
+              </span>
             )}
           </button>
         </Popover.Trigger>
@@ -430,6 +482,26 @@ export function PomodoroPanel() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* "Today" row — fills with rust dots as focus sessions complete.
+              Resets at midnight via loadState's date check. */}
+          <div className="pomo-today" aria-label="Pomodoros completed today">
+            <span className="pomo-today-label">Today</span>
+            <div className="pomo-today-dots">
+              {state.pomosToday.count === 0 ? (
+                <span className="pomo-today-empty">—</span>
+              ) : (
+                <>
+                  {Array.from({ length: Math.min(state.pomosToday.count, 8) }).map(
+                    (_, i) => <span key={i} className="pomo-today-dot" />,
+                  )}
+                  {state.pomosToday.count > 8 && (
+                    <span className="pomo-today-more">+{state.pomosToday.count - 8}</span>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           <div className="pomo-display">
