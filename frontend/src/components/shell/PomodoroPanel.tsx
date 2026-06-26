@@ -587,7 +587,7 @@ export function PomodoroPanel() {
               aria-label={state.mode === 'focus' ? 'Skip to break' : 'Skip to focus'}
               title={state.mode === 'focus' ? 'Skip to break' : 'Skip to focus'}
             >
-              <SkipForward size={13} />
+              <SkipForward size={18} strokeWidth={2.25} />
             </button>
             <button
               className="pomo-btn pomo-btn-plain pomo-btn-icon"
@@ -596,7 +596,7 @@ export function PomodoroPanel() {
               aria-label="Reset"
               title="Reset"
             >
-              <RotateCcw size={13} />
+              <RotateCcw size={18} strokeWidth={2.25} />
             </button>
           </div>
         </Popover.Content>
