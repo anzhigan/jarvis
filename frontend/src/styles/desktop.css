@@ -1093,9 +1093,13 @@
 /* ── Actions ────────────────────────────────────────────────────────── */
 .pomo-actions {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 8px;
   margin-top: 2px;
+}
+.pomo-btn-icon {
+  padding: 0;
+  width: 34px;
 }
 .pomo-btn {
   display: inline-flex; align-items: center; justify-content: center;

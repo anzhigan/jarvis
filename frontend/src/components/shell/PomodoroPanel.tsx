@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Pause, Play, RotateCcw, Plus, Minus, X, ChevronDown, Check } from 'lucide-react';
+import { Pause, Play, RotateCcw, Plus, Minus, X, ChevronDown, Check, SkipForward } from 'lucide-react';
 import { Tooltip } from '../ui';
 import { tasksApi } from '../../api/client';
 import type { Task } from '../../api/types';
@@ -342,6 +342,21 @@ export function PomodoroPanel() {
     updateSlot((sl) => ({ ...sl, startedAt: null, pausedRemainingSec: null }));
   }, [updateSlot]);
 
+  // Skip — jump to the other mode without finishing the current one. We do
+  // NOT record an analytics session and do NOT bump pomosToday (a skip is
+  // not a completed pomodoro). totalSec of both slots is preserved so when
+  // the user comes back to this mode the duration they chose is still set.
+  const skip = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      mode: s.mode === 'focus' ? 'break' : 'focus',
+      slots: {
+        ...s.slots,
+        [s.mode]: { ...s.slots[s.mode], startedAt: null, pausedRemainingSec: null },
+      },
+    }));
+  }, []);
+
   const pickTask = useCallback((t: Task | null) => {
     setState((s) => ({
       ...s,
@@ -567,11 +582,21 @@ export function PomodoroPanel() {
               </button>
             )}
             <button
-              className="pomo-btn pomo-btn-plain"
+              className="pomo-btn pomo-btn-plain pomo-btn-icon"
+              onClick={skip}
+              aria-label={state.mode === 'focus' ? 'Skip to break' : 'Skip to focus'}
+              title={state.mode === 'focus' ? 'Skip to break' : 'Skip to focus'}
+            >
+              <SkipForward size={13} />
+            </button>
+            <button
+              className="pomo-btn pomo-btn-plain pomo-btn-icon"
               onClick={reset}
               disabled={isIdle}
+              aria-label="Reset"
+              title="Reset"
             >
-              <RotateCcw size={13} /> Reset
+              <RotateCcw size={13} />
             </button>
           </div>
         </Popover.Content>
