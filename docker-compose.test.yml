@@ -1,0 +1,32 @@
+# Standalone test stack. Tests run against SQLite (see backend/tests/conftest.py)
+# so no db/minio/ollama services are needed — this file intentionally defines
+# ONLY the test runner.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml run --rm test
+#   docker compose -f docker-compose.test.yml run --rm test pytest tests/test_auth.py -v
+#
+# The `-f` is required so the dev override (docker-compose.override.yml) and its
+# db/minio password wiring don't get merged in.
+#
+# Distinct project name so this stack doesn't clash with a running dev stack
+# (avoids "orphan containers" warnings).
+name: jarvnote-test
+
+services:
+  test:
+    build:
+      context: ./backend
+      target: test
+    # A throwaway SECRET_KEY so app.core.config validation passes at import
+    # time; tests never verify real tokens against it.
+    environment:
+      SECRET_KEY: test-secret-key-not-used-for-anything-real-000000
+    # Mount source so tests run fresh without a rebuild. `tests/` is excluded
+    # from the image by .dockerignore (keeps prod lean), so the mount is how
+    # they get in. Anonymous volume on egg-info keeps the editable install's
+    # metadata from being shadowed by the bind mount.
+    volumes:
+      - ./backend:/app
+      - /app/jarvis_backend.egg-info
+    # No ports, no depends_on — fully self-contained (SQLite).

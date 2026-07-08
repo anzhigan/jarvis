@@ -51,8 +51,16 @@ async def get_current_user(
     # Bump last_seen_at — throttled so chatty clients don't write on every
     # request. Failures here are non-fatal: the admin metric is a
     # nice-to-have, not a hard contract.
+    #
+    # Normalise last_seen to tz-aware before comparing: Postgres returns
+    # tz-aware from a TIMESTAMPTZ column, but a naive value (SQLite in tests,
+    # or a legacy row written without tzinfo) would raise TypeError on the
+    # subtraction and 500 EVERY authenticated request. Treat naive as UTC.
     now = datetime.now(UTC)
-    if user.last_seen_at is None or now - user.last_seen_at >= LAST_SEEN_THROTTLE:
+    last_seen = user.last_seen_at
+    if last_seen is not None and last_seen.tzinfo is None:
+        last_seen = last_seen.replace(tzinfo=UTC)
+    if last_seen is None or now - last_seen >= LAST_SEEN_THROTTLE:
         user.last_seen_at = now
         try:
             await db.commit()

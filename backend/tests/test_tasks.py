@@ -64,5 +64,17 @@ async def test_task_isolation(client: AsyncClient):
     resp = await client.post("/api/v1/tasks", json={"title": "Secret task"}, headers=headers1)
     task_id = resp.json()["id"]
 
-    resp = await client.get(f"/api/v1/tasks/{task_id}", headers=headers2)
+    # There's no GET /tasks/{id}; verify ownership isolation through the
+    # mutating routes instead — both 404 for a non-owner (get_task_or_404
+    # filters by user_id).
+    resp = await client.patch(
+        f"/api/v1/tasks/{task_id}", json={"title": "hijack"}, headers=headers2,
+    )
     assert resp.status_code == 404
+
+    resp = await client.delete(f"/api/v1/tasks/{task_id}", headers=headers2)
+    assert resp.status_code == 404
+
+    # Owner still sees it in their own list.
+    resp = await client.get("/api/v1/tasks", headers=headers1)
+    assert any(t["id"] == task_id for t in resp.json())

@@ -15,6 +15,26 @@ COPY . .
 RUN pip install --no-cache-dir --prefix=/install -e .
 
 
+# ─── Test ─────────────────────────────────────────────────────────────────────
+# Separate target so CI / local `docker compose -f docker-compose.test.yml run`
+# gets pytest + dev deps WITHOUT bloating the prod runtime image. Tests use
+# SQLite (see conftest.py), so this needs no db/minio/ollama services. Runs as
+# root so the SQLite test.db is writable in the working dir.
+FROM python:3.12-slim AS test
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml .
+COPY . .
+RUN pip install --no-cache-dir -e ".[dev]"
+
+CMD ["pytest", "tests/", "-q"]
+
+
 # ─── Runtime ──────────────────────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
 

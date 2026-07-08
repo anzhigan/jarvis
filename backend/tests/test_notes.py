@@ -13,7 +13,7 @@ async def test_create_and_list_ways(client: AsyncClient):
     way = resp.json()
     assert way["name"] == "Career"
     assert way["topics"] == []
-    assert way["note"] is None
+    assert way["notes"] == []
 
     resp = await client.get("/api/v1/ways", headers=headers)
     assert resp.status_code == 200
@@ -131,11 +131,18 @@ async def test_reorder_ways(client: AsyncClient):
     w1 = (await client.post("/api/v1/ways", json={"name": "A", "order": 0}, headers=headers)).json()
     w2 = (await client.post("/api/v1/ways", json={"name": "B", "order": 1}, headers=headers)).json()
 
-    resp = await client.post("/api/v1/ways/reorder", json={"items": [
-        {"id": w1["id"], "order": 1},
-        {"id": w2["id"], "order": 0},
-    ]}, headers=headers)
-    assert resp.status_code == 204
+    # Reordering is per-way via PATCH {order} — the old bulk /ways/reorder
+    # endpoint was removed. Swap the two orders and verify the GET list
+    # comes back in the new sequence.
+    assert (await client.patch(
+        f"/api/v1/ways/{w1['id']}", json={"order": 1}, headers=headers,
+    )).status_code == 200
+    assert (await client.patch(
+        f"/api/v1/ways/{w2['id']}", json={"order": 0}, headers=headers,
+    )).status_code == 200
+
+    ways = (await client.get("/api/v1/ways", headers=headers)).json()
+    assert [w["name"] for w in ways] == ["B", "A"]
 
 
 @pytest.mark.asyncio

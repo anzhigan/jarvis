@@ -15,8 +15,6 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
-logger = logging.getLogger(__name__)
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,11 +52,12 @@ from app.services.ai.jobs import (
     cancel_job,
     create_job,
     list_recent_jobs,
-    run_job,
     supported_kinds,
 )
 from app.services.ai.queue import job_queue
 from app.services.ai.ollama_client import OllamaClient
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
