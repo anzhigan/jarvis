@@ -70,6 +70,7 @@ export function GoalCreateDialog({
   const [status, setStatus] = useState<TaskStatus>(initialStatus);
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [color, setColor] = useState<string>(COLORS[0].value);
+  const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [orphanGoIds, setOrphanGoIds] = useState<Set<string>>(new Set());
@@ -87,7 +88,7 @@ export function GoalCreateDialog({
       setTitle(''); setDescription('');
       setStatus(initialStatus); setPriority('medium');
       setColor(COLORS[0].value);
-      setDueDate(''); setTagIds([]);
+      setStartDate(''); setDueDate(''); setTagIds([]);
       setOrphanGoIds(new Set());
       setFollowUp('none');
       setCreatingTag(false); setNewTagName(''); setNewTagColor(COLORS[0].value);
@@ -133,6 +134,7 @@ export function GoalCreateDialog({
         status,
         priority,
         color,
+        start_date: startDate || null,
         due_date: dueDate || null,
         tag_ids: tagIds.length ? tagIds : undefined,
       });
@@ -245,8 +247,15 @@ export function GoalCreateDialog({
         </div>
 
         <div className="ui-field">
+          <span className="ui-field-label">Start date</span>
+          <DateInput value={startDate} onChange={setStartDate} />
+        </div>
+
+        <div className="ui-field">
           <span className="ui-field-label">Due date</span>
-          <DateInput value={dueDate} onChange={setDueDate} />
+          {/* Mirrors GoalDetailPanel: Due `min` = start, so end ≥ start is
+              enforced at the picker level. */}
+          <DateInput value={dueDate} onChange={setDueDate} min={startDate || undefined} />
         </div>
 
         <div className="ui-field">

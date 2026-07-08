@@ -70,8 +70,14 @@ export default function NotesView() {
   // on a quiz/tasks toast originating from a different note than currently
   // shown. We re-select that note so the NoteEditor receives it.
   useEffect(() => {
+    // Accept both the legacy `string` detail and the newer `{id, highlight}`
+    // shape used by QuizDrawer. Without this, dispatching an object here
+    // would overwrite the correct id set by useNoteEditor's own listener
+    // (both fire on the same event, order = mount order).
     const handler = (e: Event) => {
-      const noteId = (e as CustomEvent<string>).detail;
+      const raw = (e as CustomEvent<string | { id: string; highlight?: string }>).detail;
+      if (!raw) return;
+      const noteId = typeof raw === 'string' ? raw : raw.id;
       if (noteId) editor.setSelectedNoteId(noteId);
     };
     window.addEventListener('jarvnote:openNote', handler);

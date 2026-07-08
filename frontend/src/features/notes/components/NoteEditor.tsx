@@ -711,6 +711,54 @@ function BlockInsertMenu({ editor, helpers }: InsertProps) {
   );
 }
 
+/** Find a quote inside a Tiptap document, returning ProseMirror positions
+ *  suitable for `setTextSelection`. Works across text-node boundaries
+ *  (bold/italic/link splits) by flattening the doc into a single string
+ *  while keeping a per-character map back to doc positions. Falls back to
+ *  null when the quote isn't present verbatim — LLM-produced quotes can
+ *  have punctuation/whitespace drift we don't try to normalise here. */
+function locateQuoteInDoc(
+  ed: Editor,
+  quote: string,
+): { from: number; to: number } | null {
+  let flat = '';
+  const map: number[] = [];
+  ed.state.doc.descendants((node, pos) => {
+    if (!node.isText || !node.text) return;
+    for (let i = 0; i < node.text.length; i++) {
+      map.push(pos + i);
+    }
+    flat += node.text;
+  });
+  const idx = flat.indexOf(quote);
+  if (idx < 0) return null;
+  const from = map[idx];
+  const to = map[idx + quote.length - 1] + 1;
+  return { from, to };
+}
+
+/** Select the quote in the editor and smoothly scroll it into view.
+ *  Prefer DOM smooth-scroll on the actual selected range — Tiptap's own
+ *  `scrollIntoView()` is instant and often overshoots. */
+function selectAndScrollToQuote(
+  ed: Editor,
+  found: { from: number; to: number },
+): void {
+  ed.chain().focus().setTextSelection(found).run();
+  // Wait one frame for the browser to paint the new selection, then scroll
+  // the selected range's rectangle into the middle of the viewport.
+  requestAnimationFrame(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const container = range.startContainer;
+    const el = container.nodeType === Node.ELEMENT_NODE
+      ? (container as Element)
+      : container.parentElement;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
+
 export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, onContentChange }: Props) {
   const [localTitle, setLocalTitle] = useState(note?.name ?? '');
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -868,6 +916,18 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   const onEditorReady = useCallback((ed: Editor, h: EditorHelpers) => {
     setEditor(ed);
     setHelpers(h);
+
+    // Pending "open source" from the quiz drawer — locate the quote inside
+    // the just-mounted doc, select it and scroll into view. Selection paints
+    // via ::selection (no persistent change to the doc, so auto-save stays
+    // idle). We wait a tick for Tiptap to actually paint the content.
+    const highlight = sessionStorage.getItem('jarvnote:notes:pendingHighlight');
+    if (!highlight) return;
+    sessionStorage.removeItem('jarvnote:notes:pendingHighlight');
+    setTimeout(() => {
+      const found = locateQuoteInDoc(ed, highlight);
+      if (found) selectAndScrollToQuote(ed, found);
+    }, 250);
   }, []);
 
   // When an editor instance is destroyed (e.g. by RichTextEditor unmount on
@@ -882,6 +942,23 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
       editor.off('destroy', onDestroy);
     };
   }, [editor]);
+
+  // "Highlight this quote" bus — dispatched by QuizDrawer after "open source".
+  // We keep a separate handler (not just onEditorReady) because when the user
+  // launched the quiz from THIS note, setSelectedNoteId is a no-op → the
+  // editor never remounts → onEditorReady never re-fires. This handler always
+  // reacts as long as NoteEditor is mounted and the ids match.
+  useEffect(() => {
+    if (!editor || !note?.id) return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ noteId: string; quote: string }>).detail;
+      if (!detail?.quote || detail.noteId !== note.id) return;
+      const found = locateQuoteInDoc(editor, detail.quote);
+      if (found) selectAndScrollToQuote(editor, found);
+    };
+    window.addEventListener('jarvnote:highlightQuote', handler);
+    return () => window.removeEventListener('jarvnote:highlightQuote', handler);
+  }, [editor, note?.id]);
 
   // Stable references for BubbleMenu — recreating these on every render
   // re-initialises the menu plugin and causes lag/flicker.

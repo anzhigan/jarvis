@@ -165,6 +165,11 @@ export function dispatchAIJobDrawerOpened(jobId: string): void {
   window.dispatchEvent(new CustomEvent<string>(AI_JOB_DRAWER_OPENED_EVENT, { detail: jobId }));
 }
 
-export function dispatchAIJobDrawerClosed(jobId: string): void {
-  window.dispatchEvent(new CustomEvent<string>(AI_JOB_DRAWER_CLOSED_EVENT, { detail: jobId }));
+/** `silent`: skip auto-reopening the AI-tasks panel that normally follows a
+ *  drawer close. Used when the user navigated AWAY (e.g. jumped to the source
+ *  note from a quiz) — showing the panel there is noise. */
+export function dispatchAIJobDrawerClosed(jobId: string, silent = false): void {
+  window.dispatchEvent(new CustomEvent(AI_JOB_DRAWER_CLOSED_EVENT, {
+    detail: { jobId, silent },
+  }));
 }

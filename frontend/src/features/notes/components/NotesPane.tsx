@@ -126,6 +126,7 @@ export function NotesPane({
       defaultValue: currentName,
       placeholder: `${kind[0].toUpperCase()}${kind.slice(1)} name`,
       confirmLabel: 'Rename',
+      withEmoji: true,
     });
     if (next === null) return null;
     return next === currentName ? null : next;
@@ -210,6 +211,7 @@ export function NotesPane({
       title: 'New way',
       placeholder: 'Way name',
       confirmLabel: 'Create',
+      withEmoji: true,
     }))?.trim();
     if (!name) return;
     await createWay(name);
@@ -220,6 +222,7 @@ export function NotesPane({
       title: 'New topic',
       placeholder: 'Topic name',
       confirmLabel: 'Create',
+      withEmoji: true,
     }))?.trim();
     if (!name) return;
     await createTopic(wayId, name);

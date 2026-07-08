@@ -40,6 +40,35 @@ export interface PromptSpec {
   placeholder?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Show a compact grid of popular emojis above the input. The picked
+   *  emoji is stored as a "<emoji> " prefix on the returned string —
+   *  zero backend changes needed. */
+  withEmoji?: boolean;
+}
+
+/** Curated emoji set for knowledge-management use. Kept small and
+ *  compact so the picker doesn't dominate the dialog. */
+const EMOJI_LIST = [
+  '📚', '📝', '💡', '🎯', '🚀', '📅', '💼', '🎨', '🎓', '🏃',
+  '🧠', '⭐', '✅', '🔥', '💰', '☕', '🎵', '🎬', '🏠', '🌱',
+  '🍎', '⚙️', '🔬', '🌍', '❤️', '🎮', '✈️', '📷', '💻', '🏋️',
+];
+const EMOJI_SET = new Set(EMOJI_LIST);
+
+/** Split "📚 History" → { emoji: "📚", rest: "History" }. Only recognises
+ *  emojis from EMOJI_LIST followed by whitespace — anything else is treated
+ *  as plain name text. Handles the variation-selector (️) suffix. */
+function splitEmoji(name: string): { emoji: string | null; rest: string } {
+  const trimmed = name.trimStart();
+  for (const e of EMOJI_LIST) {
+    if (trimmed.startsWith(e + ' ') || trimmed.startsWith(e + ' ')) {
+      return { emoji: e, rest: trimmed.slice(e.length).trimStart() };
+    }
+  }
+  // Fallback: single emoji-like character followed by whitespace.
+  const m = trimmed.match(/^(\p{Extended_Pictographic}️?)\s+(.*)$/u);
+  if (m && EMOJI_SET.has(m[1])) return { emoji: m[1], rest: m[2] };
+  return { emoji: null, rest: name };
 }
 
 type ConfirmPending = ConfirmSpec & { kind: 'confirm'; resolve: (ok: boolean) => void };
@@ -52,6 +81,7 @@ let push: (p: Pending | null) => void = () => {};
 function ConfirmHost() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [draft, setDraft] = useState('');
+  const [emoji, setEmoji] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     push = setPending;
@@ -59,7 +89,17 @@ function ConfirmHost() {
   }, []);
   useEffect(() => {
     if (pending?.kind === 'prompt') {
-      setDraft(pending.defaultValue ?? '');
+      // If the dialog supports emoji, split the existing prefix off so the
+      // input shows only the "clean" name and the picker highlights the
+      // current emoji. Otherwise treat the whole value as text.
+      if (pending.withEmoji) {
+        const { emoji: e, rest } = splitEmoji(pending.defaultValue ?? '');
+        setEmoji(e);
+        setDraft(rest);
+      } else {
+        setEmoji(null);
+        setDraft(pending.defaultValue ?? '');
+      }
       // Autofocus + select the existing value so the user can start typing
       // a replacement immediately, matching native window.prompt behaviour.
       setTimeout(() => inputRef.current?.select(), 30);
@@ -71,7 +111,12 @@ function ConfirmHost() {
     if (pending.kind === 'confirm') {
       pending.resolve(ok);
     } else {
-      pending.resolve(ok ? draft.trim() || null : null);
+      const text = draft.trim();
+      if (!ok || !text) {
+        pending.resolve(null);
+      } else {
+        pending.resolve(emoji ? `${emoji} ${text}` : text);
+      }
     }
     setPending(null);
   };
@@ -107,6 +152,58 @@ function ConfirmHost() {
         <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {pending.body && (
             <p style={{ margin: 0, color: 'var(--ink-3)', lineHeight: 1.5 }}>{pending.body}</p>
+          )}
+          {pending.withEmoji && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{
+                fontSize: 'var(--text-2xs)',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'var(--ink-4)',
+                fontWeight: 500,
+              }}>
+                Emoji {emoji && (
+                  <button
+                    type="button"
+                    onClick={() => setEmoji(null)}
+                    style={{
+                      marginLeft: 8, background: 'transparent', border: 0,
+                      color: 'var(--ink-4)', cursor: 'pointer',
+                      fontSize: 'var(--text-2xs)', textTransform: 'none',
+                      letterSpacing: 0, padding: 0,
+                    }}
+                  >clear</button>
+                )}
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(10, 1fr)',
+                gap: 4,
+              }}>
+                {EMOJI_LIST.map((e) => {
+                  const selected = e === emoji;
+                  return (
+                    <button
+                      key={e}
+                      type="button"
+                      onClick={() => setEmoji(selected ? null : e)}
+                      aria-pressed={selected}
+                      style={{
+                        aspectRatio: '1 / 1',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 18, lineHeight: 1,
+                        background: selected ? 'var(--indigo-soft)' : 'var(--cream)',
+                        border: selected ? '1px solid var(--indigo)' : '1px solid transparent',
+                        borderRadius: 'var(--r-control)',
+                        cursor: 'pointer',
+                        padding: 0,
+                        transition: 'background 120ms',
+                      }}
+                    >{e}</button>
+                  );
+                })}
+              </div>
+            </div>
           )}
           <Input
             ref={inputRef}

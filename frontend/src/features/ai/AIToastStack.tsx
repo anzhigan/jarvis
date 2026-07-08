@@ -225,13 +225,26 @@ export function AIToastStack() {
       });
     };
     const onClosed = (e: Event) => {
-      const jobId = (e as CustomEvent<string>).detail;
+      // Accept both legacy string detail and new `{ jobId, silent }` shape.
+      const raw = (e as CustomEvent<string | { jobId: string; silent?: boolean }>).detail;
+      if (!raw) return;
+      const jobId = typeof raw === 'string' ? raw : raw.jobId;
+      const silent = typeof raw === 'object' && !!raw.silent;
       setOpenDrawerIds((prev) => {
         if (!prev.has(jobId)) return prev;
         const next = new Set(prev);
         next.delete(jobId);
         return next;
       });
+      // Silent close (e.g. jumped to source note) — swallow the auto-reopen
+      // so the AI-tasks panel doesn't cover the note the user just navigated
+      // to. Still clear the ref so a later intentional close doesn't fire.
+      if (silent) {
+        if (reopenPanelAfterCloseRef.current === jobId) {
+          reopenPanelAfterCloseRef.current = null;
+        }
+        return;
+      }
       if (reopenPanelAfterCloseRef.current && reopenPanelAfterCloseRef.current === jobId) {
         reopenPanelAfterCloseRef.current = null;
         setPanelOpen(true);

@@ -86,6 +86,7 @@ export function GoalDetailPanel({
   };
   const onStatus   = (s: TaskStatus)   => library.updateGoal(goal.id, { status: s });
   const onPriority = (p: TaskPriority) => library.updateGoal(goal.id, { priority: p });
+  const onColor    = (c: string)       => library.updateGoal(goal.id, { color: c });
   // Date setters: empty string clears (null). When a user shifts start past
   // due, the due_date field's `min` prop blocks the date-picker beyond it
   // — defence-in-depth so the saved row never has end < start.
@@ -221,6 +222,33 @@ export function GoalDetailPanel({
               <Flag size={11} /> {p.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="ui-field">
+        <span className="ui-field-label">Color</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {TAG_COLORS.map((c) => {
+            const on = (goal.color ?? '').toLowerCase() === c.value.toLowerCase();
+            return (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => onColor(c.value)}
+                aria-label={c.name}
+                title={c.name}
+                style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  background: c.value,
+                  border: 0, cursor: 'pointer',
+                  boxShadow: on
+                    ? `0 0 0 2px var(--bg-elevated, #fff), 0 0 0 4px ${c.value}`
+                    : '0 0 0 1px var(--hairline-faint, rgba(0,0,0,0.08))',
+                  transition: 'box-shadow var(--dur-fast)',
+                }}
+              />
+            );
+          })}
         </div>
       </div>
 

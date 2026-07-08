@@ -18,7 +18,9 @@ from app.core.rate_limit import limiter
 from app.core.sentry import init_sentry
 from app.models import *  # noqa: F401, F403
 from app.routers import admin, ai, auth, focus_sprints, notes, routines, steps, tags, tasks
-from app.services.ai.precompute import precompute_loop
+# Nightly AI pre-compute disabled — see the commented block in `lifespan`.
+# Restore this import together with the two blocks there to re-enable.
+# from app.services.ai.precompute import precompute_loop  # noqa: ERA001
 from app.services.ai.queue import job_queue
 from app.services.s3 import _get_client, ensure_bucket_exists
 
@@ -58,19 +60,20 @@ async def lifespan(app: FastAPI):
     # real preemption (see app/services/ai/queue.py).
     job_queue.start()
 
-    # Background AI pre-compute (Phase 8). Long-running asyncio task that
-    # wakes once a day to generate tomorrow's predictable artefacts (today's
-    # schedule, future: weekly insights, recently-edited-note quizzes).
-    # Errors inside the loop are caught & logged; we never propagate.
-    precompute_task = asyncio.create_task(precompute_loop(), name="precompute_loop")
+    # Background AI pre-compute (Phase 8) disabled — the nightly loop
+    # unpredictably pins Ollama on Metal and adds no user-visible benefit
+    # over on-demand generation. Kept the import + module for future use;
+    # to re-enable, restore the two blocks below.
+    #
+    # precompute_task = asyncio.create_task(precompute_loop(), name="precompute_loop")
 
     yield
 
-    precompute_task.cancel()
-    try:
-        await precompute_task
-    except asyncio.CancelledError:
-        pass
+    # precompute_task.cancel()
+    # try:
+    #     await precompute_task
+    # except asyncio.CancelledError:
+    #     pass
     await job_queue.stop()
     await engine.dispose()
 

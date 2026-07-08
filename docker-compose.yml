@@ -19,26 +19,28 @@ services:
       timeout: 5s
       retries: 5
 
-  ollama:
-    # Local LLM runtime. Models persist in the named volume across restarts.
-    # No external port — accessed only over the internal docker network at
-    # http://ollama:11434. After first start, pull models manually:
-    #   docker compose exec ollama ollama pull qwen3:8b
-    #   docker compose exec ollama ollama pull nomic-embed-text
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    volumes:
-      - ollama_models:/root/.ollama
-    environment:
-      # Keep models warm for 10 min after last request — avoids 30s reload on
-      # bursty user activity. Set OLLAMA_KEEP_ALIVE=-1 to pin forever.
-      OLLAMA_KEEP_ALIVE: "10m"
-    healthcheck:
-      test: ["CMD-SHELL", "ollama list > /dev/null 2>&1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+  # ollama container is DISABLED for local macOS dev — Docker on macOS can't
+  # pass Metal through to Linux containers, so the containerised Ollama would
+  # be CPU-only (5-10× slower). Instead run Ollama natively on the host
+  # (`brew install ollama && brew services start ollama`) and let the api
+  # reach it through `host.docker.internal:11434` (see OLLAMA_URL below).
+  #
+  # If you're deploying to a Linux VPS with no host-side Ollama, UNCOMMENT
+  # this block AND flip OLLAMA_URL on `api` back to `http://ollama:11434`.
+  #
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ollama_models:/root/.ollama
+  #   environment:
+  #     OLLAMA_KEEP_ALIVE: "10m"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "ollama list > /dev/null 2>&1"]
+  #     interval: 15s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 30s
 
   minio:
     image: minio/minio:latest
@@ -86,9 +88,12 @@ services:
       S3_BUCKET_NAME: jarvis
       S3_PUBLIC_URL: http://localhost:9000/jarvis
       ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173
-      # Local LLM via Ollama. Resolved over internal docker network.
-      OLLAMA_URL: http://ollama:11434
-      LLM_MODEL: qwen3:8b
+      # Local LLM via Ollama running NATIVELY on the macOS host — needed for
+      # Metal GPU access (containerised Ollama on Mac is CPU-only). On Linux
+      # VPS: switch back to `http://ollama:11434` and re-enable the ollama
+      # service block above.
+      OLLAMA_URL: http://host.docker.internal:11434
+      LLM_MODEL: qwen3:14b
       EMBED_MODEL: nomic-embed-text
     volumes:
       # Persist migrations on host so they survive rebuilds
@@ -132,4 +137,6 @@ services:
 volumes:
   postgres_data:
   minio_data:
+  # ollama_models kept in defs so the previously-populated volume isn't
+  # orphaned/pruned. Referenced only if the ollama service is re-enabled.
   ollama_models:

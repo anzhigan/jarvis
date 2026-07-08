@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { aiApi } from '../../api/client';
 import { Drawer } from '../../components/ui';
 import type {
@@ -62,10 +62,16 @@ export function QuizDrawer({ jobId, noteTitle, onClose }: Props) {
 
   // Announce open/close to AIToastStack so it can suppress the bottom toasts
   // while the drawer is on screen and return the user to the panel after.
+  // Set silent=true on "jump to source" — we DON'T want the AI-tasks panel
+  // reopening over the note the user just navigated to.
+  const silentCloseRef = useRef(false);
   useEffect(() => {
     if (!jobId) return;
     dispatchAIJobDrawerOpened(jobId);
-    return () => { dispatchAIJobDrawerClosed(jobId); };
+    return () => {
+      dispatchAIJobDrawerClosed(jobId, silentCloseRef.current);
+      silentCloseRef.current = false;
+    };
   }, [jobId]);
 
   // When the job finishes, fetch the quiz.
@@ -140,6 +146,40 @@ export function QuizDrawer({ jobId, noteTitle, onClose }: Props) {
             setCurrentIdx((i) => i + 1);
           }}
           onFinish={handleSubmitFinal}
+          onOpenSource={(noteId, quote) => {
+            // Two-stage:
+            //   1. Switch tab + open the note (via openNote).
+            //   2. AFTER the editor mounts / stays, dispatch a separate
+            //      `jarvnote:highlightQuote` event. NoteEditor listens to it
+            //      *always*, so it works whether or not the note actually
+            //      remounted (id may match current note if user launched the
+            //      quiz from that same note — then setSelectedNoteId is a
+            //      no-op and onEditorReady would never fire).
+            if (quote) {
+              sessionStorage.setItem('jarvnote:notes:pendingHighlight', quote);
+            }
+            // Mark as silent BEFORE onClose triggers the cleanup that
+            // dispatches drawer-closed — otherwise AIToastStack reopens
+            // the AI-tasks panel over the note we're jumping to.
+            silentCloseRef.current = true;
+            window.dispatchEvent(new CustomEvent('jarvnote:navigate', { detail: 'notes' }));
+            onClose();
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              window.dispatchEvent(new CustomEvent('jarvnote:openNote', {
+                detail: { id: noteId, highlight: quote },
+              }));
+              // Give the editor a beat to (re)render, then ask it to
+              // locate + scroll to the quote. Slightly longer than the
+              // openNote propagation so we don't race the mount.
+              if (quote) {
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('jarvnote:highlightQuote', {
+                    detail: { noteId, quote },
+                  }));
+                }, 200);
+              }
+            }));
+          }}
         />
       )}
       {view.kind === 'submitting' && (
@@ -223,6 +263,10 @@ interface ActiveProps {
   onSubmit: () => void;
   onNext: () => void;
   onFinish: () => void;
+  /** Called when the user clicks the CORRECT/INCORRECT banner — should
+   *  open the source note and highlight `quote` inside it. Passed a nullable
+   *  quote (undefined when the AI didn't produce one). */
+  onOpenSource: (noteId: string, quote: string | undefined) => void;
 }
 
 const LETTERS: QuizLetter[] = ['A', 'B', 'C', 'D'];
@@ -231,6 +275,7 @@ const QUIZ_HIDE_OPTS_KEY = 'jarvnote:quiz:hideOptions';
 
 function ActiveView({
   quiz, currentIdx, answers, revealed, onPick, onSubmit, onNext, onFinish,
+  onOpenSource,
 }: ActiveProps) {
   const total = quiz.questions.length;
   const q = quiz.questions[currentIdx];
@@ -254,6 +299,14 @@ function ActiveView({
 
   // Options are visible if: feature off, user requested for this Q, or already revealed.
   const optionsVisible = !hideOptions || forceShow || revealed;
+
+  // Backend only fills `source_note_id` per-question for multi-note scopes.
+  // For a single-note quiz every question is from the same note, so we can
+  // reuse the quiz-level scope_ref id as the fallback target. The backend
+  // stores the key as `note_id` (not `id`) — checked against production data.
+  const quizScopeNoteId = quiz.scope_kind === 'note' && typeof quiz.scope_ref?.note_id === 'string'
+    ? (quiz.scope_ref.note_id as string)
+    : null;
 
   if (!q) return null;
 
@@ -318,9 +371,27 @@ function ActiveView({
         <div
           className={`qz-feedback ${selected === q.correct ? 'qz-feedback--ok' : 'qz-feedback--no'}`}
         >
-          <div className="qz-feedback__head">
-            {selected === q.correct ? '✓ Correct' : '× Not quite'}
-          </div>
+          {(() => {
+            const targetNoteId = q.source_note_id ?? quizScopeNoteId;
+            if (!targetNoteId) {
+              return (
+                <div className="qz-feedback__head">
+                  {selected === q.correct ? '✓ Correct' : '× Not quite'}
+                </div>
+              );
+            }
+            return (
+              <button
+                type="button"
+                className="qz-feedback__head qz-feedback__head--btn"
+                onClick={() => onOpenSource(targetNoteId, q.source_quote ?? undefined)}
+                title="Open source note and jump to the quote"
+              >
+                <span>{selected === q.correct ? '✓ Correct' : '× Not quite'}</span>
+                <span className="qz-feedback__go" aria-hidden="true">↗</span>
+              </button>
+            );
+          })()}
           <p className="qz-feedback__body">{q.explanation}</p>
           {q.source_quote && (
             <p className="qz-feedback__quote">«{q.source_quote}»</p>

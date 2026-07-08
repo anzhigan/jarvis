@@ -28,11 +28,24 @@ export function useNoteEditor(library: NotesLibrary) {
     else localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  // Cross-app open-note bus (command palette, deep links).
+  // Cross-app open-note bus (command palette, deep links, quiz "open source").
+  // Detail is either a bare id string (legacy) or `{ id, highlight? }` — the
+  // second form lets callers ask NoteEditor to scroll+highlight a quote after
+  // the note mounts. We stash the pending highlight in sessionStorage so it
+  // survives the render/mount gap without adding another cross-cutting store.
   useEffect(() => {
     const handler = (e: Event) => {
-      const id = (e as CustomEvent<string>).detail;
-      if (id) setSelectedNoteId(id);
+      const raw = (e as CustomEvent<string | { id: string; highlight?: string }>).detail;
+      if (!raw) return;
+      if (typeof raw === 'string') {
+        setSelectedNoteId(raw);
+        return;
+      }
+      if (!raw.id) return;
+      if (raw.highlight) {
+        sessionStorage.setItem('jarvnote:notes:pendingHighlight', raw.highlight);
+      }
+      setSelectedNoteId(raw.id);
     };
     window.addEventListener('jarvnote:openNote', handler);
     return () => window.removeEventListener('jarvnote:openNote', handler);

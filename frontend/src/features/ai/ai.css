@@ -453,6 +453,20 @@
   margin-bottom: 6px;
 }
 .qz-feedback--no .qz-feedback__head { color: var(--rust); }
+/* Clickable variant — opens the source note and highlights the quote.
+   Same visual treatment as the plain head, plus an affordance arrow. */
+.qz-feedback__head--btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent; border: 0; padding: 0;
+  cursor: pointer;
+  font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.qz-feedback__head--btn:hover { opacity: 0.7; }
+.qz-feedback__go {
+  font-size: 13px;
+  opacity: 0.7;
+}
 .qz-feedback__body {
   font-family: var(--font-body);
   font-size: 13.5px;

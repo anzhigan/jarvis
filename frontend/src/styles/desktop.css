@@ -1099,7 +1099,7 @@
 }
 .pomo-btn-icon {
   padding: 0;
-  width: 34px;
+  width: 42px;
 }
 .pomo-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -1107,7 +1107,7 @@
   font-family: var(--font-ui);
   font-size: 12.5px;
   font-weight: 500;
-  height: 34px;
+  height: 42px;
   padding: 0 14px;
   border-radius: var(--r-control);
   border: 1px solid transparent;
@@ -1179,13 +1179,18 @@
   border-bottom: 1px solid var(--hairline-faint);
   display: flex; flex-direction: column; align-items: stretch; gap: 8px;
 }
-/* Search field gets bumped to --h-lg so it stops feeling skinnier than
-   the ai-test CTA next to it. The CTA itself stays at its original 28px
-   compact size. */
-.pane-tools .field { flex: 1; height: var(--h-lg); }
+/* Search is the primary interaction — a proper editorial input, taller
+   than a control. `flex-shrink: 0` + `min-height` is what actually pins
+   the size; plain `height` gets sliced by flex column shrink to the
+   input's line-height (~19px). ai-test CTA stays compact 28px. */
+.pane-tools .field {
+  flex: 0 0 auto;
+  min-height: 30px;
+  height: 30px;
+}
 .pane-ai-cta {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: 28px;
+  height: 30px;
   padding: 0 10px;
   background: var(--indigo-soft);
   color: var(--indigo);
