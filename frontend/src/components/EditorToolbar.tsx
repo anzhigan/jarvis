@@ -26,11 +26,12 @@ import { memo, useCallback, useRef, type ReactNode } from 'react';
 import { useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus';
+import { applyHeadingLevel, isHeadingLevelActive } from './editor/ToggleList';
 import {
   Bold, Italic, Underline, Braces, Strikethrough,
   AlignLeft, AlignCenter, AlignRight,
   List, ListOrdered, ListChecks, ChevronRight,
-  Link as LinkIcon, Image as ImageIcon, Paperclip,
+  Link as LinkIcon, Unlink, Image as ImageIcon, Paperclip,
   Sigma, Table as TableIcon,
 } from 'lucide-react';
 
@@ -94,7 +95,7 @@ interface ToolbarState {
 
 // ─── Format pill (selection ≥ 1 char) ──────────────────────────────────────
 
-function FormatPill({ editor, onInsertLink: _, s }: {
+function FormatPill({ editor, onInsertLink, s }: {
   editor: Editor;
   onInsertLink: () => void;
   s: ToolbarState;
@@ -150,15 +151,15 @@ function FormatPill({ editor, onInsertLink: _, s }: {
 
       <Divider />
 
-      {/* Headings */}
+      {/* Headings — context-aware: inside a toggle title they set its size. */}
       <Group>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={s.h1} label="Heading 1">
+        <ToolbarButton onClick={() => applyHeadingLevel(editor, 1)} active={s.h1} label="Heading 1">
           <span className="rt-h-label">H1</span>
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={s.h2} label="Heading 2">
+        <ToolbarButton onClick={() => applyHeadingLevel(editor, 2)} active={s.h2} label="Heading 2">
           <span className="rt-h-label">H2</span>
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={s.h3} label="Heading 3">
+        <ToolbarButton onClick={() => applyHeadingLevel(editor, 3)} active={s.h3} label="Heading 3">
           <span className="rt-h-label">H3</span>
         </ToolbarButton>
       </Group>
@@ -176,6 +177,23 @@ function FormatPill({ editor, onInsertLink: _, s }: {
         <ToolbarButton onClick={() => editor.chain().focus().setTextAlign('right').run()} active={s.alignRight} label="Align right">
           <AlignRight size={18} />
         </ToolbarButton>
+      </Group>
+
+      <Divider />
+
+      {/* Link — add/edit, plus a one-tap unlink when the selection is a link. */}
+      <Group>
+        <ToolbarButton onClick={onInsertLink} active={s.link} label={s.link ? 'Edit link' : 'Link'}>
+          <LinkIcon size={18} />
+        </ToolbarButton>
+        {s.link && (
+          <ToolbarButton
+            onClick={() => editor.chain().focus().extendMarkRange('link').unsetLink().run()}
+            label="Remove link"
+          >
+            <Unlink size={18} />
+          </ToolbarButton>
+        )}
       </Group>
     </div>
   );
@@ -300,9 +318,9 @@ function EditorToolbarComponent(props: EditorToolbarProps) {
         underline:   e.isActive('underline'),
         strike:      e.isActive('strike'),
         code:        e.isActive('code'),
-        h1:          e.isActive('heading', { level: 1 }),
-        h2:          e.isActive('heading', { level: 2 }),
-        h3:          e.isActive('heading', { level: 3 }),
+        h1:          isHeadingLevelActive(e, 1),
+        h2:          isHeadingLevelActive(e, 2),
+        h3:          isHeadingLevelActive(e, 3),
         bulletList:  e.isActive('bulletList'),
         orderedList: e.isActive('orderedList'),
         taskList:    e.isActive('taskList'),

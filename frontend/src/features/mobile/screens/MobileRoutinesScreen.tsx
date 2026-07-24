@@ -39,7 +39,8 @@ function accentForGoal(t: Task): string {
 type CellState = 'done' | 'partial' | 'skipped' | 'empty';
 
 function cellStateOf(r: Routine, entry: RoutineEntry | undefined): CellState {
-  if (!entry) return 'empty';
+  // null value = the row only carries a note; the day has no status.
+  if (!entry || entry.value === null) return 'empty';
   if (entry.value === 0) return 'skipped';
   if (r.kind === 'numeric' && r.target_value && entry.value < r.target_value) return 'partial';
   return 'done';
@@ -173,8 +174,10 @@ export default function MobileRoutinesScreen({ tab, onTabChange, onAvatarClick }
               onCheckDate={async (routine, dateKey) => {
                 const cur = routine.entries.find((e) => e.date === dateKey);
                 try {
-                  if (cur && cur.value > 0) {
-                    await routinesApi.deleteEntry(routine.id, dateKey);
+                  if (cur && (cur.value ?? 0) > 0) {
+                    // Keep the row (status cleared) when it carries a note.
+                    if (cur.note) await routinesApi.upsertEntry(routine.id, dateKey, null);
+                    else await routinesApi.deleteEntry(routine.id, dateKey);
                   } else {
                     await routinesApi.upsertEntry(routine.id, dateKey, 1);
                   }

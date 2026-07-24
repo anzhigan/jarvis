@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { notesApi, topicsApi, waysApi } from '../../../api/client';
-import type { Note, Topic, Way } from '../../../api/types';
+import { notesApi, subsubtopicsApi, subtopicsApi, topicsApi, waysApi } from '../../../api/client';
+import type { NoteParent } from '../../../api/client';
+import type { Note, Subsubtopic, Subtopic, Topic, Way } from '../../../api/types';
 
 export interface NoteWithLocation {
   note: Note;
   way: Way;
   topic: Topic | null;
+  subtopic: Subtopic | null;
+  subsubtopic: Subsubtopic | null;
 }
 
 /**
@@ -40,9 +43,15 @@ export function useNotesLibrary() {
   const allNotes = useMemo<NoteWithLocation[]>(() => {
     const out: NoteWithLocation[] = [];
     for (const way of ways) {
-      for (const note of way.notes) out.push({ note, way, topic: null });
+      for (const note of way.notes) out.push({ note, way, topic: null, subtopic: null, subsubtopic: null });
       for (const topic of way.topics) {
-        for (const note of topic.notes) out.push({ note, way, topic });
+        for (const note of topic.notes) out.push({ note, way, topic, subtopic: null, subsubtopic: null });
+        for (const subtopic of topic.subtopics) {
+          for (const note of subtopic.notes) out.push({ note, way, topic, subtopic, subsubtopic: null });
+          for (const subsubtopic of subtopic.subsubtopics) {
+            for (const note of subsubtopic.notes) out.push({ note, way, topic, subtopic, subsubtopic });
+          }
+        }
       }
     }
     return out;
@@ -100,8 +109,44 @@ export function useNotesLibrary() {
     catch (e: any) { toast.error(e?.detail ?? 'Failed to delete topic'); }
   }, [refresh]);
 
+  const createSubtopic = useCallback(
+    async (topicId: string, name: string): Promise<Subtopic | null> => {
+      try { const s = await subtopicsApi.create(topicId, name); await refresh(); return s; }
+      catch (e: any) { toast.error(e?.detail ?? 'Failed to create subtopic'); return null; }
+    },
+    [refresh],
+  );
+
+  const renameSubtopic = useCallback(async (id: string, name: string) => {
+    try { await subtopicsApi.update(id, { name }); await refresh(); }
+    catch (e: any) { toast.error(e?.detail ?? 'Failed to rename subtopic'); }
+  }, [refresh]);
+
+  const deleteSubtopic = useCallback(async (id: string) => {
+    try { await subtopicsApi.delete(id); await refresh(); }
+    catch (e: any) { toast.error(e?.detail ?? 'Failed to delete subtopic'); }
+  }, [refresh]);
+
+  const createSubsubtopic = useCallback(
+    async (subtopicId: string, name: string): Promise<Subsubtopic | null> => {
+      try { const s = await subsubtopicsApi.create(subtopicId, name); await refresh(); return s; }
+      catch (e: any) { toast.error(e?.detail ?? 'Failed to create subsubtopic'); return null; }
+    },
+    [refresh],
+  );
+
+  const renameSubsubtopic = useCallback(async (id: string, name: string) => {
+    try { await subsubtopicsApi.update(id, { name }); await refresh(); }
+    catch (e: any) { toast.error(e?.detail ?? 'Failed to rename subsubtopic'); }
+  }, [refresh]);
+
+  const deleteSubsubtopic = useCallback(async (id: string) => {
+    try { await subsubtopicsApi.delete(id); await refresh(); }
+    catch (e: any) { toast.error(e?.detail ?? 'Failed to delete subsubtopic'); }
+  }, [refresh]);
+
   const createNote = useCallback(
-    async (target: { way_id?: string; topic_id?: string }, name = 'Untitled'): Promise<Note | null> => {
+    async (target: NoteParent, name = 'Untitled'): Promise<Note | null> => {
       try { const n = await notesApi.create({ name, ...target }); await refresh(); return n; }
       catch (e: any) { toast.error(e?.detail ?? 'Failed to create note'); return null; }
     },
@@ -126,7 +171,7 @@ export function useNotesLibrary() {
   }, [findNote, refresh]);
 
   const moveNote = useCallback(
-    async (noteId: string, target: { way_id?: string; topic_id?: string }) => {
+    async (noteId: string, target: NoteParent) => {
       try { await notesApi.move(noteId, target); await refresh(); }
       catch (e: any) { toast.error(e?.detail ?? 'Failed to move note'); }
     },
@@ -138,6 +183,8 @@ export function useNotesLibrary() {
     allNotes, pinnedNotes, findNote,
     createWay, renameWay, deleteWay,
     createTopic, renameTopic, deleteTopic,
+    createSubtopic, renameSubtopic, deleteSubtopic,
+    createSubsubtopic, renameSubsubtopic, deleteSubsubtopic,
     createNote, renameNote, deleteNote,
     togglePin, moveNote,
   };

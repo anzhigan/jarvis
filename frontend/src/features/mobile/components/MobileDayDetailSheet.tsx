@@ -59,7 +59,7 @@ export function MobileDayDetailSheet({
       const scheduled = isScheduledOn(r, dateObj);
       let state: RoutineRowState = 'off';
       let valueLabel = '—';
-      if (entry) {
+      if (entry && entry.value !== null) {
         if (entry.value <= 0) {
           state = 'skipped';
           valueLabel = 'skipped';

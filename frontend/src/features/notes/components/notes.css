@@ -89,6 +89,19 @@
 .note-bubble .ntb-sep { height: 14px; margin: 0 4px; }
 
 /* ─── Block-insert menu ("+") shown via Tiptap FloatingMenu on empty lines */
+/* The FloatingMenu's positioned wrapper element (see NoteFloatingMenu). The
+   plugin leaves it at z-index:auto, so it lost the paint order to the global
+   drag handle (editor.css `.drag-handle`, position:fixed z-index:50) which
+   shares the same container — the handle covered the "+" and it looked gone.
+   Lift the wrapper above the handle so the "+" is always visible/clickable. */
+.note-fm-blockinsert { z-index: var(--z-sticky); }
+/* On wide screens the drag handle occupies the ~20px gutter next to the text,
+   so slide the "+" cleanly to its LEFT (there's ample centred whitespace left
+   of the .doc column here). Narrow widths keep the default offset — the drag
+   handle is hidden there, and there's no room to shift into. */
+@media (min-width: 1000px) {
+  .note-fm-blockinsert { transform: translateX(-26px); }
+}
 .block-insert {
   position: relative;
   display: inline-flex;

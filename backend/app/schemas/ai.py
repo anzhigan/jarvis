@@ -157,6 +157,10 @@ class ScheduleCreate(BaseModel):
     # If true → slots get start_time/end_time. If false → slots have empty
     # times, ordered list by priority. Cache key includes this flag.
     time_blocked: bool = True
+    # Set by the "Regenerate" button — bypass the result cache and run the
+    # planner again from the current backlog. Not part of the cache key, so a
+    # forced run still stores its result for later (non-forced) reuse.
+    force: bool = False
 
 
 class ScheduleSlot(BaseModel):

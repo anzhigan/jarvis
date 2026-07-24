@@ -36,7 +36,7 @@ const WD = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 function bestStreak(routine: Routine): number {
   if (routine.entries.length === 0) return 0;
   const sorted = [...routine.entries]
-    .filter((e) => e.value > 0)
+    .filter((e) => (e.value ?? 0) > 0)
     .map((e) => e.date)
     .sort();
   if (sorted.length === 0) return 0;
@@ -73,6 +73,19 @@ export default function RoutinesView() {
   // one row clears any previous selection elsewhere. `null` means "no past
   // square picked"; action buttons fall back to today's column for that row.
   const [selectedCell, setSelectedCell] = useState<{ id: string; date: string } | null>(null);
+  // Draft text for the note panel that opens under a row when one of its
+  // history squares is selected. Seeded from the entry's saved note on select.
+  const [noteDraft, setNoteDraft] = useState('');
+
+  // Select a history square and open its note panel, seeding the draft with
+  // whatever note that day already has. Clicking the active square closes it.
+  const selectCell = useCallback((id: string, date: string, note: string) => {
+    setSelectedCell((cur) => {
+      if (cur?.id === id && cur.date === date) return null;
+      setNoteDraft(note);
+      return { id, date };
+    });
+  }, []);
 
   // Per-row expand state: when a row's id is in this set, an extra <tr>
   // renders below it with the full-period heatmap (weeks × weekdays). The
@@ -306,7 +319,9 @@ export default function RoutinesView() {
                             <div className="rt-history-row">
                               <div className="rt-history-grid">
                                 {historyDays.map((d) => {
-                                  const s = cellState(r, entryByDate.get(d.ymd));
+                                  const dayEntry = entryByDate.get(d.ymd);
+                                  const s = cellState(r, dayEntry);
+                                  const dayNote = dayEntry?.note ?? '';
                                   const active =
                                     selectedCell?.id === r.id && selectedCell.date === d.ymd;
                                   return (
@@ -316,14 +331,11 @@ export default function RoutinesView() {
                                       className={`hg-cell hg-cell-${s}`}
                                       data-today={d.isToday || undefined}
                                       data-active={active || undefined}
-                                      title={`${d.ymd} · ${s} · click to edit`}
-                                      onClick={() =>
-                                        setSelectedCell((cur) =>
-                                          cur?.id === r.id && cur.date === d.ymd
-                                            ? null
-                                            : { id: r.id, date: d.ymd },
-                                        )
-                                      }
+                                      data-hasnote={dayNote !== '' || undefined}
+                                      title={dayNote
+                                        ? `${d.ymd} · ${s} · ${dayNote}`
+                                        : `${d.ymd} · ${s} · click to edit`}
+                                      onClick={() => selectCell(r.id, d.ymd, dayNote)}
                                     />
                                   );
                                 })}
@@ -393,6 +405,82 @@ export default function RoutinesView() {
                             })()}
                           </td>
                         </tr>
+                        {selectedCell?.id === r.id && (() => {
+                          const selDay = historyDays.find((d) => d.ymd === selectedCell.date);
+                          const selEntry = entryByDate.get(selectedCell.date);
+                          const savedNote = selEntry?.note ?? '';
+                          const state = cellState(r, selEntry);
+                          const label = selDay
+                            ? selDay.date.toLocaleDateString(undefined, {
+                                weekday: 'short', day: 'numeric', month: 'short',
+                              })
+                            : selectedCell.date;
+                          return (
+                            <tr className="rt-row-note" onClick={(e) => e.stopPropagation()}>
+                              <td colSpan={5} className="rt-row-note__cell">
+                                <div className="rt-note-panel">
+                                  <div className="rt-note-head">
+                                    <span className="rt-note-title">
+                                      {label}{selDay?.isToday ? ' · Today' : ''} — what did you do?
+                                    </span>
+                                    <button
+                                      className="rt-note-close"
+                                      onClick={() => setSelectedCell(null)}
+                                      aria-label="Close"
+                                      title="Close"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                  <textarea
+                                    className="rt-note-input"
+                                    placeholder="e.g. ran 5km in the park"
+                                    value={noteDraft}
+                                    rows={2}
+                                    autoFocus
+                                    onChange={(e) => setNoteDraft(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                                        void library.saveNoteOn(r, selectedCell.date, noteDraft.trim());
+                                        setSelectedCell(null);
+                                      }
+                                    }}
+                                  />
+                                  <div className="rt-note-foot">
+                                    <span className="rt-note-hint">
+                                      {state === 'done' ? 'Marked done'
+                                        : state === 'partial' ? 'Partly done'
+                                        : state === 'skipped' ? 'Marked skipped'
+                                        : 'No status — a note leaves the day as is'}
+                                    </span>
+                                    <div className="rt-note-foot-actions">
+                                      {savedNote && (
+                                        <button
+                                          className="rt-note-btn rt-note-btn-clear"
+                                          onClick={() => {
+                                            void library.saveNoteOn(r, selectedCell.date, '');
+                                            setNoteDraft('');
+                                          }}
+                                        >
+                                          Clear note
+                                        </button>
+                                      )}
+                                      <button
+                                        className="rt-note-btn rt-note-btn-save"
+                                        onClick={() => {
+                                          void library.saveNoteOn(r, selectedCell.date, noteDraft.trim());
+                                          setSelectedCell(null);
+                                        }}
+                                      >
+                                        Save
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })()}
                         {isExpanded && (
                           <tr
                             className="rt-row-expanded"

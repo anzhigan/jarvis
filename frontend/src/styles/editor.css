@@ -317,6 +317,85 @@
   color: var(--rust);
 }
 
+/* ── Image row — two images side by side on one line ─────────────────────
+   .img-row is the NodeView wrapper (positioning context for the divider);
+   .img-row__track is the flex track and each child .img-block is a cell.
+   flex-grow is set per-image from its aspect ratio (or the user's saved split)
+   in the NodeView so the pair fills — but never exceeds — the text column. */
+.ProseMirror .img-row {
+  position: relative;
+  margin: 8px 0;
+}
+/* Tiptap nests the actual child node-views inside an inner
+   [data-node-view-content-react] wrapper, so the flex container is that inner
+   element (not .img-row__track directly). */
+.ProseMirror .img-row__track { width: 100%; }
+.ProseMirror .img-row__track > [data-node-view-content-react] {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Divider handle sitting on the seam between the two images. Absolutely
+   positioned; its `left` is kept on the seam by the NodeView. Drag to
+   re-split the two widths. */
+.ProseMirror .img-row__divider {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 18px;
+  margin-left: -9px;               /* centre the hit-zone on the seam */
+  display: flex; align-items: center; justify-content: center;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.ProseMirror .img-row:hover .img-row__divider,
+.ProseMirror .img-row__divider:active { opacity: 1; }
+.ProseMirror .img-row__divider-grip {
+  width: 5px;
+  height: 42px;
+  max-height: 60%;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  box-shadow: var(--sh-popover);
+}
+.ProseMirror .img-row__divider:hover .img-row__divider-grip,
+.ProseMirror .img-row__divider:active .img-row__divider-grip {
+  background: var(--indigo);
+  border-color: var(--indigo);
+}
+/* Each child node-view is wrapped by Tiptap in a .react-renderer div — THAT is
+   the flex item (the .img-block span lives inside it), so the sizing goes here.
+   The NodeView sets an explicit flex-basis per cell for the split. */
+.ProseMirror .img-row__track > [data-node-view-content-react] > .react-renderer {
+  flex: 1 1 0;
+  min-width: 0;
+  /* Smooth "settle in" when a pair is first formed. */
+  animation: img-row-in 200ms var(--ease, ease-out);
+}
+.ProseMirror .img-row__track .react-renderer,
+.ProseMirror .img-row__track .img-block {
+  width: 100%;
+  margin: 0 !important;
+}
+.ProseMirror .img-row__track .img-block .img-wrap {
+  width: 100% !important;
+  margin: 0 !important;
+}
+.ProseMirror .img-row__track .img-block .img-block__img {
+  width: 100%;
+  height: auto;
+}
+@keyframes img-row-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* Bottom-right resize handle — two thin lines forming a corner (Figma-style). */
 .img-block .img-resize-corner {
   position: absolute;

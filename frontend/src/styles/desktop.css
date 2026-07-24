@@ -1268,9 +1268,38 @@
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--hairline-strong) transparent;
+  /* Positioning context for the "← Back" pill (absolutely placed above the
+     block a link jumped to; scrolls together with the content). */
+  position: relative;
 }
 .content-scroll::-webkit-scrollbar { width: 8px; }
 .content-scroll::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 4px; }
+
+/* Back-navigation pill — appears above the block you followed a link to. */
+.note-backnav {
+  position: absolute;
+  z-index: 5;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px 4px 8px;
+  font-family: var(--font-ui);
+  font-size: 12px; font-weight: 550;
+  color: var(--indigo);
+  background: var(--paper);
+  border: 1px solid var(--indigo-soft);
+  border-radius: var(--r-pill);
+  box-shadow: var(--sh-popover);
+  cursor: pointer;
+  max-width: 320px;
+  white-space: nowrap; overflow: hidden;
+  animation: note-backnav-in 200ms var(--ease, ease-out);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.note-backnav > span { overflow: hidden; text-overflow: ellipsis; }
+.note-backnav:hover { background: var(--indigo-soft); color: var(--indigo); }
+@keyframes note-backnav-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
 
 .content-empty {
   flex: 1; min-height: 0;
@@ -1465,15 +1494,51 @@
    restores focus to the trigger on close (often as `:focus-visible`), and
    the cursor moving to another row never cleared the visibility. JS handlers
    also call `.blur()` immediately after click as belt-and-suspenders. */
+/* Collapse (not just fade) so hidden rename/delete reserve NO horizontal
+   space at rest — that dead space is what squeezed topic names. They appear
+   only on hover. */
 .lib-row .row-action--hover {
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 .lib-row:hover .row-action--hover {
+  display: inline-flex;
   opacity: 0.85;
   pointer-events: auto;
 }
 .lib-row .row-action--hover:hover { opacity: 1; }
+
+/* Aggregated "+" add button — single always-visible affordance replacing the
+   old pair of create icons. Stays lit while its menu is open. */
+.lib-row .row-add[data-open] {
+  opacity: 1;
+  background: var(--paper);
+  color: var(--indigo);
+}
+
+/* Popover menu opened by the row "+" (New note / New subtopic / …). */
+.lib-add-menu {
+  z-index: 60;
+  min-width: 168px;
+  padding: 4px;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-control);
+  box-shadow: var(--sh-popover);
+  display: flex; flex-direction: column; gap: 1px;
+  font-family: var(--font-ui);
+}
+.lib-add-menu__item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px;
+  background: transparent; border: 0;
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  text-align: left; cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.lib-add-menu__item:hover { background: var(--bg-hover); color: var(--ink); }
+.lib-add-menu__icon { display: inline-flex; color: var(--ink-4); flex-shrink: 0; }
 
 /* Leaf icon (paper) inside a note row — small visual to differentiate notes
    from way/topic rows that have chevrons in the same position. */

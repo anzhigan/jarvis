@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import type {
-  Go, Note, Routine, RoutineScheduleType, Sprint, Task,
+  Go, Note, Routine, RoutineScheduleType, Sprint, Subsubtopic, Subtopic, Task,
   TaskPriority, TaskStatus, Topic, Way,
 } from '../../../api/types';
+import type { NoteParent } from '../../../api/client';
 import { MobileBottomSheet } from './MobileBottomSheet';
 import type { GoalsLibrary } from '../../goals/hooks/useGoals';
 import type { GosLibrary } from '../../goals/hooks/useGos';
@@ -149,14 +150,142 @@ export function TopicForm({ open, onOpenChange, library, wayId, wayName, editing
   );
 }
 
+// ── Subtopic ──────────────────────────────────────────────────────────────────
+
+interface SubtopicFormProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  library: NotesLibrary;
+  topicId: string;
+  topicName: string;
+  editing?: Subtopic | null;
+  onCreated?: (subtopicId: string) => void;
+}
+
+export function SubtopicForm({
+  open, onOpenChange, library, topicId, topicName, editing, onCreated,
+}: SubtopicFormProps) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (open) { setName(editing?.name ?? ''); setBusy(false); }
+  }, [open, editing?.id, editing?.name]);
+
+  const submit = async () => {
+    const n = name.trim();
+    if (!n) return;
+    setBusy(true);
+    if (editing) {
+      await library.renameSubtopic(editing.id, n);
+      setBusy(false);
+      onOpenChange(false);
+    } else {
+      const s = await library.createSubtopic(topicId, n);
+      setBusy(false);
+      if (s) { onCreated?.(s.id); onOpenChange(false); }
+    }
+  };
+
+  return (
+    <MobileBottomSheet
+      open={open} onOpenChange={onOpenChange}
+      title={editing ? 'Rename subtopic' : 'New subtopic'}
+      description={editing ? undefined : `Inside ${topicName}.`}
+      footer={<>
+        <button type="button" className="m-bs-btn m-bs-btn-ghost" onClick={() => onOpenChange(false)}>Cancel</button>
+        <button type="button" className="m-bs-btn m-bs-btn-primary" disabled={busy || !name.trim()} onClick={submit}>
+          {busy ? 'Saving…' : (editing ? 'Save' : 'Create')}
+        </button>
+      </>}
+    >
+      <form className="m-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+        <div>
+          <label className="m-form-label">Name</label>
+          <input
+            autoFocus
+            className="m-form-input"
+            placeholder="e.g. Chapter 1"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+      </form>
+    </MobileBottomSheet>
+  );
+}
+
+// ── Subsubtopic ───────────────────────────────────────────────────────────────
+
+interface SubsubtopicFormProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  library: NotesLibrary;
+  subtopicId: string;
+  subtopicName: string;
+  editing?: Subsubtopic | null;
+  onCreated?: (subsubtopicId: string) => void;
+}
+
+export function SubsubtopicForm({
+  open, onOpenChange, library, subtopicId, subtopicName, editing, onCreated,
+}: SubsubtopicFormProps) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (open) { setName(editing?.name ?? ''); setBusy(false); }
+  }, [open, editing?.id, editing?.name]);
+
+  const submit = async () => {
+    const n = name.trim();
+    if (!n) return;
+    setBusy(true);
+    if (editing) {
+      await library.renameSubsubtopic(editing.id, n);
+      setBusy(false);
+      onOpenChange(false);
+    } else {
+      const s = await library.createSubsubtopic(subtopicId, n);
+      setBusy(false);
+      if (s) { onCreated?.(s.id); onOpenChange(false); }
+    }
+  };
+
+  return (
+    <MobileBottomSheet
+      open={open} onOpenChange={onOpenChange}
+      title={editing ? 'Rename subsubtopic' : 'New subsubtopic'}
+      description={editing ? undefined : `Inside ${subtopicName}.`}
+      footer={<>
+        <button type="button" className="m-bs-btn m-bs-btn-ghost" onClick={() => onOpenChange(false)}>Cancel</button>
+        <button type="button" className="m-bs-btn m-bs-btn-primary" disabled={busy || !name.trim()} onClick={submit}>
+          {busy ? 'Saving…' : (editing ? 'Save' : 'Create')}
+        </button>
+      </>}
+    >
+      <form className="m-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+        <div>
+          <label className="m-form-label">Name</label>
+          <input
+            autoFocus
+            className="m-form-input"
+            placeholder="e.g. Section A"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+      </form>
+    </MobileBottomSheet>
+  );
+}
+
 // ── Note ────────────────────────────────────────────────────────────────────
 
 interface NoteFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   library: NotesLibrary;
-  /** Either way_id or topic_id is required for creation. */
-  target?: { way_id?: string; topic_id?: string };
+  /** Exactly one of way_id / topic_id / subtopic_id is required for creation. */
+  target?: NoteParent;
   parentName?: string;
   editing?: Note | null;
   onCreated?: (noteId: string) => void;

@@ -115,7 +115,7 @@ export function PerRoutinePulse({ routines, windowDays = 30 }: Props) {
       .map<RoutineRow>((r) => {
         // Build the daily value series (0..1) over the window.
         const dateValue = new Map<string, number>();
-        for (const e of r.entries) dateValue.set(e.date, e.value);
+        for (const e of r.entries) dateValue.set(e.date, e.value ?? 0);
 
         // For numeric routines we normalise against the target; for
         // boolean we just treat value > 0 as 1.

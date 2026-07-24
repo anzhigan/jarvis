@@ -488,9 +488,10 @@ async def create_schedule(
 ):
     """Enqueue a schedule-generation job.
 
-    Reads the user's open Gos for the target date + active routines, then asks
-    the LLM to time-block them within the given work hours. No persistence
-    beyond job.output_json in this phase — Phase 6b adds commit-to-sprint.
+    Reads the user's open Go backlog and time-blocks it within the given work
+    hours using a deterministic, rule-based planner (no LLM — see
+    services/ai/schedule.py). No persistence beyond job.output_json in this
+    phase — Phase 6b adds commit-to-sprint.
     """
     # Resolve date once — needed both for cache key and for the run itself.
     target_date = datetime.now(UTC).date()
@@ -508,16 +509,14 @@ async def create_schedule(
         user.id, target_date, body.hours.start_h, body.hours.end_h,
         body.time_blocked, db,
     )
-    cached = await find_cached(cache_key, user.id, "schedule", db)
-    if cached is not None:
-        return cached
+    # `force` (Regenerate) skips the cache and always runs the planner afresh.
+    if not body.force:
+        cached = await find_cached(cache_key, user.id, "schedule", db)
+        if cached is not None:
+            return cached
 
-    async with OllamaClient() as ollama:
-        if not await ollama.health():
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI runtime is offline. Try again in a moment.",
-            )
+    # No AI-runtime health gate: "Plan day" is now a deterministic, rule-based
+    # planner (see services/ai/schedule.py), so it runs fine with Ollama offline.
 
     try:
         job = await create_job(
@@ -604,21 +603,15 @@ async def create_sprint_plan(
 ):
     """Enqueue an AI sprint-plan generation job.
 
-    The handler reads the user's active goals + pending Gos + active
-    routines and emits a SprintPlanOutput proposal. The client then
-    materialises the proposal via the regular sprints endpoints once
-    the user accepts it — no DB writes happen here.
+    The handler reads the user's active goals + pending Gos and emits a
+    SprintPlanOutput proposal using a deterministic, rule-based planner (no
+    LLM — see services/ai/sprint_plan.py). The client then materialises the
+    proposal via the regular sprints endpoints once the user accepts it — no
+    DB writes happen here.
 
     Cache: intentionally not used. The point of "regenerate" is to get a
     fresh take; caching would surface the previous plan instead.
     """
-    async with OllamaClient() as ollama:
-        if not await ollama.health():
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI runtime is offline. Try again in a moment.",
-            )
-
     try:
         job = await create_job(
             user_id=user.id,

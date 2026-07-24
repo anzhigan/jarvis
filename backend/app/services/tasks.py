@@ -8,14 +8,14 @@ This module owns:
 Routers stay thin: parse request → call a service function → return.
 """
 import uuid
-from datetime import date as date_cls
+from datetime import UTC, date as date_cls, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.tasks import Go, Task
+from app.models.tasks import Go, Step, Task
 from app.models.user import User
 
 # ─── Vocabularies ────────────────────────────────────────────────────────────
@@ -178,3 +178,58 @@ def task_progress_pct(task: Task) -> int:
         for g in gos
     ]
     return int(round(sum(pcts) / len(pcts)))
+
+
+async def cascade_go_completion(go: Go, db: AsyncSession) -> None:
+    """Roll a Go's completion change up to its Step and Goal.
+
+    A Step whose one-off Gos are *all* done becomes ``done``; a Goal whose Gos
+    and Steps are all done moves to the Done column (``status='done'``). Both
+    revert when a Go is un-completed and the parent is no longer fully done.
+    Standalone Gos (no parent Task) are a no-op.
+
+    Runs after every Go-entry change (Plan day, Kanban, single-goal view) so the
+    behaviour is uniform wherever a Go is checked off.
+    """
+    if go.task_id is None:
+        return
+
+    res = await db.execute(
+        select(Task)
+        .where(Task.id == go.task_id)
+        .options(
+            selectinload(Task.gos).selectinload(Go.entries),
+            selectinload(Task.steps),
+        ),
+    )
+    goal = res.scalar_one_or_none()
+    if goal is None:
+        return
+
+    gos = [g for g in goal.gos if g.item_kind != "routine_legacy"]
+
+    # 1) The Go's own Step — done iff it has Gos and they're all done.
+    if go.step_id is not None:
+        step: Step | None = next((s for s in goal.steps if s.id == go.step_id), None)
+        if step is not None:
+            step_gos = [g for g in gos if g.step_id == step.id]
+            all_done = bool(step_gos) and all(is_go_done_today(g) for g in step_gos)
+            if all_done and step.status != "done":
+                step.status = "done"
+                step.completed_at = datetime.now(UTC)
+            elif not all_done and step.status == "done":
+                step.status = "in_progress"
+                step.completed_at = None
+
+    # 2) The Goal — done iff it has Gos, all Gos done, and every Step done.
+    steps_done = all(s.status == "done" for s in goal.steps)
+    gos_done = bool(gos) and all(is_go_done_today(g) for g in gos)
+    goal_complete = gos_done and steps_done
+    if goal_complete and goal.status != "done":
+        goal.status = "done"
+        goal.is_completed = True
+    elif not goal_complete and goal.status == "done":
+        goal.status = "active"
+        goal.is_completed = False
+
+    await db.flush()

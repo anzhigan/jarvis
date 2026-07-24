@@ -1,24 +1,26 @@
 """Sprint planner — propose a complete N-day focus sprint from the user's
-current state (active goals + pending Gos + active routines).
+current state (active goals + pending Gos).
 
-Data flow:
-  1. Load the user's active goals (with priorities/due dates/progress).
-  2. Load open Gos in a wide window (overdue + today + ~30 days out).
-  3. Load active routines.
-  4. Build prompt that asks the model to pick ~5-10 items that, together,
-     form a coherent N-day sprint with a memorable title + rationale.
-  5. LLM emits the SprintPlanOutput JSON. We validate per-item ids exist
-     and belong to the user; foreign/hallucinated ids are dropped before
-     the result reaches the user.
+This used to ask an LLM to pick a themed batch of items; it now runs a plain
+rule-based algorithm — no model call — so "AI sprint" is instant and works
+with the AI runtime offline. The output shape (`SprintPlanOutput`) is
+unchanged, so the sprint drawer UI and schema are untouched.
 
-The output is the proposal only — the user reviews it in a drawer and
-clicks "Create sprint" to materialise it (router does the actual writes
-via sprintsApi.create + addItem).
+How it selects:
+  1. Load active goals (priority / due / progress) and open Gos in a window
+     (overdue + due-within-sprint + dateless).
+  2. Anchor the sprint on the most urgent goal, then walk goals in urgency
+     order, emitting each goal followed by its pressing Gos — so items hang
+     together by goal rather than being a flat dump.
+  3. Cap the total at MAX_ITEMS; standalone Gos (no goal) fill any remainder.
+  4. Synthesize a title / description / rationale and a per-item reason.
+
+The output is the proposal only — the user reviews it in a drawer and clicks
+"Create sprint" to materialise it (router does the actual writes).
 """
-import json
 import logging
 import uuid
-from datetime import UTC, date as date_cls, datetime, timedelta
+from datetime import date as date_cls, datetime, UTC, timedelta
 from typing import Any
 
 from pydantic import ValidationError
@@ -34,42 +36,14 @@ from app.services.tasks import task_progress_pct
 
 logger = logging.getLogger(__name__)
 
-# Cap context sent to the model so the prompt stays tight.
+# Cap context we load so a huge backlog can't blow the plan up.
 MAX_GOALS = 20
 MAX_GOS = 40
 
-# Item count guidance for the model — tuned with prompt-engineering tweaks
-# so the result feels like a manageable sprint, not a wishlist dump.
-SUGGESTED_ITEMS_MIN = 4
-SUGGESTED_ITEMS_MAX = 12
-
-
-SYSTEM_PROMPT = """\
-/no_think
-
-You are a productivity planner. The user wants a focused, time-bounded \
-SPRINT — a coherent batch of work to ship over the next N days. From their \
-current goals and pending tasks, pick the items that belong in this sprint \
-and write a memorable title + rationale.
-
-A sprint is a finite commitment to concrete deliverables. RECURRING \
-routines (daily habits etc.) are tracked elsewhere and MUST NOT appear in \
-a sprint — pick only goals and one-off "Go" tasks.
-
-GUIDING PRINCIPLES:
-1. A sprint has a THEME — items hang together around one direction \
-   (e.g. "ship v2 polish", "winter health reset"). Don't pick random items \
-   from unrelated goals.
-2. Favor overdue + due-soon items (they're already past their planning \
-   horizon).
-3. Aim for SUGGESTED_ITEMS_MIN..SUGGESTED_ITEMS_MAX items total. Tight is \
-   better than sprawling — a sprint of 5 things you'll actually finish \
-   beats a sprint of 15 you'll feel guilty about.
-4. Item ids MUST come from the lists provided below. Do NOT invent ids — \
-   any unrecognised id is dropped before the user sees the result.
-5. Output language matches the language of the user's titles.
-6. Output STRICTLY valid JSON matching the schema. No prose, no markdown, \
-   no <think> blocks."""
+# Keep the sprint tight — a batch you'll actually finish beats a wishlist dump.
+MAX_ITEMS = 12
+# Gos ranked by how pressing they are; lower = include sooner.
+_GO_BUCKET_RANK = {"overdue": 0, "in_window": 1, "dateless": 2, "after_window": 3}
 
 
 async def _gather_context(
@@ -143,6 +117,7 @@ async def _gather_context(
             "title": g.title,
             "goal_id": str(g.task_id) if g.task_id else None,
             "due_date": g.due_date.isoformat() if g.due_date else None,
+            "created_at": g.created_at.isoformat(),
             "bucket": bucket,
         })
 
@@ -151,99 +126,156 @@ async def _gather_context(
     return {"goals": goals, "gos": gos, "routines": []}
 
 
-def _build_prompt(
+def _truncate(text: str, limit: int) -> str:
+    text = text.strip()
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def _goal_urgency_key(g: dict) -> tuple:
+    """Most urgent goals first: overdue, then earliest due, then priority."""
+    return (
+        0 if g["is_overdue"] else 1,
+        g["due_date"] or "9999-12-31",
+        g["priority"],
+        g["title"],
+    )
+
+
+def _go_key(g: dict) -> tuple:
+    """Pressing Gos first: overdue → in-window → dateless, then due, then age."""
+    return (
+        _GO_BUCKET_RANK.get(g["bucket"], 9),
+        g["due_date"] or "9999-12-31",
+        g["created_at"],
+    )
+
+
+def _goal_reason(g: dict, end: date_cls, is_anchor: bool) -> str:
+    pct = g["progress"]
+    if g["is_overdue"]:
+        return f"Overdue goal · {pct}% done"
+    if g["due_date"] and g["due_date"] <= end.isoformat():
+        return f"Due within the sprint · {pct}% done"
+    if is_anchor:
+        return f"Sprint anchor · {pct}% done"
+    return f"Home for the tasks below · {pct}% done"
+
+
+def _go_reason(g: dict, today: date_cls) -> str:
+    bucket = g["bucket"]
+    if bucket == "overdue":
+        d = (today - date_cls.fromisoformat(g["due_date"])).days
+        return f"{d} day{'s' if d != 1 else ''} overdue"
+    if bucket == "in_window":
+        return "Due within the sprint window"
+    if bucket == "dateless":
+        return "Open task — good to close out"
+    return "Due just after the window"
+
+
+def _build_plan(
     days: int,
     start: date_cls,
     end: date_cls,
     context: dict[str, list[dict[str, Any]]],
-) -> str:
-    sys = SYSTEM_PROMPT.replace("SUGGESTED_ITEMS_MIN", str(SUGGESTED_ITEMS_MIN))
-    sys = sys.replace("SUGGESTED_ITEMS_MAX", str(SUGGESTED_ITEMS_MAX))
-
-    return f"""\
-{sys}
-
-CONTEXT
-=======
-
-Sprint window:
-  - length: {days} days
-  - start: {start.isoformat()}
-  - end:   {end.isoformat()}
-
-Active goals (id, title, priority, progress%, due_date):
-{json.dumps(context["goals"], ensure_ascii=False, indent=2)}
-
-Open Gos (id, title, goal_id, due_date, bucket):
-{json.dumps(context["gos"], ensure_ascii=False, indent=2)}
-
-OUTPUT SCHEMA
-=============
-
-Respond with JSON of this exact shape:
-{{
-  "title": "Short, memorable name for the sprint (≤ 60 chars)",
-  "description": "1-2 sentence pitch — what this sprint is about",
-  "start_date": "{start.isoformat()}",
-  "end_date":   "{end.isoformat()}",
-  "rationale":  "Why these items, why now — 1-2 sentences",
-  "items": [
-    {{ "kind": "goal", "id": "<id from list>", "title": "<for reference>", "reason": "Why this goal belongs in the sprint" }},
-    {{ "kind": "go",   "id": "<id from list>", "title": "<for reference>", "reason": "..." }}
-  ]
-}}
-
-Allowed "kind" values: "goal", "go". Do not output items with kind="routine"."""
-
-
-def _parse_output(raw: str) -> SprintPlanOutput:
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"model returned invalid JSON: {e}") from e
-    try:
-        return SprintPlanOutput.model_validate(data)
-    except ValidationError as e:
-        raise ValueError(f"output fails schema: {e.errors()[:2]}") from e
-
-
-def _validate_items(
-    raw_items: list[SprintPlanItem],
-    context: dict[str, list[dict[str, Any]]],
-) -> list[SprintPlanItem]:
-    """Filter out items whose ids don't appear in the context lists. The
-    model occasionally invents ids; we silently drop those rather than
-    erroring the whole job — a sprint with 4 valid items + 1 dropped is
-    still useful."""
-    valid_goal_ids = {g["id"] for g in context["goals"]}
-    valid_go_ids = {g["id"] for g in context["gos"]}
-    valid_routine_ids = {r["id"] for r in context["routines"]}
-    out: list[SprintPlanItem] = []
-    dropped = 0
-    for it in raw_items:
-        pool = (valid_goal_ids if it.kind == "goal"
-                else valid_go_ids if it.kind == "go"
-                else valid_routine_ids)
-        if it.id in pool:
-            out.append(it)
+) -> SprintPlanOutput:
+    """Assemble the sprint proposal deterministically from the context."""
+    goals = sorted(context["goals"], key=_goal_urgency_key)
+    # Only pressing Gos belong in a sprint — drop the "after window" tail.
+    candidate_gos = sorted(
+        (g for g in context["gos"] if g["bucket"] != "after_window"),
+        key=_go_key,
+    )
+    gos_by_goal: dict[str, list[dict]] = {}
+    standalone_gos: list[dict] = []
+    for g in candidate_gos:
+        if g["goal_id"]:
+            gos_by_goal.setdefault(g["goal_id"], []).append(g)
         else:
-            dropped += 1
-    if dropped:
-        logger.warning("sprint_plan: dropped %d items with hallucinated ids", dropped)
-    return out
+            standalone_gos.append(g)
+
+    def goal_is_pressing(g: dict) -> bool:
+        return bool(
+            g["is_overdue"]
+            or (g["due_date"] and g["due_date"] <= end.isoformat())
+            or gos_by_goal.get(g["id"])
+        )
+
+    items: list[SprintPlanItem] = []
+    anchor_goal: dict | None = next((g for g in goals if goal_is_pressing(g)), None)
+
+    # Walk goals in urgency order; emit each pressing goal then its Gos, so the
+    # sprint reads as coherent goal-groups rather than a flat list.
+    for goal in goals:
+        if len(items) >= MAX_ITEMS:
+            break
+        if not goal_is_pressing(goal):
+            continue
+        items.append(SprintPlanItem(
+            kind="goal", id=goal["id"], title=goal["title"],
+            reason=_goal_reason(goal, end, is_anchor=goal is anchor_goal),
+        ))
+        for g in gos_by_goal.get(goal["id"], []):
+            if len(items) >= MAX_ITEMS:
+                break
+            items.append(SprintPlanItem(
+                kind="go", id=g["id"], title=g["title"], reason=_go_reason(g, start),
+            ))
+
+    # Fill any remaining room with standalone Gos (no parent goal).
+    for g in standalone_gos:
+        if len(items) >= MAX_ITEMS:
+            break
+        items.append(SprintPlanItem(
+            kind="go", id=g["id"], title=g["title"], reason=_go_reason(g, start),
+        ))
+
+    # Counts for the narrative.
+    n_goals = sum(1 for it in items if it.kind == "goal")
+    n_gos = sum(1 for it in items if it.kind == "go")
+    n_overdue = sum(1 for g in candidate_gos if g["bucket"] == "overdue")
+
+    if anchor_goal is not None:
+        headline = _truncate(anchor_goal["title"], 44)
+        title = _truncate(f"{headline} · {days}-day sprint", 60)
+        description = (
+            f"A {days}-day push anchored on “{anchor_goal['title']}”, "
+            f"pulling in {n_gos} task{'s' if n_gos != 1 else ''} across "
+            f"{n_goals} goal{'s' if n_goals != 1 else ''}."
+        )
+    else:
+        title = f"{days}-day focus sprint"
+        description = (
+            f"A {days}-day batch of {n_gos} open task{'s' if n_gos != 1 else ''} "
+            "to close out."
+        )
+
+    if n_overdue:
+        rationale = (
+            f"Front-loads {n_overdue} overdue item{'s' if n_overdue != 1 else ''} "
+            f"and the work due before {end.isoformat()} into one finishable batch."
+        )
+    else:
+        rationale = (
+            f"Gathers the work due through {end.isoformat()} into one "
+            "finishable batch so nothing slips."
+        )
+
+    return SprintPlanOutput(
+        title=title,
+        description=description,
+        start_date=start.isoformat(),
+        end_date=end.isoformat(),
+        items=items,
+        rationale=rationale,
+    )
 
 
 @register_handler("sprint_plan")
 async def run_sprint_plan_job(
     job: AIJob,
     db: AsyncSession,
-    ollama: OllamaClient,
+    ollama: OllamaClient,  # unused — kept to satisfy the handler contract
 ) -> dict[str, Any]:
     try:
         params = SprintPlanCreate.model_validate(job.input_json)
@@ -259,37 +291,13 @@ async def run_sprint_plan_job(
             "no active goals or open tasks to plan a sprint from",
         )
 
-    prompt = _build_prompt(params.days, start, end, context)
-
-    raw = await ollama.generate(
-        prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.4, think=False,
-    )
-    try:
-        plan = _parse_output(raw)
-    except ValueError as e:
-        # One retry with a tighter "follow the schema" reminder.
-        logger.warning("sprint_plan parse failed (first try): %s — retrying", e)
-        retry_prompt = (
-            prompt
-            + "\n\nREMINDER: respond with ONLY a JSON object matching the schema."
-        )
-        raw = await ollama.generate(
-            retry_prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.2, think=False,
-        )
-        plan = _parse_output(raw)
-
-    # Force the dates back to our resolved window — model sometimes echoes
-    # them with off-by-one drift.
-    plan.start_date = start.isoformat()
-    plan.end_date = end.isoformat()
-    plan.items = _validate_items(plan.items, context)
+    plan = _build_plan(params.days, start, end, context)
 
     logger.info(
-        "sprint_plan generated: items=%d (goals=%d gos=%d routines=%d) days=%d",
+        "sprint_plan built (rule-based): items=%d (goals=%d gos=%d) days=%d",
         len(plan.items),
         sum(1 for i in plan.items if i.kind == "goal"),
         sum(1 for i in plan.items if i.kind == "go"),
-        sum(1 for i in plan.items if i.kind == "routine"),
         params.days,
     )
     return plan.model_dump(mode="json")

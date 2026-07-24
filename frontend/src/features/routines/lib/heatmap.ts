@@ -42,7 +42,9 @@ export type CellState = 'done' | 'partial' | 'skipped' | 'empty';
 export function cellState(
   routine: Routine, entry: RoutineEntry | undefined,
 ): CellState {
-  if (!entry) return 'empty';
+  // A null value means the row exists only to carry a note — the day itself
+  // has no status, so it reads exactly like a day with no row at all.
+  if (!entry || entry.value === null) return 'empty';
   if (entry.value === 0) return 'skipped';
   if (routine.kind === 'numeric' && routine.target_value && entry.value < routine.target_value) {
     return 'partial';
@@ -77,7 +79,7 @@ export function currentStreak(routine: Routine): number {
   for (let i = 0; i < 365; i++) {
     const d = addDays(today, -i);
     const e = map.get(ymd(d));
-    const completed = !!e && e.value > 0;
+    const completed = !!e && (e.value ?? 0) > 0;
     if (completed) count++;
     else if (i > 0) break;
     else continue; // today unfinished doesn't break the streak
@@ -97,7 +99,7 @@ export function completionRate(routine: Routine, windowDays = 30): number {
     if (!isScheduledOn(routine, d)) continue;
     total++;
     const e = map.get(ymd(d));
-    if (e && e.value > 0) done++;
+    if (e && (e.value ?? 0) > 0) done++;
   }
   if (!total) return 0;
   return Math.round((done / total) * 100);

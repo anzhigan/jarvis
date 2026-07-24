@@ -137,6 +137,10 @@
   display: grid;
   grid-template-columns: repeat(14, 1fr);
   gap: 4px;
+  /* Reserve the same trailing space the body row spends on the expand
+     chevron (`.rt-history-expand` 22px + `.rt-history-row` gap 8px) so the
+     header date labels line up 1:1 with the cells below them. */
+  padding-right: 30px;
 }
 .hg-head-cell {
   text-align: center;
@@ -283,6 +287,103 @@
   color: var(--indigo);
   border-color: transparent;
 }
+
+/* ── Note panel — opens under a row when a history square is selected ──────
+   Lets the user record what they actually did that day (free text). Saving
+   also marks the day done. Spans the whole row so the textarea has room. */
+.rt-row-note > .rt-row-note__cell {
+  background: var(--cream);
+  border-top: 0;
+  padding: 12px 18px 14px;
+}
+.rt-note-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+}
+.rt-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rt-note-title {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: 0.01em;
+}
+.rt-note-close {
+  flex: 0 0 auto;
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  color: var(--ink-4);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.rt-note-close:hover { background: var(--paper); color: var(--ink-2); }
+.rt-note-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-control);
+  line-height: 1.4;
+}
+.rt-note-input:focus {
+  outline: none;
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 2px var(--indigo-soft);
+}
+.rt-note-input::placeholder { color: var(--ink-5); }
+.rt-note-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rt-note-hint {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  color: var(--ink-4);
+}
+.rt-note-foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rt-note-btn {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--r-control);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+}
+.rt-note-btn-clear {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--ink-3);
+}
+.rt-note-btn-clear:hover { border-color: var(--rust); color: var(--rust); }
+.rt-note-btn-save {
+  background: var(--indigo);
+  border: 1px solid var(--indigo);
+  color: var(--paper);
+}
+.rt-note-btn-save:hover { filter: brightness(1.06); }
 
 /* Expanded row — full-period heatmap sitting under its parent row. The
    parent's selection / hover styling does not propagate here. */
@@ -491,6 +592,7 @@
   border-bottom-color: transparent;
 }
 .hg-cell {
+  position: relative;
   aspect-ratio: 1;
   border-radius: 3px;
   background: var(--cream);
@@ -500,6 +602,23 @@
   padding: 0;
 }
 .hg-cell:hover { transform: scale(1.18); }
+/* Corner dot marks a day that carries a free-text note. Notes only exist on
+   done days (green), so a paper dot with a faint ring reads on any state. */
+.hg-cell[data-hasnote]::after {
+  content: '';
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+/* The dot above is light — invisible on a cream "no status" square, which now
+   can carry a note of its own. Darken it there. */
+.hg-cell-empty[data-hasnote]::after {
+  background: var(--ink-3);
+  box-shadow: none;
+}
 .hg-cell[data-active] {
   box-shadow: 0 0 0 2px var(--ochre);
   transform: scale(1.2);
@@ -892,6 +1011,8 @@
 .rt-entries__row[data-tone="done"]    .rt-entries__val { color: var(--moss); }
 .rt-entries__row[data-tone="skipped"] .rt-entries__val { color: var(--rust); }
 .rt-entries__row[data-tone="partial"] .rt-entries__val { color: var(--ochre); }
+/* Note-only day — no status was ever set, so it stays muted. */
+.rt-entries__row[data-tone="note"]    .rt-entries__val { color: var(--ink-3); }
 .rt-entries__clear {
   width: 22px; height: 22px;
   background: transparent;

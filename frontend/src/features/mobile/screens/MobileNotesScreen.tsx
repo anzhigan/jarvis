@@ -1,13 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, FolderOpen, Loader2, Plus, Search, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Note, Topic, Way } from '../../../api/types';
+import type { Note, Subsubtopic, Subtopic, Topic, Way } from '../../../api/types';
 import { useNotesLibrary } from '../../notes/hooks/useNotesLibrary';
-import { aiApi } from '../../../api/client';
+import { aiApi, type NoteParent } from '../../../api/client';
 import { useAIJobsStore } from '../../../store/aiJobs';
 import { MobileTopBar } from '../components/MobileTopBar';
 import { MobileShell } from '../components/MobileShell';
-import { WayForm, TopicForm, NoteForm } from '../components/MobileAddForms';
+import { WayForm, TopicForm, SubtopicForm, SubsubtopicForm, NoteForm } from '../components/MobileAddForms';
 import { SwipeableRow } from '../components/SwipeableRow';
 import { MobileConfirmSheet } from '../components/MobileConfirmSheet';
 import type { Tab } from '../../../app/tabs';
@@ -47,11 +47,13 @@ function previewText(html: string): string {
   return (tmp.textContent ?? '').trim();
 }
 
-/** Where in the way → topic → note tree the user currently is. */
+/** Where in the way → topic → subtopic → subsubtopic → note tree the user is. */
 type CurrentLevel =
   | { kind: 'root' }
   | { kind: 'way';   wayId: string }
-  | { kind: 'topic'; wayId: string; topicId: string };
+  | { kind: 'topic'; wayId: string; topicId: string }
+  | { kind: 'subtopic'; wayId: string; topicId: string; subtopicId: string }
+  | { kind: 'subsubtopic'; wayId: string; topicId: string; subtopicId: string; subsubtopicId: string };
 
 export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: Props) {
   const lib = useNotesLibrary();
@@ -66,7 +68,11 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
   // list instead of the editor where the quiz sheet renders.
   useEffect(() => {
     const handler = (e: Event) => {
-      const id = (e as CustomEvent<string>).detail;
+      // Detail is a bare id (legacy) or `{ id, highlight?, heading? }` for a
+      // deep link. On mobile we open the target note; heading/quote scroll
+      // isn't wired into the mobile editor yet, so extract just the id.
+      const raw = (e as CustomEvent<string | { id: string }>).detail;
+      const id = typeof raw === 'string' ? raw : raw?.id;
       if (id) setOpenNoteId(id);
     };
     window.addEventListener('jarvnote:openNote', handler);
@@ -76,21 +82,33 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
   // Bottom-sheet add forms
   const [wayFormOpen, setWayFormOpen] = useState(false);
   const [topicFormOpen, setTopicFormOpen] = useState<{ wayId: string; wayName: string } | null>(null);
-  const [noteFormOpen, setNoteFormOpen] = useState<{ target: { way_id?: string; topic_id?: string }; parentName: string } | null>(null);
+  const [subtopicFormOpen, setSubtopicFormOpen] = useState<{ topicId: string; topicName: string } | null>(null);
+  const [subsubtopicFormOpen, setSubsubtopicFormOpen] = useState<{ subtopicId: string; subtopicName: string } | null>(null);
+  const [noteFormOpen, setNoteFormOpen] = useState<{ target: NoteParent; parentName: string } | null>(null);
   // Edit forms
   const [editWay, setEditWay] = useState<Way | null>(null);
   const [editTopic, setEditTopic] = useState<{ topic: Topic; wayName: string } | null>(null);
+  const [editSubtopic, setEditSubtopic] = useState<{ subtopic: Subtopic; topicName: string } | null>(null);
+  const [editSubsubtopic, setEditSubsubtopic] = useState<{ subsubtopic: Subsubtopic; subtopicName: string } | null>(null);
   const [editNote, setEditNote] = useState<Note | null>(null);
   // Confirm-delete sheets
   const [confirmWay, setConfirmWay] = useState<Way | null>(null);
   const [confirmTopic, setConfirmTopic] = useState<Topic | null>(null);
+  const [confirmSubtopic, setConfirmSubtopic] = useState<Subtopic | null>(null);
+  const [confirmSubsubtopic, setConfirmSubsubtopic] = useState<Subsubtopic | null>(null);
   const [confirmNote, setConfirmNote] = useState<Note | null>(null);
 
   const allNotes = useMemo(() => {
     let n = 0;
     for (const w of lib.ways) {
       n += w.notes.length;
-      for (const t of w.topics) n += t.notes.length;
+      for (const t of w.topics) {
+        n += t.notes.length;
+        for (const s of t.subtopics) {
+          n += s.notes.length;
+          for (const ss of s.subsubtopics) n += ss.notes.length;
+        }
+      }
     }
     return n;
   }, [lib.ways]);
@@ -101,18 +119,35 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
   const currentWay: Way | null = level.kind !== 'root'
     ? lib.ways.find((w) => w.id === level.wayId) ?? null
     : null;
-  const currentTopic: Topic | null = level.kind === 'topic' && currentWay
-    ? currentWay.topics.find((t) => t.id === level.topicId) ?? null
+  const currentTopic: Topic | null =
+    (level.kind === 'topic' || level.kind === 'subtopic' || level.kind === 'subsubtopic') && currentWay
+      ? currentWay.topics.find((t) => t.id === level.topicId) ?? null
+      : null;
+  const currentSubtopic: Subtopic | null =
+    (level.kind === 'subtopic' || level.kind === 'subsubtopic') && currentTopic
+      ? currentTopic.subtopics.find((s) => s.id === level.subtopicId) ?? null
+      : null;
+  const currentSubsubtopic: Subsubtopic | null = level.kind === 'subsubtopic' && currentSubtopic
+    ? currentSubtopic.subsubtopics.find((s) => s.id === level.subsubtopicId) ?? null
     : null;
 
   // If the underlying entity disappeared (rename/delete), step back up.
   useEffect(() => {
     if (level.kind !== 'root' && !lib.loading && !currentWay) {
       setLevel({ kind: 'root' });
-    } else if (level.kind === 'topic' && !lib.loading && !currentTopic) {
+    } else if (
+      (level.kind === 'topic' || level.kind === 'subtopic' || level.kind === 'subsubtopic')
+      && !lib.loading && !currentTopic
+    ) {
       setLevel({ kind: 'way', wayId: level.wayId });
+    } else if (
+      (level.kind === 'subtopic' || level.kind === 'subsubtopic') && !lib.loading && !currentSubtopic
+    ) {
+      setLevel({ kind: 'topic', wayId: level.wayId, topicId: level.topicId });
+    } else if (level.kind === 'subsubtopic' && !lib.loading && !currentSubsubtopic) {
+      setLevel({ kind: 'subtopic', wayId: level.wayId, topicId: level.topicId, subtopicId: level.subtopicId });
     }
-  }, [level, currentWay, currentTopic, lib.loading]);
+  }, [level, currentWay, currentTopic, currentSubtopic, currentSubsubtopic, lib.loading]);
 
   // ── AI test on all notes — same flow as desktop NotesView. Tap pill →
   // AITestPicker (Radix dialog, works on mobile too) → user picks notes →
@@ -131,7 +166,13 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
     const out: Note[] = [];
     for (const way of lib.ways) {
       out.push(...way.notes);
-      for (const topic of way.topics) out.push(...topic.notes);
+      for (const topic of way.topics) {
+        out.push(...topic.notes);
+        for (const sub of topic.subtopics) {
+          out.push(...sub.notes);
+          for (const ss of sub.subsubtopics) out.push(...ss.notes);
+        }
+      }
     }
     return out;
   }, [lib.ways]);
@@ -203,7 +244,13 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
     const w = lib.ways.find((x) => x.id === wayId);
     if (w) setTopicFormOpen({ wayId: w.id, wayName: w.name });
   };
-  const handleAddNote = (target: { way_id?: string; topic_id?: string }, parentName: string) => {
+  const handleAddSubtopic = (topicId: string, topicName: string) => {
+    setSubtopicFormOpen({ topicId, topicName });
+  };
+  const handleAddSubsubtopic = (subtopicId: string, subtopicName: string) => {
+    setSubsubtopicFormOpen({ subtopicId, subtopicName });
+  };
+  const handleAddNote = (target: NoteParent, parentName: string) => {
     setNoteFormOpen({ target, parentName });
   };
 
@@ -223,9 +270,25 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
     );
   } else if (level.kind === 'topic' && currentTopic && currentWay) {
     title = currentTopic.name;
-    subtitle = `${currentWay.name} · ${currentTopic.notes.length} note${currentTopic.notes.length === 1 ? '' : 's'}`;
+    subtitle = `${currentTopic.subtopics.length} subtopic${currentTopic.subtopics.length === 1 ? '' : 's'} · ${currentTopic.notes.length} note${currentTopic.notes.length === 1 ? '' : 's'}`;
     leftSlot = (
       <button type="button" className="tb-btn" onClick={() => setLevel({ kind: 'way', wayId: currentWay.id })} aria-label="Back">
+        <ChevronLeft size={18} />
+      </button>
+    );
+  } else if (level.kind === 'subtopic' && currentSubtopic && currentTopic && currentWay) {
+    title = currentSubtopic.name;
+    subtitle = `${currentSubtopic.subsubtopics.length} subsubtopic${currentSubtopic.subsubtopics.length === 1 ? '' : 's'} · ${currentSubtopic.notes.length} note${currentSubtopic.notes.length === 1 ? '' : 's'}`;
+    leftSlot = (
+      <button type="button" className="tb-btn" onClick={() => setLevel({ kind: 'topic', wayId: currentWay.id, topicId: currentTopic.id })} aria-label="Back">
+        <ChevronLeft size={18} />
+      </button>
+    );
+  } else if (level.kind === 'subsubtopic' && currentSubsubtopic && currentSubtopic && currentTopic && currentWay) {
+    title = currentSubsubtopic.name;
+    subtitle = `${currentSubtopic.name} · ${currentSubsubtopic.notes.length} note${currentSubsubtopic.notes.length === 1 ? '' : 's'}`;
+    leftSlot = (
+      <button type="button" className="tb-btn" onClick={() => setLevel({ kind: 'subtopic', wayId: currentWay.id, topicId: currentTopic.id, subtopicId: currentSubtopic.id })} aria-label="Back">
         <ChevronLeft size={18} />
       </button>
     );
@@ -300,7 +363,43 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
           onSearch={setSearch}
           matchesQuery={matchesQuery}
           onOpenNote={setOpenNoteId}
+          onOpenSubtopic={(id) => setLevel({ kind: 'subtopic', wayId: currentWay.id, topicId: currentTopic.id, subtopicId: id })}
           onAddNote={() => handleAddNote({ topic_id: currentTopic.id }, `${currentWay.name} · ${currentTopic.name}`)}
+          onAddSubtopic={() => handleAddSubtopic(currentTopic.id, currentTopic.name)}
+          onEditSubtopic={(s) => setEditSubtopic({ subtopic: s, topicName: currentTopic.name })}
+          onDeleteSubtopic={(s) => setConfirmSubtopic(s)}
+          onEditNote={(n) => setEditNote(n)}
+          onDeleteNote={(n) => setConfirmNote(n)}
+        />
+      )}
+
+      {level.kind === 'subtopic' && currentSubtopic && currentTopic && currentWay && (
+        <SubtopicLevel
+          subtopic={currentSubtopic}
+          topicName={currentTopic.name}
+          search={search}
+          onSearch={setSearch}
+          matchesQuery={matchesQuery}
+          onOpenNote={setOpenNoteId}
+          onOpenSubsubtopic={(id) => setLevel({ kind: 'subsubtopic', wayId: currentWay.id, topicId: currentTopic.id, subtopicId: currentSubtopic.id, subsubtopicId: id })}
+          onAddNote={() => handleAddNote({ subtopic_id: currentSubtopic.id }, `${currentTopic.name} · ${currentSubtopic.name}`)}
+          onAddSubsubtopic={() => handleAddSubsubtopic(currentSubtopic.id, currentSubtopic.name)}
+          onEditSubsubtopic={(s) => setEditSubsubtopic({ subsubtopic: s, subtopicName: currentSubtopic.name })}
+          onDeleteSubsubtopic={(s) => setConfirmSubsubtopic(s)}
+          onEditNote={(n) => setEditNote(n)}
+          onDeleteNote={(n) => setConfirmNote(n)}
+        />
+      )}
+
+      {level.kind === 'subsubtopic' && currentSubsubtopic && currentSubtopic && currentTopic && currentWay && (
+        <SubsubtopicLevel
+          subsubtopic={currentSubsubtopic}
+          subtopicName={currentSubtopic.name}
+          search={search}
+          onSearch={setSearch}
+          matchesQuery={matchesQuery}
+          onOpenNote={setOpenNoteId}
+          onAddNote={() => handleAddNote({ subsubtopic_id: currentSubsubtopic.id }, `${currentSubtopic.name} · ${currentSubsubtopic.name}`)}
           onEditNote={(n) => setEditNote(n)}
           onDeleteNote={(n) => setConfirmNote(n)}
         />
@@ -320,6 +419,32 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
           wayId={topicFormOpen.wayId}
           wayName={topicFormOpen.wayName}
           onCreated={(tid) => setLevel({ kind: 'topic', wayId: topicFormOpen.wayId, topicId: tid })}
+        />
+      )}
+      {subtopicFormOpen && currentWay && (
+        <SubtopicForm
+          open={!!subtopicFormOpen}
+          onOpenChange={(o) => { if (!o) setSubtopicFormOpen(null); }}
+          library={lib}
+          topicId={subtopicFormOpen.topicId}
+          topicName={subtopicFormOpen.topicName}
+          onCreated={(sid) => setLevel({
+            kind: 'subtopic', wayId: currentWay.id,
+            topicId: subtopicFormOpen.topicId, subtopicId: sid,
+          })}
+        />
+      )}
+      {subsubtopicFormOpen && currentWay && currentTopic && currentSubtopic && (
+        <SubsubtopicForm
+          open={!!subsubtopicFormOpen}
+          onOpenChange={(o) => { if (!o) setSubsubtopicFormOpen(null); }}
+          library={lib}
+          subtopicId={subsubtopicFormOpen.subtopicId}
+          subtopicName={subsubtopicFormOpen.subtopicName}
+          onCreated={(ssid) => setLevel({
+            kind: 'subsubtopic', wayId: currentWay.id, topicId: currentTopic.id,
+            subtopicId: subsubtopicFormOpen.subtopicId, subsubtopicId: ssid,
+          })}
         />
       )}
       {noteFormOpen && (
@@ -352,6 +477,26 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
           editing={editTopic.topic}
         />
       )}
+      {editSubtopic && (
+        <SubtopicForm
+          open={!!editSubtopic}
+          onOpenChange={(o) => { if (!o) setEditSubtopic(null); }}
+          library={lib}
+          topicId={editSubtopic.subtopic.topic_id}
+          topicName={editSubtopic.topicName}
+          editing={editSubtopic.subtopic}
+        />
+      )}
+      {editSubsubtopic && (
+        <SubsubtopicForm
+          open={!!editSubsubtopic}
+          onOpenChange={(o) => { if (!o) setEditSubsubtopic(null); }}
+          library={lib}
+          subtopicId={editSubsubtopic.subsubtopic.subtopic_id}
+          subtopicName={editSubsubtopic.subtopicName}
+          editing={editSubsubtopic.subsubtopic}
+        />
+      )}
       {editNote && (
         <NoteForm
           open={!!editNote}
@@ -378,6 +523,24 @@ export default function MobileNotesScreen({ tab, onTabChange, onAvatarClick }: P
         confirmLabel="Delete"
         destructive
         onConfirm={async () => { if (confirmTopic) await lib.deleteTopic(confirmTopic.id); }}
+      />
+      <MobileConfirmSheet
+        open={!!confirmSubtopic}
+        onOpenChange={(o) => { if (!o) setConfirmSubtopic(null); }}
+        title={`Delete subtopic "${confirmSubtopic?.name ?? ''}"?`}
+        description="The subtopic and all its notes will be permanently removed."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => { if (confirmSubtopic) await lib.deleteSubtopic(confirmSubtopic.id); }}
+      />
+      <MobileConfirmSheet
+        open={!!confirmSubsubtopic}
+        onOpenChange={(o) => { if (!o) setConfirmSubsubtopic(null); }}
+        title={`Delete subsubtopic "${confirmSubsubtopic?.name ?? ''}"?`}
+        description="The subsubtopic and all its notes will be permanently removed."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={async () => { if (confirmSubsubtopic) await lib.deleteSubsubtopic(confirmSubsubtopic.id); }}
       />
       <MobileConfirmSheet
         open={!!confirmNote}
@@ -430,8 +593,16 @@ function RootLevel({
   if (q) {
     for (const w of ways) {
       for (const n of w.notes) if (matchesQuery(n)) searchResults.push({ note: n, way: w, topic: null });
-      for (const t of w.topics) for (const n of t.notes)
-        if (matchesQuery(n)) searchResults.push({ note: n, way: w, topic: t });
+      for (const t of w.topics) {
+        for (const n of t.notes)
+          if (matchesQuery(n)) searchResults.push({ note: n, way: w, topic: t });
+        for (const s of t.subtopics) {
+          for (const n of s.notes)
+            if (matchesQuery(n)) searchResults.push({ note: n, way: w, topic: t });
+          for (const ss of s.subsubtopics) for (const n of ss.notes)
+            if (matchesQuery(n)) searchResults.push({ note: n, way: w, topic: t });
+        }
+      }
     }
     searchResults.sort((a, b) => b.note.updated_at.localeCompare(a.note.updated_at));
   }
@@ -483,7 +654,9 @@ function RootLevel({
           ) : (
             <div className="notes-list">
               {ways.map((w) => {
-                const total = w.notes.length + w.topics.reduce((a, t) => a + t.notes.length, 0);
+                const total = w.notes.length + w.topics.reduce(
+                  (a, t) => a + t.notes.length + t.subtopics.reduce(
+                    (b, s) => b + s.notes.length + s.subsubtopics.reduce((c, ss) => c + ss.notes.length, 0), 0), 0);
                 return (
                   <SwipeableRow
                     key={w.id}
@@ -586,7 +759,7 @@ function WayLevel({
                 <FolderRow
                   icon={<FolderOpen size={14} />}
                   name={t.name}
-                  meta={`${t.notes.length} note${t.notes.length === 1 ? '' : 's'}`}
+                  meta={topicMeta(t)}
                   onClick={() => onOpenTopic(t.id)}
                 />
               </SwipeableRow>
@@ -637,17 +810,43 @@ function WayLevel({
   );
 }
 
-// ── Topic: notes in the topic ─────────────────────────────────────────────
+// ── Topic: subtopics + notes in the topic ─────────────────────────────────
+
+/** Notes directly in a subtopic + everything nested in its subsubtopics. */
+function subtopicNoteTotal(s: Subtopic): number {
+  return s.notes.length + s.subsubtopics.reduce((a, ss) => a + ss.notes.length, 0);
+}
+
+/** Subtopic folder meta: "N subsubtopics · M notes" (M counts nested). */
+function subtopicMeta(s: Subtopic): string {
+  const notes = subtopicNoteTotal(s);
+  const subs = s.subsubtopics.length;
+  const notePart = `${notes} note${notes === 1 ? '' : 's'}`;
+  return subs > 0 ? `${subs} subsubtopic${subs === 1 ? '' : 's'} · ${notePart}` : notePart;
+}
+
+/** Topic meta line: "N subtopics · M notes" (M counts all nested notes too). */
+function topicMeta(t: Topic): string {
+  const notes = t.notes.length + t.subtopics.reduce((a, s) => a + subtopicNoteTotal(s), 0);
+  const subs = t.subtopics.length;
+  const notePart = `${notes} note${notes === 1 ? '' : 's'}`;
+  return subs > 0 ? `${subs} subtopic${subs === 1 ? '' : 's'} · ${notePart}` : notePart;
+}
 
 function TopicLevel({
-  topic, search, onSearch, matchesQuery, onOpenNote, onAddNote, onEditNote, onDeleteNote,
+  topic, search, onSearch, matchesQuery, onOpenNote, onOpenSubtopic,
+  onAddNote, onAddSubtopic, onEditSubtopic, onDeleteSubtopic, onEditNote, onDeleteNote,
 }: {
   topic: Topic;
   search: string;
   onSearch: (s: string) => void;
   matchesQuery: (n: Note) => boolean;
   onOpenNote: (id: string) => void;
+  onOpenSubtopic: (id: string) => void;
   onAddNote: () => void;
+  onAddSubtopic: () => void;
+  onEditSubtopic: (s: Subtopic) => void;
+  onDeleteSubtopic: (s: Subtopic) => void;
   onEditNote: (n: Note) => void;
   onDeleteNote: (n: Note) => void;
 }) {
@@ -664,6 +863,218 @@ function TopicLevel({
         <input
           type="search"
           placeholder={`Search ${topic.name}…`}
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+        />
+      </div>
+
+      {topic.subtopics.length > 0 && (
+        <>
+          <div className="section-bar">
+            <span className="sec-title">Subtopics</span>
+            <span className="sec-rule" />
+            <span className="sec-meta">{topic.subtopics.length}</span>
+          </div>
+          <div className="notes-list">
+            {topic.subtopics.map((s) => (
+              <SwipeableRow
+                key={s.id}
+                onClick={() => onOpenSubtopic(s.id)}
+                onEdit={() => onEditSubtopic(s)}
+                onDelete={() => onDeleteSubtopic(s)}
+                editLabel="Rename"
+              >
+                <FolderRow
+                  icon={<FolderOpen size={14} />}
+                  name={s.name}
+                  meta={subtopicMeta(s)}
+                  onClick={() => onOpenSubtopic(s.id)}
+                />
+              </SwipeableRow>
+            ))}
+          </div>
+        </>
+      )}
+
+      <button type="button" className="m-add-btn" onClick={onAddSubtopic}>
+        <Plus /> Subtopic
+      </button>
+
+      {notes.length > 0 && (
+        <>
+          <div className="section-bar">
+            <span className="sec-title">Notes</span>
+            <span className="sec-rule" />
+            <span className="sec-meta">{notes.length}</span>
+          </div>
+          <div className="notes-list">
+            {notes.map((n) => (
+              <SwipeableRow
+                key={n.id}
+                onClick={() => onOpenNote(n.id)}
+                onEdit={() => onEditNote(n)}
+                onDelete={() => onDeleteNote(n)}
+                editLabel="Rename"
+              >
+                <NoteCard
+                  row={{ note: n, way: { id: '', name: '', topics: [], notes: [], order: 0, created_at: '', updated_at: '' }, topic }}
+                  hideWayLabel
+                  onClick={() => onOpenNote(n.id)}
+                />
+              </SwipeableRow>
+            ))}
+          </div>
+        </>
+      )}
+
+      <button type="button" className="m-add-btn" onClick={onAddNote}>
+        <Plus /> Note
+      </button>
+    </>
+  );
+}
+
+// A synthetic Topic used only to feed NoteCard's `topic` label at deeper
+// levels (its `.name` becomes the second breadcrumb segment on the card).
+function labelTopic(name: string): Topic {
+  return { id: '', way_id: '', name, order: 0, notes: [], inline_note: null, subtopics: [], created_at: '', updated_at: '' };
+}
+function labelWay(name: string): Way {
+  return { id: '', name, topics: [], notes: [], order: 0, created_at: '', updated_at: '' };
+}
+
+// ── Subtopic: subsubtopics + notes in the subtopic ─────────────────────────
+
+function SubtopicLevel({
+  subtopic, topicName, search, onSearch, matchesQuery, onOpenNote, onOpenSubsubtopic,
+  onAddNote, onAddSubsubtopic, onEditSubsubtopic, onDeleteSubsubtopic, onEditNote, onDeleteNote,
+}: {
+  subtopic: Subtopic;
+  topicName: string;
+  search: string;
+  onSearch: (s: string) => void;
+  matchesQuery: (n: Note) => boolean;
+  onOpenNote: (id: string) => void;
+  onOpenSubsubtopic: (id: string) => void;
+  onAddNote: () => void;
+  onAddSubsubtopic: () => void;
+  onEditSubsubtopic: (s: Subsubtopic) => void;
+  onDeleteSubsubtopic: (s: Subsubtopic) => void;
+  onEditNote: (n: Note) => void;
+  onDeleteNote: (n: Note) => void;
+}) {
+  const notes = subtopic.notes.filter(matchesQuery)
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return b.updated_at.localeCompare(a.updated_at);
+    });
+
+  return (
+    <>
+      <div className="search-pill">
+        <Search />
+        <input
+          type="search"
+          placeholder={`Search ${subtopic.name}…`}
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+        />
+      </div>
+
+      {subtopic.subsubtopics.length > 0 && (
+        <>
+          <div className="section-bar">
+            <span className="sec-title">Subsubtopics</span>
+            <span className="sec-rule" />
+            <span className="sec-meta">{subtopic.subsubtopics.length}</span>
+          </div>
+          <div className="notes-list">
+            {subtopic.subsubtopics.map((ss) => (
+              <SwipeableRow
+                key={ss.id}
+                onClick={() => onOpenSubsubtopic(ss.id)}
+                onEdit={() => onEditSubsubtopic(ss)}
+                onDelete={() => onDeleteSubsubtopic(ss)}
+                editLabel="Rename"
+              >
+                <FolderRow
+                  icon={<FolderOpen size={14} />}
+                  name={ss.name}
+                  meta={`${ss.notes.length} note${ss.notes.length === 1 ? '' : 's'}`}
+                  onClick={() => onOpenSubsubtopic(ss.id)}
+                />
+              </SwipeableRow>
+            ))}
+          </div>
+        </>
+      )}
+
+      <button type="button" className="m-add-btn" onClick={onAddSubsubtopic}>
+        <Plus /> Subsubtopic
+      </button>
+
+      {notes.length > 0 && (
+        <>
+          <div className="section-bar">
+            <span className="sec-title">Notes</span>
+            <span className="sec-rule" />
+            <span className="sec-meta">{notes.length}</span>
+          </div>
+          <div className="notes-list">
+            {notes.map((n) => (
+              <SwipeableRow
+                key={n.id}
+                onClick={() => onOpenNote(n.id)}
+                onEdit={() => onEditNote(n)}
+                onDelete={() => onDeleteNote(n)}
+                editLabel="Rename"
+              >
+                <NoteCard
+                  row={{ note: n, way: labelWay(topicName), topic: labelTopic(subtopic.name) }}
+                  hideWayLabel
+                  onClick={() => onOpenNote(n.id)}
+                />
+              </SwipeableRow>
+            ))}
+          </div>
+        </>
+      )}
+
+      <button type="button" className="m-add-btn" onClick={onAddNote}>
+        <Plus /> Note
+      </button>
+    </>
+  );
+}
+
+// ── Subsubtopic: notes in the subsubtopic ──────────────────────────────────
+
+function SubsubtopicLevel({
+  subsubtopic, subtopicName, search, onSearch, matchesQuery, onOpenNote, onAddNote, onEditNote, onDeleteNote,
+}: {
+  subsubtopic: Subsubtopic;
+  subtopicName: string;
+  search: string;
+  onSearch: (s: string) => void;
+  matchesQuery: (n: Note) => boolean;
+  onOpenNote: (id: string) => void;
+  onAddNote: () => void;
+  onEditNote: (n: Note) => void;
+  onDeleteNote: (n: Note) => void;
+}) {
+  const notes = subsubtopic.notes.filter(matchesQuery)
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return b.updated_at.localeCompare(a.updated_at);
+    });
+
+  return (
+    <>
+      <div className="search-pill">
+        <Search />
+        <input
+          type="search"
+          placeholder={`Search ${subsubtopic.name}…`}
           value={search}
           onChange={(e) => onSearch(e.target.value)}
         />
@@ -686,7 +1097,7 @@ function TopicLevel({
                 editLabel="Rename"
               >
                 <NoteCard
-                  row={{ note: n, way: { id: '', name: '', topics: [], notes: [], order: 0, created_at: '', updated_at: '' }, topic }}
+                  row={{ note: n, way: labelWay(subtopicName), topic: labelTopic(subsubtopic.name) }}
                   hideWayLabel
                   onClick={() => onOpenNote(n.id)}
                 />

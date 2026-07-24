@@ -64,18 +64,26 @@ export function useRoutines() {
     }
   }, [refresh]);
 
+  /** Drop a day back to "no status". The row is deleted outright unless it
+   *  carries a note — that we keep, storing a null value so the note survives
+   *  un-marking the day and the square renders empty again. */
+  const unmark = useCallback(async (id: string, date: string, note: string) => {
+    if (note) await routinesApi.upsertEntry(id, date, null);
+    else await routinesApi.deleteEntry(id, date);
+  }, []);
+
   /** Toggle done state for boolean routines (1 ↔ no entry). */
   const toggleDoneToday = useCallback(async (routine: Routine) => {
     const today = ymd(new Date());
     const todayEntry = routine.entries.find((e) => e.date === today);
-    if (todayEntry && todayEntry.value > 0) {
-      try { await routinesApi.deleteEntry(routine.id, today); await refresh(); }
+    if (todayEntry && (todayEntry.value ?? 0) > 0) {
+      try { await unmark(routine.id, today, todayEntry.note); await refresh(); }
       catch (e: any) { toast.error(e?.detail ?? 'Failed to clear'); }
     } else {
       const v = routine.kind === 'numeric' ? (routine.target_value ?? 1) : 1;
       await logToday(routine.id, v);
     }
-  }, [logToday, refresh]);
+  }, [logToday, refresh, unmark]);
 
   const skipToday = useCallback(async (id: string) => {
     const today = ymd(new Date());
@@ -91,15 +99,15 @@ export function useRoutines() {
    *  Same logic as toggleDoneToday: existing positive entry → delete; otherwise → log value 1. */
   const toggleDoneOn = useCallback(async (routine: Routine, date: string) => {
     const existing = routine.entries.find((e) => e.date === date);
-    if (existing && existing.value > 0) {
-      try { await routinesApi.deleteEntry(routine.id, date); await refresh(); }
+    if (existing && (existing.value ?? 0) > 0) {
+      try { await unmark(routine.id, date, existing.note); await refresh(); }
       catch (e: any) { toast.error(e?.detail ?? 'Failed to clear'); }
     } else {
       const v = routine.kind === 'numeric' ? (routine.target_value ?? 1) : 1;
       try { await routinesApi.upsertEntry(routine.id, date, v); await refresh(); }
       catch (e: any) { toast.error(e?.detail ?? 'Failed to log'); }
     }
-  }, [refresh]);
+  }, [refresh, unmark]);
 
   /** Generic per-date skip (value=0). */
   const skipOn = useCallback(async (id: string, date: string) => {
@@ -108,6 +116,25 @@ export function useRoutines() {
       await refresh();
     } catch (e: any) {
       toast.error(e?.detail ?? 'Failed to skip');
+    }
+  }, [refresh]);
+
+  /** Save the free-text note for a day *without* touching its status — a note
+   *  works on any square (empty, skipped, partial, done). Omitting `value`
+   *  leaves an existing day alone; a day with no row yet gets one with a null
+   *  value ("has a note, no status"), so the square stays empty.
+   *  Clearing the note on such a status-less day removes the row entirely. */
+  const saveNoteOn = useCallback(async (routine: Routine, date: string, note: string) => {
+    const existing = routine.entries.find((e) => e.date === date);
+    try {
+      if (!note && (!existing || existing.value === null)) {
+        if (existing) await routinesApi.deleteEntry(routine.id, date);
+      } else {
+        await routinesApi.upsertEntry(routine.id, date, undefined, note);
+      }
+      await refresh();
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to save note');
     }
   }, [refresh]);
 
@@ -142,7 +169,7 @@ export function useRoutines() {
     counts, scheduleCounts,
     create, update, remove, togglePause,
     logToday, toggleDoneToday, skipToday,
-    toggleDoneOn, skipOn, clearOn,
+    toggleDoneOn, skipOn, clearOn, saveNoteOn,
   };
 }
 

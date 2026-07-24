@@ -230,7 +230,11 @@ class RoutineEntry(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     routine_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("routines.id", ondelete="CASCADE"), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
-    value: Mapped[float] = mapped_column(Float, default=0.0)
+    # NULL = the day has no status (note-only row); 0 = skipped; > 0 = done.
+    value: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+    # Optional free-text of what was actually done on this day (e.g. "ran 5km
+    # in the park"). Empty string when the user only marked done/skipped.
+    note: Mapped[str] = mapped_column(Text, default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     routine: Mapped["Routine"] = relationship(back_populates="entries")

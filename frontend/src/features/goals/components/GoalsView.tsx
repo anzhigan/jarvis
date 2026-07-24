@@ -130,6 +130,32 @@ export default function GoalsView() {
     }
   }, [scheduleJobId, addBgJob]);
 
+  // Regenerate — run the planner again from the current backlog instead of
+  // re-showing the cached plan. `force: true` skips the backend result cache;
+  // we also forget the previous job (so nothing resurfaces it) and remount the
+  // drawer on the fresh job so it polls loading → new result.
+  const handleRegenerate = useCallback(async () => {
+    const prev = useAIJobsStore.getState().findSame('schedule', undefined);
+    if (prev) useAIJobsStore.getState().remove(prev.jobId);
+    // Drop the current job id first → drawer content unmounts, so the new run
+    // mounts fresh with no flash of the old plan (useAIJob keeps stale data
+    // until its first poll resolves).
+    setScheduleJobId(null);
+    try {
+      const job = await aiApi.createSchedule({
+        date: '',
+        hours: { start_h: 9, end_h: 18 },
+        time_blocked: true,
+        force: true,
+      });
+      addBgJob({ jobId: job.id, kind: 'schedule', source: { section: 'goals' } });
+      setScheduleJobId(job.id);
+      setScheduleDrawerOpen(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to start planning');
+    }
+  }, [addBgJob]);
+
   // Cross-section "Open →" from the global toast — when the toast reopens a
   // schedule that's already running, set local state to show its drawer here.
   useEffect(() => {
@@ -677,6 +703,7 @@ export default function GoalsView() {
               onToggleRoutineDone={onToggleRoutineDone}
               onSkipRoutine={onSkipRoutine}
               onUnlinkRoutine={onUnlinkRoutine}
+              onDuplicate={(id) => { void goals.duplicateGoal(id); }}
             />
           </div>
         )}
@@ -710,11 +737,7 @@ export default function GoalsView() {
               weekday: 'short', day: 'numeric', month: 'short',
             })}
             onClose={handleScheduleClose}
-            onRegenerate={() => {
-              setScheduleJobId(null);
-              setScheduleDrawerOpen(false);
-              setTimeout(handlePlanDay, 0);
-            }}
+            onRegenerate={() => { void handleRegenerate(); }}
             shifted={editingGo !== null || detailGoalId !== null}
             // Always non-modal — overlay above is rendered by GoalsView. This
             // means the modal prop never flips while open, so closing a
@@ -727,6 +750,7 @@ export default function GoalsView() {
               const found = gos.gos.find((g) => g.id === id);
               if (found) setEditingGo(found);
             }}
+            onToggleGoDone={onToggleGoDone}
             onGoalClick={(id) => setDetailGoalId(id)}
           />
         </Suspense>

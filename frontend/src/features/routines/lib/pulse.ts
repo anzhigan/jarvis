@@ -19,7 +19,7 @@ export function smooth(values: number[]): number[] {
 export function buildDailySeries(routine: Routine, windowDays: number): number[] {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const dateValue = new Map<string, number>();
-  for (const e of routine.entries ?? []) dateValue.set(e.date, e.value);
+  for (const e of routine.entries ?? []) dateValue.set(e.date, e.value ?? 0);
   const norm = (v: number | undefined): number => {
     if (v === undefined || v <= 0) return 0;
     if (routine.kind === 'numeric' && routine.target_value) {

@@ -43,6 +43,12 @@ export function CommandPalette({ open, onOpenChange, onTabChange, onToggleTheme,
       for (const n of w.notes) out.push({ note: n, way: w, topic: null });
       for (const t of w.topics) {
         for (const n of t.notes) out.push({ note: n, way: w, topic: t });
+        for (const s of t.subtopics) {
+          for (const n of s.notes) out.push({ note: n, way: w, topic: t });
+          for (const ss of s.subsubtopics) {
+            for (const n of ss.notes) out.push({ note: n, way: w, topic: t });
+          }
+        }
       }
     }
     return out;

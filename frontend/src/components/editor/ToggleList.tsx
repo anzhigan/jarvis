@@ -21,6 +21,7 @@
  *   Empty title shows a "Toggle" placeholder via the Placeholder extension.
  */
 import { Node, mergeAttributes } from '@tiptap/core';
+import type { Editor } from '@tiptap/core';
 import { NodeViewWrapper, NodeViewContent, ReactNodeViewRenderer } from '@tiptap/react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -188,6 +189,23 @@ export const ToggleSummary = Node.create({
   // Structural integrity is enforced by the parent ToggleList's
   // `toggleSummary toggleContent` content rule + its own `defining: true`.
 
+  addAttributes() {
+    return {
+      // Heading size of the toggle title: null = normal, 1/2/3 = h1/h2/h3.
+      // The summary stays an `inline*` node (a heading is block-level and
+      // can't live here), so the level is presentational — applied via a
+      // `data-level` attribute and sized in CSS to match real headings.
+      level: {
+        default: null,
+        parseHTML: (el) => {
+          const v = el.getAttribute('data-level');
+          return v ? parseInt(v, 10) : null;
+        },
+        renderHTML: (attrs) => (attrs.level ? { 'data-level': String(attrs.level) } : {}),
+      },
+    };
+  },
+
   parseHTML() {
     return [{ tag: 'div[data-toggle-summary]' }];
   },
@@ -255,3 +273,39 @@ export const ToggleContent = Node.create({
 });
 
 export const ToggleListBundle = [ToggleList, ToggleSummary, ToggleContent];
+
+export type HeadingLevel = 1 | 2 | 3;
+
+/** Whether the H1/H2/H3 control should read as active for `level`. Inside a
+ *  toggle summary this reflects the summary's `level` attribute; elsewhere it
+ *  reflects a real heading node. */
+export function isHeadingLevelActive(editor: Editor, level: HeadingLevel): boolean {
+  if (editor.isActive('toggleSummary')) {
+    return editor.getAttributes('toggleSummary').level === level;
+  }
+  return editor.isActive('heading', { level });
+}
+
+/** Apply an H1/H2/H3 control. Inside a toggle summary it sets/clears the
+ *  summary's presentational `level` (a heading node can't nest in `inline*`
+ *  content); elsewhere it toggles a normal heading. Toggling the active level
+ *  off returns the summary to normal text size. */
+export function applyHeadingLevel(editor: Editor, level: HeadingLevel): void {
+  if (editor.isActive('toggleSummary')) {
+    const cur = (editor.getAttributes('toggleSummary').level ?? null) as HeadingLevel | null;
+    const next = cur === level ? null : level;
+    editor.chain().focus().command(({ tr, state }) => {
+      const { $from } = state.selection;
+      for (let d = $from.depth; d >= 0; d--) {
+        const node = $from.node(d);
+        if (node.type.name === 'toggleSummary') {
+          tr.setNodeMarkup($from.before(d), undefined, { ...node.attrs, level: next });
+          return true;
+        }
+      }
+      return false;
+    }).run();
+    return;
+  }
+  editor.chain().focus().toggleHeading({ level }).run();
+}

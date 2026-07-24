@@ -23,7 +23,8 @@ export function todayState(routine: Routine, today: Date = new Date()): RoutineT
   if (!isScheduledOn(routine, today)) return 'unscheduled';
   const key = ymd(today);
   const e = routine.entries.find((entry) => entry.date === key);
-  if (!e) return 'pending';
+  // A note-only row (null value) is still an untouched day.
+  if (!e || e.value === null) return 'pending';
   if (e.value > 0) return 'done';
   return 'skipped';
 }

@@ -734,7 +734,7 @@ function DayDetailPanel({ point, activity, idx, tasks, routines, onClose }: DayD
       const scheduled = isScheduledOn(r, dateObj);
       let status: Row['status'] = 'off';
       let valueLabel = '—';
-      if (entry) {
+      if (entry && entry.value !== null) {
         if (entry.value <= 0) {
           status = 'skipped';
           valueLabel = 'skipped';
@@ -894,7 +894,7 @@ function DayDetailPanel({ point, activity, idx, tasks, routines, onClose }: DayD
               if (!isScheduledOn(r, dateObj)) continue;
               routineSched++;
               const e = r.entries.find((x) => x.date === point.date);
-              if (e && e.value > 0) routineHit++;
+              if (e && (e.value ?? 0) > 0) routineHit++;
             }
             // `work` already buckets gos by due-date for this very day.
             const goDue = work.dueGos.length;
@@ -959,7 +959,7 @@ function sparkPath(routine: Routine, today: Date): string {
     const d = new Date(today); d.setDate(today.getDate() - i);
     const k = ymd(d);
     const e = routine.entries.find((x) => x.date === k);
-    points.push(e && e.value > 0 ? 1 : 0);
+    points.push(e && (e.value ?? 0) > 0 ? 1 : 0);
   }
   // Cumulative streak (clamped at current). Visualises "trending up" when consecutive 1s pile.
   let cum = 0;

@@ -1,4 +1,4 @@
-import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
+import { useEditor, EditorContent, NodeViewWrapper, NodeViewContent, ReactNodeViewRenderer } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Underline } from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -14,9 +14,15 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle';
-import { findParentNode, mergeAttributes, Node } from '@tiptap/core';
+import { Extension, findParentNode, mergeAttributes, Node, textInputRule } from '@tiptap/core';
+import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
+import type { Slice } from '@tiptap/pm/model';
+import {
+  MAX_ROW_IMAGES, imageTargetAt, mergeImagesTr, singleDraggedImage,
+} from './editor/imageRowLogic';
+import type { EditorView } from '@tiptap/pm/view';
 import type { Editor } from '@tiptap/react';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { notesApi, injectImageToken, stripImageToken } from '../api/client';
 import EditorToolbar from './EditorToolbar';
@@ -83,11 +89,13 @@ function ResizableImageView({
   updateAttributes,
   deleteNode,
   editor,
+  getPos,
 }: {
   node: any;
   updateAttributes: (attrs: Record<string, any>) => void;
   deleteNode: () => void;
   editor: any;
+  getPos?: () => number | undefined;
 }) {
   const [isResizing, setIsResizing] = useState(false);
   const [hover, setHover] = useState(false);
@@ -100,6 +108,17 @@ function ResizableImageView({
   const align = (node.attrs.align as 'left' | 'center' | 'right') || 'left';
   const src = node.attrs.src as string;
   const readonly = !editor?.isEditable;
+
+  // Is this image a cell of a side-by-side `imageRow`? When so, the row's flex
+  // layout owns the sizing (width/align/manual-resize don't apply) and the
+  // controls trim down to the essentials.
+  const inRow = (() => {
+    try {
+      const pos = getPos?.();
+      if (typeof pos !== 'number') return false;
+      return editor?.state?.doc?.resolve(pos)?.parent?.type?.name === 'imageRow';
+    } catch { return false; }
+  })();
 
   // Close lightbox on Esc — registered only while open.
   useEffect(() => {
@@ -160,16 +179,43 @@ function ResizableImageView({
   // Alignment is stored on the image attrs and applied via inline margins on
   // the outer wrapper (image block). Center/right shift the image without
   // requiring float-clearing hacks on the surrounding paragraph.
-  const wrapperStyle: React.CSSProperties = {
-    display: 'block',
-    margin:
-      align === 'center' ? '0 auto' :
-      align === 'right'  ? '0 0 0 auto' :
-                           '0 auto 0 0',
-    maxWidth: '100%',
-    width,
-    position: 'relative',
-  };
+  //
+  // Inside a row, the parent imageRow NodeView owns each cell's width (via the
+  // flex track); here we just fill the cell.
+  const wrapperStyle: React.CSSProperties = inRow
+    ? { position: 'relative', width: '100%' }
+    : {
+        display: 'block',
+        margin:
+          align === 'center' ? '0 auto' :
+          align === 'right'  ? '0 0 0 auto' :
+                               '0 auto 0 0',
+        maxWidth: '100%',
+        width,
+        position: 'relative',
+      };
+
+  // Seed a node-move drag from the image body. ProseMirror's native dragstart
+  // (on view.dom) also runs and sets this up, but stashing the NodeSelection
+  // ourselves guarantees the drag-to-merge source is present regardless of
+  // nesting. We deliberately do NOT dispatch a selection here — changing the
+  // doc/DOM mid-dragstart can cancel the browser drag.
+  const onImgDragStart = useCallback((event: React.DragEvent) => {
+    if (readonly || !editor) return;
+    const pos = getPos?.();
+    if (typeof pos !== 'number') return;
+    try {
+      const view = editor.view;
+      const nodeSel = NodeSelection.create(view.state.doc, pos);
+      view.dragging = {
+        slice: nodeSel.content(),
+        move: !(event.metaKey || event.ctrlKey),
+        node: nodeSel,
+      } as typeof view.dragging;
+    } catch {
+      /* fall back to ProseMirror's own dragstart handling */
+    }
+  }, [editor, getPos, readonly]);
 
   const onOpenFullSize = () => {
     if (src) setLightbox(true);
@@ -191,7 +237,10 @@ function ResizableImageView({
       as="span"
       className="img-block"
       data-align={align}
+      data-in-row={inRow || undefined}
       contentEditable={false}
+      // Inside a row, the parent imageRow NodeView owns each cell's width
+      // (default equal via CSS, or the saved split). This element sets nothing.
     >
       <span
         className="img-wrap"
@@ -203,23 +252,35 @@ function ResizableImageView({
           ref={imgRef}
           src={src}
           alt={node.attrs.alt || ''}
-          draggable={false}
+          // Make the image body itself a drag source (not just the gutter
+          // handle, which doesn't exist for nested blocks like those inside a
+          // toggle). ProseMirror's own dragstart on view.dom turns this into a
+          // node move; we also stash the NodeSelection on `view.dragging` so
+          // the drag-to-merge handler has a reliable source at any nesting
+          // depth. Drag one image onto another to line them up, or drag it out
+          // to unline. Disabled in read-only mode.
+          draggable={!readonly}
+          onDragStart={onImgDragStart}
           className="img-block__img"
           style={{ width: '100%' }}
         />
 
         {showControls && (
           <span className="img-toolbar" role="toolbar" aria-label="Image actions">
-            <ImgBtn title="Align left"   active={align === 'left'}   onClick={() => setAlign('left')}>
-              <svg viewBox="0 0 16 16"><path d="M2 3h12M2 7h8M2 11h12M2 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
-            </ImgBtn>
-            <ImgBtn title="Align right"  active={align === 'right'}  onClick={() => setAlign('right')}>
-              <svg viewBox="0 0 16 16"><path d="M2 3h12M6 7h8M2 11h12M6 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
-            </ImgBtn>
-            <ImgBtn title="Align center" active={align === 'center'} onClick={() => setAlign('center')}>
-              <svg viewBox="0 0 16 16"><path d="M2 3h12M4 7h8M2 11h12M4 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
-            </ImgBtn>
-            <span className="img-toolbar__sep" />
+            {!inRow && (
+              <>
+                <ImgBtn title="Align left"   active={align === 'left'}   onClick={() => setAlign('left')}>
+                  <svg viewBox="0 0 16 16"><path d="M2 3h12M2 7h8M2 11h12M2 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+                </ImgBtn>
+                <ImgBtn title="Align right"  active={align === 'right'}  onClick={() => setAlign('right')}>
+                  <svg viewBox="0 0 16 16"><path d="M2 3h12M6 7h8M2 11h12M6 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+                </ImgBtn>
+                <ImgBtn title="Align center" active={align === 'center'} onClick={() => setAlign('center')}>
+                  <svg viewBox="0 0 16 16"><path d="M2 3h12M4 7h8M2 11h12M4 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+                </ImgBtn>
+                <span className="img-toolbar__sep" />
+              </>
+            )}
             <ImgBtn title="Open full size" onClick={onOpenFullSize}>
               <svg viewBox="0 0 16 16" fill="none">
                 <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.6" />
@@ -241,7 +302,7 @@ function ResizableImageView({
           </span>
         )}
 
-        {showControls && (
+        {showControls && !inRow && (
           <span
             className="img-resize-corner"
             role="separator"
@@ -430,6 +491,239 @@ const ResizableImage = Node.create({
   },
 });
 
+// ─── ImageRow — two images side by side on one line ────────────────────────
+// A block that holds up to two `image` children laid out horizontally. Created
+// by dragging one image onto another (see tryMergeImagesOnDrop). A React
+// NodeView hosts a draggable divider in the gap that re-splits the two images'
+// widths; the child images keep their own NodeViews (delete, lightbox, …) via
+// NodeViewContent.
+// Must match the flex `gap` on .img-row__track in editor.css.
+const ROW_GAP_PX = 8;
+// Don't let either image be dragged narrower than this — keeps both usable.
+const ROW_MIN_CELL_PX = 56;
+
+function ImageRowView({ node, editor, getPos }: {
+  node: any;
+  editor: any;
+  getPos?: () => number | undefined;
+}) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const dividerRef = useRef<HTMLSpanElement>(null);
+  const readonly = !editor?.isEditable;
+  const showDivider = !readonly && node.childCount === MAX_ROW_IMAGES;
+  // Percentage width of the LEFT image (50 = balanced). null in attrs → 50.
+  const splitPct: number = node.attrs.splitPct ?? 50;
+
+  // The two flex cells. Tiptap wraps each child node-view in a .react-renderer
+  // div inside an inner [data-node-view-content-react] element — those wrapper
+  // divs (NOT the .img-block spans inside them) are the actual flex items, so
+  // sizing must land on them.
+  const getCells = useCallback((): HTMLElement[] => {
+    const inner = wrapperRef.current?.querySelector(
+      '.img-row__track > [data-node-view-content-react]',
+    );
+    if (!inner) return [];
+    return Array.from(inner.children) as HTMLElement[];
+  }, []);
+
+  // Push the split onto the DOM: each cell gets an explicit flex-basis in %
+  // (widths are deterministic, no reliance on flex-grow), and the divider sits
+  // exactly on the seam. Runs on mount and whenever the saved split changes.
+  const applySplit = useCallback((pct: number): boolean => {
+    const cells = getCells();
+    const divider = dividerRef.current;
+    if (divider) divider.style.left = `${pct}%`;
+    if (cells.length !== MAX_ROW_IMAGES) return false;
+    const half = ROW_GAP_PX / 2;
+    cells[0].style.flex = `0 0 calc(${pct}% - ${half}px)`;
+    cells[1].style.flex = `0 0 calc(${100 - pct}% - ${half}px)`;
+    return true;
+  }, [getCells]);
+
+  useLayoutEffect(() => {
+    // The child image cells are mounted by ProseMirror; if they aren't in the
+    // DOM yet on this pass, retry on the next frame so a persisted split still
+    // lands. (Default 50/50 comes from CSS in the meantime.)
+    if (applySplit(splitPct)) return;
+    const raf = requestAnimationFrame(() => applySplit(splitPct));
+    return () => cancelAnimationFrame(raf);
+  }, [applySplit, splitPct, node.childCount]);
+
+  const beginDrag = useCallback((isTouch: boolean) => {
+    const track = wrapperRef.current?.querySelector('.img-row__track') as HTMLElement | null;
+    if (!track || getCells().length !== MAX_ROW_IMAGES) return;
+    const trackRect = track.getBoundingClientRect();
+    if (trackRect.width <= 0) return;
+    const minPct = (ROW_MIN_CELL_PX / trackRect.width) * 100;
+    let pct = splitPct;
+
+    const apply = (clientX: number) => {
+      pct = ((clientX - trackRect.left) / trackRect.width) * 100;
+      pct = Math.max(minPct, Math.min(100 - minPct, pct));
+      // Live feedback straight on the DOM — no transaction per move, so history
+      // stays clean; we commit once on release.
+      applySplit(pct);
+    };
+
+    const commit = () => {
+      const pos = getPos?.();
+      if (typeof pos !== 'number') return;
+      const rowNode = editor.state.doc.nodeAt(pos);
+      if (!rowNode || rowNode.type.name !== 'imageRow') return;
+      const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
+        ...rowNode.attrs, splitPct: Math.round(pct * 10) / 10,
+      });
+      editor.view.dispatch(tr);
+    };
+
+    if (isTouch) {
+      const onMove = (ev: TouchEvent) => { ev.preventDefault(); apply(ev.touches[0].clientX); };
+      const onEnd = () => {
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onEnd);
+        commit();
+      };
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend', onEnd);
+    } else {
+      const onMove = (ev: MouseEvent) => apply(ev.clientX);
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        commit();
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    }
+  }, [applySplit, editor, getCells, getPos, splitPct]);
+
+  return (
+    <NodeViewWrapper as="div" className="img-row" ref={wrapperRef}>
+      <NodeViewContent className="img-row__track" />
+      {showDivider && (
+        <span
+          ref={dividerRef}
+          className="img-row__divider"
+          role="separator"
+          aria-label="Resize images"
+          title="Drag to resize"
+          contentEditable={false}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); beginDrag(false); }}
+          onTouchStart={(e) => { e.stopPropagation(); beginDrag(true); }}
+        >
+          <span className="img-row__divider-grip" />
+        </span>
+      )}
+    </NodeViewWrapper>
+  );
+}
+
+const ImageRow = Node.create({
+  name: 'imageRow',
+  group: 'block',
+  // One or more images. "Exactly two" isn't expressible as a stable content
+  // rule (deleting one would leave the doc invalid mid-edit); instead we cap
+  // additions at two in the drop handler and unwrap a lone survivor back to a
+  // plain image via the cleanup plugin below.
+  content: 'image+',
+  selectable: false,
+  draggable: true,
+  addAttributes() {
+    return {
+      // Percentage width of the left image (the right takes the rest). null →
+      // balanced 50/50. Set by dragging the divider; persisted across reloads.
+      splitPct: {
+        default: null,
+        parseHTML: (element) => {
+          const v = element.getAttribute('data-split');
+          return v ? parseFloat(v) : null;
+        },
+        renderHTML: (attributes) =>
+          attributes.splitPct ? { 'data-split': String(attributes.splitPct) } : {},
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'div[data-image-row]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-image-row': '', class: 'img-row__track' }), 0];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ImageRowView);
+  },
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('imageRowCleanup'),
+        // Keep rows well-formed: a row that's been drained to a single image is
+        // just a normal image, and an empty one is nothing. Runs after every
+        // doc-changing transaction (e.g. dragging an image out, or deleting one
+        // of the pair) so the editor self-heals without special-casing callers.
+        appendTransaction: (transactions, _oldState, newState) => {
+          if (!transactions.some((t) => t.docChanged)) return null;
+          let tr: import('@tiptap/pm/state').Transaction | null = null;
+          newState.doc.descendants((node, pos) => {
+            if (node.type.name !== 'imageRow') return;
+            if (node.childCount >= MAX_ROW_IMAGES) return;
+            tr = tr || newState.tr;
+            const from = tr.mapping.map(pos);
+            const to = tr.mapping.map(pos + node.nodeSize);
+            if (node.childCount === 1) {
+              // Survivor becomes a plain image again (renders at full width).
+              tr.replaceRangeWith(from, to, node.child(0));
+            } else {
+              tr.delete(from, to);
+            }
+          });
+          return tr;
+        },
+      }),
+    ];
+  },
+});
+
+/** Drag-to-merge: when an image is dropped on top of another image (or an
+ *  existing pair with room), fuse them into an `imageRow` instead of the
+ *  default "insert as a new line" behaviour. Returns true when it handled the
+ *  drop. The selection/target detection is the DOM-facing part; the actual
+ *  transaction (and all its guards) is the pure `mergeImagesTr`. Works at any
+ *  nesting depth — including inside a toggle list. */
+function tryMergeImagesOnDrop(
+  view: EditorView,
+  event: DragEvent,
+  slice: Slice,
+  moved: boolean,
+): boolean {
+  if (!moved || !singleDraggedImage(slice)) return false;
+
+  // Where's the source image? Two drag paths put it in different places:
+  //  • Grabbing the image directly — for a draggable-but-not-selectable node
+  //    ProseMirror stashes a NodeSelection on `view.dragging.node` (it does NOT
+  //    touch the editor selection).
+  //  • The gutter drag-handle (GlobalDragHandle) dispatches a real
+  //    NodeSelection into `view.state.selection` instead.
+  // Accept either so both gestures merge.
+  const dragNode = (view as unknown as { dragging?: { node?: unknown } }).dragging?.node;
+  const dragSel =
+    dragNode instanceof NodeSelection ? dragNode
+    : view.state.selection instanceof NodeSelection ? view.state.selection
+    : null;
+  if (!dragSel || dragSel.node.type.name !== 'image') return false;
+
+  const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+  if (!coords) return false;
+  const target = imageTargetAt(view.state.doc, coords);
+  if (!target) return false;
+
+  const tr = mergeImagesTr(view.state, dragSel.from, dragSel.node, target);
+  if (!tr) return false;
+
+  event.preventDefault();
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
 // ─── InlineMath — renders $...$ LaTeX inline ──────────────────────────────
 const InlineMathView = ({ node, updateAttributes, editor }: any) => {
   const [editing, setEditing] = useState(false);
@@ -508,6 +802,25 @@ const InlineMath = Node.create({
         return chain().insertContent({ type: 'inlineMath', attrs: { latex } }).run();
       },
     } as any;
+  },
+});
+
+// ─── SmartTypography — inline text substitutions as you type ───────────────
+// Minimal, opt-in replacements (we deliberately avoid the full
+// @tiptap/extension-typography, which also rewrites quotes/ellipsis/etc.):
+//   --   → —  (em dash)
+//   -->  → →  (arrow). Because `--` is turned into `—` on the second keystroke,
+//            by the time `>` is typed the buffer holds `—>`, so we match both
+//            `—>` and the raw `-->` (e.g. when text is pasted/typed fast).
+const SmartTypography = Extension.create({
+  name: 'smartTypography',
+  addInputRules() {
+    return [
+      // Arrow first so `—>` / `-->` win over the bare em-dash rule.
+      textInputRule({ find: /—>$/, replace: '→' }),
+      textInputRule({ find: /-->$/, replace: '→' }),
+      textInputRule({ find: /--$/, replace: '—' }),
+    ];
   },
 });
 
@@ -605,6 +918,8 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       ResizableImage,
+      ImageRow,
+      SmartTypography,
       Placeholder.configure({
         // Per-node placeholders: empty toggle-list summaries display "Toggle"
         // so the user knows what to type; empty top-level paragraphs keep the
@@ -671,8 +986,26 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
         if (!anchor || !anchor.href) return false;
         const href = anchor.getAttribute('href') || '';
         if (href.startsWith('#note:')) {
-          const noteId = href.slice('#note:'.length);
-          window.dispatchEvent(new CustomEvent('jarvnote:openNote', { detail: noteId }));
+          // Format: `#note:<uuid>` or `#note:<uuid>#<encoded heading text>` for
+          // a deep link to a specific h1/h2/h3 inside the target note. UUIDs
+          // contain no '#', so the first '#' after the id delimits the heading.
+          const rest = href.slice('#note:'.length);
+          const hashIdx = rest.indexOf('#');
+          const targetNoteId = hashIdx >= 0 ? rest.slice(0, hashIdx) : rest;
+          const heading = hashIdx >= 0
+            ? decodeURIComponent(rest.slice(hashIdx + 1))
+            : undefined;
+          // Remember where we came from so the target can offer a "← Back"
+          // pill. `noteId` here is THIS editor's note (the source). Only the
+          // desktop note editor has a `.content-scroll`; on mobile/public
+          // there's no scroller and we simply skip the back affordance.
+          const scroller = anchor.closest('.content-scroll') as HTMLElement | null;
+          const from = noteId
+            ? { noteId, scrollTop: scroller ? scroller.scrollTop : 0 }
+            : undefined;
+          window.dispatchEvent(new CustomEvent('jarvnote:openNote', {
+            detail: { id: targetNoteId, heading, from },
+          }));
           event.preventDefault();
           return true;
         }
@@ -686,8 +1019,10 @@ export default function RichTextEditor({ noteId, content, onChange, children, ed
       // Drag-and-drop image files (e.g. screenshot from Finder) at the cursor
       // position under the pointer. Returning true tells ProseMirror we handled
       // the event so it doesn't fall back to inserting a file:// URL.
-      handleDrop: (view, event, _slice, moved) => {
-        if (moved) return false; // internal node drag — let Tiptap handle it
+      handleDrop: (view, event, slice, moved) => {
+        // Dragging one image onto another fuses them into a side-by-side row.
+        if (tryMergeImagesOnDrop(view, event as DragEvent, slice, moved)) return true;
+        if (moved) return false; // other internal node drags — let Tiptap handle it
         const dt = (event as DragEvent).dataTransfer;
         if (!dt || !dt.files || dt.files.length === 0) return false;
         const all = Array.from(dt.files);

@@ -25,7 +25,7 @@ from datetime import UTC, date as date_cls, datetime, timedelta
 from sqlalchemy import and_, distinct, func, or_, select
 
 from app.core.database import AsyncSessionLocal
-from app.models.notes import Note, Topic, Way
+from app.models.notes import Note, Subsubtopic, Subtopic, Topic, Way
 from app.models.tasks import Go, GoEntry
 from app.services.ai.cache import (
     SCHEDULE_OVERDUE_WINDOW_DAYS,
@@ -204,6 +204,15 @@ async def precompute_quizzes_for_user(user_id: uuid.UUID, today: date_cls) -> No
             select(Topic.id).join(Way, Topic.way_id == Way.id)
             .where(Way.user_id == user_id),
         )).scalars().all())
+        subtopic_ids = list((await db.execute(
+            select(Subtopic.id).join(Topic, Subtopic.topic_id == Topic.id)
+            .join(Way, Topic.way_id == Way.id).where(Way.user_id == user_id),
+        )).scalars().all())
+        subsubtopic_ids = list((await db.execute(
+            select(Subsubtopic.id).join(Subtopic, Subsubtopic.subtopic_id == Subtopic.id)
+            .join(Topic, Subtopic.topic_id == Topic.id)
+            .join(Way, Topic.way_id == Way.id).where(Way.user_id == user_id),
+        )).scalars().all())
         if not way_ids and not topic_ids:
             return
 
@@ -213,6 +222,10 @@ async def precompute_quizzes_for_user(user_id: uuid.UUID, today: date_cls) -> No
                     Note.way_id.in_(way_ids),
                     Note.topic_id.in_(topic_ids),
                     Note.topic_inline_id.in_(topic_ids),
+                    Note.subtopic_id.in_(subtopic_ids),
+                    Note.subtopic_inline_id.in_(subtopic_ids),
+                    Note.subsubtopic_id.in_(subsubtopic_ids),
+                    Note.subsubtopic_inline_id.in_(subsubtopic_ids),
                 ),
                 Note.updated_at >= cutoff_dt,
                 func.length(Note.content) >= PRECOMPUTE_QUIZ_MIN_NOTE_CHARS,

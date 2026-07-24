@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Trash2, Pause, Play, Calendar, Repeat, Target, Activity, Check, X } from 'lucide-react';
+import {
+  Trash2, Pause, Play, Calendar, Repeat, Target, Activity, Check, X, StickyNote,
+} from 'lucide-react';
 import { Button, confirmDialog, Drawer, Input } from '../../../components/ui';
 import type { Routine, RoutineScheduleType } from '../../../api/types';
 import type { RoutinesLibrary } from '../hooks/useRoutines';
@@ -184,16 +186,25 @@ export function RoutineDetailPanel({ routine, library, open, onOpenChange }: Pro
           ) : (
             <ul className="rt-entries__list">
               {sortedEntries.map((e) => {
-                const isDone = e.value > 0
-                  && (routine.kind !== 'numeric' || !routine.target_value || e.value >= routine.target_value);
-                const isSkipped = e.value === 0;
+                const v = e.value;
+                const isDone = v !== null && v > 0
+                  && (routine.kind !== 'numeric' || !routine.target_value || v >= routine.target_value);
+                const isSkipped = v === 0;
+                // v === null → the row only carries a note; show the note, not a status.
+                const isNoteOnly = v === null;
                 return (
-                  <li className="rt-entries__row" key={e.date} data-tone={isDone ? 'done' : isSkipped ? 'skipped' : 'partial'}>
+                  <li
+                    className="rt-entries__row"
+                    key={e.date}
+                    data-tone={isNoteOnly ? 'note' : isDone ? 'done' : isSkipped ? 'skipped' : 'partial'}
+                  >
                     <span className="rt-entries__date">{e.date}</span>
                     <span className="rt-entries__val">
-                      {routine.kind === 'numeric'
-                        ? `${e.value}${routine.unit ? ' ' + routine.unit : ''}`
-                        : isDone ? <><Check size={12} /> done</> : <><X size={12} /> skipped</>}
+                      {isNoteOnly
+                        ? <><StickyNote size={12} /> note</>
+                        : routine.kind === 'numeric'
+                          ? `${v}${routine.unit ? ' ' + routine.unit : ''}`
+                          : isDone ? <><Check size={12} /> done</> : <><X size={12} /> skipped</>}
                     </span>
                     <button
                       type="button"

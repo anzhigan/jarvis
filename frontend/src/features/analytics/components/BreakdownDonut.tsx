@@ -102,7 +102,7 @@ export function BreakdownDonut({ tasks, routines }: Props) {
       for (const link of t.routines ?? []) {
         const routine = routines.find((r) => r.id === link.routine_id);
         if (!routine) continue;
-        count += routine.entries.filter((e) => e.value > 0).length;
+        count += routine.entries.filter((e) => (e.value ?? 0) > 0).length;
       }
       if (count > 0) goalCounts.set(t.title, count);
     }

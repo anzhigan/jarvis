@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.tasks import Go, GoEntry, Task
+from app.models.tasks import Go, GoalRoutineLink, GoEntry, Step, Task
 from app.models.user import User
 from app.schemas.tasks import (
     GoCreate,
@@ -49,6 +49,9 @@ from app.services.tasks import (
 )
 from app.services.tasks import (
     task_progress_pct as _task_progress,
+)
+from app.services.tasks import (
+    cascade_go_completion as _cascade_go_completion,
 )
 
 router = APIRouter(tags=["tasks"])
@@ -255,6 +258,103 @@ async def delete_task(task_id: uuid.UUID, user: User = Depends(get_current_user)
     await db.delete(t)
 
 
+@router.post("/tasks/{task_id}/duplicate", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
+async def duplicate_task(
+    task_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Clone a Task's whole structure — steps, gos and routine links — into a
+    new card titled "… (copy)". It's a structural duplicate, not a snapshot:
+    per-day tracking (GoEntries) is *not* copied, and step lifecycle resets to
+    not_started, so the copy starts fresh at 0% progress. Routines are shared
+    entities, so the copy re-links the *same* routines (a new GoalRoutineLink
+    per link) rather than duplicating the trackers in the Habits section.
+    """
+    src = await _get_task(task_id, user, db)
+
+    new = Task(
+        user_id=user.id,
+        title=f"{src.title} (copy)",
+        description=src.description,
+        status=src.status,
+        priority=src.priority,
+        start_date=src.start_date,
+        due_date=src.due_date,
+        is_completed=src.is_completed,
+        # Same order as the source; the newer created_at tie-breaks it to sit
+        # right after the original in the (order, created_at) sort.
+        order=src.order,
+        color=src.color,
+    )
+    db.add(new)
+    await db.flush()  # assign new.id before wiring children
+
+    # Tags (M2M) — re-associate the copy with the same tags in one round-trip.
+    tag_ids = [tag.id for tag in src.tags]
+    if tag_ids:
+        from app.models.tasks import task_tags
+        await db.execute(
+            pg_insert(task_tags)
+            .values([{"task_id": new.id, "tag_id": tid} for tid in tag_ids])
+            .on_conflict_do_nothing(),
+        )
+
+    # Steps — clone and remember old→new ids so child Gos can be re-pointed.
+    cloned_steps: list[tuple[uuid.UUID, Step]] = []
+    for s in src.steps:
+        ns = Step(
+            user_id=user.id,
+            goal_id=new.id,
+            title=s.title,
+            description=s.description,
+            position=s.position,
+            status="not_started",
+            start_date=s.start_date,
+            end_date=s.end_date,
+            completed_at=None,
+        )
+        db.add(ns)
+        cloned_steps.append((s.id, ns))
+    await db.flush()
+    step_map = {old_id: ns.id for old_id, ns in cloned_steps}
+
+    # Gos — clone one-off items (routine_legacy ones live in Routines now),
+    # remap step_id, and drop the entry history so the copy is unlogged.
+    for g in src.gos:
+        if g.item_kind == "routine_legacy":
+            continue
+        db.add(Go(
+            user_id=user.id,
+            task_id=new.id,
+            step_id=step_map.get(g.step_id) if g.step_id else None,
+            title=g.title,
+            description=g.description,
+            kind=g.kind,
+            unit=g.unit,
+            target_value=g.target_value,
+            recurrence=g.recurrence,
+            start_date=g.start_date,
+            due_date=g.due_date,
+            color=g.color,
+            item_kind=g.item_kind,
+        ))
+
+    # Routines — re-link the SAME routines (shared trackers), don't duplicate.
+    for link in src.routine_links:
+        db.add(GoalRoutineLink(
+            goal_id=new.id,
+            routine_id=link.routine_id,
+            start_date=link.start_date,
+            end_date=link.end_date,
+            target_count=link.target_count,
+        ))
+
+    await db.flush()
+    full = await _get_task(new.id, user, db)
+    return _task_dict(full)
+
+
 # ─── Go endpoints ────────────────────────────────────────────────────────────
 
 @router.post("/gos", response_model=GoOut, status_code=status.HTTP_201_CREATED)
@@ -315,6 +415,9 @@ async def upsert_go_entry(go_id: uuid.UUID, body: GoEntryUpsert, user: User = De
             sa_delete(GoEntry).where(GoEntry.go_id == g.id, GoEntry.date == body.date),
         )
         await db.flush()
+        # Refresh entries so the cascade sees the removal, then roll up.
+        await db.refresh(g, ["entries"])
+        await _cascade_go_completion(g, db)
         return GoEntryOut(id=uuid.uuid4(), go_id=g.id, date=body.date, value=0.0)
     # Race-safe upsert via Postgres ON CONFLICT
     stmt = pg_insert(GoEntry).values(go_id=g.id, date=body.date, value=body.value)
@@ -325,6 +428,9 @@ async def upsert_go_entry(go_id: uuid.UUID, body: GoEntryUpsert, user: User = De
     rr = await db.execute(stmt)
     entry_id = rr.scalar_one()
     await db.flush()
+    # Mark done/undone rolls up to the parent Step + Goal (see the service).
+    await db.refresh(g, ["entries"])
+    await _cascade_go_completion(g, db)
     return GoEntryOut(id=entry_id, go_id=g.id, date=body.date, value=body.value)
 
 

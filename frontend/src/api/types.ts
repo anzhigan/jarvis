@@ -38,7 +38,34 @@ export interface Note {
   way_id: string | null;
   topic_id: string | null;
   topic_inline_id: string | null;
+  subtopic_id: string | null;
+  subtopic_inline_id: string | null;
+  subsubtopic_id: string | null;
+  subsubtopic_inline_id: string | null;
   tags: Tag[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Subsubtopic {
+  id: string;
+  subtopic_id: string;
+  name: string;
+  order: number;
+  notes: Note[];
+  inline_note: Note | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Subtopic {
+  id: string;
+  topic_id: string;
+  name: string;
+  order: number;
+  notes: Note[];
+  inline_note: Note | null;
+  subsubtopics: Subsubtopic[];
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +77,7 @@ export interface Topic {
   order: number;
   notes: Note[];
   inline_note: Note | null;
+  subtopics: Subtopic[];
   created_at: string;
   updated_at: string;
 }
@@ -155,7 +183,10 @@ export interface RoutineEntry {
   id: string;
   routine_id: string;
   date: string;
-  value: number;
+  /** null = the day has no status (note-only row); 0 = skipped; >0 = done. */
+  value: number | null;
+  /** Free-text of what was done that day. "" when only marked done/skipped. */
+  note: string;
 }
 
 export interface Routine {
@@ -342,6 +373,8 @@ export interface ScheduleCreate {
   prefs?: string[];
   /** Default true: HH:MM slot times. false → free-ordered priority list. */
   time_blocked?: boolean;
+  /** Regenerate: bypass the result cache and run the planner from scratch. */
+  force?: boolean;
 }
 
 export type ScheduleSlotKind = 'goal' | 'routine' | 'admin' | 'break' | 'lunch' | 'deep_work' | 'other';

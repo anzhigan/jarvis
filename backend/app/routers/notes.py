@@ -2,6 +2,8 @@
 Notes hierarchy:
   /ways                          — CRUD for Ways
   /ways/{way_id}/topics          — CRUD for Topics
+  /topics/{topic_id}/subtopics   — CRUD for Subtopics (optional Topic → Note level)
+  /subtopics/{id}/subsubtopics   — CRUD for Subsubtopics (optional Subtopic → Note level)
   /notes                         — Create note (at any level)
   /notes/{note_id}               — Read / Update / Delete
   /notes/{note_id}/images        — Upload image
@@ -27,7 +29,7 @@ from fastapi import (
     status,
 )
 from jose import JWTError
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -35,7 +37,16 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.rate_limit import limiter
 from app.core.security import decode_token
-from app.models.notes import Note, NoteAttachment, NoteImage, NoteShare, Topic, Way
+from app.models.notes import (
+    Note,
+    NoteAttachment,
+    NoteImage,
+    NoteShare,
+    Subsubtopic,
+    Subtopic,
+    Topic,
+    Way,
+)
 from app.models.user import User
 from app.schemas.notes import (
     AttachmentOut,
@@ -46,6 +57,12 @@ from app.schemas.notes import (
     NoteUpdate,
     PublicNoteOut,
     ShareOut,
+    SubsubtopicCreate,
+    SubsubtopicOut,
+    SubsubtopicUpdate,
+    SubtopicCreate,
+    SubtopicOut,
+    SubtopicUpdate,
     TopicCreate,
     TopicOut,
     TopicUpdate,
@@ -72,7 +89,48 @@ def _way_load_options():
     return (
         selectinload(Way.topics).selectinload(Topic.notes).selectinload(Note.tags),
         selectinload(Way.topics).selectinload(Topic.inline_note).selectinload(Note.tags),
+        # Subtopics under each topic, with their own notes + inline note.
+        selectinload(Way.topics).selectinload(Topic.subtopics)
+            .selectinload(Subtopic.notes).selectinload(Note.tags),
+        selectinload(Way.topics).selectinload(Topic.subtopics)
+            .selectinload(Subtopic.inline_note).selectinload(Note.tags),
+        # Subsubtopics under each subtopic, with their own notes + inline note.
+        selectinload(Way.topics).selectinload(Topic.subtopics)
+            .selectinload(Subtopic.subsubtopics)
+            .selectinload(Subsubtopic.notes).selectinload(Note.tags),
+        selectinload(Way.topics).selectinload(Topic.subtopics)
+            .selectinload(Subtopic.subsubtopics)
+            .selectinload(Subsubtopic.inline_note).selectinload(Note.tags),
         selectinload(Way.notes).selectinload(Note.tags),
+    )
+
+
+def _topic_load_options():
+    return (
+        selectinload(Topic.notes).selectinload(Note.tags),
+        selectinload(Topic.inline_note).selectinload(Note.tags),
+        selectinload(Topic.subtopics).selectinload(Subtopic.notes).selectinload(Note.tags),
+        selectinload(Topic.subtopics).selectinload(Subtopic.inline_note).selectinload(Note.tags),
+        selectinload(Topic.subtopics).selectinload(Subtopic.subsubtopics)
+            .selectinload(Subsubtopic.notes).selectinload(Note.tags),
+        selectinload(Topic.subtopics).selectinload(Subtopic.subsubtopics)
+            .selectinload(Subsubtopic.inline_note).selectinload(Note.tags),
+    )
+
+
+def _subtopic_load_options():
+    return (
+        selectinload(Subtopic.notes).selectinload(Note.tags),
+        selectinload(Subtopic.inline_note).selectinload(Note.tags),
+        selectinload(Subtopic.subsubtopics).selectinload(Subsubtopic.notes).selectinload(Note.tags),
+        selectinload(Subtopic.subsubtopics).selectinload(Subsubtopic.inline_note).selectinload(Note.tags),
+    )
+
+
+def _subsubtopic_load_options():
+    return (
+        selectinload(Subsubtopic.notes).selectinload(Note.tags),
+        selectinload(Subsubtopic.inline_note).selectinload(Note.tags),
     )
 
 
@@ -93,10 +151,7 @@ async def _get_topic_or_404(topic_id: uuid.UUID, user: User, db: AsyncSession) -
         select(Topic)
         .join(Way, Topic.way_id == Way.id)
         .where(Topic.id == topic_id, Way.user_id == user.id)
-        .options(
-            selectinload(Topic.notes).selectinload(Note.tags),
-            selectinload(Topic.inline_note).selectinload(Note.tags),
-        ),
+        .options(*_topic_load_options()),
     )
     topic = result.scalar_one_or_none()
     if not topic:
@@ -104,21 +159,114 @@ async def _get_topic_or_404(topic_id: uuid.UUID, user: User, db: AsyncSession) -
     return topic
 
 
-async def _get_note_or_404(note_id: uuid.UUID, user: User, db: AsyncSession) -> Note:
-    """Verify note belongs to user through its parent way/topic.
+async def _get_subtopic_or_404(subtopic_id: uuid.UUID, user: User, db: AsyncSession) -> Subtopic:
+    result = await db.execute(
+        select(Subtopic)
+        .join(Topic, Subtopic.topic_id == Topic.id)
+        .join(Way, Topic.way_id == Way.id)
+        .where(Subtopic.id == subtopic_id, Way.user_id == user.id)
+        .options(*_subtopic_load_options()),
+    )
+    subtopic = result.scalar_one_or_none()
+    if not subtopic:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Subtopic not found")
+    return subtopic
 
-    One query: outer-joins both possible parents (Way directly, or Way via Topic)
-    and filters on user ownership in WHERE. Hot path on every autosave PATCH.
+
+async def _get_subsubtopic_or_404(
+    subsubtopic_id: uuid.UUID, user: User, db: AsyncSession,
+) -> Subsubtopic:
+    result = await db.execute(
+        select(Subsubtopic)
+        .join(Subtopic, Subsubtopic.subtopic_id == Subtopic.id)
+        .join(Topic, Subtopic.topic_id == Topic.id)
+        .join(Way, Topic.way_id == Way.id)
+        .where(Subsubtopic.id == subsubtopic_id, Way.user_id == user.id)
+        .options(*_subsubtopic_load_options()),
+    )
+    subsubtopic = result.scalar_one_or_none()
+    if not subsubtopic:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Subsubtopic not found")
+    return subsubtopic
+
+
+async def _user_owns_note_row(note_row: Note, user_id, db: AsyncSession) -> bool:
+    """Ownership check for an already-loaded Note row, resolving through
+    whichever parent it hangs off: Way directly, Topic (leaf/inline), or
+    Subtopic (leaf/inline). Used by the image/attachment serving endpoints,
+    which authorize by s3 key rather than through `_get_note_or_404`."""
+    if note_row.way_id:
+        return bool((await db.execute(
+            select(Way.id).where(Way.id == note_row.way_id, Way.user_id == user_id),
+        )).scalar_one_or_none())
+    if note_row.topic_id or note_row.topic_inline_id:
+        tid = note_row.topic_id or note_row.topic_inline_id
+        return bool((await db.execute(
+            select(Topic.id).join(Way).where(Topic.id == tid, Way.user_id == user_id),
+        )).scalar_one_or_none())
+    if note_row.subtopic_id or note_row.subtopic_inline_id:
+        sid = note_row.subtopic_id or note_row.subtopic_inline_id
+        return bool((await db.execute(
+            select(Subtopic.id)
+            .join(Topic, Subtopic.topic_id == Topic.id)
+            .join(Way, Topic.way_id == Way.id)
+            .where(Subtopic.id == sid, Way.user_id == user_id),
+        )).scalar_one_or_none())
+    if note_row.subsubtopic_id or note_row.subsubtopic_inline_id:
+        ssid = note_row.subsubtopic_id or note_row.subsubtopic_inline_id
+        return bool((await db.execute(
+            select(Subsubtopic.id)
+            .join(Subtopic, Subsubtopic.subtopic_id == Subtopic.id)
+            .join(Topic, Subtopic.topic_id == Topic.id)
+            .join(Way, Topic.way_id == Way.id)
+            .where(Subsubtopic.id == ssid, Way.user_id == user_id),
+        )).scalar_one_or_none())
+    return False
+
+
+async def _get_note_or_404(note_id: uuid.UUID, user: User, db: AsyncSession) -> Note:
+    """Verify note belongs to user through any of its possible parents.
+
+    A note hangs off exactly one of: a Way directly, a Topic (leaf or inline),
+    or a Subtopic (leaf or inline). We outer-join every path up to the owning
+    Way and filter on user ownership in WHERE. Hot path on every autosave PATCH.
     """
+    # Topic reached either as a leaf-note parent or an inline-note parent.
     topic_alias = Topic.__table__.alias("t")
+    # Subtopic (leaf or inline) → its Topic → its Way.
+    sub_alias = Subtopic.__table__.alias("st")
+    sub_topic_alias = Topic.__table__.alias("stt")
+    # Subsubtopic (leaf or inline) → Subtopic → Topic → Way.
+    ss_alias = Subsubtopic.__table__.alias("sst")
+    ss_sub_alias = Subtopic.__table__.alias("ssst")
+    ss_topic_alias = Topic.__table__.alias("ssstt")
     way_alias = Way.__table__.alias("w")
 
     stmt = (
         select(Note)
-        .outerjoin(topic_alias, topic_alias.c.id == Note.topic_id)
+        .outerjoin(
+            topic_alias,
+            topic_alias.c.id == func.coalesce(Note.topic_id, Note.topic_inline_id),
+        )
+        .outerjoin(
+            sub_alias,
+            sub_alias.c.id == func.coalesce(Note.subtopic_id, Note.subtopic_inline_id),
+        )
+        .outerjoin(sub_topic_alias, sub_topic_alias.c.id == sub_alias.c.topic_id)
+        .outerjoin(
+            ss_alias,
+            ss_alias.c.id == func.coalesce(Note.subsubtopic_id, Note.subsubtopic_inline_id),
+        )
+        .outerjoin(ss_sub_alias, ss_sub_alias.c.id == ss_alias.c.subtopic_id)
+        .outerjoin(ss_topic_alias, ss_topic_alias.c.id == ss_sub_alias.c.topic_id)
         .outerjoin(
             way_alias,
-            (way_alias.c.id == Note.way_id) | (way_alias.c.id == topic_alias.c.way_id),
+            or_(
+                way_alias.c.id == Note.way_id,
+                way_alias.c.id == topic_alias.c.way_id,
+                way_alias.c.id == sub_topic_alias.c.way_id,
+                way_alias.c.id == ss_topic_alias.c.way_id,
+            ),
         )
         .where(Note.id == note_id)
         .where(way_alias.c.user_id == user.id)
@@ -209,7 +357,7 @@ async def create_topic(
     topic = Topic(way_id=way_id, name=body.name, order=body.order)
     db.add(topic)
     await db.flush()
-    await db.refresh(topic, ["notes", "inline_note"])
+    await db.refresh(topic, ["notes", "inline_note", "subtopics"])
     return topic
 
 
@@ -237,6 +385,96 @@ async def delete_topic(
     await db.delete(topic)
 
 
+# ─── Subtopics ──────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/topics/{topic_id}/subtopics",
+    response_model=SubtopicOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_subtopic(
+    topic_id: uuid.UUID,
+    body: SubtopicCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_topic_or_404(topic_id, user, db)
+    subtopic = Subtopic(topic_id=topic_id, name=body.name, order=body.order)
+    db.add(subtopic)
+    await db.flush()
+    await db.refresh(subtopic, ["notes", "inline_note", "subsubtopics"])
+    return subtopic
+
+
+@router.patch("/subtopics/{subtopic_id}", response_model=SubtopicOut)
+async def update_subtopic(
+    subtopic_id: uuid.UUID,
+    body: SubtopicUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    subtopic = await _get_subtopic_or_404(subtopic_id, user, db)
+    for field, value in body.model_dump(exclude_none=True).items():
+        setattr(subtopic, field, value)
+    await db.flush()
+    return subtopic
+
+
+@router.delete("/subtopics/{subtopic_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_subtopic(
+    subtopic_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    subtopic = await _get_subtopic_or_404(subtopic_id, user, db)
+    await db.delete(subtopic)
+
+
+# ─── Subsubtopics ─────────────────────────────────────────────────────────────
+
+@router.post(
+    "/subtopics/{subtopic_id}/subsubtopics",
+    response_model=SubsubtopicOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_subsubtopic(
+    subtopic_id: uuid.UUID,
+    body: SubsubtopicCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_subtopic_or_404(subtopic_id, user, db)
+    subsubtopic = Subsubtopic(subtopic_id=subtopic_id, name=body.name, order=body.order)
+    db.add(subsubtopic)
+    await db.flush()
+    await db.refresh(subsubtopic, ["notes", "inline_note"])
+    return subsubtopic
+
+
+@router.patch("/subsubtopics/{subsubtopic_id}", response_model=SubsubtopicOut)
+async def update_subsubtopic(
+    subsubtopic_id: uuid.UUID,
+    body: SubsubtopicUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    subsubtopic = await _get_subsubtopic_or_404(subsubtopic_id, user, db)
+    for field, value in body.model_dump(exclude_none=True).items():
+        setattr(subsubtopic, field, value)
+    await db.flush()
+    return subsubtopic
+
+
+@router.delete("/subsubtopics/{subsubtopic_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_subsubtopic(
+    subsubtopic_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    subsubtopic = await _get_subsubtopic_or_404(subsubtopic_id, user, db)
+    await db.delete(subsubtopic)
+
+
 # ─── Notes ────────────────────────────────────────────────────────────────────
 
 @router.post("/notes", response_model=NoteOut, status_code=status.HTTP_201_CREATED)
@@ -246,9 +484,13 @@ async def create_note(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    set_fields = [f for f in ("way_id", "topic_id", "topic_inline_id") if getattr(body, f) is not None]
+    parent_fields = (
+        "way_id", "topic_id", "topic_inline_id", "subtopic_id", "subtopic_inline_id",
+        "subsubtopic_id", "subsubtopic_inline_id",
+    )
+    set_fields = [f for f in parent_fields if getattr(body, f) is not None]
     if len(set_fields) != 1:
-        raise HTTPException(400, "Provide exactly one of: way_id, topic_id, topic_inline_id")
+        raise HTTPException(400, f"Provide exactly one of: {', '.join(parent_fields)}")
 
     # Verify user owns the parent
     if body.way_id:
@@ -257,6 +499,14 @@ async def create_note(
         await _get_topic_or_404(body.topic_id, user, db)
     elif body.topic_inline_id:
         await _get_topic_or_404(body.topic_inline_id, user, db)
+    elif body.subtopic_id:
+        await _get_subtopic_or_404(body.subtopic_id, user, db)
+    elif body.subtopic_inline_id:
+        await _get_subtopic_or_404(body.subtopic_inline_id, user, db)
+    elif body.subsubtopic_id:
+        await _get_subsubtopic_or_404(body.subsubtopic_id, user, db)
+    elif body.subsubtopic_inline_id:
+        await _get_subsubtopic_or_404(body.subsubtopic_inline_id, user, db)
 
     note = Note(**body.model_dump())
     db.add(note)
@@ -310,29 +560,41 @@ async def move_note(
 ):
     note = await _get_note_or_404(note_id, user, db)
 
-    if body.way_id is None and body.topic_id is None:
-        raise HTTPException(400, "Specify way_id or topic_id")
-    if body.way_id is not None and body.topic_id is not None:
-        raise HTTPException(400, "Cannot specify both way_id and topic_id")
+    targets = [
+        t for t in (body.way_id, body.topic_id, body.subtopic_id, body.subsubtopic_id)
+        if t is not None
+    ]
+    if len(targets) != 1:
+        raise HTTPException(400, "Specify exactly one of: way_id, topic_id, subtopic_id, subsubtopic_id")
+
+    # Clear every parent link, then set the requested one — a note lives under
+    # exactly one container at a time.
+    note.way_id = None
+    note.topic_id = None
+    note.topic_inline_id = None
+    note.subtopic_id = None
+    note.subtopic_inline_id = None
+    note.subsubtopic_id = None
+    note.subsubtopic_inline_id = None
 
     if body.way_id is not None:
-        # Validate ownership
         w = await db.execute(select(Way).where(Way.id == body.way_id, Way.user_id == user.id))
         if not w.scalar_one_or_none():
             raise HTTPException(404, "Way not found")
         note.way_id = body.way_id
-        note.topic_id = None
-        note.topic_inline_id = None
-    else:
-        # topic_id
+    elif body.topic_id is not None:
         t = await db.execute(
             select(Topic).join(Way).where(Topic.id == body.topic_id, Way.user_id == user.id),
         )
         if not t.scalar_one_or_none():
             raise HTTPException(404, "Topic not found")
         note.topic_id = body.topic_id
-        note.way_id = None
-        note.topic_inline_id = None
+    elif body.subtopic_id is not None:
+        await _get_subtopic_or_404(body.subtopic_id, user, db)
+        note.subtopic_id = body.subtopic_id
+    else:
+        await _get_subsubtopic_or_404(body.subsubtopic_id, user, db)
+        note.subsubtopic_id = body.subsubtopic_id
 
     await db.flush()
     return note
@@ -427,20 +689,7 @@ async def serve_image(
         ).scalar_one_or_none()
         if not note_row:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
-        if note_row.way_id:
-            owns = (
-                await db.execute(
-                    select(Way.id).where(Way.id == note_row.way_id, Way.user_id == user_id),
-                )
-            ).scalar_one_or_none()
-        else:
-            tid = note_row.topic_id or note_row.topic_inline_id
-            owns = (
-                await db.execute(
-                    select(Topic.id).join(Way).where(Topic.id == tid, Way.user_id == user_id),
-                )
-            ).scalar_one_or_none()
-        if not owns:
+        if not await _user_owns_note_row(note_row, user_id, db):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your image")
     else:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Image not found")
@@ -545,20 +794,7 @@ async def serve_attachment(
     ).scalar_one_or_none()
     if not note_row:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found")
-    if note_row.way_id:
-        owns = (
-            await db.execute(
-                select(Way.id).where(Way.id == note_row.way_id, Way.user_id == user_id),
-            )
-        ).scalar_one_or_none()
-    else:
-        tid = note_row.topic_id or note_row.topic_inline_id
-        owns = (
-            await db.execute(
-                select(Topic.id).join(Way).where(Topic.id == tid, Way.user_id == user_id),
-            )
-        ).scalar_one_or_none()
-    if not owns:
+    if not await _user_owns_note_row(note_row, user_id, db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your attachment")
 
     # Look up the stored filename so the browser uses it in the Save dialog.

@@ -75,7 +75,7 @@ export default function AnalysisView() {
   // ── Heatmap totals (entries-with-value) ──────────────────────────────────
   const heatmapEntries = useMemo(() => {
     let total = 0;
-    for (const r of a.routines) for (const e of r.entries) if (e.value > 0) total++;
+    for (const r of a.routines) for (const e of r.entries) if ((e.value ?? 0) > 0) total++;
     for (const t of a.tasks) if (t.status === 'done') total++;
     return total;
   }, [a.routines, a.tasks]);

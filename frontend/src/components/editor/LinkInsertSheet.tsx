@@ -2,14 +2,40 @@
  * LinkInsertSheet — bottom sheet for inserting/editing a link.
  * Two tabs:
  *   • External — plain URL input (https://…)
- *   • Note — search across user's notes; pick → internal `#note:<uuid>` link.
+ *   • Note — search across user's notes; pick a note → then optionally a
+ *     specific h1/h2/h3 inside it. Produces `#note:<uuid>` (whole note) or
+ *     `#note:<uuid>#<encoded heading text>` (deep link to that heading).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Check, Search, FileText, Loader2, Trash2 } from 'lucide-react';
+import { X, Check, Search, FileText, Loader2, Trash2, Hash, ChevronLeft } from 'lucide-react';
 import { waysApi } from '../../api/client';
 import type { Note, Way } from '../../api/types';
+
+interface HeadingHit {
+  level: 1 | 2 | 3;
+  text: string;
+}
+
+/** Extract h1/h2/h3 headings (in document order) from a note's stored HTML. */
+function parseHeadings(html: string): HeadingHit[] {
+  if (!html || typeof DOMParser === 'undefined') return [];
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const out: HeadingHit[] = [];
+  doc.querySelectorAll('h1, h2, h3').forEach((el) => {
+    const text = (el.textContent || '').trim();
+    if (!text) return;
+    const level = el.tagName === 'H1' ? 1 : el.tagName === 'H2' ? 2 : 3;
+    out.push({ level, text });
+  });
+  return out;
+}
+
+/** Build the internal link href for a note, optionally anchored to a heading. */
+function noteHref(id: string, heading?: string): string {
+  return heading ? `#note:${id}#${encodeURIComponent(heading)}` : `#note:${id}`;
+}
 
 interface Props {
   open: boolean;
@@ -25,6 +51,7 @@ interface NoteHit {
   id: string;
   name: string;
   parentLabel: string;
+  content: string;
 }
 
 export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisting, onCancel, onInsert, onRemove }: Props) {
@@ -33,6 +60,9 @@ export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisti
   const [search, setSearch] = useState('');
   const [allNotes, setAllNotes] = useState<NoteHit[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
+  // Second step of the Note tab: once a note is picked, choose the whole note
+  // or one of its headings. null = still on the note-search step.
+  const [pickedNote, setPickedNote] = useState<NoteHit | null>(null);
   const urlRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(
@@ -50,6 +80,7 @@ export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisti
     setUrl(initialUrl);
     setTab(initialUrl.startsWith('#note:') ? 'note' : 'url');
     setSearch('');
+    setPickedNote(null);
   }, [open, initialUrl]);
 
   useEffect(() => {
@@ -68,11 +99,21 @@ export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisti
         const flat: NoteHit[] = [];
         for (const w of ways) {
           for (const n of w.notes ?? []) {
-            flat.push({ id: n.id, name: n.name || 'Untitled', parentLabel: w.name });
+            flat.push({ id: n.id, name: n.name || 'Untitled', parentLabel: w.name, content: n.content ?? '' });
           }
           for (const t of w.topics ?? []) {
             for (const n of (t.notes ?? []) as Note[]) {
-              flat.push({ id: n.id, name: n.name || 'Untitled', parentLabel: `${w.name} / ${t.name}` });
+              flat.push({ id: n.id, name: n.name || 'Untitled', parentLabel: `${w.name} / ${t.name}`, content: n.content ?? '' });
+            }
+            for (const s of t.subtopics ?? []) {
+              for (const n of (s.notes ?? []) as Note[]) {
+                flat.push({ id: n.id, name: n.name || 'Untitled', parentLabel: `${w.name} / ${t.name} / ${s.name}`, content: n.content ?? '' });
+              }
+              for (const ss of s.subsubtopics ?? []) {
+                for (const n of (ss.notes ?? []) as Note[]) {
+                  flat.push({ id: n.id, name: n.name || 'Untitled', parentLabel: `${w.name} / ${t.name} / ${s.name} / ${ss.name}`, content: n.content ?? '' });
+                }
+              }
             }
           }
         }
@@ -91,6 +132,13 @@ export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisti
     }, 320);
     return () => window.clearTimeout(t);
   }, [open, tab]);
+
+  // Parse each note's headings once when the list loads, not per render/keystroke.
+  const headingsByNote = useMemo(() => {
+    const m = new Map<string, HeadingHit[]>();
+    for (const n of allNotes) m.set(n.id, parseHeadings(n.content));
+    return m;
+  }, [allNotes]);
 
   const filteredNotes = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -180,7 +228,7 @@ export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisti
                 </div>
               )}
 
-              {tab === 'note' && (
+              {tab === 'note' && !pickedNote && (
                 <div className="form-fields">
                   <div className="form-field">
                     <label className="form-field-label">Search notes</label>
@@ -206,21 +254,72 @@ export default function LinkInsertSheet({ open, initialUrl = '', isEditingExisti
                         {search ? 'No notes match' : 'No notes yet'}
                       </div>
                     ) : (
-                      filteredNotes.map((n) => (
-                        <button
-                          key={n.id}
-                          type="button"
-                          className="link-note-row"
-                          onClick={() => onInsert(`#note:${n.id}`)}
-                        >
-                          <FileText size={14} style={{ color: 'var(--ink-4)', flexShrink: 0 }} />
-                          <span style={{ flex: 1, minWidth: 0 }}>
-                            <span className="link-note-title">{n.name}</span>
-                            <span className="link-note-sub">{n.parentLabel}</span>
-                          </span>
-                        </button>
-                      ))
+                      filteredNotes.map((n) => {
+                        const headingCount = (headingsByNote.get(n.id) ?? []).length;
+                        return (
+                          <button
+                            key={n.id}
+                            type="button"
+                            className="link-note-row"
+                            // Notes with headings open a second step to pick the
+                            // exact section; note-only links insert immediately.
+                            onClick={() => (headingCount > 0 ? setPickedNote(n) : onInsert(noteHref(n.id)))}
+                          >
+                            <FileText size={14} style={{ color: 'var(--ink-4)', flexShrink: 0 }} />
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <span className="link-note-title">{n.name}</span>
+                              <span className="link-note-sub">{n.parentLabel}</span>
+                            </span>
+                            {headingCount > 0 && (
+                              <span className="link-note-headcount" title={`${headingCount} heading${headingCount === 1 ? '' : 's'}`}>
+                                <Hash size={11} />{headingCount}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
                     )}
+                  </div>
+                </div>
+              )}
+
+              {tab === 'note' && pickedNote && (
+                <div className="form-fields">
+                  <button
+                    type="button"
+                    className="link-back-row"
+                    onClick={() => setPickedNote(null)}
+                  >
+                    <ChevronLeft size={14} />
+                    <span className="link-note-title" style={{ minWidth: 0 }}>{pickedNote.name}</span>
+                  </button>
+
+                  <div className="link-note-list">
+                    <button
+                      type="button"
+                      className="link-note-row"
+                      onClick={() => onInsert(noteHref(pickedNote.id))}
+                    >
+                      <FileText size={14} style={{ color: 'var(--ink-4)', flexShrink: 0 }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span className="link-note-title">Whole note</span>
+                        <span className="link-note-sub">Link to the top of the note</span>
+                      </span>
+                    </button>
+
+                    {(headingsByNote.get(pickedNote.id) ?? parseHeadings(pickedNote.content)).map((h, i) => (
+                      <button
+                        key={`${i}-${h.text}`}
+                        type="button"
+                        className="link-note-row link-heading-row"
+                        data-level={h.level}
+                        onClick={() => onInsert(noteHref(pickedNote.id, h.text))}
+                      >
+                        <Hash size={13} style={{ color: 'var(--ink-4)', flexShrink: 0 }} />
+                        <span className="link-note-title" style={{ minWidth: 0 }}>{h.text}</span>
+                        <span className="link-heading-badge">H{h.level}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}

@@ -172,7 +172,9 @@ class RoutineEntryOut(BaseModel):
     id: uuid.UUID
     routine_id: uuid.UUID
     date: date
-    value: float
+    # None → the day carries no status (note-only row).
+    value: float | None
+    note: str = ""
     model_config = {"from_attributes": True}
 
 
@@ -237,8 +239,14 @@ class RoutineOut(BaseModel):
 
 
 class RoutineEntryUpsert(BaseModel):
+    # Omit `value` to leave the day's status alone (note-only save); a new row
+    # is then created with value NULL — "has a note, no status". Passing an
+    # explicit null clears the status of an existing day the same way.
     date: date
-    value: float
+    value: float | None = None
+    # None → leave any existing note untouched (used by the plain done/skip
+    # toggles). A string (incl. "") explicitly sets/clears the note.
+    note: str | None = None
 
 
 class GoalRoutineLinkOut(BaseModel):

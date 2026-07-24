@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, FilePlus2, FileText, FolderPlus, GripVertical, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ChevronRight, FileText, FolderPlus, GripVertical, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
+import * as Popover from '@radix-ui/react-popover';
 import {
   DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable,
   useSensor, useSensors, type DragEndEvent, type DragStartEvent,
@@ -8,10 +9,12 @@ import { toast } from 'sonner';
 import type { NotesLibrary } from '../hooks/useNotesLibrary';
 import type { Way } from '../../../api/types';
 import { confirmDialog, promptDialog } from '../../../components/ui';
-import { notesApi } from '../../../api/client';
+import { notesApi, type NoteParent } from '../../../api/client';
 
-const EXP_WAYS_KEY   = 'jarvnote:notes:expandedWays';
-const EXP_TOPICS_KEY = 'jarvnote:notes:expandedTopics';
+const EXP_WAYS_KEY         = 'jarvnote:notes:expandedWays';
+const EXP_TOPICS_KEY       = 'jarvnote:notes:expandedTopics';
+const EXP_SUBTOPICS_KEY    = 'jarvnote:notes:expandedSubtopics';
+const EXP_SUBSUBTOPICS_KEY = 'jarvnote:notes:expandedSubsubtopics';
 
 /* ── DnD: NoteRow + DropTarget ──────────────────────────────────────────
  *
@@ -25,7 +28,7 @@ const EXP_TOPICS_KEY = 'jarvnote:notes:expandedTopics';
 interface NoteRowProps {
   noteId: string;
   noteName: string;
-  depth: 1 | 2;
+  depth: 1 | 2 | 3 | 4;
   selected: boolean;
   onSelect: () => void;
   onRename: (e: React.MouseEvent) => void | Promise<void>;
@@ -91,6 +94,65 @@ function DropTarget({ id, children }: { id: string; children: React.ReactNode })
   );
 }
 
+/** Aggregated "add" affordance for a tree row. Replaces the pair of always-on
+ *  create icons (new sub-container + new note) with a single "+" so the row
+ *  name has room. With one item it acts directly; with several it opens a
+ *  small popover menu. */
+interface RowAddItem { label: string; icon: ReactNode; onClick: () => void }
+function RowAddMenu({ items, title }: { items: RowAddItem[]; title: string }) {
+  const [open, setOpen] = useState(false);
+  if (items.length === 1) {
+    const only = items[0];
+    return (
+      <span
+        className="row-action row-add"
+        role="button"
+        tabIndex={0}
+        title={only.label}
+        onClick={(e) => { e.stopPropagation(); only.onClick(); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); only.onClick(); }
+        }}
+      ><Plus size={12} /></span>
+    );
+  }
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <span
+          className="row-action row-add"
+          role="button"
+          tabIndex={0}
+          title={title}
+          data-open={open || undefined}
+          onClick={(e) => e.stopPropagation()}
+        ><Plus size={12} /></span>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          className="lib-add-menu"
+          sideOffset={4}
+          align="end"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {items.map((it, i) => (
+            <button
+              key={i}
+              type="button"
+              className="lib-add-menu__item"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick(); }}
+            >
+              <span className="lib-add-menu__icon">{it.icon}</span>
+              {it.label}
+            </button>
+          ))}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
 function readSet(key: string): Set<string> {
   try {
     const raw = localStorage.getItem(key);
@@ -117,6 +179,8 @@ export function NotesPane({
     ways, createWay, createTopic, createNote,
     renameWay, deleteWay,
     renameTopic, deleteTopic,
+    createSubtopic, renameSubtopic, deleteSubtopic,
+    createSubsubtopic, renameSubsubtopic, deleteSubsubtopic,
     renameNote, deleteNote,
   } = library;
 
@@ -140,10 +204,14 @@ export function NotesPane({
     });
   const [expandedWays, setExpandedWays]     = useState<Set<string>>(readSet(EXP_WAYS_KEY));
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(readSet(EXP_TOPICS_KEY));
+  const [expandedSubtopics, setExpandedSubtopics] = useState<Set<string>>(readSet(EXP_SUBTOPICS_KEY));
+  const [expandedSubsubtopics, setExpandedSubsubtopics] = useState<Set<string>>(readSet(EXP_SUBSUBTOPICS_KEY));
   const [search, setSearch] = useState('');
 
   useEffect(() => { writeSet(EXP_WAYS_KEY, expandedWays); },     [expandedWays]);
   useEffect(() => { writeSet(EXP_TOPICS_KEY, expandedTopics); }, [expandedTopics]);
+  useEffect(() => { writeSet(EXP_SUBTOPICS_KEY, expandedSubtopics); }, [expandedSubtopics]);
+  useEffect(() => { writeSet(EXP_SUBSUBTOPICS_KEY, expandedSubsubtopics); }, [expandedSubsubtopics]);
 
   // Auto-expand parents of the selected note.
   useEffect(() => {
@@ -156,6 +224,16 @@ export function NotesPane({
         p.has(located.topic!.id) ? p : new Set([...p, located.topic!.id]),
       );
     }
+    if (located.subtopic) {
+      setExpandedSubtopics((p) =>
+        p.has(located.subtopic!.id) ? p : new Set([...p, located.subtopic!.id]),
+      );
+    }
+    if (located.subsubtopic) {
+      setExpandedSubsubtopics((p) =>
+        p.has(located.subsubtopic!.id) ? p : new Set([...p, located.subsubtopic!.id]),
+      );
+    }
   }, [selectedNoteId, library]);
 
   const toggleWay = (id: string) => setExpandedWays((p) => {
@@ -164,6 +242,16 @@ export function NotesPane({
     return n;
   });
   const toggleTopic = (id: string) => setExpandedTopics((p) => {
+    const n = new Set(p);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  const toggleSubtopic = (id: string) => setExpandedSubtopics((p) => {
+    const n = new Set(p);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  const toggleSubsubtopic = (id: string) => setExpandedSubsubtopics((p) => {
     const n = new Set(p);
     if (n.has(id)) n.delete(id); else n.add(id);
     return n;
@@ -179,8 +267,22 @@ export function NotesPane({
       const topics = w.topics.map((t) => {
         const topicHit = t.name.toLowerCase().includes(q);
         const matched  = t.notes.filter((n) => n.name.toLowerCase().includes(q));
+        const subtopics = t.subtopics.map((s) => {
+          const subHit = s.name.toLowerCase().includes(q);
+          const subMatched = s.notes.filter((n) => n.name.toLowerCase().includes(q));
+          const subsubtopics = s.subsubtopics.map((ss) => {
+            const ssHit = ss.name.toLowerCase().includes(q);
+            const ssMatched = ss.notes.filter((n) => n.name.toLowerCase().includes(q));
+            if (ssHit) return ss;
+            if (ssMatched.length) return { ...ss, notes: ssMatched };
+            return null;
+          }).filter((ss): ss is typeof s.subsubtopics[number] => ss !== null);
+          if (subHit) return s;
+          if (subMatched.length || subsubtopics.length) return { ...s, notes: subMatched, subsubtopics };
+          return null;
+        }).filter((s): s is typeof t.subtopics[number] => s !== null);
         if (topicHit) return t;
-        if (matched.length) return { ...t, notes: matched };
+        if (matched.length || subtopics.length) return { ...t, notes: matched, subtopics };
         return null;
       }).filter((t): t is typeof w.topics[number] => t !== null);
       if (wayHit) out.push(w);
@@ -195,13 +297,27 @@ export function NotesPane({
     let n = 0;
     for (const w of ways) {
       n += w.notes.length;
-      for (const t of w.topics) n += t.notes.length;
+      for (const t of w.topics) {
+        n += t.notes.length;
+        for (const s of t.subtopics) {
+          n += s.notes.length;
+          for (const ss of s.subsubtopics) n += ss.notes.length;
+        }
+      }
     }
     return n;
   }, [ways]);
 
   const totalTopics = useMemo(() =>
     ways.reduce((acc, w) => acc + w.topics.length, 0), [ways]);
+
+  // Notes directly under a subtopic + everything nested in its subsubtopics.
+  const subtopicNoteCount = (s: Way['topics'][number]['subtopics'][number]): number =>
+    s.notes.length + s.subsubtopics.reduce((a, ss) => a + ss.notes.length, 0);
+
+  // Total notes under a topic, including those nested in its subtopics/subsubtopics.
+  const topicNoteCount = (t: Way['topics'][number]): number =>
+    t.notes.length + t.subtopics.reduce((a, s) => a + subtopicNoteCount(s), 0);
 
   const handleNewWay = async () => {
     // Was `window.prompt(...)` — native browser dialog clashed with the
@@ -229,7 +345,31 @@ export function NotesPane({
     setExpandedWays((p) => p.has(wayId) ? p : new Set([...p, wayId]));
   };
 
-  const handleNewNote = async (target: { way_id?: string; topic_id?: string }) => {
+  const handleNewSubtopic = async (topicId: string) => {
+    const name = (await promptDialog({
+      title: 'New subtopic',
+      placeholder: 'Subtopic name',
+      confirmLabel: 'Create',
+      withEmoji: true,
+    }))?.trim();
+    if (!name) return;
+    await createSubtopic(topicId, name);
+    setExpandedTopics((p) => p.has(topicId) ? p : new Set([...p, topicId]));
+  };
+
+  const handleNewSubsubtopic = async (subtopicId: string) => {
+    const name = (await promptDialog({
+      title: 'New subsubtopic',
+      placeholder: 'Subsubtopic name',
+      confirmLabel: 'Create',
+      withEmoji: true,
+    }))?.trim();
+    if (!name) return;
+    await createSubsubtopic(subtopicId, name);
+    setExpandedSubtopics((p) => p.has(subtopicId) ? p : new Set([...p, subtopicId]));
+  };
+
+  const handleNewNote = async (target: NoteParent) => {
     const note = await createNote(target, 'Untitled');
     if (!note) return;
     if (target.way_id) {
@@ -237,6 +377,12 @@ export function NotesPane({
     }
     if (target.topic_id) {
       setExpandedTopics((p) => p.has(target.topic_id!) ? p : new Set([...p, target.topic_id!]));
+    }
+    if (target.subtopic_id) {
+      setExpandedSubtopics((p) => p.has(target.subtopic_id!) ? p : new Set([...p, target.subtopic_id!]));
+    }
+    if (target.subsubtopic_id) {
+      setExpandedSubsubtopics((p) => p.has(target.subsubtopic_id!) ? p : new Set([...p, target.subsubtopic_id!]));
     }
     onSelectNote(note.id);
   };
@@ -262,14 +408,22 @@ export function NotesPane({
     // current parent (would be a wasted API call + refresh churn).
     const located = library.findNote(noteId);
     if (!located) return;
-    let target: { way_id?: string; topic_id?: string } | null = null;
+    let target: NoteParent | null = null;
     if (overId.startsWith('way:')) {
       const wayId = overId.slice(4);
-      if (located.topic === null && located.way.id === wayId) return; // already here
+      if (located.topic === null && located.subtopic === null && located.subsubtopic === null && located.way.id === wayId) return; // already here
       target = { way_id: wayId };
+    } else if (overId.startsWith('subsubtopic:')) {
+      const subsubtopicId = overId.slice(12);
+      if (located.subsubtopic?.id === subsubtopicId) return;
+      target = { subsubtopic_id: subsubtopicId };
+    } else if (overId.startsWith('subtopic:')) {
+      const subtopicId = overId.slice(9);
+      if (located.subsubtopic === null && located.subtopic?.id === subtopicId) return;
+      target = { subtopic_id: subtopicId };
     } else if (overId.startsWith('topic:')) {
       const topicId = overId.slice(6);
-      if (located.topic?.id === topicId) return;
+      if (located.subtopic === null && located.subsubtopic === null && located.topic?.id === topicId) return;
       target = { topic_id: topicId };
     } else {
       return;
@@ -375,22 +529,13 @@ export function NotesPane({
                       }
                     }}
                   ><Trash2 size={11} /></span>
-                  <span
-                    className="row-action"
-                    role="button"
-                    tabIndex={0}
-                    title="New topic"
-                    onClick={(e) => { e.stopPropagation(); void handleNewTopic(way.id); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void handleNewTopic(way.id); } }}
-                  ><FolderPlus size={12} /></span>
-                  <span
-                    className="row-action"
-                    role="button"
-                    tabIndex={0}
-                    title="New note in way"
-                    onClick={(e) => { e.stopPropagation(); void handleNewNote({ way_id: way.id }); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void handleNewNote({ way_id: way.id }); } }}
-                  ><FilePlus2 size={12} /></span>
+                  <RowAddMenu
+                    title="Add to way"
+                    items={[
+                      { label: 'New note', icon: <FileText size={13} />, onClick: () => void handleNewNote({ way_id: way.id }) },
+                      { label: 'New topic', icon: <FolderPlus size={13} />, onClick: () => void handleNewTopic(way.id) },
+                    ]}
+                  />
                 </div>
                 </DropTarget>
 
@@ -435,7 +580,7 @@ export function NotesPane({
                           >
                             <span className={`tree-chev${topicOpen ? ' is-open' : ''}`}><ChevronRight /></span>
                             <span className="name">{topic.name}</span>
-                            <span className="count">{topic.notes.length}</span>
+                            <span className="count">{topicNoteCount(topic)}</span>
                             <span
                               className="row-action row-action--hover"
                               role="button"
@@ -456,19 +601,18 @@ export function NotesPane({
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 (e.currentTarget as HTMLElement).blur();
-                                if (await confirmDelete(topic.name, 'topic', 'All notes inside it will be removed.')) {
+                                if (await confirmDelete(topic.name, 'topic', 'All subtopics and notes inside it will be removed.')) {
                                   void deleteTopic(topic.id);
                                 }
                               }}
                             ><Trash2 size={11} /></span>
-                            <span
-                              className="row-action"
-                              role="button"
-                              tabIndex={0}
-                              title="New note in topic"
-                              onClick={(e) => { e.stopPropagation(); void handleNewNote({ topic_id: topic.id }); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void handleNewNote({ topic_id: topic.id }); } }}
-                            ><FilePlus2 size={12} /></span>
+                            <RowAddMenu
+                              title="Add to topic"
+                              items={[
+                                { label: 'New note', icon: <FileText size={13} />, onClick: () => void handleNewNote({ topic_id: topic.id }) },
+                                { label: 'New subtopic', icon: <FolderPlus size={13} />, onClick: () => void handleNewSubtopic(topic.id) },
+                              ]}
+                            />
                           </div>
                           </DropTarget>
                           {topicOpen && topic.notes.map((note) => (
@@ -494,6 +638,159 @@ export function NotesPane({
                               }}
                             />
                           ))}
+
+                          {topicOpen && topic.subtopics.map((subtopic) => {
+                            const subOpen = q ? true : expandedSubtopics.has(subtopic.id);
+                            return (
+                              <div key={subtopic.id}>
+                                <DropTarget id={`subtopic:${subtopic.id}`}>
+                                <div
+                                  className="lib-row tree-row"
+                                  data-depth="2"
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => toggleSubtopic(subtopic.id)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubtopic(subtopic.id); } }}
+                                >
+                                  <span className={`tree-chev${subOpen ? ' is-open' : ''}`}><ChevronRight /></span>
+                                  <span className="name">{subtopic.name}</span>
+                                  <span className="count">{subtopicNoteCount(subtopic)}</span>
+                                  <span
+                                    className="row-action row-action--hover"
+                                    role="button"
+                                    tabIndex={0}
+                                    title="Rename subtopic"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      (e.currentTarget as HTMLElement).blur();
+                                      const next = await promptRename(subtopic.name, 'subtopic');
+                                      if (next) void renameSubtopic(subtopic.id, next);
+                                    }}
+                                  ><Pencil size={11} /></span>
+                                  <span
+                                    className="row-action row-action--hover row-action--danger"
+                                    role="button"
+                                    tabIndex={0}
+                                    title="Delete subtopic"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      (e.currentTarget as HTMLElement).blur();
+                                      if (await confirmDelete(subtopic.name, 'subtopic', 'All subsubtopics and notes inside it will be removed.')) {
+                                        void deleteSubtopic(subtopic.id);
+                                      }
+                                    }}
+                                  ><Trash2 size={11} /></span>
+                                  <RowAddMenu
+                                    title="Add to subtopic"
+                                    items={[
+                                      { label: 'New note', icon: <FileText size={13} />, onClick: () => void handleNewNote({ subtopic_id: subtopic.id }) },
+                                      { label: 'New subsubtopic', icon: <FolderPlus size={13} />, onClick: () => void handleNewSubsubtopic(subtopic.id) },
+                                    ]}
+                                  />
+                                </div>
+                                </DropTarget>
+                                {subOpen && subtopic.notes.map((note) => (
+                                  <NoteRow
+                                    key={note.id}
+                                    noteId={note.id}
+                                    noteName={note.name}
+                                    depth={3}
+                                    selected={selectedNoteId === note.id}
+                                    onSelect={() => onSelectNote(note.id)}
+                                    onRename={async (e) => {
+                                      e.stopPropagation();
+                                      (e.currentTarget as HTMLElement).blur();
+                                      const next = await promptRename(note.name || 'Untitled', 'note');
+                                      if (next) void renameNote(note.id, next);
+                                    }}
+                                    onDelete={async (e) => {
+                                      e.stopPropagation();
+                                      (e.currentTarget as HTMLElement).blur();
+                                      if (await confirmDelete(note.name || 'Untitled', 'note')) {
+                                        void deleteNote(note.id);
+                                      }
+                                    }}
+                                  />
+                                ))}
+
+                                {subOpen && subtopic.subsubtopics.map((subsubtopic) => {
+                                  const ssOpen = q ? true : expandedSubsubtopics.has(subsubtopic.id);
+                                  return (
+                                    <div key={subsubtopic.id}>
+                                      <DropTarget id={`subsubtopic:${subsubtopic.id}`}>
+                                      <div
+                                        className="lib-row tree-row"
+                                        data-depth="3"
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => toggleSubsubtopic(subsubtopic.id)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubsubtopic(subsubtopic.id); } }}
+                                      >
+                                        <span className={`tree-chev${ssOpen ? ' is-open' : ''}`}><ChevronRight /></span>
+                                        <span className="name">{subsubtopic.name}</span>
+                                        <span className="count">{subsubtopic.notes.length}</span>
+                                        <span
+                                          className="row-action row-action--hover"
+                                          role="button"
+                                          tabIndex={0}
+                                          title="Rename subsubtopic"
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            (e.currentTarget as HTMLElement).blur();
+                                            const next = await promptRename(subsubtopic.name, 'subsubtopic');
+                                            if (next) void renameSubsubtopic(subsubtopic.id, next);
+                                          }}
+                                        ><Pencil size={11} /></span>
+                                        <span
+                                          className="row-action row-action--hover row-action--danger"
+                                          role="button"
+                                          tabIndex={0}
+                                          title="Delete subsubtopic"
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            (e.currentTarget as HTMLElement).blur();
+                                            if (await confirmDelete(subsubtopic.name, 'subsubtopic', 'All notes inside it will be removed.')) {
+                                              void deleteSubsubtopic(subsubtopic.id);
+                                            }
+                                          }}
+                                        ><Trash2 size={11} /></span>
+                                        <RowAddMenu
+                                          title="New note"
+                                          items={[
+                                            { label: 'New note', icon: <FileText size={13} />, onClick: () => void handleNewNote({ subsubtopic_id: subsubtopic.id }) },
+                                          ]}
+                                        />
+                                      </div>
+                                      </DropTarget>
+                                      {ssOpen && subsubtopic.notes.map((note) => (
+                                        <NoteRow
+                                          key={note.id}
+                                          noteId={note.id}
+                                          noteName={note.name}
+                                          depth={4}
+                                          selected={selectedNoteId === note.id}
+                                          onSelect={() => onSelectNote(note.id)}
+                                          onRename={async (e) => {
+                                            e.stopPropagation();
+                                            (e.currentTarget as HTMLElement).blur();
+                                            const next = await promptRename(note.name || 'Untitled', 'note');
+                                            if (next) void renameNote(note.id, next);
+                                          }}
+                                          onDelete={async (e) => {
+                                            e.stopPropagation();
+                                            (e.currentTarget as HTMLElement).blur();
+                                            if (await confirmDelete(note.name || 'Untitled', 'note')) {
+                                              void deleteNote(note.id);
+                                            }
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })}

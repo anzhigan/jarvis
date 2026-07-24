@@ -25,7 +25,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai import AIJob, AIQuiz
-from app.models.notes import Note, Topic, Way
+from app.models.notes import Note, Subsubtopic, Subtopic, Topic, Way
 from app.schemas.ai import QuizCreate, QuizQuestionOut
 from app.services.ai.cache import QUIZ_ALL_MIN_NOTE_CHARS
 from app.services.ai.embeddings import html_to_text
@@ -196,6 +196,15 @@ async def _gather_all_notes(
         select(Topic.id).join(Way, Topic.way_id == Way.id)
         .where(Way.user_id == user_id),
     )).scalars().all())
+    subtopic_ids = list((await db.execute(
+        select(Subtopic.id).join(Topic, Subtopic.topic_id == Topic.id)
+        .join(Way, Topic.way_id == Way.id).where(Way.user_id == user_id),
+    )).scalars().all())
+    subsubtopic_ids = list((await db.execute(
+        select(Subsubtopic.id).join(Subtopic, Subsubtopic.subtopic_id == Subtopic.id)
+        .join(Topic, Subtopic.topic_id == Topic.id)
+        .join(Way, Topic.way_id == Way.id).where(Way.user_id == user_id),
+    )).scalars().all())
     if not way_ids and not topic_ids:
         return []
 
@@ -204,6 +213,10 @@ async def _gather_all_notes(
             Note.way_id.in_(way_ids),
             Note.topic_id.in_(topic_ids),
             Note.topic_inline_id.in_(topic_ids),
+            Note.subtopic_id.in_(subtopic_ids),
+            Note.subtopic_inline_id.in_(subtopic_ids),
+            Note.subsubtopic_id.in_(subsubtopic_ids),
+            Note.subsubtopic_inline_id.in_(subsubtopic_ids),
         ),
         func.length(Note.content) >= QUIZ_ALL_MIN_NOTE_CHARS,
     )

@@ -12,6 +12,8 @@ import type {
   GoRecurrence,
   GoalRoutineLink,
   Topic,
+  Subtopic,
+  Subsubtopic,
   User,
   Way,
 } from './types';
@@ -214,12 +216,38 @@ export const topicsApi = {
   delete: (id: string) => request<void>(`/topics/${id}`, { method: 'DELETE' }),
 };
 
+export const subtopicsApi = {
+  create: (topicId: string, name: string, order = 0) =>
+    request<Subtopic>(`/topics/${topicId}/subtopics`, { method: 'POST', body: JSON.stringify({ name, order }) }),
+  update: (id: string, data: { name?: string; order?: number }) =>
+    request<Subtopic>(`/subtopics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/subtopics/${id}`, { method: 'DELETE' }),
+};
+
+export const subsubtopicsApi = {
+  create: (subtopicId: string, name: string, order = 0) =>
+    request<Subsubtopic>(`/subtopics/${subtopicId}/subsubtopics`, { method: 'POST', body: JSON.stringify({ name, order }) }),
+  update: (id: string, data: { name?: string; order?: number }) =>
+    request<Subsubtopic>(`/subsubtopics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/subsubtopics/${id}`, { method: 'DELETE' }),
+};
+
+/** A note's parent target — exactly one field set. */
+export type NoteParent = {
+  way_id?: string; topic_id?: string; subtopic_id?: string; subsubtopic_id?: string;
+};
+
 export const notesApi = {
-  create: (data: { name: string; content?: string; way_id?: string; topic_id?: string; topic_inline_id?: string }) =>
+  create: (data: {
+    name: string; content?: string;
+    way_id?: string; topic_id?: string; topic_inline_id?: string;
+    subtopic_id?: string; subtopic_inline_id?: string;
+    subsubtopic_id?: string; subsubtopic_inline_id?: string;
+  }) =>
     request<Note>('/notes', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: { name?: string; content?: string; pinned?: boolean }) =>
     request<Note>(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  move: (id: string, target: { way_id?: string; topic_id?: string }) =>
+  move: (id: string, target: NoteParent) =>
     request<Note>(`/notes/${id}/move`, { method: 'POST', body: JSON.stringify(target) }),
   delete: (id: string) => request<void>(`/notes/${id}`, { method: 'DELETE' }),
   uploadImage: (noteId: string, file: File) => {
@@ -289,6 +317,10 @@ export const tasksApi = {
   update: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; start_date?: string | null; due_date?: string | null; is_completed?: boolean; order?: number; color?: string }) =>
     request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
+  /** Clone a task card with its steps, gos and routine links (history and
+   *  step completion reset; routines re-linked, not duplicated). */
+  duplicate: (id: string) =>
+    request<Task>(`/tasks/${id}/duplicate`, { method: 'POST' }),
   attachTag: (taskId: string, tagId: string) =>
     request<void>(`/tasks/${taskId}/tags/${tagId}`, { method: 'POST' }),
   detachTag: (taskId: string, tagId: string) =>
@@ -408,11 +440,19 @@ export const routinesApi = {
 
   delete: (id: string) => request<void>(`/routines/${id}`, { method: 'DELETE' }),
 
-  upsertEntry: (id: string, date: string, value: number) =>
-    request<RoutineEntry>(`/routines/${id}/entries`, {
+  /** Upsert a day's log. Omit `value` (pass `undefined`) to leave the day's
+   *  status untouched — a note-only save; pass `null` to clear the status
+   *  while keeping the row. Omit `note` to leave any existing note untouched
+   *  (backend treats an absent field as "keep" for both). */
+  upsertEntry: (id: string, date: string, value?: number | null, note?: string) => {
+    const body: Record<string, unknown> = { date };
+    if (value !== undefined) body.value = value;
+    if (note !== undefined) body.note = note;
+    return request<RoutineEntry>(`/routines/${id}/entries`, {
       method: 'POST',
-      body: JSON.stringify({ date, value }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
 
   deleteEntry: (id: string, date: string) =>
     request<void>(`/routines/${id}/entries/${date}`, { method: 'DELETE' }),

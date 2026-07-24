@@ -69,6 +69,85 @@ class Topic(Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    subtopics: Mapped[list["Subtopic"]] = relationship(
+        back_populates="topic", cascade="all, delete-orphan", order_by="Subtopic.order",
+    )
+
+
+class Subtopic(Base):
+    """Optional level between Topic and Note: Way → Topic → Subtopic → Note.
+
+    Mirrors Topic — it owns its own child notes plus an optional inline note
+    (the subtopic's own body). Notes may still live directly under a Way or
+    Topic, so this level is entirely optional and backward compatible.
+    """
+
+    __tablename__ = "subtopics"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    topic_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    topic: Mapped["Topic"] = relationship(back_populates="subtopics")
+    notes: Mapped[list["Note"]] = relationship(
+        "Note",
+        primaryjoin="and_(Subtopic.id==Note.subtopic_id, Note.subtopic_id.isnot(None))",
+        cascade="all, delete-orphan",
+        order_by="(Note.pinned.desc(), Note.order, Note.created_at)",
+    )
+    inline_note: Mapped["Note | None"] = relationship(
+        "Note",
+        primaryjoin="and_(Subtopic.id==Note.subtopic_inline_id, Note.subtopic_inline_id.isnot(None))",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    subsubtopics: Mapped[list["Subsubtopic"]] = relationship(
+        back_populates="subtopic", cascade="all, delete-orphan", order_by="Subsubtopic.order",
+    )
+
+
+class Subsubtopic(Base):
+    """Optional level between Subtopic and Note:
+    Way → Topic → Subtopic → Subsubtopic → Note.
+
+    Mirrors Subtopic — owns its own child notes plus an optional inline note.
+    Entirely optional and backward compatible (notes may still live at any
+    higher level).
+    """
+
+    __tablename__ = "subsubtopics"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    subtopic_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("subtopics.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    subtopic: Mapped["Subtopic"] = relationship(back_populates="subsubtopics")
+    notes: Mapped[list["Note"]] = relationship(
+        "Note",
+        primaryjoin="and_(Subsubtopic.id==Note.subsubtopic_id, Note.subsubtopic_id.isnot(None))",
+        cascade="all, delete-orphan",
+        order_by="(Note.pinned.desc(), Note.order, Note.created_at)",
+    )
+    inline_note: Mapped["Note | None"] = relationship(
+        "Note",
+        primaryjoin="and_(Subsubtopic.id==Note.subsubtopic_inline_id, Note.subsubtopic_inline_id.isnot(None))",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
 
 class Note(Base):
@@ -83,6 +162,10 @@ class Note(Base):
     way_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("ways.id", ondelete="CASCADE"), nullable=True, index=True)
     topic_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), nullable=True, index=True)
     topic_inline_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), nullable=True, index=True)
+    subtopic_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("subtopics.id", ondelete="CASCADE"), nullable=True, index=True)
+    subtopic_inline_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("subtopics.id", ondelete="CASCADE"), nullable=True, index=True)
+    subsubtopic_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("subsubtopics.id", ondelete="CASCADE"), nullable=True, index=True)
+    subsubtopic_inline_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("subsubtopics.id", ondelete="CASCADE"), nullable=True, index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(

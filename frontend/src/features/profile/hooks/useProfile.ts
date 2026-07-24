@@ -45,7 +45,7 @@ export function useProfile() {
       : Math.max(...routines.map((r) => currentStreak(r))),
     /** Sum of positive-value entries across every routine — "Entries logged". */
     entriesLogged: routines.reduce((acc, r) =>
-      acc + r.entries.filter((e) => e.value > 0).length, 0),
+      acc + r.entries.filter((e) => (e.value ?? 0) > 0).length, 0),
     /** Active streaks (≥3 days) — kept as a derivation for the rail/route badge. */
     streaksCount: routines.filter((r) => !r.is_paused && currentStreak(r) >= 3).length,
   };

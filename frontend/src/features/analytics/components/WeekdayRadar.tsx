@@ -37,7 +37,7 @@ export function WeekdayRadar({ routines, periodDays }: Props) {
     // For each routine, build a quick date→value map.
     const byDate = routines.map((r) => {
       const m = new Map<string, number>();
-      for (const e of r.entries) m.set(e.date, e.value);
+      for (const e of r.entries) m.set(e.date, e.value ?? 0);
       return m;
     });
 

@@ -35,16 +35,20 @@ interface FloatingProps {
   editor: Editor;
   shouldShow: (props: any) => boolean;
   options: any;
+  /** Forwarded onto the FloatingMenu's positioned wrapper element so it can be
+   *  stacked/offset from CSS (the plugin leaves the wrapper at z-index:auto). */
+  className?: string;
   children: ReactNode;
 }
 
-export function NoteFloatingMenu({ editor, shouldShow, options, children }: FloatingProps) {
+export function NoteFloatingMenu({ editor, shouldShow, options, className, children }: FloatingProps) {
   return (
     <FloatingMenu
       editor={editor}
       updateDelay={0}
       shouldShow={shouldShow}
       options={options}
+      className={className}
     >
       {children}
     </FloatingMenu>

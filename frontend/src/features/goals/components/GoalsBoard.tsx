@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import {
-  Calendar, Check, ChevronRight, Flag, Plus, Repeat, Sparkles, Unlink2, X, Zap,
+  Calendar, Check, ChevronRight, Copy, Flag, Plus, Repeat, Sparkles, Unlink2, X, Zap,
 } from 'lucide-react';
 import { GoalProgressTrack } from './GoalProgressTrack';
 import {
@@ -52,6 +52,8 @@ interface Props {
   onSkipRoutine: (link: import('../../../api/types').GoalRoutineLink, date?: string) => void | Promise<void>;
   /** Detach the Routine from this Goal (deletes the GoalRoutineLink, keeps the Routine). */
   onUnlinkRoutine: (link: import('../../../api/types').GoalRoutineLink) => void | Promise<void>;
+  /** Duplicate the whole card (steps + gos + routine links) into a new goal. */
+  onDuplicate: (taskId: string) => void | Promise<void>;
 }
 
 interface Column {
@@ -102,6 +104,7 @@ interface CardCallbacks {
   onSkipRoutine?: Props['onSkipRoutine'];
   onUnlinkRoutine?: Props['onUnlinkRoutine'];
   onPlanGoalWithAi?: Props['onPlanGoalWithAi'];
+  onDuplicate?: Props['onDuplicate'];
 }
 
 function GoalCardContent({
@@ -161,6 +164,17 @@ function GoalCardContent({
             }
             onPick={(mode) => callbacks.onPlanGoalWithAi?.(task.id, mode)}
           />
+        )}
+        {callbacks?.onDuplicate && (
+          <button
+            type="button"
+            className="kc-copy-btn"
+            aria-label="Copy card"
+            title="Copy card (steps, gos & routines)"
+            onClick={(e) => { e.stopPropagation(); callbacks.onDuplicate?.(task.id); }}
+          >
+            <Copy size={11} />
+          </button>
         )}
         <span className="kc-pri-flag" data-pri={task.priority} title={`Priority: ${task.priority}`}>
           <Flag size={11} />
@@ -490,7 +504,7 @@ const RoutineSubcard = memo(function RoutineSubcard({
   const { todayKey, days, scheduleLabel, cellStateByDate } = useMemo(() => {
     const todayKey = ymdDate(new Date());
     const entryByDate = new Map<string, number>();
-    for (const e of r.entries) entryByDate.set(e.date, e.value);
+    for (const e of r.entries) if (e.value !== null) entryByDate.set(e.date, e.value);
     const cellState = (v: number | undefined): RoutineCellState => {
       if (v === undefined) return 'empty';
       if (v === 0) return 'skipped';
@@ -798,7 +812,7 @@ export function GoalsBoard({
   tasks, visibleStatuses, onSelect, onAdd, onMove,
   onToggleGoDone, onAddGo, onAddStep, onEditStep, onEditGo, onEditRoutine,
   onUnlinkGo, onDeleteStep, onPlanGoalWithAi,
-  onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
+  onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine, onDuplicate,
 }: Props) {
   // When the user picks specific statuses in the filter bar, render only
   // those columns and stretch them across the row (1-up, 2-up, 3-up, …).
@@ -864,10 +878,11 @@ export function GoalsBoard({
     onToggleRoutineDone,
     onSkipRoutine,
     onUnlinkRoutine,
+    onDuplicate,
   }), [
     onToggleGoDone, onAddGo, onAddStep, onEditStep, onEditGo, onEditRoutine,
     onUnlinkGo, onDeleteStep, onPlanGoalWithAi,
-    onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine,
+    onAddRoutine, onToggleRoutineDone, onSkipRoutine, onUnlinkRoutine, onDuplicate,
   ]);
 
   return (

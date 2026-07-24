@@ -26,6 +26,8 @@ interface Props {
   onRegenerate?: () => void;
   /** Fires when a slot's underlying source (currently only Gos) is clicked. */
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
+  /** Toggle a Go's done state from the plan (checkbox on the Go slot). */
+  onToggleGoDone?: (go: Go) => void;
   /** Fires when the Goal pill inside a slot is clicked. */
   onGoalClick?: (goalId: string) => void;
   /** Catalogue used to enrich Go-source slots — render them as Go subcards
@@ -52,7 +54,7 @@ const LOADING_STEPS = [
 ];
 
 export function ScheduleDrawer({
-  jobId, dateLabel, onClose, onRegenerate, onSlotClick, onGoalClick,
+  jobId, dateLabel, onClose, onRegenerate, onSlotClick, onToggleGoDone, onGoalClick,
   shifted, nonModal, gos, goals,
 }: Props) {
   const open = jobId !== null;
@@ -148,6 +150,7 @@ export function ScheduleDrawer({
           <ResultView
             slots={view.data.slots}
             onSlotClick={onSlotClick}
+            onToggleGoDone={onToggleGoDone}
             onGoalClick={onGoalClick}
             gosById={gosById}
             goalsById={goalsById}
@@ -251,10 +254,11 @@ function normalizeTitle(s: string): string {
 }
 
 function ResultView({
-  slots, onSlotClick, onGoalClick, gosById, goalsById, stepById, goByTitle,
+  slots, onSlotClick, onToggleGoDone, onGoalClick, gosById, goalsById, stepById, goByTitle,
 }: {
   slots: ScheduleSlot[];
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
+  onToggleGoDone?: (go: Go) => void;
   onGoalClick?: (goalId: string) => void;
   gosById: Map<string, Go>;
   goalsById: Map<string, Task>;
@@ -310,6 +314,7 @@ function ResultView({
               stepById={stepById}
               goByTitle={goByTitle}
               onSlotClick={onSlotClick}
+              onToggleGoDone={onToggleGoDone}
               onGoalClick={onGoalClick}
             />
           ))}
@@ -321,7 +326,7 @@ function ResultView({
 
 function SortableSlot({
   slot: s, index: i, freeOrder, gosById, goalsById, stepById,
-  goByTitle, onSlotClick, onGoalClick,
+  goByTitle, onSlotClick, onToggleGoDone, onGoalClick,
 }: {
   slot: PlanSlot;
   index: number;
@@ -331,6 +336,7 @@ function SortableSlot({
   stepById: Map<string, { title: string }>;
   goByTitle: Map<string, Go>;
   onSlotClick?: (sourceKind: 'go', sourceId: string) => void;
+  onToggleGoDone?: (go: Go) => void;
   onGoalClick?: (goalId: string) => void;
 }) {
   const {
@@ -361,6 +367,7 @@ function SortableSlot({
         stepTitle={stepTitle}
         priority={goalFromGo?.priority ?? null}
         onGoalClick={onGoalClick}
+        onToggleDone={onToggleGoDone ? () => onToggleGoDone(linkedGo) : undefined}
       />
     );
   } else {
@@ -458,7 +465,7 @@ function SlotBody({
  *  with the title for space. The Goal capsule carries the priority colour
  *  and is itself a button that opens the Goal detail panel. */
 function GoSubcardInline({
-  go, note, goalId, goalTitle, stepTitle, priority, onGoalClick,
+  go, note, goalId, goalTitle, stepTitle, priority, onGoalClick, onToggleDone,
 }: {
   go: Go;
   note: string;
@@ -467,6 +474,7 @@ function GoSubcardInline({
   stepTitle: string | null;
   priority: 'high' | 'medium' | 'low' | null;
   onGoalClick?: (goalId: string) => void;
+  onToggleDone?: () => void;
 }) {
   const due = go.due_date ? new Date(go.due_date) : null;
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -512,6 +520,25 @@ function GoSubcardInline({
         </div>
       )}
       <div className="kc-child-row">
+        {onToggleDone && (
+          <button
+            type="button"
+            className="kc-child-check kc-child-check-btn"
+            role="checkbox"
+            aria-checked={go.is_done_today}
+            title={go.is_done_today ? 'Mark not done' : 'Mark done'}
+            aria-label={go.is_done_today ? 'Mark not done' : 'Mark done'}
+            // Don't let the check bubble to the slot's "open Go" click.
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleDone(); }}
+          >
+            {go.is_done_today && (
+              <svg viewBox="0 0 14 14" aria-hidden="true">
+                <path d="M2.5 7.5 L6 11 L11.5 3.5" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+        )}
         <span className="kc-child-name">{go.title}</span>
       </div>
       {(valueLabel || dueLabel || note) && (

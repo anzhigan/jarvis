@@ -108,7 +108,7 @@ export function MobileRoutineDetailSheet({
         if (!isScheduledOn(routine, d)) continue;
         sched++;
         const e = map.get(ymd(d));
-        if (e && e.value > 0) hit++;
+        if (e && (e.value ?? 0) > 0) hit++;
       }
       return { sched, hit };
     };

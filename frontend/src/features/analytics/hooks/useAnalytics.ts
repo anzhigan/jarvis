@@ -152,7 +152,7 @@ export function useAnalytics() {
     const routineByDay = new Map<string, number>();
     for (const r of routines) {
       for (const e of r.entries) {
-        if (e.value > 0) routineByDay.set(e.date, (routineByDay.get(e.date) ?? 0) + 1);
+        if ((e.value ?? 0) > 0) routineByDay.set(e.date, (routineByDay.get(e.date) ?? 0) + 1);
       }
     }
     for (let i = 0; i < days; i++) {
@@ -174,7 +174,7 @@ export function useAnalytics() {
     const all = new Map<string, number>();
     for (const r of routines) {
       for (const e of r.entries) {
-        if (e.value > 0) all.set(e.date, (all.get(e.date) ?? 0) + 1);
+        if ((e.value ?? 0) > 0) all.set(e.date, (all.get(e.date) ?? 0) + 1);
       }
     }
     for (const t of tasks) {
@@ -213,13 +213,13 @@ export function useAnalytics() {
     const goalsDone = tasks.filter((t) => t.status === 'done' &&
       new Date(t.updated_at) >= periodStart).length;
     const routinesLogged = routines.reduce((acc, r) => acc + r.entries
-      .filter((e) => e.value > 0 && e.date >= ymd(periodStart) && e.date <= ymd(today))
+      .filter((e) => (e.value ?? 0) > 0 && e.date >= ymd(periodStart) && e.date <= ymd(today))
       .length, 0);
     const streaks = routines.filter((r) => !r.is_paused && currentStreak(r) >= 3).length;
     const todayKey = ymd(today);
     const scheduledToday = routines.filter((r) => !r.is_paused).length;
     const doneToday = routines.filter((r) =>
-      r.entries.find((e) => e.date === todayKey && e.value > 0)
+      r.entries.find((e) => e.date === todayKey && (e.value ?? 0) > 0)
     ).length;
     const todayPct = scheduledToday === 0 ? 0 : Math.round((doneToday / scheduledToday) * 100);
 

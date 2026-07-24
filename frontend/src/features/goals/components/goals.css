@@ -3964,6 +3964,30 @@
   outline-offset: 2px;
 }
 
+/* Copy-card button — same pill as the AI button, muted until hovered so the
+   card header stays calm. */
+.kc-copy-btn {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  color: var(--ink-4);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-left: 4px;
+  flex-shrink: 0;
+  transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast);
+}
+.kc-copy-btn:hover {
+  background: var(--bg-hover);
+  color: var(--ink-2);
+  transform: scale(1.06);
+}
+.kc-copy-btn:focus-visible {
+  outline: 2px solid var(--ink-4);
+  outline-offset: 2px;
+}
+
 /* The 3-action popover menu */
 .kc-ai-menu {
   background: var(--paper);

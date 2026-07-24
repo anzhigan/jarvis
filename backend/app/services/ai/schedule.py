@@ -1,22 +1,24 @@
-"""Schedule handler — turn the user's open Gos into a time-blocked plan,
-plus a short narrative reading their broader state (focus / strengths /
-weaknesses). Routines are intentionally excluded — they live in their
-own cadence and the user manages them separately.
+"""Schedule handler — deterministic "Plan day".
 
-Data flow:
-  1. Load Gos due_date == target_date (today's targets — to schedule).
-  2. Load overdue Gos (due_date < target_date, within 30-day window — for
-     "needs attention" narrative).
-  3. Load active Goals (Task rows with status='active' — for "focus" /
-     overall context).
-  4. Build prompt with this context + work hours.
-  5. LLM emits {date, summary, slots[]} JSON.
-  6. Parse + post-process.
+Turns the user's open Go backlog into a prioritised, optionally time-blocked
+plan. This used to build a prompt and ask an LLM to time-block the backlog; it
+now runs a plain rule-based algorithm — no model call — so "Plan day" is
+instant and works even with the AI runtime offline. The output shape
+(`ScheduleOutput`) is unchanged, so the drawer UI and schema are untouched.
 
-The output is stored as job.output_json. Phase 6b will add commit-to-sprint.
+Priority order (highest first): overdue → today → dateless. Future-dated Gos
+ride along only when their Step also has an overdue/today Go (to advance that
+chain). Gos in the same Step are kept together and in the Step's own order
+(creation order — Gos have no explicit per-step position), placed by the Step's
+most urgent Go, so urgency never scrambles the intra-step order.
+
+Time-blocked mode lays these into 45-min work blocks within work hours, with a
+short break after ~90 min of work and a lunch near mid-day. Free-order mode
+leaves the times empty and just orders slots by priority. Routines are
+intentionally excluded — they live in their own cadence.
 """
-import json
 import logging
+from collections import Counter
 from datetime import date as date_cls, timedelta
 from typing import Any
 
@@ -26,53 +28,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai import AIJob
 from app.models.tasks import Go, GoEntry, Step, Task
-from app.schemas.ai import ScheduleCreate, ScheduleSlot, ScheduleSummary
+from app.schemas.ai import ScheduleCreate, ScheduleSlot
 from app.services.ai.jobs import register_handler
 from app.services.ai.ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
 
 # How far back we look for overdue items — past this, an item is essentially
-# abandoned and not worth surfacing in today's narrative.
+# abandoned and not worth surfacing in today's plan.
 OVERDUE_WINDOW_DAYS = 30
-# Cap on the total OPEN backlog we hand to the model. Prevents prompt blow-up
-# while still giving enough context to find step precedence.
+# Cap on the total OPEN backlog we consider. Keeps a huge backlog from
+# producing an unusable wall of slots.
 MAX_OPEN_GOS = 30
 
-
-SYSTEM_PROMPT = """\
-/no_think
-
-You are a productivity planner + coach. Given the user's FULL open backlog of \
-Go-tasks (overdue, today, future, dateless), active goals + step structure, \
-you produce TWO things:
-  a) a short narrative reading their state (focus / strengths / weaknesses),
-  b) a schedule of WHAT THEY SHOULD DO TODAY — pulled from across the backlog.
-
-CORE PRINCIPLE — STEP PRECEDENCE:
-Many Gos belong to a Step (a sub-phase of a Goal). Steps have an ordering: \
-position 0 first, then 1, etc. If a Step has multiple Gos, do the LOWER-POSITION \
-Go before the HIGHER one. Don't schedule a later-step Go when its prerequisite \
-is still open. If a higher-position Go is "due today" but a lower-position Go in \
-the same Step is incomplete — INCLUDE BOTH today, with the lower-position one \
-ranked higher and noted as "blocking the next step".
-
-PRIORITY ORDER:
-1. Overdue Gos (due_date < today) — top priority, slip-handling.
-2. Step prerequisites — unblocking work, even if dated future.
-3. Today's Gos (due_date == today).
-4. Dateless backlog — opportunistic fill.
-5. Future-dated Gos — only if they unblock today's chain.
-
-Hard rules:
-1. Output language matches the language of the user's task titles.
-2. Time-blocked mode: slot times fall within work hours, do not overlap, include \
-breaks every ~90 min + a lunch.
-3. Free-order mode (time_blocked=false): leave start_time/end_time as empty \
-strings. Order slots by priority — first slot is most important.
-4. The narrative is grounded in the actual backlog — reference real Steps + Gos \
-+ overdue counts. If something is genuinely absent, return "" for that field.
-5. Output STRICTLY valid JSON. No prose, no markdown, no <think> blocks."""
+# Time-blocking knobs (minutes).
+WORK_BLOCK_MIN = 45          # length of one work slot
+BREAK_MIN = 15               # short break slot
+LUNCH_MIN = 45               # mid-day lunch slot
+WORK_BEFORE_BREAK_MIN = 90   # insert a break after ~this much accumulated work
+LUNCH_ANCHOR_MIN = 13 * 60   # aim lunch around 13:00
+MIN_DAY_FOR_LUNCH_MIN = 5 * 60  # only bother with lunch on a workday ≥ 5h
 
 
 async def _load_today_context(
@@ -88,8 +63,8 @@ async def _load_today_context(
 
     # --- All OPEN one-off Gos for this user ---
     # We pull: overdue (due_date < today, within window), today (==), future
-    # (> today, within ~14 days), and dateless. Capped via MAX_OPEN_GOS so the
-    # prompt doesn't blow up on a 200-row backlog.
+    # (> today, within ~14 days), and dateless. Capped via MAX_OPEN_GOS so a
+    # 200-row backlog doesn't turn into an unusable wall of slots.
     future_cutoff = target_date + timedelta(days=14)
     done_subq = (
         select(GoEntry.go_id)
@@ -103,6 +78,10 @@ async def _load_today_context(
             Go.user_id == user_id,
             Go.item_kind == "one_off",
             Go.id.notin_(done_subq),
+            # Skip Gos whose parent goal sits in the Done column — that whole
+            # goal is finished, so its steps/gos shouldn't reappear in the plan.
+            # Standalone Gos (no parent Task) are kept.
+            or_(Task.id.is_(None), Task.status != "done"),
             or_(
                 Go.due_date.is_(None),
                 Go.due_date == target_date,
@@ -138,6 +117,10 @@ async def _load_today_context(
             "step": step.title if step else None,
             "step_id": str(step.id) if step else None,
             "step_position": step.position if step else None,
+            # Gos have no explicit per-step order field — their order within a
+            # Step is creation order (the UI lists Step.gos by created_at). Keep
+            # it so the plan preserves that order for same-step items.
+            "created_at": go.created_at.isoformat(),
             "due_date": go.due_date.isoformat() if go.due_date else None,
             "bucket": bucket,
         }
@@ -166,180 +149,259 @@ async def _load_today_context(
     }
 
 
-def _build_prompt(
-    target_date: date_cls,
-    start_h: int,
-    end_h: int,
-    context: dict,
-    prefs: list[str],
-    time_blocked: bool,
-) -> str:
-    open_block     = json.dumps(context["open_gos"], ensure_ascii=False, indent=2)
-    goals_block    = json.dumps(context["active_goals"], ensure_ascii=False, indent=2)
-    prefs_block    = ", ".join(prefs) if prefs else "(none)"
+# ── Prioritisation ────────────────────────────────────────────────────────────
 
-    n_overdue = sum(1 for g in context["open_gos"] if g["bucket"] == "overdue")
-    n_today   = sum(1 for g in context["open_gos"] if g["bucket"] == "today")
-    n_future  = sum(1 for g in context["open_gos"] if g["bucket"] == "future")
-    n_dateless= sum(1 for g in context["open_gos"] if g["bucket"] == "dateless")
-
-    mode_intro = (
-        "Output a TIME-BLOCKED schedule: each slot has start_time/end_time within "
-        f"{start_h:02d}:00–{end_h:02d}:00, no overlaps, breaks every ~90 min, lunch mid-day."
-    ) if time_blocked else (
-        "Output a FREE-ORDER list: leave start_time and end_time as empty strings. "
-        "Order slots by priority — first = most important. No need for breaks/lunch slots."
-    )
-
-    return f"""\
-Plan {target_date.isoformat()} for the user.
-
-Work hours: {start_h:02d}:00–{end_h:02d}:00.   Prefs: {prefs_block}.
-Backlog snapshot: {n_overdue} overdue · {n_today} due today · {n_future} due-soon · {n_dateless} dateless.
-
-═══ OPEN GO BACKLOG (single source — pick what goes into today) ═══
-Each item: bucket = where it sits in time; step + step_position = its place in a
-Step (lower position blocks higher). Look at SAME-STEP groups: if a low-position
-Go is incomplete and a high-position Go in the SAME step has due_date=today —
-include BOTH today, with the low-position one ranked above (mark in note that it
-unblocks the next).
-
-{open_block}
-
-═══ ACTIVE GOALS (high-level context) ═══
-{goals_block}
-
-Build:
-1. `summary` — three concrete observations, grounded in titles + numbers above:
-   - focus: priority area for today, citing the actual goal/step under load.
-   - doing_well: where the backlog is healthy (low overdue, step chains
-     advancing, etc.).
-   - needs_attention: overdue clusters, blocked step chains, abandoned items.
-   Empty "" if you can't say it honestly.
-
-2. `slots` — what to do today.
-   {mode_intro}
-   Every slot MUST include a non-empty `title` (even for break/lunch — e.g.
-   "Lunch break", "Coffee").
-   Work slots (kind="goal" | "deep_work" | "admin") MUST be tied to a
-   specific Go from the OPEN BACKLOG above: set source_kind="go" and
-   source_id=<that Go's id> (copy VERBATIM, never invent ids).
-   Do NOT emit a work slot without a real Go — if an active goal has no
-   concrete Go yet, OMIT it from this plan; the user sees those goals in
-   a separate follow-up list outside the plan.
-   For breaks/lunch (time-blocked mode only), set source_kind=null and
-   source_id=null.
-   In `note` (1 line) explain WHY this item now — overdue / unblocks step X /
-   continues yesterday's chain / etc.
-
-JSON schema:
-{{
-  "date": "{target_date.isoformat()}",
-  "summary": {{ "focus": "...", "doing_well": "...", "needs_attention": "..." }},
-  "slots": [
-    {{
-      "start_time": "{('09:00' if time_blocked else '')}",
-      "end_time":   "{('09:45' if time_blocked else '')}",
-      "kind": "goal" | "deep_work" | "admin" | "break" | "lunch" | "other",
-      "title": "Short title",
-      "source_kind": "go" | null,
-      "source_id": "<uuid>" | null,
-      "note": "1-line rationale"
-    }}
-  ],
-  "total_active_minutes": <int — sum of non-break minutes>
-}}"""
+_BIG_DUE = "9999-12-31"  # sorts after every real ISO date
+# Bucket urgency — lower = do sooner.
+_BUCKET_TIER = {"overdue": 0, "today": 1, "dateless": 2, "future": 3}
 
 
-def _parse_output(raw: str, valid_go_ids: set[str] | None = None) -> dict:
-    if not raw or not raw.strip():
-        raise ValueError("empty response from model")
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"model returned invalid JSON: {e}") from e
-    if not isinstance(data, dict):
-        raise ValueError("output must be a JSON object")
+def _prioritise(open_gos: list[dict]) -> list[tuple[dict, bool]]:
+    """Rank the open backlog into the day's work order.
 
-    slots_raw = data.get("slots") or []
-    if not isinstance(slots_raw, list):
-        raise ValueError("'slots' must be an array")
+    Returns a list of (go, is_prereq) in the order they should be tackled.
 
-    slots: list[ScheduleSlot] = []
-    work_kinds = {"goal", "deep_work", "admin"}
-    for s in slots_raw:
-        if not isinstance(s, dict):
-            continue
-        # Backfill self-describing kinds when the model forgets a title — we'd
-        # rather show a generic-labelled lunch/break than discard a whole day.
-        if not s.get("title"):
-            kind = (s.get("kind") or "").lower()
-            if kind == "lunch":
-                s["title"] = "Lunch"
-            elif kind == "break":
-                s["title"] = "Break"
-        # Normalise any unexpected kind into "other" so the regex doesn't bite.
-        if s.get("kind") not in {"goal", "routine", "admin", "break", "lunch", "deep_work", "other"}:
-            s["kind"] = "other"
-        # Work slots MUST be tied to a real Go. Goal-only slots are surfaced
-        # separately in the UI (the "empty goals" follow-up), so drop them
-        # from the timeline regardless of source_kind.
-        if s.get("kind") in work_kinds:
-            sid = s.get("source_id")
-            sk = s.get("source_kind")
-            if sk != "go" or not sid:
-                continue
-            if valid_go_ids is not None and sid not in valid_go_ids:
-                continue
-        try:
-            slots.append(ScheduleSlot.model_validate(s))
-        except ValidationError:
-            continue
+    Gos that belong to the same Step are kept TOGETHER and in the Step's own
+    order (creation order) — you can't do a step's later item before its
+    earlier one. Each step is placed by its most urgent Go, so an overdue item
+    still pulls its whole step forward without scrambling the intra-step order.
 
-    # Sort by start_time; light post-processing.
-    slots.sort(key=lambda s: s.start_time)
-
-    # Summary — best-effort parse. Missing keys default to "".
-    summary_raw = data.get("summary") or {}
-    try:
-        summary = ScheduleSummary.model_validate(summary_raw if isinstance(summary_raw, dict) else {})
-    except ValidationError:
-        summary = ScheduleSummary()
-
-    return {
-        "date": str(data.get("date", "")),
-        "summary": summary.model_dump(mode="json"),
-        "slots": [s.model_dump(mode="json") for s in slots],
-        "total_active_minutes": int(data.get("total_active_minutes") or 0),
+    Future-dated Gos are dropped unless their Step also has an overdue/today Go
+    (then they ride along to advance that chain). Standalone Gos (no Step) rank
+    on their own bucket + due date. Falls back to the raw backlog order if the
+    future filter would leave nothing to do.
+    """
+    # Steps that have at least one overdue/today Go are "active" — their other
+    # (future/dateless) Gos ride along so the chain advances as a unit.
+    active_steps = {
+        g["step_id"] for g in open_gos
+        if g["step_id"] and g["bucket"] in ("overdue", "today")
     }
 
+    kept = [
+        g for g in open_gos
+        if not (g["bucket"] == "future" and g["step_id"] not in active_steps)
+    ]
+    if not kept:
+        # Everything was future-and-not-in-an-active-step — still give a plan
+        # rather than an empty drawer; use the backlog's natural order.
+        kept = list(open_gos)
+
+    # Rank each Step by its most urgent Go (lowest tier, then earliest due).
+    step_rank: dict[str, tuple[int, str]] = {}
+    for g in kept:
+        sid = g["step_id"]
+        if not sid:
+            continue
+        key = (_BUCKET_TIER[g["bucket"]], g["due_date"] or _BIG_DUE)
+        cur = step_rank.get(sid)
+        if cur is None or key < cur:
+            step_rank[sid] = key
+
+    def sort_key(g: dict) -> tuple:
+        sid = g["step_id"]
+        if sid and sid in step_rank:
+            rank_tier, rank_due = step_rank[sid]
+            step_pos = g["step_position"] if g["step_position"] is not None else 9999
+            # Cluster by the Step's urgency, then Step order, then the Step id
+            # (keeps a step's Gos contiguous), then the Go's own creation order
+            # WITHIN the step (== the order shown under the Step).
+            return (rank_tier, rank_due, step_pos, sid, g["created_at"])
+        # Standalone Go — ranked on its own bucket + due date.
+        return (_BUCKET_TIER[g["bucket"]], g["due_date"] or _BIG_DUE, 9999, "", g["created_at"])
+
+    kept.sort(key=sort_key)
+
+    # A Go is "pulled in" (prereq-style rationale) when it's a future/dateless
+    # item riding along because its Step is active.
+    def is_pulled_in(g: dict) -> bool:
+        return bool(g["step_id"] in active_steps and g["bucket"] in ("future", "dateless"))
+
+    return [(g, is_pulled_in(g)) for g in kept]
+
+
+def _note_for(g: dict, pulled_in: bool, target_date: date_cls) -> str:
+    """One-line rationale, mirroring what the model used to write per slot."""
+    bucket = g["bucket"]
+    if bucket == "overdue":
+        due = date_cls.fromisoformat(g["due_date"])
+        d = (target_date - due).days
+        return f"{d} day{'s' if d != 1 else ''} overdue — clear this first"
+    if pulled_in:
+        step = g.get("step")
+        return f"Advances the “{step}” step" if step else "Advances an active step"
+    if bucket == "today":
+        return "Due today"
+    if bucket == "dateless":
+        return "Backlog — good opportunistic fill"
+    return "Pulled in to advance today's chain"
+
+
+# ── Slot building ─────────────────────────────────────────────────────────────
+
+def _fmt(minutes: int) -> str:
+    """Minutes-from-midnight → 'HH:MM'."""
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def _work_slot(g: dict, note: str, start: int | None = None, end: int | None = None) -> ScheduleSlot:
+    return ScheduleSlot(
+        start_time=_fmt(start) if start is not None else "",
+        end_time=_fmt(end) if end is not None else "",
+        kind="goal",
+        title=g["title"],
+        source_kind="go",
+        source_id=g["id"],
+        note=note,
+    )
+
+
+def _build_time_blocked(
+    items: list[tuple[dict, bool]],
+    start_h: int,
+    end_h: int,
+    target_date: date_cls,
+) -> tuple[list[ScheduleSlot], int]:
+    """Lay the prioritised items into work blocks within [start_h, end_h).
+
+    Inserts a break after ~90 min of work and a single lunch near mid-day.
+    Stops once the next work block wouldn't fit — leftover items stay in the
+    backlog rather than overflowing the day.
+    """
+    start_min, end_min = start_h * 60, end_h * 60
+    wants_lunch = (
+        start_min <= LUNCH_ANCHOR_MIN < end_min
+        and (end_min - start_min) >= MIN_DAY_FOR_LUNCH_MIN
+    )
+    slots: list[ScheduleSlot] = []
+    active_minutes = 0
+    work_since_break = 0
+    lunch_done = not wants_lunch
+    cursor = start_min
+
+    for g, prereq in items:
+        # Lunch first — as soon as we reach the anchor and it still fits.
+        if not lunch_done and cursor >= LUNCH_ANCHOR_MIN:
+            if cursor + LUNCH_MIN <= end_min:
+                slots.append(ScheduleSlot(
+                    start_time=_fmt(cursor), end_time=_fmt(cursor + LUNCH_MIN),
+                    kind="lunch", title="Lunch break",
+                ))
+                cursor += LUNCH_MIN
+                work_since_break = 0
+            lunch_done = True  # don't keep retrying if it didn't fit
+
+        # Short break after a stretch of work — only if real work still follows.
+        if (
+            work_since_break >= WORK_BEFORE_BREAK_MIN
+            and cursor + BREAK_MIN + WORK_BLOCK_MIN <= end_min
+        ):
+            slots.append(ScheduleSlot(
+                start_time=_fmt(cursor), end_time=_fmt(cursor + BREAK_MIN),
+                kind="break", title="Break",
+            ))
+            cursor += BREAK_MIN
+            work_since_break = 0
+
+        if cursor + WORK_BLOCK_MIN > end_min:
+            break  # day is full — remaining items stay in the backlog
+
+        slots.append(_work_slot(g, _note_for(g, prereq, target_date), cursor, cursor + WORK_BLOCK_MIN))
+        cursor += WORK_BLOCK_MIN
+        work_since_break += WORK_BLOCK_MIN
+        active_minutes += WORK_BLOCK_MIN
+
+    return slots, active_minutes
+
+
+def _build_free_order(
+    items: list[tuple[dict, bool]],
+    target_date: date_cls,
+) -> tuple[list[ScheduleSlot], int]:
+    """Priority-ordered list with no times (time_blocked=false)."""
+    slots = [_work_slot(g, _note_for(g, prereq, target_date)) for g, prereq in items]
+    # No timeline → no honest "active minutes" figure; the drawer hides it at 0.
+    return slots, 0
+
+
+# ── Narrative summary ─────────────────────────────────────────────────────────
+
+def _build_summary(
+    context: dict,
+    selected: list[tuple[dict, bool]],
+    target_date: date_cls,
+) -> dict[str, str]:
+    """Focus / on-track / needs-attention lines derived from the backlog."""
+    open_gos = context["open_gos"]
+    overdue_gos = context["overdue_gos"]
+    n_overdue = len(overdue_gos)
+    n_today = sum(1 for g in open_gos if g["bucket"] == "today")
+    n_dateless = sum(1 for g in open_gos if g["bucket"] == "dateless")
+    n_pulled = sum(1 for _, pulled_in in selected if pulled_in)
+
+    # Which goal carries the most of today's picked work.
+    goal_counts = Counter(g["goal"] for g, _ in selected if g["goal"])
+    top_goal = goal_counts.most_common(1)[0][0] if goal_counts else None
+
+    # focus
+    if n_overdue:
+        focus = f"Clear {n_overdue} overdue item{'s' if n_overdue != 1 else ''} before starting anything new"
+        focus += f" — most load sits on “{top_goal}”." if top_goal else "."
+    elif top_goal:
+        focus = f"Push “{top_goal}” forward — it has the most on your plate today."
+    elif n_today:
+        focus = f"{n_today} item{'s' if n_today != 1 else ''} due today — work them top-down."
+    else:
+        focus = "No dated work — pull from the backlog and build momentum."
+
+    # doing_well
+    if n_overdue == 0 and (n_today or n_dateless):
+        doing_well = "Nothing overdue — you're keeping pace with the backlog."
+    elif n_overdue and n_today == 0:
+        doing_well = "No new items due today, so the slip is contained to older work."
+    else:
+        doing_well = ""
+
+    # needs_attention
+    if n_overdue:
+        oldest = max(g["days_overdue"] for g in overdue_gos)
+        needs_attention = (
+            f"{n_overdue} overdue, oldest {oldest} day{'s' if oldest != 1 else ''} back "
+            "— tackle these before they pile up."
+        )
+    elif n_pulled:
+        needs_attention = (
+            f"{n_pulled} item{'s' if n_pulled != 1 else ''} pulled in to keep active step "
+            "chains moving — don't let them stall."
+        )
+    else:
+        needs_attention = ""
+
+    return {"focus": focus, "doing_well": doing_well, "needs_attention": needs_attention}
+
+
+# ── Handler ───────────────────────────────────────────────────────────────────
 
 @register_handler("schedule")
 async def run_schedule_job(
     job: AIJob,
     db: AsyncSession,
-    ollama: OllamaClient,
+    ollama: OllamaClient,  # unused — kept to satisfy the handler contract
 ) -> dict[str, Any]:
     try:
         params = ScheduleCreate.model_validate(job.input_json)
     except ValidationError as e:
         raise ValueError(f"invalid schedule input: {e.errors()[:2]}") from e
 
-    # Resolve date — empty string means "today" in user's locale. Without
-    # timezone info we use UTC date; client-side fixup can pass explicit date.
+    # Resolve date — empty string means "today". Without timezone info we use
+    # UTC date; the client can pass an explicit date to override.
     if params.date:
         try:
             target_date = date_cls.fromisoformat(params.date)
         except ValueError as e:
             raise ValueError(f"invalid date {params.date!r}: {e}") from e
     else:
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
         target_date = datetime.now(UTC).date()
 
     if params.hours.end_h <= params.hours.start_h:
@@ -352,35 +414,26 @@ async def run_schedule_job(
             "no open go-tasks anywhere — create at least one go-item, then try again",
         )
 
-    prompt = _build_prompt(
-        target_date,
-        params.hours.start_h,
-        params.hours.end_h,
-        context,
-        params.prefs,
-        params.time_blocked,
-    )
-
-    valid_go_ids = {g["id"] for g in context["open_gos"]}
-
-    raw = await ollama.generate(
-        prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.4, think=False,
-    )
-    try:
-        output = _parse_output(raw, valid_go_ids)
-    except ValueError as e:
-        logger.warning("schedule parse failed (first try): %s — retrying", e)
-        retry_prompt = prompt + "\n\nREMINDER: respond with ONLY a JSON object."
-        raw = await ollama.generate(
-            retry_prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.2, think=False,
+    selected = _prioritise(context["open_gos"])
+    if params.time_blocked:
+        slots, active_minutes = _build_time_blocked(
+            selected, params.hours.start_h, params.hours.end_h, target_date,
         )
-        output = _parse_output(raw, valid_go_ids)
+    else:
+        slots, active_minutes = _build_free_order(selected, target_date)
+
+    output = {
+        "date": target_date.isoformat(),
+        "summary": _build_summary(context, selected, target_date),
+        "slots": [s.model_dump(mode="json") for s in slots],
+        "total_active_minutes": active_minutes,
+    }
 
     logger.info(
-        "schedule generated: date=%s mode=%s slots=%d open=%d overdue=%d goals=%d",
+        "schedule built (rule-based): date=%s mode=%s slots=%d open=%d overdue=%d goals=%d",
         target_date,
         "time" if params.time_blocked else "free",
-        len(output["slots"]),
+        len(slots),
         len(context["open_gos"]),
         len(context["overdue_gos"]),
         len(context["active_goals"]),

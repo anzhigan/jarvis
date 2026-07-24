@@ -32,6 +32,10 @@ class NoteCreate(BaseModel):
     way_id: uuid.UUID | None = None
     topic_id: uuid.UUID | None = None
     topic_inline_id: uuid.UUID | None = None
+    subtopic_id: uuid.UUID | None = None
+    subtopic_inline_id: uuid.UUID | None = None
+    subsubtopic_id: uuid.UUID | None = None
+    subsubtopic_inline_id: uuid.UUID | None = None
     order: int = 0
 
 
@@ -46,6 +50,8 @@ class NoteReparent(BaseModel):
     # Exactly one of these should be provided (to move the note to new parent)
     way_id: uuid.UUID | None = None
     topic_id: uuid.UUID | None = None
+    subtopic_id: uuid.UUID | None = None
+    subsubtopic_id: uuid.UUID | None = None
 
 
 class NoteOut(BaseModel):
@@ -57,7 +63,62 @@ class NoteOut(BaseModel):
     way_id: uuid.UUID | None
     topic_id: uuid.UUID | None
     topic_inline_id: uuid.UUID | None
+    subtopic_id: uuid.UUID | None = None
+    subtopic_inline_id: uuid.UUID | None = None
+    subsubtopic_id: uuid.UUID | None = None
+    subsubtopic_inline_id: uuid.UUID | None = None
     tags: list[TagOut] = []
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Subsubtopic ───────────────────────────────────────────────────────────────
+
+class SubsubtopicCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    order: int = 0
+
+
+class SubsubtopicUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    order: int | None = None
+
+
+class SubsubtopicOut(BaseModel):
+    id: uuid.UUID
+    subtopic_id: uuid.UUID
+    name: str
+    order: int
+    notes: list[NoteOut] = []
+    inline_note: NoteOut | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Subtopic ──────────────────────────────────────────────────────────────────
+
+class SubtopicCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    order: int = 0
+
+
+class SubtopicUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    order: int | None = None
+
+
+class SubtopicOut(BaseModel):
+    id: uuid.UUID
+    topic_id: uuid.UUID
+    name: str
+    order: int
+    notes: list[NoteOut] = []
+    inline_note: NoteOut | None = None
+    subsubtopics: list[SubsubtopicOut] = []
     created_at: datetime
     updated_at: datetime
 
@@ -83,6 +144,7 @@ class TopicOut(BaseModel):
     order: int
     notes: list[NoteOut] = []
     inline_note: NoteOut | None = None
+    subtopics: list[SubtopicOut] = []
     created_at: datetime
     updated_at: datetime
 

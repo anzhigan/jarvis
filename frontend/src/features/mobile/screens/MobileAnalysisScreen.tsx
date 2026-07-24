@@ -89,7 +89,7 @@ export default function MobileAnalysisScreen({ tab, onTabChange, onAvatarClick }
         if (scheduledToday) {
           scheduled++;
           const e = r.entries.find((x) => x.date === date);
-          if (e && e.value > 0) done++;
+          if (e && (e.value ?? 0) > 0) done++;
         }
       }
       routinePoints.push(scheduled === 0 ? 0 : Math.round((done / scheduled) * 100));
@@ -154,7 +154,7 @@ export default function MobileAnalysisScreen({ tab, onTabChange, onAvatarClick }
   const yearHeat = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of routines.routines) for (const e of r.entries) {
-      if (e.value > 0) map.set(e.date, (map.get(e.date) ?? 0) + 1);
+      if ((e.value ?? 0) > 0) map.set(e.date, (map.get(e.date) ?? 0) + 1);
     }
     for (const g of gos.gos) for (const e of g.entries) {
       if (e.value > 0) map.set(e.date, (map.get(e.date) ?? 0) + 1);
@@ -371,7 +371,7 @@ export default function MobileAnalysisScreen({ tab, onTabChange, onAvatarClick }
               <div key={row.routine.id} className="ana-streak-row">
                 <span className="asr-rank">{i + 1}</span>
                 <span className="asr-name">{row.routine.title}</span>
-                <div className="asr-spark"><Sparkline values={lastNValues(row.routine.entries.map((e) => ({ date: e.date, value: e.value })), 13, today)} /></div>
+                <div className="asr-spark"><Sparkline values={lastNValues(row.routine.entries.map((e) => ({ date: e.date, value: e.value ?? 0 })), 13, today)} /></div>
                 <span className="asr-days">{row.streak}<em>d</em></span>
               </div>
             ))}

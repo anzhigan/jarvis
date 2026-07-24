@@ -82,6 +82,18 @@ export function useGoals() {
     catch (e: any) { toast.error(e?.detail ?? 'Failed to delete goal'); }
   }, [refresh]);
 
+  const duplicateGoal = useCallback(async (id: string): Promise<Task | null> => {
+    try {
+      const g = await tasksApi.duplicate(id);
+      await refresh();
+      toast.success('Card copied');
+      return g;
+    } catch (e: any) {
+      toast.error(e?.detail ?? 'Failed to copy card');
+      return null;
+    }
+  }, [refresh]);
+
   const attachTag = useCallback(async (taskId: string, tagId: string) => {
     try { await tasksApi.attachTag(taskId, tagId); await refresh(); }
     catch (e: any) { toast.error(e?.detail ?? 'Failed to attach tag'); }
@@ -95,7 +107,7 @@ export function useGoals() {
   return {
     tasks, tags, loading, refresh,
     counts, tagCounts, priorityCounts,
-    createGoal, updateGoal, deleteGoal, moveStatus,
+    createGoal, updateGoal, deleteGoal, duplicateGoal, moveStatus,
     attachTag, detachTag,
   };
 }

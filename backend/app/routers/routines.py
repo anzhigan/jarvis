@@ -49,7 +49,13 @@ def _routine_dict(r: Routine) -> dict:
         "unit": r.unit or "",
         "target_value": r.target_value,
         "entries": [
-            {"id": e.id, "routine_id": e.routine_id, "date": e.date, "value": e.value}
+            {
+                "id": e.id,
+                "routine_id": e.routine_id,
+                "date": e.date,
+                "value": e.value,
+                "note": e.note or "",
+            }
             for e in r.entries
         ],
         "created_at": r.created_at,
@@ -167,16 +173,49 @@ async def upsert_entry(
     user: User = Depends(get_current_user),
 ):
     r = await _get_routine(routine_id, user, db)
-    # Race-safe upsert via Postgres ON CONFLICT
-    stmt = pg_insert(RoutineEntry).values(routine_id=r.id, date=body.date, value=body.value)
-    stmt = stmt.on_conflict_do_update(
-        constraint="uq_routine_entries_routine_date",
-        set_={"value": stmt.excluded.value},
-    ).returning(RoutineEntry.id)
+    # Race-safe upsert via Postgres ON CONFLICT.
+    # `note` is only written when the request carries one (not None); the plain
+    # done/skip toggles omit it so an existing note survives a re-toggle.
+    # `value` likewise: a note-only save omits it and the day keeps whatever
+    # status it had (NULL — "no status" — for a day that had no row yet).
+    sets_value = "value" in body.model_fields_set
+    values: dict = {"routine_id": r.id, "date": body.date, "value": body.value}
+    if body.note is not None:
+        values["note"] = body.note
+    stmt = pg_insert(RoutineEntry).values(**values)
+    set_: dict = {}
+    if sets_value:
+        set_["value"] = stmt.excluded.value
+    if body.note is not None:
+        set_["note"] = stmt.excluded.note
+    if set_:
+        stmt = stmt.on_conflict_do_update(
+            constraint="uq_routine_entries_routine_date",
+            set_=set_,
+        )
+    else:
+        stmt = stmt.on_conflict_do_nothing(
+            constraint="uq_routine_entries_routine_date",
+        )
+    stmt = stmt.returning(RoutineEntry.id, RoutineEntry.value, RoutineEntry.note)
     res = await db.execute(stmt)
-    entry_id = res.scalar_one()
+    row = res.one_or_none()
+    if row is None:
+        # DO NOTHING fired (nothing to write) — read the existing row back.
+        existing = await db.execute(
+            select(RoutineEntry).where(
+                RoutineEntry.routine_id == r.id, RoutineEntry.date == body.date,
+            ),
+        )
+        e = existing.scalar_one()
+        entry_id, value, note = e.id, e.value, e.note
+    else:
+        entry_id, value, note = row
     await db.flush()
-    return {"id": entry_id, "routine_id": r.id, "date": body.date, "value": body.value}
+    return {
+        "id": entry_id, "routine_id": r.id, "date": body.date,
+        "value": value, "note": note or "",
+    }
 
 
 @router.delete("/{routine_id}/entries/{entry_date}", status_code=204)

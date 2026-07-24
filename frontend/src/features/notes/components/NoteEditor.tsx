@@ -1,14 +1,16 @@
 import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight,
+  AlignCenter, AlignLeft, AlignRight, ArrowLeft,
   Bold, Braces, Check, ChevronRight, Image as ImageIcon, Italic, Link as LinkIcon, Loader2,
-  Paperclip, Plus, Share2, Sigma, Sparkles, Strikethrough, Table as TableIcon, Underline as UnderlineIcon,
+  Paperclip, Plus, Share2, Sigma, Sparkles, Strikethrough, Table as TableIcon,
+  Underline as UnderlineIcon, Unlink,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { EditorHelpers } from '../../../components/RichTextEditor';
 import type { Note } from '../../../api/types';
 import type { NoteBreadcrumb } from '../hooks/useNoteEditor';
 import { aiApi } from '../../../api/client';
+import { applyHeadingLevel, isHeadingLevelActive } from '../../../components/editor/ToggleList';
 import {
   AI_JOB_OPEN_EVENT,
   useAIJobsStore,
@@ -396,18 +398,18 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
       <div className="ntb-group">
         <Btn
           title="Heading 1"
-          active={editor.isActive('heading', { level: 1 })}
-          onClick={cmd((c) => c.toggleHeading({ level: 1 }))}
+          active={isHeadingLevelActive(editor, 1)}
+          onClick={() => applyHeadingLevel(editor, 1)}
         ><HText>H1</HText></Btn>
         <Btn
           title="Heading 2"
-          active={editor.isActive('heading', { level: 2 })}
-          onClick={cmd((c) => c.toggleHeading({ level: 2 }))}
+          active={isHeadingLevelActive(editor, 2)}
+          onClick={() => applyHeadingLevel(editor, 2)}
         ><HText>H2</HText></Btn>
         <Btn
           title="Heading 3"
-          active={editor.isActive('heading', { level: 3 })}
-          onClick={cmd((c) => c.toggleHeading({ level: 3 }))}
+          active={isHeadingLevelActive(editor, 3)}
+          onClick={() => applyHeadingLevel(editor, 3)}
         ><HText>H3</HText></Btn>
       </div>
       <div className="ntb-sep" />
@@ -537,10 +539,16 @@ function NoteToolbar({ editor, helpers }: ToolbarProps) {
           inserts — they live in the BlockInsertMenu (the "+" on empty lines). */}
       <div className="ntb-group">
         <Btn
-          title="Link"
+          title={editor.isActive('link') ? 'Edit link' : 'Link'}
           active={editor.isActive('link')}
           onClick={() => helpers?.openLink()}
         ><LinkIcon /></Btn>
+        {editor.isActive('link') && (
+          <Btn
+            title="Remove link"
+            onClick={cmd((c) => c.extendMarkRange('link').unsetLink())}
+          ><Unlink /></Btn>
+        )}
       </div>
     </div>
   );
@@ -737,6 +745,56 @@ function locateQuoteInDoc(
   return { from, to };
 }
 
+/** Find an h1/h2/h3 whose text matches `headingText` and return the doc range
+ *  covering its text (so it can be selected + scrolled to like a quote). Exact
+ *  trimmed match first, then a prefix match; the first hit wins for duplicates. */
+function locateHeadingInDoc(
+  ed: Editor,
+  headingText: string,
+): { from: number; to: number } | null {
+  const target = headingText.trim().toLowerCase();
+  if (!target) return null;
+  let exact: { from: number; to: number } | null = null;
+  let prefix: { from: number; to: number } | null = null;
+  ed.state.doc.descendants((node, pos) => {
+    if (exact) return false;
+    if (node.type.name !== 'heading') return true;
+    const text = (node.textContent || '').trim().toLowerCase();
+    const range = { from: pos + 1, to: pos + 1 + node.content.size };
+    if (text === target) { exact = range; return false; }
+    if (!prefix && text.startsWith(target)) prefix = range;
+    return true;
+  });
+  return exact ?? prefix;
+}
+
+/** Source position of a link the user followed here — used to render a
+ *  "back" affordance above the block we landed on. */
+interface BackNavSource {
+  noteId: string;
+  scrollTop: number;
+  label: string;
+}
+
+/** The nearest block-level DOM element for a doc position (the heading /
+ *  paragraph the user jumped to). Falls back to the containing element. */
+function blockElementForPos(ed: Editor, pos: number): HTMLElement | null {
+  try {
+    const at = ed.view.domAtPos(pos).node;
+    const el = at.nodeType === Node.ELEMENT_NODE
+      ? (at as HTMLElement)
+      : at.parentElement;
+    return (el?.closest('h1,h2,h3,h4,h5,h6,p,li,blockquote,pre') as HTMLElement) ?? el ?? null;
+  } catch { return null; }
+}
+
+/** First top-level block in the editor — the anchor for a note-level link
+ *  (one with no specific heading). */
+function firstBlockElement(ed: Editor): HTMLElement | null {
+  const pm = ed.view.dom as HTMLElement;
+  return (pm.firstElementChild as HTMLElement) ?? null;
+}
+
 /** Select the quote in the editor and smoothly scroll it into view.
  *  Prefer DOM smooth-scroll on the actual selected range — Tiptap's own
  *  `scrollIntoView()` is instant and often overshoots. */
@@ -776,6 +834,47 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
   const [quizJobNoteId, setQuizJobNoteId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
+
+  // Back-navigation: when the user follows a link into this note, we show a
+  // "← Back" pill floating above the block they landed on, which returns them
+  // to the exact spot they came from.
+  const contentScrollRef = useRef<HTMLDivElement>(null);
+  const [backNav, setBackNav] = useState<(BackNavSource & { top: number; left: number }) | null>(null);
+
+  /** Place the back pill just above `targetEl` (measured within the scroll
+   *  container so it scrolls together with the content). */
+  const positionBackPill = useCallback((targetEl: HTMLElement | null, from: BackNavSource) => {
+    const scroller = contentScrollRef.current;
+    if (!scroller) return;
+    let top = 6;
+    let left = 0;
+    if (targetEl) {
+      const sr = scroller.getBoundingClientRect();
+      const tr = targetEl.getBoundingClientRect();
+      top = Math.max(2, tr.top - sr.top + scroller.scrollTop - 34);
+      left = Math.max(0, tr.left - sr.left + scroller.scrollLeft);
+    }
+    setBackNav({ ...from, top, left });
+  }, []);
+
+  const handleBackNav = useCallback(() => {
+    setBackNav((cur) => {
+      if (!cur) return null;
+      if (cur.noteId === note?.id && contentScrollRef.current) {
+        // Same-note link — no remount; just scroll back to where we were.
+        contentScrollRef.current.scrollTo({ top: cur.scrollTop, behavior: 'smooth' });
+      } else {
+        window.dispatchEvent(new CustomEvent('jarvnote:openNote', {
+          detail: { id: cur.noteId, restoreScrollTop: cur.scrollTop },
+        }));
+      }
+      return null;
+    });
+  }, [note?.id]);
+
+  // Clear the pill when the note changes — a fresh one is set by onEditorReady
+  // if we arrived here via a link.
+  useEffect(() => { setBackNav(null); }, [note?.id]);
 
   const addBgJob = useAIJobsStore((s) => s.add);
 
@@ -922,13 +1021,40 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     // via ::selection (no persistent change to the doc, so auto-save stays
     // idle). We wait a tick for Tiptap to actually paint the content.
     const highlight = sessionStorage.getItem('jarvnote:notes:pendingHighlight');
-    if (!highlight) return;
+    // Deep link to a heading in another note (see useNoteEditor.openNote).
+    const heading = sessionStorage.getItem('jarvnote:notes:pendingHeading');
+    // Source position we came from (renders the "← Back" pill) and the scroll
+    // to restore when we ARE that source (returning back).
+    const backRaw = sessionStorage.getItem('jarvnote:notes:pendingBack');
+    const restoreRaw = sessionStorage.getItem('jarvnote:notes:pendingRestoreScroll');
     sessionStorage.removeItem('jarvnote:notes:pendingHighlight');
+    sessionStorage.removeItem('jarvnote:notes:pendingHeading');
+    sessionStorage.removeItem('jarvnote:notes:pendingBack');
+    sessionStorage.removeItem('jarvnote:notes:pendingRestoreScroll');
+
+    // Returning to a source note — restore its scroll once the doc paints.
+    if (restoreRaw) {
+      const y = parseInt(restoreRaw, 10);
+      if (!Number.isNaN(y)) {
+        setTimeout(() => {
+          if (contentScrollRef.current) contentScrollRef.current.scrollTop = y;
+        }, 60);
+      }
+    }
+
+    const back: BackNavSource | null = backRaw ? JSON.parse(backRaw) : null;
+    if (!highlight && !heading && !back) return;
     setTimeout(() => {
-      const found = locateQuoteInDoc(ed, highlight);
+      const found = highlight
+        ? locateQuoteInDoc(ed, highlight)
+        : heading ? locateHeadingInDoc(ed, heading) : null;
       if (found) selectAndScrollToQuote(ed, found);
+      if (back) {
+        const targetEl = found ? blockElementForPos(ed, found.from) : firstBlockElement(ed);
+        positionBackPill(targetEl, back);
+      }
     }, 250);
-  }, []);
+  }, [positionBackPill]);
 
   // When an editor instance is destroyed (e.g. by RichTextEditor unmount on
   // note switch), clear our state IF and only IF that destroyed editor is
@@ -959,6 +1085,25 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
     window.addEventListener('jarvnote:highlightQuote', handler);
     return () => window.removeEventListener('jarvnote:highlightQuote', handler);
   }, [editor, note?.id]);
+
+  // Same-note heading deep link (dispatched by useNoteEditor when the target
+  // note is already open, so the editor doesn't remount / onEditorReady won't
+  // re-fire). Scrolls to the heading in the current doc.
+  useEffect(() => {
+    if (!editor || !note?.id) return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ noteId: string; heading?: string; from?: BackNavSource }>).detail;
+      if (detail.noteId !== note.id) return;
+      const found = detail.heading ? locateHeadingInDoc(editor, detail.heading) : null;
+      if (found) selectAndScrollToQuote(editor, found);
+      if (detail.from) {
+        const targetEl = found ? blockElementForPos(editor, found.from) : firstBlockElement(editor);
+        positionBackPill(targetEl, detail.from);
+      }
+    };
+    window.addEventListener('jarvnote:scrollToHeading', handler);
+    return () => window.removeEventListener('jarvnote:scrollToHeading', handler);
+  }, [editor, note?.id, positionBackPill]);
 
   // Stable references for BubbleMenu — recreating these on every render
   // re-initialises the menu plugin and causes lag/flicker.
@@ -1055,13 +1200,26 @@ export function NoteEditor({ note, breadcrumbs, saving, savedAt, onTitleChange, 
             editor={editor}
             shouldShow={floatingShouldShow}
             options={floatingOptions}
+            className="note-fm-blockinsert"
           >
             <BlockInsertMenu editor={editor} helpers={helpers} />
           </NoteFloatingMenu>
         </Suspense>
       )}
 
-      <div className="content-scroll">
+      <div className="content-scroll" ref={contentScrollRef}>
+        {backNav && (
+          <button
+            type="button"
+            className="note-backnav"
+            style={{ top: backNav.top, left: backNav.left }}
+            onClick={handleBackNav}
+            title={backNav.label ? `Back to ${backNav.label}` : 'Back'}
+          >
+            <ArrowLeft size={13} />
+            <span>{backNav.label ? `Back to ${backNav.label}` : 'Back'}</span>
+          </button>
+        )}
         <article className="doc">
           <div className="doc-topline">
             <Breadcrumb items={breadcrumbs} />
